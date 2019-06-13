@@ -1,0 +1,26 @@
+<script src="https://assets.crowd.aws/crowd-html-elements.js"></script>
+
+<crowd-form>
+  <crowd-keypoint
+    name="annotatedResult"
+    src="{{ task.input.sourceRef | grant_read_access }}"
+    header="Select ONE of each VISIBLE landmark"
+    labels="['EarL','EarR','Snout','SpineF','SpineM','Tail(base)','Tail(mid)','Tail(end)','ForepawL','ForelimbL','ForepawR','ForelimbR','HindpawL','HindlimbL','HindpawR','HindlimbR']"
+  >
+    <full-instructions header="Keypoint Instructions" >
+      <p>Use the keypoint tool to place a point on the requested target(s) of interest:</p>
+      <ol>
+        <li>
+Please consult the instructions at the following link:
+<a href="https://nbviewer.jupyter.org/github/spoonsso/ratception_labeling/blob/master/labeling_instructions.ipynb?flush_cache=true">
+          Do not include parts of the target that cannot be seen,
+          even though you think you can interpolate the whole shape of the target.
+        </li>
+      </ol>
+    </full-instructions>
+
+    <short-instructions>
+      Place a point on the requested target(s) of interest
+    </short-instructions>
+  </crowd-keypoint>
+</crowd-form>
