@@ -168,7 +168,7 @@ labels_3d = datadict_3d
 
 save_data = {}
 
-evaluate_COM_steps(0,100,100)
+evaluate_COM_steps(0,len(samples),3500)
 
 #Close video objects
 for j in range(len(params['CAMNAMES'])):

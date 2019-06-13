@@ -81,8 +81,11 @@ To do this, run `*.py*.`
 This requires an additional configuration file. See the example @ ``.
 
 Currently, we provide pre-trained weights for three different versions of DANNCE:
+
 a) Max-DANNCE. This version of DANNCE was trained to output 3D spherical Gaussians for each keypoint. The resolution is lower, and predictions are a bit noisier. However, for now it is the only version that performs well when fine-tuning with mouse data.
+
 b) Avg-DANNCE. This version of DANNCE has an additional spatial average layer that increases output resolution. Works well on rats (and humans).
+
 c) Max-DANNCE (Mouse). Max-DANNCE fine-tuned using hand-labeled mouse data.
 
 ## Training The COMfinder U-Net
@@ -92,5 +95,54 @@ Given formatted data, run *
 
 This requires a separate confgiuration file, see the example @ ''.
 
-## Training DANNCE
-Given a source of 
+## Hand-Labeling
+Before starting, create an Amazon account and follow the instructions to set up the AWS CLI.
+
+#### 1) Create a new s3 folder
+Your images and labeling results need to be stored in a new folder on S3.
+
+`aws s3api put-object --bucket ratception-tolabel --key black6_mouse_42/`
+
+#### 2) Generate random images to label
+Given a formatted matched frames file, and yet another config file (see `./config/Labeling/labeling.cfg` for an example), run `./labeling/generate_labels.py`. See the head of the python file for specific usage instructions. This script will also generate a necessary "manifest" file for uploading to S3.
+
+#### 3) Upload the data, the data manifest, and the labeling task template file to your s3 folder
+Use ./config/Labeling/mouse.template for mouse.
+
+`aws s3 cp ./labeling/black6_mouse_42/imDir/ s3://ratception-tolabel/black6_mouse_42/ --recursive`
+
+`aws s3 cp ./labeling/black6_mouse_42/dataset.manifest s3://ratception-tolabel/black6_mouse_42/`
+
+`aws s3 cp ./config/Labeling/mouse.template s3://ratception-tolabel/black6_mouse_42/`
+
+#### 4) Start the labeling job
+My goal is to have everything working from the command line, but getting this step configured via AWS CLI is complicated. For now, you will need to access the Amazon console from your web browser using this link:
+
+https://458691804448.signin.aws.amazon.com/console/
+
+Search for the "SageMaker: service. Once in, click "Labeling Jobs" in the panel on the left, then click the organe "Create labeling job" button. Then, fill out the form like so:
+
+![](./labeling/instruct1.png)
+![](./labeling/instruct2.png)
+
+On the next page, the mouse.template file contents must be copied and pasted into the form.
+
+![](../../DANNCE/labeling/instruct3.png)
+
+Press "Submit" and you are ready to go
+
+#### 5) When labeling is completed, download the labels
+
+`mkdir ./labeling/black6_mouse_42/iteration-1`
+
+`aws s3 cp s3://ratception-tolabel/black6_mouse_42/black6-mouse-42/annotations/intermediate/1/annotations.json ./labeling/black6_mouse_42/`
+
+`aws s3 cp s3://ratception-tolabel/black6_mouse_42/black6-mouse-42/annotations/worker-response/iteration-1/ ./labeling/black6_mouse_42/iteration-1 --recursive`
+
+#### 6) Consolidate the labels
+
+Now we run another python script to parse and sort the labels, `./labeling/consolidate_labels.py` 
+
+#### 7) Triangulate and save new data structures for analysis and DANNCE training
+
+Finally, we triangulate and save DANNCE-formatted data using `./labeling/triangulate_manlabels.m`

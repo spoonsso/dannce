@@ -111,7 +111,7 @@ def generate_readers(viddir,camname, minopt=0, maxopt = 300000,pathonly=False,ex
 	"""
 	print('NOTE: Ignoring mp4 files numbered above {}'.format(maxopt))
 	out = {}
-	mp4files = [os.path.join(camname,f) for f in os.listdir(os.path.join(viddir,camname)) if extension in f and int(f.rsplit(extension)[0]) < maxopt and int(f.rsplit(extension)[0]) >= minopt]
+	mp4files = [os.path.join(camname,f) for f in os.listdir(os.path.join(viddir,camname)) if extension in f and int(f.rsplit(extension)[0]) <= maxopt and int(f.rsplit(extension)[0]) >= minopt]
 	# This is a trick (that should work) for getting rid of awkward sub-directory folder names when they are being used
 	# Added 1/15/19
 	mp4files_scrub = [os.path.join(f.split('/')[0],f.split('/')[-1]) for f in mp4files]
@@ -192,6 +192,8 @@ def read_config(filename):
 				CONFIG_PARAMS[elements[0]] = ast.literal_eval(elements[1].strip())
 			except:
 				CONFIG_PARAMS[elements[0]] = elements[1].strip()
+
+	f.close()
 
 	return CONFIG_PARAMS
 
