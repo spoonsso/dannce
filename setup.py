@@ -8,7 +8,6 @@ setup(
                       'scipy',
                       'six',
                       'keras==2.2.2',
-                      'tensorflow-gpu==1.10.1',
                       'imageio',
                       'scikit-image',
                       'matplotlib']
