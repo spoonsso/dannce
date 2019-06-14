@@ -64,21 +64,21 @@ end
 basedir = './';
 data_3d = [];
 for j=1:numel(campairs)
-    data_3d = cat(4,data_3d,campairs{i});
+    data_3d = cat(4,data_3d,campairs{j});
 end
-data_3d = nanmean(data_3d,4);
+data_3d = nanmedian(data_3d,4);
 data_sampleID = sampleID;
-data_frame = round(data_sampleID/10);
+data_frame = round(data_sampleID/33.3333);%This frame period! TODO: port this to python and
+% make sure this is read in from config file
 wpts = reshape(data_3d,[size(data_3d,1)*size(data_3d,2),size(data_3d,3)]);
 data_3d = reshape(permute(data_3d,[1,3,2]),[size(data_3d,1),size(data_3d,2)*size(data_3d,3)]);
 
 for camerause = 1:3
     % For each cameras, project to 2D and save the results
     
-    ipts = worldToImage(params_individual{camerause},rotationMatrix{camerause}, ...
-    translationVector{camerause}, wpts,'ApplyDistortion',true);
+    ipts = worldToImage(params_individual{cams(camerause)},rotationMatrix{cams(camerause)}, ...
+    translationVector{cams(camerause)}, wpts,'ApplyDistortion',true);
     data_2d = reshape(ipts,[size(campairs{1},1),size(campairs{1},2),2]);
     data_2d = reshape(permute(data_2d,[1,3,2]),[size(data_2d,1),size(data_2d,2)*size(data_2d,3)]);
-    save([basedir 'cam' num2str(camerause) '_data_applyDistort.mat'],'data_frame','data_2d','data_3d','data_sampleID');
-    
+    save([basedir camnames{camerause} '_data_applyDistort.mat'],'data_frame','data_2d','data_3d','data_sampleID');
 end
