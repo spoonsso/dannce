@@ -4,15 +4,74 @@ from skimage.transform import downscale_local_mean as dsm
 import imageio
 import os
 import ast
-
 import time
-
 import PIL
-
-
-
 from six.moves import cPickle
 import scipy.io as sio
+
+def trim_COM_pickle(fpath,start_sample,end_sample, opath=None):
+	"""
+	Given fpath, the path to a COM pickle file, trims dictionary entires to the range [start_sample,end_sample]
+
+	spath is the output path for saving the trimemd COM dictionary, if desired
+	"""
+	with open(fpath,'rb') as f:
+		save_data = cPickle.load(f)
+
+	sd = {}
+	for key in save_data:
+		if key >= start_sample and key <= end_sample:
+			sd[key] = save_data[key]
+
+	with open(opath,'wb') as f:
+		cPickle.dump(sd, f)
+
+	return sd
+
+def close_open_vids(lastvid, 
+					lastvid_, 
+					currvid, 
+					currvid_, 
+					framecnt, 
+					cnames, 
+					vids,
+					vid_dir_flag,
+					viddir,
+					currentframes,
+					maxframes):
+	"""
+	When long recordings are split over many video files, ffmpeg cannot spawn enough
+		processes at one time. Thus, we need to keep track of which videos are required
+		for each batch and open/close them as necessary.
+	"""
+	ext = '.' + vids.keys()[0].split('.')[-1]
+	#Only trigger closing if there is a "new" lastvid
+	if lastvid != lastvid_:
+		print('attempting to close video')
+		for n in range(len(cnames)):
+			for key in list(vids[cnames[n]].keys()):
+				vikey = key.split('/')[1]
+				if lastvid == vikey:
+					print("Closing video: {}".format(key))
+					vids[cnames[n]][key].close()
+		lastvid_ = lastvid
+		
+		# Open new vids for this interval
+	if currvid != currvid_: #then open a new vid
+		currvid_ = currvid
+		for j in range(len(cnames)):
+			if vid_dir_flag:
+				addl = ''
+			else:
+				addl = os.listdir(os.path.join(viddir,camnames[j]))[0]
+			vids[camnames[j]] = \
+				processing.generate_readers(viddir,
+											os.path.join(camnames[j],addl),
+											minopt=currentframes//framecnt*framecnt,
+											maxopt=maxframes,
+										   extension=ext)
+
+	return vids, lastvid_, currvid_
 
 def batch_rgb2gray(imstack):
 	"""
@@ -186,7 +245,7 @@ def read_config(filename):
 	CONFIG_PARAMS ={}
 
 	for line in f:
-		if line[0] != '#':
+		if line[0] != '#' and line[:1] != '\n':
 			elements = line.split(':')
 			try:
 				CONFIG_PARAMS[elements[0]] = ast.literal_eval(elements[1].strip())
@@ -578,48 +637,48 @@ def spatial_entropy(map_):
 	return -1*np.sum(map_*np.log(map_))
 
 def align_data(datamat,rotate=True):
-    """
-    Takes in a raw mocap data matrix and aligns the data via mean subtraction of SpineM positions and
-        x-y rotation relative to the orientation of the SpineF->SpineM segment
-        
-    inputs--
-        datmat: n-d numpy array of 20-point 3-D mocap data to be aligned. The assumption here is that the
-            x-y-z coordinates for individual points have been linearized and follow the standard order
-            set by the mocapstruct variables in Jesse's data repositories. So the standard size is 
-            (num_frames, 60)
-    
-    outputs--
-        n-d numpy array, aligned data. 
-    """
-    
-    #SpineM is 5th row (index 4)
-    #SpineF is 4th row (index 3)
-    tens = np.reshape(datamat,(datamat.shape[0],20,3)) #Reshape so that each marker is a row
-    
-    # Subtract Spine M mean
-    tens = tens - tens[:,4,np.newaxis,:] 
-    
-    if rotate:
-        # get angle between SpineM and SpineF
-        ang = np.arctan2(-(tens[:,3,1]-tens[:,4,1]),tens[:,3,0]-tens[:,4,0])
-        
-        #Construct rotation matrix
-        global_rotmatrix = np.zeros((ang.shape[0],2,2))
-        global_rotmatrix[:,0,0] = np.cos(ang)
-        global_rotmatrix[:,1,0] = np.sin(ang)
-        global_rotmatrix[:,0,1] = -np.sin(ang)
-        global_rotmatrix[:,1,1] = np.cos(ang)
-        
-        # Rotate x-y
-        rotated = np.zeros((tens.shape[0],2,20))
-        for i in range(rotated.shape[0]):
-            rotated[i] = global_rotmatrix[i] @ tens[i,:,:2].T
-        
-        #Add z component back
-        rotated = np.concatenate((rotated, np.transpose(tens[:,:,2,np.newaxis],[0,2,1])),axis=1)
-        rotated = np.transpose(rotated,[0,2,1])
-        
-        return np.reshape(rotated,(rotated.shape[0],datamat.shape[1]))
+	"""
+	Takes in a raw mocap data matrix and aligns the data via mean subtraction of SpineM positions and
+		x-y rotation relative to the orientation of the SpineF->SpineM segment
+		
+	inputs--
+		datmat: n-d numpy array of 20-point 3-D mocap data to be aligned. The assumption here is that the
+			x-y-z coordinates for individual points have been linearized and follow the standard order
+			set by the mocapstruct variables in Jesse's data repositories. So the standard size is 
+			(num_frames, 60)
+	
+	outputs--
+		n-d numpy array, aligned data. 
+	"""
+	
+	#SpineM is 5th row (index 4)
+	#SpineF is 4th row (index 3)
+	tens = np.reshape(datamat,(datamat.shape[0],20,3)) #Reshape so that each marker is a row
+	
+	# Subtract Spine M mean
+	tens = tens - tens[:,4,np.newaxis,:] 
+	
+	if rotate:
+		# get angle between SpineM and SpineF
+		ang = np.arctan2(-(tens[:,3,1]-tens[:,4,1]),tens[:,3,0]-tens[:,4,0])
+		
+		#Construct rotation matrix
+		global_rotmatrix = np.zeros((ang.shape[0],2,2))
+		global_rotmatrix[:,0,0] = np.cos(ang)
+		global_rotmatrix[:,1,0] = np.sin(ang)
+		global_rotmatrix[:,0,1] = -np.sin(ang)
+		global_rotmatrix[:,1,1] = np.cos(ang)
+		
+		# Rotate x-y
+		rotated = np.zeros((tens.shape[0],2,20))
+		for i in range(rotated.shape[0]):
+			rotated[i] = global_rotmatrix[i] @ tens[i,:,:2].T
+		
+		#Add z component back
+		rotated = np.concatenate((rotated, np.transpose(tens[:,:,2,np.newaxis],[0,2,1])),axis=1)
+		rotated = np.transpose(rotated,[0,2,1])
+		
+		return np.reshape(rotated,(rotated.shape[0],datamat.shape[1]))
 
-    else:
-        return np.reshape(tens,datamat.shape)
+	else:
+		return np.reshape(tens,datamat.shape)
