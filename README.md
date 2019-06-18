@@ -78,7 +78,7 @@ This requires an additional configuration file. See the example @ `./config/COM/
 #### 3) Run the everything through DANNCE
 Given formatted data and a COM file, DANNCE can now predict keypoints from your video streams.
 To do this, run `predict_DANNCE.py*`. See the python file for specific usage instructions.
-This requires two additional configuration files. See the examples @ ./config/DANNCE/prediction/. To run DANNCE over the demo data, run `python predict_DANNCE.py ./config/DANNCE/prediction/prediction_MAX_rat_settings.cfg ./config/DANNCE/prediction/prediction_MAX_rat_experiment.cfg`
+This requires two additional configuration files. See the examples @ `./config/DANNCE/prediction/`. To run DANNCE over the demo data, run `python predict_DANNCE.py ./config/DANNCE/prediction/prediction_AVG_rat_settings.cfg ./config/DANNCE/prediction/prediction_AVG_rat_experiment.cfg`
 
 Currently, we provide pre-trained weights for three different versions of DANNCE:
 
