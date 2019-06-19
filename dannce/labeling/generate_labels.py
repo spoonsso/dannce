@@ -9,13 +9,10 @@ import scipy.io as sio
 import os
 
 import sys
-sys.path.append('../engine/')
-
-import processing
-import ops
-from generator_aux import DataGenerator_downsample
-
-import serve_data_DANNCE as serve_data
+from dannce.engine import processing as processing
+from dannce.engine import ops as ops
+from dannce.engine.generator_aux import DataGenerator_downsample
+from dannce.engine import serve_data_DANNCE as serve_data
 
 #load params from config
 CONFIG_PARAMS = processing.read_config(sys.argv[1])
@@ -75,7 +72,7 @@ partition['train'] = np.random.choice(samples_,size=(int(sys.argv[2]),),replace=
 
 generator = DataGenerator_downsample(partition['train'], labels, vids, **params)
 
-#generate images. Should create argument that sets the png output quality -- 
+#generate images. Should create argument that sets the png output quality --
 #currently uses imageio's default, which is optimzied compression. However, doing an image diff between default
 #compression and no compression (which creates significantly large file sizes) reveals no major differences.
 generator.save_for_dlc(RESULTSDIR)

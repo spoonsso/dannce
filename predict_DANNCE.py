@@ -3,28 +3,25 @@
 # Usage: python ./predict_DANNCE.py path_to_settings_config path_to_experiment_config
 #
 import sys
-sys.path.append('./engine/')
-
 import numpy as np
 import imageio
 import scipy.io as sio
 import os
 os.environ["CUDA_VISIBLE_DEVICES"]="1"
 import time
-import serve_data_DANNCE as serve_data
 import keras
-import ops
-import nets
 import keras.backend as K
-import processing
 from keras.callbacks import ModelCheckpoint, CSVLogger, TensorBoard
 from keras.losses import mean_squared_error
 from six.moves import cPickle
-from processing import plot_markers_3d
-from processing import savedata_tomat, savedata_expval
-from generator_kmeans import DataGenerator_3Dconv_kmeans
-from losses import mask_nan_keep_loss, mask_nan_keep_loss_safe
-
+import dannce.engine.serve_data_DANNCE as serve_data
+import dannce.engine.ops as ops
+import dannce.engine.nets as nets
+import dannce.engine.processing as processing
+from dannce.engine.processing import plot_markers_3d
+from dannce.engine.processing import savedata_tomat, savedata_expval
+from dannce.engine.generator_kmeans import DataGenerator_3Dconv_kmeans
+from dannce.engine.losses import mask_nan_keep_loss, mask_nan_keep_loss_safe
 
 CONFIG_PARAMS = processing.read_config(sys.argv[1])
 
@@ -59,7 +56,7 @@ samples = []
 datadict = {}
 datadict_3d = {}
 com3d_dict = {}
-samples, datadict, datadict_3d, com3d_dict = serve_data.add_experiment(0,samples,datadict,datadict_3d,com3d_dict, 
+samples, datadict, datadict_3d, com3d_dict = serve_data.add_experiment(0,samples,datadict,datadict_3d,com3d_dict,
 														   samples_,datadict_,datadict_3d_, com3d_dict_)
 cameras = {}
 cameras[0] = cameras_
@@ -81,7 +78,7 @@ if CONFIG_PARAMS['IMMODE'] == 'vid':
 		processing.generate_readers(CONFIG_PARAMS['experiment']['viddir'],
 									os.path.join(CONFIG_PARAMS['experiment']['CAMNAMES'][i],addl),
 									minopt=0,
-									maxopt=10, 
+									maxopt=10,
 									extension=CONFIG_PARAMS['experiment']['extension'])
 
 # Get frame count per video using the keys of the vids dictionary
@@ -111,7 +108,7 @@ valid_params = {'dim_in': (CONFIG_PARAMS['INPUT_HEIGHT'],CONFIG_PARAMS['INPUT_WI
 		  'mode': CONFIG_PARAMS['OUT_MODE'],
 		  'camnames': camnames,
 		  'immode': CONFIG_PARAMS['IMMODE'],
-		  'training': False,      
+		  'training': False,
 		  'shuffle': False,
 		  'rotation': False,
 		  'pregrid': None,
@@ -157,15 +154,15 @@ def evaluate_ondemand(start_ind,end_ind,valid_gen):
 				print(i)
 				print("100 batches took {} seconds".format(time.time()-end_time))
 				end_time = time.time()
-			
-			if framecnt is not None:    
+
+			if framecnt is not None:
 				#We can't keep all these videos open, so close the ones that are not needed
 				currentframes = datadict[partition['valid_sampleIDs'][i*CONFIG_PARAMS['BATCH_SIZE']]]['frames']
 				m = min([i*CONFIG_PARAMS['BATCH_SIZE']+CONFIG_PARAMS['BATCH_SIZE'],len(partition['valid_sampleIDs'])-1])
 				curr_frames_max = datadict[partition['valid_sampleIDs'][m]]['frames']
 				maxframes = max(list(curr_frames_max.values()))
 				currentframes = min(list(currentframes.values()))
-				
+
 				lastvid = str(currentframes//framecnt*framecnt - framecnt) + CONFIG_PARAMS['experiment']['extension']
 				currvid = maxframes//framecnt*framecnt
 
@@ -180,15 +177,15 @@ def evaluate_ondemand(start_ind,end_ind,valid_gen):
 															   CONFIG_PARAMS['experiment']['viddir'],
 															   currentframes,
 															   maxframes)
-				valid_gen.vidreaders = vids    
-			
+				valid_gen.vidreaders = vids
+
 			ims = valid_gen.__getitem__(i)
 			pred = model.predict(ims[0])
 
 			if CONFIG_PARAMS['EXPVAL']:
 				probmap = get_output([ims[0][0], 0])[0]
 				for j in range(pred.shape[0]):
-					save_data[i*pred.shape[0]+j] = {'pred_max': np.max(np.max(np.max(probmap[j],axis=0),axis=0),axis=0), 
+					save_data[i*pred.shape[0]+j] = {'pred_max': np.max(np.max(np.max(probmap[j],axis=0),axis=0),axis=0),
 										'pred_coord': pred[j],
 									   'sampleID': partition['valid_sampleIDs'][i*pred.shape[0]+j]}
 			else:
@@ -198,7 +195,7 @@ def evaluate_ondemand(start_ind,end_ind,valid_gen):
 					pred_total = np.sum(np.sum(np.sum(pred[j,:,:,:,:],axis=0),axis=0),axis=0)
 					coordx, coordy, coordz = processing.plot_markers_3d(pred[j])
 					coord = np.stack((coordx,coordy,coordz))
-					save_data[i*pred.shape[0]+j] = {'pred_max': pred_max_0, 
+					save_data[i*pred.shape[0]+j] = {'pred_max': pred_max_0,
 										'pred_coord': coord,
 										'true_coord_nogrid': ims[1][j],
 										'logmax': np.log(pred_max)-np.log(pred_total),
@@ -223,8 +220,8 @@ else:
 						CONFIG_PARAMS['VMAX'],
 						CONFIG_PARAMS['NVOX'],
 						write=True,
-						data=save_data, 
-						num_markers=CONFIG_PARAMS['N_CHANNELS_OUT'], 
+						data=save_data,
+						num_markers=CONFIG_PARAMS['N_CHANNELS_OUT'],
 						tcoord = False)
 
-print("done!")  
+print("done!")

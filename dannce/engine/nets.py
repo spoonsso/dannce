@@ -13,7 +13,7 @@ from keras.applications.vgg19 import VGG19
 
 from keras.utils import multi_gpu_model
 
-import ops
+from dannce.engine import ops as ops
 
 import gc
 
@@ -429,7 +429,7 @@ def unet3d_big_1gpu_evalonly(lossfunc, lr, input_dim, feature_num, num_cams, bat
 
 	return model
 
-def unet_2D_3D_nointer(lossfunc, lr, input_dim, feature_num, num_cams, 
+def unet_2D_3D_nointer(lossfunc, lr, input_dim, feature_num, num_cams,
 	batch_norm=False, batch_size=3, imwidheight = (512,512),grid_size = 64*64*64, grid_dims=2, loss_weights=[0,1]):
 
 	if batch_norm:
@@ -490,7 +490,7 @@ def unet_2D_3D_nointer(lossfunc, lr, input_dim, feature_num, num_cams,
 		unprojected = Reshape((K.int_shape(x)[1],K.int_shape(x)[2],K.int_shape(x)[3],-1))(unprojected)
 
 		#Now lets do a small 3D UNet
-		
+
 		conv1_3D = Conv3D(32, (3, 3, 3), padding='same')(unprojected)
 		conv1_3D = Activation('relu')(fun(conv1_3D))
 		conv1_3D = Conv3D(32, (3, 3, 3), padding='same')(conv1_3D)
@@ -529,7 +529,7 @@ def unet_2D_3D_nointer(lossfunc, lr, input_dim, feature_num, num_cams,
 
 	return model
 
-def unet_2D_3D(lossfunc, lr, input_dim, feature_num, num_cams, 
+def unet_2D_3D(lossfunc, lr, input_dim, feature_num, num_cams,
 	batch_norm=False, batch_size=3, imwidheight = (512,512),grid_size = 64*64*64, grid_dims=2, loss_weights=[0,1]):
 
 	if batch_norm:
@@ -594,7 +594,7 @@ def unet_2D_3D(lossfunc, lr, input_dim, feature_num, num_cams,
 		unprojected = Lambda(lambda x: K.mean(x,axis=1))(unprojected)
 
 		#Now lets do a small 3D UNet
-		
+
 		conv1_3D = Conv3D(32, (3, 3, 3), padding='same')(unprojected)
 		conv1_3D = Activation('relu')(fun(conv1_3D))
 		conv1_3D = Conv3D(32, (3, 3, 3), padding='same')(conv1_3D)
@@ -1113,7 +1113,7 @@ def unet3d_big_2gpu(lossfunc, lr, input_dim, feature_num, num_cams, batch_norm=F
 
 	return model
 
-def test_project(lossfunc, lr, input_dim, feature_num, num_cams, num_grids, batch_norm=False, 
+def test_project(lossfunc, lr, input_dim, feature_num, num_cams, num_grids, batch_norm=False,
 	instance_norm = False, vmin=-120,vmax=120, nvox=64, outsize=512, batch_size=1):
 
 	inputs = Input(batch_shape=(batch_size,num_grids,nvox,nvox,nvox,feature_num))
@@ -1134,7 +1134,7 @@ def test_project(lossfunc, lr, input_dim, feature_num, num_cams, num_grids, batc
 
 	return model
 
-def unet3d_project(lossfunc, lr, input_dim, feature_num, num_cams, batch_norm=False, 
+def unet3d_project(lossfunc, lr, input_dim, feature_num, num_cams, batch_norm=False,
 	instance_norm = False, vmin=-120,vmax=120, nvox=64, outsize=512, batch_size=4):
 
 	if batch_norm and not instance_norm:
@@ -1390,7 +1390,7 @@ def unet2d_fullbn_vgg19_1024deep_3d_2gpu(lossfunc, lr, input_dim, feature_num, f
 
 	with tf.device('/gpu:1'):
 		input2 = model(inputs)
-		
+
 		output1 = Conv2D(feature_num, (1, 1), activation='sigmoid')(input2)
 		output1 = Lambda(lambda x: K.expand_dims(x,axis=0))(output1)
 
@@ -1502,7 +1502,7 @@ def unet2d_fullbn_vgg19_1024deep_3d_2gpu_dilation(lossfunc, lr, input_dim, featu
 
 	with tf.device('/gpu:1'):
 		input2 = model(inputs)
-		
+
 		output1 = Conv2D(feature_num, (1, 1), activation='sigmoid')(input2)
 		output1 = Lambda(lambda x: K.expand_dims(x,axis=0))(output1)
 
