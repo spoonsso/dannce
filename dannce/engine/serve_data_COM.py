@@ -4,8 +4,8 @@ import scipy.io as sio
 import sys
 sys.path.append("../")
 
-import processing
-import ops
+from dannce.engine import processing as processing
+from dannce.engine import ops as ops
 
 import os
 
@@ -23,7 +23,7 @@ def prepare_data(CONFIG_PARAMS, vid_dir_flag=True, minopt=0,maxopt=70000):
 
 	minopt, maxopt: the minimum and maximum video file labels to be loaded.
 	"""
-	
+
 
 	data = sio.loadmat(os.path.join(CONFIG_PARAMS['datadir'],CONFIG_PARAMS['datafile'][0]))
 
@@ -42,19 +42,19 @@ def prepare_data(CONFIG_PARAMS, vid_dir_flag=True, minopt=0,maxopt=70000):
 	for i in range(len(CONFIG_PARAMS['datafile'])):
 	    fr = sio.loadmat(os.path.join(CONFIG_PARAMS['datadir'],CONFIG_PARAMS['datafile'][i]))
 	    framedict[CONFIG_PARAMS['CAMNAMES'][i]] = np.squeeze(fr['data_frame'])
-	    
+
 	    data = fr['data_2d']
 	    # reshape data_2d so that it is shape (time points, 2, 20)
 	    data = np.transpose(np.reshape(data,[data.shape[0],-1,2]),[0,2,1])
 	    # Correct for Matlab "1" indexing
 	    data = data - 1
-	    
+
 	    # Convert to COM only
 	    data = np.nanmean(data,axis=2)
 	    data = data[:,:,np.newaxis]
-	    
+
 	    ddict[CONFIG_PARAMS['CAMNAMES'][i]] = data
-	    
+
 	data_3d = fr['data_3d']
 	data_3d = np.transpose(np.reshape(data_3d,[data_3d.shape[0],-1,3]),[0,2,1])
 
@@ -65,7 +65,7 @@ def prepare_data(CONFIG_PARAMS, vid_dir_flag=True, minopt=0,maxopt=70000):
 	    data = {}
 	    for j in range(len(CONFIG_PARAMS['CAMNAMES'])):
 	        frames[CONFIG_PARAMS['CAMNAMES'][j]] = framedict[CONFIG_PARAMS['CAMNAMES'][j]][i]
-	        data[CONFIG_PARAMS['CAMNAMES'][j]] = ddict[CONFIG_PARAMS['CAMNAMES'][j]][i]    
+	        data[CONFIG_PARAMS['CAMNAMES'][j]] = ddict[CONFIG_PARAMS['CAMNAMES'][j]][i]
 	    datadict[samples[i]] = {'data':data, 'frames':frames}
 	    datadict_3d[samples[i]] = data_3d[i]
 	#------------------------
@@ -80,7 +80,7 @@ def prepare_data(CONFIG_PARAMS, vid_dir_flag=True, minopt=0,maxopt=70000):
 													'RDistort': test['RDistort'],
 													'TDistort': test['TDistort']}
 		camera_mats[CONFIG_PARAMS['CAMNAMES'][i]] = ops.camera_matrix(test['K'],test['r'],test['t'])
-	#-------------------------------    
+	#-------------------------------
 
 	#-----------------------
 
@@ -107,7 +107,7 @@ def COM_to_mat(comfile,pmax_thresh, camorder=['CameraR', 'CameraL', 'CameraE', '
 				savedir = None):
 	"""
 	This function takes in a COM file pickle saved by COM_finder_newdata/batch_evaluate.ipynb and converts it into
-		separate matfiles for each cameras, with the COM rpedictions thresholded using pmax_thresh. 
+		separate matfiles for each cameras, with the COM rpedictions thresholded using pmax_thresh.
 
 	This is useful for when one would like to refine the COM finder network using self-supervision
 

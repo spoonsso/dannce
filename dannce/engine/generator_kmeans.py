@@ -6,8 +6,8 @@ import os
 from keras.applications.vgg19 import preprocess_input as pp_vgg19
 from keras.applications.inception_v3 import preprocess_input as pp_inception
 
-import processing
-import ops
+from dannce.engine import processing as processing
+from dannce.engine import ops as ops
 
 import imageio
 
@@ -17,7 +17,7 @@ import warnings
 
 class DataGenerator(keras.utils.Sequence):
 	'Generates data for Keras'
-	def __init__(self, list_IDs, labels, clusterIDs, batch_size=32, dim_in=(32,32,32), n_channels_in=1, 
+	def __init__(self, list_IDs, labels, clusterIDs, batch_size=32, dim_in=(32,32,32), n_channels_in=1,
 				dim_out = (32,32,32), n_channels_out=1, out_scale=5,shuffle=True, camnames = [],
 				crop_width = (0, 1024), crop_height = (20, 1300), tilefac=1, bbox_dim=(32,32,32), samples_per_cluster=0, training=True, vidreaders=None):
 		'Initialization'
@@ -99,11 +99,11 @@ class DataGenerator_3Dconv_kmeans(DataGenerator):
 	"""
 	Updated generator class that with resample from kmeans clusters at the end of each epoch. Also handles data across multiple experiments
 	"""
-	def __init__(self, list_IDs, labels, labels_3d, camera_params, clusterIDs, com3d, tifdirs, batch_size=32, dim_in=(32,32,32), n_channels_in=1, 
+	def __init__(self, list_IDs, labels, labels_3d, camera_params, clusterIDs, com3d, tifdirs, batch_size=32, dim_in=(32,32,32), n_channels_in=1,
 				dim_out = (32,32,32), n_channels_out=1, out_scale=5,shuffle=True, camnames = [],
-				crop_width = (0, 1024), crop_height = (20, 1300), tilefac=1, bbox_dim=(32,32,32), 
-				vmin=-100,vmax=100,nvox=32,interp='linear',depth=False,channel_combo=None,mode='3dprob',preload=True, 
-				samples_per_cluster=0, immode='tif', training=True,rotation=False,pregrid = None,pre_projgrid = None, stamp=False, 
+				crop_width = (0, 1024), crop_height = (20, 1300), tilefac=1, bbox_dim=(32,32,32),
+				vmin=-100,vmax=100,nvox=32,interp='linear',depth=False,channel_combo=None,mode='3dprob',preload=True,
+				samples_per_cluster=0, immode='tif', training=True,rotation=False,pregrid = None,pre_projgrid = None, stamp=False,
 				vidreaders = None, distort=False, expval = False, multicam = True, var_reg=False, COM_aug = None, crop_im = True,
 				norm_im = True):
 		DataGenerator.__init__(self, list_IDs,labels, clusterIDs, batch_size,dim_in,n_channels_in,
@@ -122,7 +122,7 @@ class DataGenerator_3Dconv_kmeans(DataGenerator):
 		print(self.channel_combo)
 		self.mode = mode
 		self.preload = preload
-		self.immode = immode		
+		self.immode = immode
 		self.tifdirs = tifdirs
 		self.com3d = com3d
 		self.rotation = rotation
@@ -133,7 +133,7 @@ class DataGenerator_3Dconv_kmeans(DataGenerator):
 		self.expval = expval
 		self.multicam = multicam
 		self.var_reg = var_reg
-		self.COM_aug = COM_aug 
+		self.COM_aug = COM_aug
 		self.crop_im = crop_im
 		self.norm_im = norm_im #If saving npy as uint8 rather than training directly, dont normalize
 
@@ -144,7 +144,7 @@ class DataGenerator_3Dconv_kmeans(DataGenerator):
 
 		if self.stamp:
 			# To save time, "stamp" a 3d gaussian at each marker position
-			(x_coord_3d, y_coord_3d, z_coord_3d) = np.meshgrid(np.arange(self.worldsize,-self.worldsize,self.vsize), 
+			(x_coord_3d, y_coord_3d, z_coord_3d) = np.meshgrid(np.arange(self.worldsize,-self.worldsize,self.vsize),
 												   np.arange(self.worldsize,-self.worldsize,self.vsize),
 												   np.arange(self.worldsize,-self.worldsize,self.vsize))
 
@@ -258,7 +258,7 @@ class DataGenerator_3Dconv_kmeans(DataGenerator):
 			raise Exception("not a valid generator mode")
 
 		if self.expval:
-			X_grid = np.zeros((self.batch_size,self.dim_out_3d[0]*self.dim_out_3d[1]*self.dim_out_3d[2], 3),dtype='float32')   
+			X_grid = np.zeros((self.batch_size,self.dim_out_3d[0]*self.dim_out_3d[1]*self.dim_out_3d[2], 3),dtype='float32')
 
 		# Generate data
 		cnt = 0
@@ -277,19 +277,19 @@ class DataGenerator_3Dconv_kmeans(DataGenerator):
 				this_COM_3d = this_COM_3d + self.COM_aug*2*np.random.rand(len(this_COM_3d)) - self.COM_aug
 
 
-			#Actually we need to create and project the grid here, relative to the reference point (SpineM). 
+			#Actually we need to create and project the grid here, relative to the reference point (SpineM).
 
 			if self.pregrid is None:
-				(x_coord_3d, y_coord_3d, z_coord_3d) = np.meshgrid(np.arange(self.vmin + this_COM_3d[0] + self.vsize/2,this_COM_3d[0]+self.vmax,self.vsize), 
-																   np.arange(self.vmin + this_COM_3d[1] + self.vsize/2,this_COM_3d[1]+self.vmax,self.vsize), 
+				(x_coord_3d, y_coord_3d, z_coord_3d) = np.meshgrid(np.arange(self.vmin + this_COM_3d[0] + self.vsize/2,this_COM_3d[0]+self.vmax,self.vsize),
+																   np.arange(self.vmin + this_COM_3d[1] + self.vsize/2,this_COM_3d[1]+self.vmax,self.vsize),
 																   np.arange(self.vmin + this_COM_3d[2] + self.vsize/2,this_COM_3d[2]+self.vmax,self.vsize))
 			else:
-				
+
 				(x_coord_3d, y_coord_3d, z_coord_3d) = self.fetch_grid(this_COM_3d)
-				
+
 
 			if self.mode == '3dprob':
-				
+
 				for j in range(self.n_channels_out):
 					if self.stamp:
 						# these are coordinates of each marker relative to COM
@@ -300,10 +300,10 @@ class DataGenerator_3Dconv_kmeans(DataGenerator):
 						y_3d[i,j] = self.stamp_[c1-self.nvox//2:c1+self.nvox//2,c0+self.nvox//2:c0-self.nvox//2:-1,c2+self.nvox//2:c2-self.nvox//2:-1]
 					else:
 						y_3d[i,j] = np.exp(-((y_coord_3d-this_y_3d[1,j])**2 + (x_coord_3d-this_y_3d[0,j])**2 + (z_coord_3d-this_y_3d[2,j])**2)/(2*self.out_scale**2))
-						# When the voxel grid is coarse, we will likely miss the peak of the probability distribution, as it will lie somewhere in the middle of a 
+						# When the voxel grid is coarse, we will likely miss the peak of the probability distribution, as it will lie somewhere in the middle of a
 						# large voxel. So here we renormalize to [~, 1]
 					#y_3d[i,j] = y_3d[i,j]/np.max(y_3d[i,j])
-				
+
 			if self.mode == 'coordinates':
 				#this_y_3d = this_y_3d - this_y_3d[:,4:5]
 				if this_y_3d.shape == y_3d[i].shape:
@@ -330,12 +330,12 @@ class DataGenerator_3Dconv_kmeans(DataGenerator):
 
 				# Store sample
 				if self.immode == 'tif': # for pre-cropped tifs
-					
+
 					thisim = imageio.imread(os.path.join(self.tifdirs[experimentID],camname,'{}.tif'.format(sampleID)))
-					
+
 				elif self.immode == 'vid': # from raw video, need to crop
 					thisim = self.load_vid_frame(self.labels[ID]['frames'][camname], camname, self.preload, extension=self.extension)[self.crop_height[0]:self.crop_height[1],self.crop_width[0]:self.crop_width[1]]
-					
+
 
 				elif self.immode == 'arb_ims':
 					# load in the image file at the specified path
@@ -348,7 +348,7 @@ class DataGenerator_3Dconv_kmeans(DataGenerator):
 					com = np.nanmean(this_y,axis=1)
 
 					if self.crop_im:
-						
+
 						if np.all(np.isnan(com)):
 							thisim = np.zeros((self.dim_in[1],self.dim_in[0],self.n_channels_in))
 						else:
@@ -374,29 +374,29 @@ class DataGenerator_3Dconv_kmeans(DataGenerator):
 					"""
 					proj_grid = ops.distortPoints(proj_grid[:,:2],
 						self.camera_params[experimentID][camname]['K'],
-						np.squeeze(self.camera_params[experimentID][camname]['RDistort']), 
+						np.squeeze(self.camera_params[experimentID][camname]['RDistort']),
 						np.squeeze(self.camera_params[experimentID][camname]['TDistort'])).T
 
-				if self.crop_im:			
-					proj_grid = proj_grid[:,:2] - com_precrop + self.dim_in[0]//2 
+				if self.crop_im:
+					proj_grid = proj_grid[:,:2] - com_precrop + self.dim_in[0]//2
 					# Now all coordinates should map properly to the image cropped around the COM
 				else:
 					#Then the only thing we need to correct for is crops at the borders
 					proj_grid = proj_grid[:,:2]
 					proj_grid[:,0] = proj_grid[:,0] - self.crop_width[0]
 					proj_grid[:,1] = proj_grid[:,1] - self.crop_height[0]
-				
+
 
 				(r, g, b) = ops.sample_grid(thisim,proj_grid,method=self.interp)
 
 				if ~np.any(np.isnan(com_precrop)) or self.channel_combo == 'avg' or not self.crop_im:
-				
+
 					X[cnt,:,:,:,0] = np.reshape(r,(self.nvox,self.nvox,self.nvox))
 					X[cnt,:,:,:,1] = np.reshape(g,(self.nvox,self.nvox,self.nvox))
 					X[cnt,:,:,:,2] = np.reshape(b,(self.nvox,self.nvox,self.nvox))
 					if self.depth:
 						X[cnt,:,:,:,3] = np.reshape(d,(self.nvox,self.nvox,self.nvox))
-				
+
 
 				# if this_y.shape[1] != self.n_channels_out and self.mode != 'coordinates':
 				# 	raise Exception("Desired Label channels and ground truth channels do not agree")
@@ -437,14 +437,14 @@ class DataGenerator_3Dconv_kmeans(DataGenerator):
 					X, y_3d = self.random_rotate(X, y_3d)
 				else:
 					X, y_3d, rotate_log = self.random_rotate(X, y_3d,log=True)
-		
+
 		if self.expval: #Then we also need to return the 3d grid center coordinates, for calculating a spatial expected value
-		# Xgrid is typically symmetric for 90 and 180 degree rotations (when vmax and vmin are symmetric) 
+		# Xgrid is typically symmetric for 90 and 180 degree rotations (when vmax and vmin are symmetric)
 		# around the z-axis, so no need to rotate X_grid.
 			if self.var_reg:
 				return [processing.preprocess_3d(X), X_grid], [y_3d,np.zeros((self.batch_size,1))]
 
-			if self.norm_im: 
+			if self.norm_im:
 				return [processing.preprocess_3d(X), X_grid], y_3d #y_3d is in coordinates here.
 			else:
 				return [X, X_grid], [y_3d, rotate_log]
@@ -456,7 +456,7 @@ class DataGenerator_3Dconv_kmeans(DataGenerator):
 
 class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
 
-	def __init__(self, list_IDs, data, labels, batch_size, rotation=True, random=True, chan_num=3, shuffle=True, 
+	def __init__(self, list_IDs, data, labels, batch_size, rotation=True, random=True, chan_num=3, shuffle=True,
 			expval=False, xgrid = None, var_reg = False):
 		self.list_IDs = list_IDs
 		self.data = data

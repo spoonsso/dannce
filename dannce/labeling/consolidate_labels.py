@@ -8,25 +8,23 @@ import imageio
 import numpy as np
 import scipy.io as sio
 import sys
-import json2manifest
 import ast
 
-sys.path.append('../engine/')
+from dannce.labeling import json2manifest as json2manifest
+from dannce.engine import processing as processing
 
-import processing
-
-#load params from config
+# load params from config
 CONFIG_PARAMS = processing.read_config(sys.argv[1])
 print("Loading configuration from: " + sys.argv[1])
 
 annotdir = CONFIG_PARAMS['RESULTSDIR']
 
-#Create manifest from json
-json2manifest.j2m(os.path.join(annotdir,'annotations.json'))
+# Create manifest from json
+json2manifest.j2m(os.path.join(annotdir, 'annotations.json'))
 
 camnames = CONFIG_PARAMS['CAMNAMES']
 
-#Get markernames from template file
+# Get markernames from template file
 with open(sys.argv[2],'r') as f:
 	for line in f:
 		if 'labels' in line:
@@ -64,7 +62,7 @@ for i in range(len(sortedlist)//numcams):
     for j in range(numcams):
         t = sortedlist[i*numcams+j]
         #We need to manually append the camera name to make sure it is in the specified order
-        t = t.split('Camera')[0] + camnames[j] +'.png' 
+        t = t.split('Camera')[0] + camnames[j] +'.png'
         # FInd and load correct json
         fpath = os.path.join(annotdir, folders[-1],str(manifest[t]))
         # We didn't label all of the images here

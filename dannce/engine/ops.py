@@ -9,11 +9,6 @@ import keras.initializers as initializers
 import keras.constraints as constraints
 import keras.regularizers as regularizers
 from keras.utils.generic_utils import get_custom_objects
-
-import numpy as np
-
-import sys
-sys.path.append('/usr/local/MATLAB/R2018a/extern/engines/python/build/lib.linux-x86_64-2.7')
 import matlab.engine
 import matlab
 
@@ -97,7 +92,7 @@ def sample_grid(im,projPts, method='linear'):
 
         projPts = (projPts[:,0], projPts[:,1])
 
-        
+
         for ii in range(im.shape[-1]):
             tmp = im[:,:,ii]
             imout[:,ii] = tmp[projPts]
@@ -118,7 +113,7 @@ def sample_grid(im,projPts, method='linear'):
 
 
 def unproj(feats, grid, batch_size):
-    # im_x, im_y are the x and y coordinates of eached projected 3D position. These are concatenated here 
+    # im_x, im_y are the x and y coordinates of eached projected 3D position. These are concatenated here
     # for every image in each batch,
     nR, fh, fw, fdim = K.int_shape(feats)
 
@@ -138,7 +133,7 @@ def unproj(feats, grid, batch_size):
     #convert from int to float -- but these are still round numbers because of rounding step above
     im_x0_f, im_x1_f = tf.to_float(im_x0), tf.to_float(im_x1)
     im_y0_f, im_y1_f = tf.to_float(im_y0), tf.to_float(im_y1)
-    
+
     #nR should be batch_size*num_cams
     ind_grid = tf.range(0, nR) # eg. [0,1,2,3,4,5] for 3 cams, batch_size=2
     ind_grid = tf.expand_dims(ind_grid, 1)
@@ -206,7 +201,7 @@ def triangulate(pts1, pts2, cam1, cam2):
 
     pts1 = pts1.T
     pts2 = pts2.T
-    
+
     cam1 = cam1.T
     cam2 = cam2.T
 
@@ -278,7 +273,7 @@ def proj(feats, grid, batch_size, fw, fh):
     #convert from int to float -- but these are still round numbers because of rounding step above
     # im_x0_f, im_x1_f = tf.to_float(im_x0), tf.to_float(im_x1)
     # im_y0_f, im_y1_f = tf.to_float(im_y0), tf.to_float(im_y1)
-    
+
 
     # We need to gather over the grid now, not the 2D feature map as in unprojection
     grid_range = tf.range(fx)
@@ -299,7 +294,7 @@ def proj(feats, grid, batch_size, fw, fh):
     Ia = tf.gather_nd(feats, _get_gather_inds(grid_inds[0,:], grid_inds[1,:], grid_inds[2,:]))
     # Ia should be a tensor of shape (batch_size*nVox*nVox*nVox, fdim)
     # remember, im_x is shape (batch_size*num_cams, nvox*nvox*novx), i.e. the x landing coordinate of every grid center in each camera
-    
+
 
     #linearize the indices of each pixel coordinate
     im_inds = tf.stack(tf.meshgrid(tf.range(fh),tf.range(fw)))
@@ -317,7 +312,7 @@ def proj(feats, grid, batch_size, fw, fh):
     eq = tf.equal(im_inds,proj_inds[:,:,tf.newaxis])
 
     # Now we need to use this to index Ia (the values on the 3D grid), and take the maximum to result in (batch_size*num_cams,fw*fh,fdim)
-    # the maximum will be taken over 
+    # the maximum will be taken over
 
 
 
@@ -481,8 +476,8 @@ def proj_slice(vmin,
         axis=1) #(bs*num_grids*num_cams*samples*npix,4), where the last 3 columns are the x,y,z grid locations
     # The first column indicates which "grid" should be sampled for each x,y,z position. In my case, there should only be as many grids as there are samples in the mini-batch,
     # but for some reason this code allows multiple 3D grids per sample.
-    # the order in rows (for the last 3 cols) should be rougly like this: [batch1_grid1_allcam1samples_locs, batch1_grid1_allcam2sample_locs, 
-    #                                                                           batch1_grid1_allcam3sample_locs, batch1_grid2_allcam1samples_locs, ...] 
+    # the order in rows (for the last 3 cols) should be rougly like this: [batch1_grid1_allcam1samples_locs, batch1_grid1_allcam2sample_locs,
+    #                                                                           batch1_grid1_allcam3sample_locs, batch1_grid2_allcam1samples_locs, ...]
     #print(K.int_shape(sample_idx))
     g_val = nearest3(sample_grid, sample_idx, clip=True)
     g_val = tf.reshape(g_val, [
@@ -760,7 +755,7 @@ def var_3d(prob_map, grid_centers, markerlocs):
         #grid dist now (bs, h*w*d,17)
     grid_dist = tf.reduce_sum((grid_centers[:,:,:,tf.newaxis] - markerlocs[:,tf.newaxis,:,:])**2,axis=2)
 
-    grid_dist = tf.reshape(grid_dist,[-1,channels]) 
+    grid_dist = tf.reshape(grid_dist,[-1,channels])
 
     weighted_var = prob_map * grid_dist
 

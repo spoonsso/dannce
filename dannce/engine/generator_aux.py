@@ -6,8 +6,8 @@ import os
 from keras.applications.vgg19 import preprocess_input as pp_vgg19
 import imageio
 
-import processing
-import ops
+from dannce.engine import processing as processing
+from dannce.engine import ops as ops
 
 import time
 
@@ -15,7 +15,7 @@ import scipy.io as sio
 
 class DataGenerator_downsample(keras.utils.Sequence):
 	'Generates data for Keras'
-	def __init__(self, list_IDs, labels, vidreaders, batch_size=32, dim_in=(32,32,32), n_channels_in=1, 
+	def __init__(self, list_IDs, labels, vidreaders, batch_size=32, dim_in=(32,32,32), n_channels_in=1,
 				dim_out = (32,32,32), n_channels_out=1, out_scale=5,shuffle=True, camnames = ['cameraR', 'cameraL','cameraU','cameraU2','cameraS','cameraE'],
 				crop_width = (0, 1024), crop_height = (20, 1300), tilefac=1, bbox_dim=(32,32,32), downsample=1, immode='video',
 				labelmode = 'prob', preload=True, dsmode='dsm', chunks=3500):
@@ -127,9 +127,9 @@ class DataGenerator_downsample(keras.utils.Sequence):
 					this_y[0,:] = this_y[0,:] - self.crop_width[0]*2
 					this_y[1,:] = this_y[1,:] - self.crop_height[0]*2
 
-				
+
 				(x_coord, y_coord) = np.meshgrid(np.arange(self.dim_out[1]), np.arange(self.dim_out[0]))
-				
+
 				# For 2D, this_y should be size (2, 20)
 				if this_y.shape[1] != self.n_channels_out:
 					raise Exception("Desired Label channels and ground truth channels do not agree")
@@ -137,7 +137,7 @@ class DataGenerator_downsample(keras.utils.Sequence):
 				# this_y_y = this_y[1]
 				# this_y_y = this_y_y[:,np.newaxis,np.newaxis]
 				# this_y_x = this_y[0]
-				# this_y_x = this_y_x[:,np.newaxis,np.newaxis]			
+				# this_y_x = this_y_x[:,np.newaxis,np.newaxis]
 				# y[cnt] = np.exp(-((y_coord[np.newaxis,:,:]-this_y_y)**2 + (x_coord[np.newaxis,:,:]-this_y_x)**2)/(2*self.out_scale**2))
 
 				if self.labelmode == 'prob':
@@ -149,7 +149,7 @@ class DataGenerator_downsample(keras.utils.Sequence):
 						# I tested a version of this with numpy broadcasting, and looping was ~100ms seconds faster for making 20 maps
 						# In the future, a shortcut might be to "stamp" a truncated Gaussian pdf onto the images, centered at the peak
 						y[cnt,j] = np.exp(-((y_coord-this_y[1,j])**2 + (x_coord-this_y[0,j])**2)/(2*self.out_scale**2))
-				
+
 
 				cnt = cnt + 1
 
@@ -167,7 +167,7 @@ class DataGenerator_downsample(keras.utils.Sequence):
 
 			y /= np.max(np.max(y,axis=1),axis=1)[:,np.newaxis,np.newaxis,:]
 
-		if self.tilefac > 1:	
+		if self.tilefac > 1:
 			return processing.return_tile(pp_vgg19(X),fac=self.tilefac), processing.return_tile(y,fac=self.tilefac)
 		else:
 			return pp_vgg19(X), y
@@ -183,7 +183,7 @@ class DataGenerator_downsample(keras.utils.Sequence):
 
 			#Load in a sample so that size can be found when full_data=False
 			camname = self.camnames[0]
-			X = self.load_vid_frame(self.labels[list_IDs_temp[0]]['frames'][camname], camname, 
+			X = self.load_vid_frame(self.labels[list_IDs_temp[0]]['frames'][camname], camname,
 				self.preload, self.extension)[self.crop_height[0]:self.crop_height[1],self.crop_width[0]:self.crop_width[1]]
 
 			for i, ID in enumerate(list_IDs_temp):

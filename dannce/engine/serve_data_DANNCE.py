@@ -2,10 +2,8 @@
 import numpy as np
 import scipy.io as sio
 import sys
-sys.path.append("../")
-
-import processing
-import ops
+from dannce.engine import processing as processing
+from dannce.engine import ops as ops
 
 import os
 
@@ -38,13 +36,13 @@ def prepare_data(CONFIG_PARAMS, com_flag = True, nanflag = True):
 	for i in range(len(CONFIG_PARAMS['datafile'])):
 		fr = sio.loadmat(os.path.join(CONFIG_PARAMS['datadir'],CONFIG_PARAMS['datafile'][i]))
 		framedict[CONFIG_PARAMS['CAMNAMES'][i]] = np.squeeze(fr['data_frame'])
-		
+
 		data = fr['data_2d']
 		# reshape data_2d so that it is shape (time points, 2, 20)
 		data = np.transpose(np.reshape(data,[data.shape[0],-1,2]),[0,2,1])
 		# Correct for Matlab "1" indexing
 		data = data - 1
-		
+
 		if com_flag:
 			# Convert to COM only
 			if nanflag:
@@ -53,9 +51,9 @@ def prepare_data(CONFIG_PARAMS, com_flag = True, nanflag = True):
 				data = np.nanmean(data,axis=2)
 			data = data[:,:,np.newaxis]
 
-		
+
 		ddict[CONFIG_PARAMS['CAMNAMES'][i]] = data
-		
+
 	data_3d = fr['data_3d']
 	data_3d = np.transpose(np.reshape(data_3d,[data_3d.shape[0],-1,3]),[0,2,1])
 
@@ -66,7 +64,7 @@ def prepare_data(CONFIG_PARAMS, com_flag = True, nanflag = True):
 		data = {}
 		for j in range(len(CONFIG_PARAMS['CAMNAMES'])):
 			frames[CONFIG_PARAMS['CAMNAMES'][j]] = framedict[CONFIG_PARAMS['CAMNAMES'][j]][i]
-			data[CONFIG_PARAMS['CAMNAMES'][j]] = ddict[CONFIG_PARAMS['CAMNAMES'][j]][i]    
+			data[CONFIG_PARAMS['CAMNAMES'][j]] = ddict[CONFIG_PARAMS['CAMNAMES'][j]][i]
 		datadict[samples[i]] = {'data':data, 'frames':frames}
 		datadict_3d[samples[i]] = data_3d[i]
 	#------------------------
@@ -79,7 +77,7 @@ def prepare_data(CONFIG_PARAMS, com_flag = True, nanflag = True):
 			if 'RDistort' in list(test.keys()):
 				# Added Distortion params on Dec. 19 2018
 				cameras[CONFIG_PARAMS['CAMNAMES'][i]]['RDistort'] = test['RDistort']
-				cameras[CONFIG_PARAMS['CAMNAMES'][i]]['TDistort'] = test['TDistort']  
+				cameras[CONFIG_PARAMS['CAMNAMES'][i]]['TDistort'] = test['TDistort']
 
 		return samples, datadict, datadict_3d, fr['data_3d'], cameras
 	else:
@@ -143,7 +141,7 @@ def prepare_COM(comfile,datadict,comthresh=0.01, weighted=True, retriangulate=Fa
 				# Quick & dirty way to dynamically scale the confidence map output
 				if conf_rescale is not None and camnames[k] in conf_rescale.keys():
 					this_com[camnames[k]]['pred_max'] *= conf_rescale[camnames[k]]
-					
+
 				if this_com[camnames[k]]['pred_max'] <= comthresh: #then, set to nan
 					datadict[key]['data'][camnames[k]][:] = np.nan
 
@@ -159,11 +157,11 @@ def prepare_COM(comfile,datadict,comthresh=0.01, weighted=True, retriangulate=Fa
 																				,uCamnames[k])]
 						weights[cnt] = this_com[uCamnames[j]]['pred_max']*this_com[uCamnames[k]]['pred_max']
 					cnt += 1
-			
+
 			# weigts produces a weighted average of COM based on our overall confidence
 			if weighted:
 				if np.sum(weights) != 0:
-					weights = weights/np.sum(weights)		
+					weights = weights/np.sum(weights)
 					com3d = np.nansum(com3d*weights[np.newaxis,:],axis=1)
 				else:
 					com3d = np.zeros((3,))*np.nan
@@ -218,12 +216,12 @@ def remove_samples(s, d3d, mode='clean',auxmode=None):
 
 	aucmode == 'JDM52d2' removes a really bad marker period -- samples 20k to 32k
 
-	I need to cull the samples array (as this is used to index eveyrthing else), but also the 
+	I need to cull the samples array (as this is used to index eveyrthing else), but also the
 		data_3d_ array that is used to for finding clusters
 	"""
 
 	sample_mask = np.ones((len(s),),dtype='bool')
-	
+
 	if mode == 'clean':
 		for i in range(len(s)):
 			if np.isnan(np.sum(d3d[i])):
@@ -238,12 +236,12 @@ def remove_samples(s, d3d, mode='clean',auxmode=None):
 		for i in range(len(s)):
 			if s[i] >= 20000 and s[i] <= 32000:
 				sample_mask[i]  = 0
-			
+
 	s = s[sample_mask]
 
 	d3d = d3d[sample_mask]
 
-	# zero the 3d data to SpineM 
+	# zero the 3d data to SpineM
 	d3d[:, ::3] -= d3d[:,12:13]
 	d3d[:, 1::3] -= d3d[:,13:14]
 	d3d[:, 2::3] -= d3d[:,14:15]
@@ -252,9 +250,9 @@ def remove_samples(s, d3d, mode='clean',auxmode=None):
 
 def remove_samples_com(s, d3d, com3d_dict, cthresh=350,rmc = False):
 	"""
-	Here, we remove any remaining samples in which the 3D COM estimates are nan (i.e. no camera pair above threshold for a given frame) 
+	Here, we remove any remaining samples in which the 3D COM estimates are nan (i.e. no camera pair above threshold for a given frame)
 
-	Also, let's remove any sample where abs(COM) is > 350 
+	Also, let's remove any sample where abs(COM) is > 350
 	"""
 
 	sample_mask = np.ones((len(s),),dtype='bool')
@@ -290,7 +288,3 @@ def add_experiment(experiment, samples_out, datadict_out, datadict_3d_out, com3d
 		com3d_dict_out[str(experiment) + '_' + str(key)] = com3d_dict_in[key]
 
 	return samples_out, datadict_out, datadict_3d_out, com3d_dict_out
-
-
-
-
