@@ -72,10 +72,17 @@ samples = np.array(samples)
 vids = {}
 if CONFIG_PARAMS['IMMODE'] == 'vid':
 	for i in range(len(CONFIG_PARAMS['experiment']['CAMNAMES'])):
+		if CONFIG_PARAMS['vid_dir_flag']:
+			addl = ''
+		else:
+			addl = os.listdir(os.path.join(CONFIG_PARAMS['experiment']['viddir'],
+										   CONFIG_PARAMS['experiment']['CAMNAMES'][i]))[0]
 		vids[CONFIG_PARAMS['experiment']['CAMNAMES'][i]] = \
-		processing.generate_readers(CONFIG_PARAMS['experiment']['viddir'],CONFIG_PARAMS['experiment']['CAMNAMES'][i],minopt=0,
-																		maxopt=10, 
-																		extension=CONFIG_PARAMS['experiment']['extension'])
+		processing.generate_readers(CONFIG_PARAMS['experiment']['viddir'],
+									os.path.join(CONFIG_PARAMS['experiment']['CAMNAMES'][i],addl),
+									minopt=0,
+									maxopt=10, 
+									extension=CONFIG_PARAMS['experiment']['extension'])
 
 # Get frame count per video using the keys of the vids dictionary
 ke = list(vids[camnames[0][0]].keys())
