@@ -116,20 +116,13 @@ Use ./config/Labeling/mouse.template for mouse.
 `aws s3 cp ./config/Labeling/mouse.template s3://ratception-tolabel/black6_mouse_42/`
 
 #### 4) Start the labeling job
-My goal is to have everything working from the command line, but getting this step configured via AWS CLI is complicated. For now, you will need to access the Amazon console from your web browser using this link:
+To start the labeling job, update the relevant fields in `./labeling/create_job.sh` and then run `bash ./labeling/create_job.sh`.
 
-https://458691804448.signin.aws.amazon.com/console/
-
-Search for the "SageMaker: service. Once in, click "Labeling Jobs" in the panel on the left, then click the organe "Create labeling job" button. Then, fill out the form like so:
-
-![](./labeling/instruct1.png)
-![](./labeling/instruct2.png)
-
-On the next page, the mouse.template file contents must be copied and pasted into the form.
-
-![](../../DANNCE/labeling/instruct3.png)
-
-Press "Submit" and you are ready to go
+The relevant fields are
+- *--labeling-job-name*. Provide a name for this job.
+- *--input-config*. After `ManifestS3Uri=`, provide the full path to your uploaded data manifest file
+- *--output-config*. After `S3OutputPath=`, provide a path to an existing folder where the labels will live. I normally just choose the base directory where I've put the manifest file.
+- *UiTemplateS3Uri*. Provide the full path to the task template file.
 
 #### 5) When labeling is completed, download the labels
 
