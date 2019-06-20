@@ -47,13 +47,13 @@ for i in range(len(CONFIG_PARAMS['CAMNAMES'])):
 
     #Get max video
     v = os.listdir(os.path.join(CONFIG_PARAMS['viddir'],CONFIG_PARAMS['CAMNAMES'][i],addl))
-    v = [int(f.split('.')[0]) for f in v if '.mp4' in f]
+    v = [int(f.split('.')[0]) for f in v if CONFIG_PARAMS['extension'] in f]
     v = sorted(v)
 
     vids[CONFIG_PARAMS['CAMNAMES'][i]] = \
     processing.generate_readers(CONFIG_PARAMS['viddir'],
                                 os.path.join(CONFIG_PARAMS['CAMNAMES'][i],addl),
-                                maxopt=v[-1], extension='.mp4')
+                                maxopt=v[-1], extension=CONFIG_PARAMS['extension'])
 
 
 params = {'dim_in': (CONFIG_PARAMS['INPUT_HEIGHT'],CONFIG_PARAMS['INPUT_WIDTH']),
