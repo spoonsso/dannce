@@ -7,7 +7,7 @@ import imageio
 from dannce.engine import processing as processing
 import scipy.io as sio
 _DEFAULT_CAM_NAMES = [
-	'cameraR', 'cameraL', 'cameraU', 'cameraU2', 'cameraS', 'cameraE']
+	'CameraR', 'CameraL', 'CameraU', 'CameraU2', 'CameraS', 'CameraE']
 _EXEP_MSG = "Desired Label channels and ground truth channels do not agree"
 
 

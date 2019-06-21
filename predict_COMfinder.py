@@ -55,7 +55,8 @@ def evaluate_COM_steps(start_ind, end_ind, steps):
 		maxframes = labels[partition['valid'][m]]['frames']
 		maxframes = min(list(maxframes.values()))
 		lastvid = str(
-			currentframes // (_N_VIDEO_FRAMES**2) - _N_VIDEO_FRAMES) + '.mp4'
+			(currentframes // _N_VIDEO_FRAMES) * _N_VIDEO_FRAMES -
+			_N_VIDEO_FRAMES) + '.mp4'
 
 		# For each camera, cycle through videonames and close unneeded videos
 		for n in range(len(params['CAMNAMES'])):
