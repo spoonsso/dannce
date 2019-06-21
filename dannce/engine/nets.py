@@ -1,68 +1,72 @@
+"""Define networks for dannce."""
 import tensorflow as tf
-import numpy as np
-import keras
 from keras.models import Model
 from keras.layers import Input, concatenate, Conv2D, MaxPooling2D, Conv2DTranspose, Conv3D, Lambda, MaxPooling3D, Conv3DTranspose, Dense
-from keras.layers import Conv1D, MaxPooling1D, UpSampling1D, GlobalAveragePooling3D, Add
-from keras.layers.core import Activation, Permute, Reshape, Flatten
+from keras.layers import Conv1D, MaxPooling1D, UpSampling1D, Add
+from keras.layers.core import Activation, Permute, Reshape
 from keras.optimizers import Adam
-from keras.losses import binary_crossentropy, mean_squared_error
 from keras.layers.normalization import BatchNormalization
 from keras import backend as K
 from keras.applications.vgg19 import VGG19
-
 from keras.utils import multi_gpu_model
-
-import ops
-
+from dannce.engine import ops as ops
 import gc
 
-def refine_autoencoder(lossfunc,lr,input_dim,feature_num):
+
+def refine_autoencoder(lossfunc, lr, input_dim, feature_num):
+	"""Return a Dense autoencoder."""
 	inputs = Input((input_dim,))
-	dense = Dense(320,activation='relu')(inputs)
-	dense = Dense(160,activation='relu')(BatchNormalization(momentum=0.5)(dense))
-	dense = Dense(80,activation='relu')(BatchNormalization(momentum=0.5)(dense))
-	dense = Dense(20,activation='relu')(BatchNormalization(momentum=0.5)(dense))
-	dense = Dense(80,activation='relu')(BatchNormalization(momentum=0.5)(dense))
-	dense = Dense(160,activation='relu')(BatchNormalization(momentum=0.5)(dense))
-	dense = Dense(320,activation='relu')(BatchNormalization(momentum=0.5)(dense))
+	dense = Dense(320, activation='relu')(inputs)
+	dense = Dense(160, activation='relu')(BatchNormalization(momentum=0.5)(dense))
+	dense = Dense(80, activation='relu')(BatchNormalization(momentum=0.5)(dense))
+	dense = Dense(20, activation='relu')(BatchNormalization(momentum=0.5)(dense))
+	dense = Dense(80, activation='relu')(BatchNormalization(momentum=0.5)(dense))
+	dense = Dense(160, activation='relu')(BatchNormalization(momentum=0.5)(dense))
+	dense = Dense(320, activation='relu')(BatchNormalization(momentum=0.5)(dense))
 	out = Dense(feature_num)(dense)
 
+	# Define and compile model
 	model = Model(inputs=[inputs], outputs=[out])
-
 	model.compile(optimizer=Adam(lr=lr), loss=lossfunc, metrics=['mse'])
-
 	return model
 
-def refine_autoencoder_CNN(lossfunc,lr,input_dim,feature_num, input_length):
-	inputs = Input((None,input_dim))
-	conv = Conv1D(32,7,activation='relu',padding='same')(inputs)
-	conv = MaxPooling1D(2)(conv)
-	conv = Conv1D(64,5,activation='relu',padding='same')(BatchNormalization()(conv))
-	conv = MaxPooling1D(2)(conv)
-	conv = Conv1D(128,3,activation='relu',padding='same')(BatchNormalization()(conv))
-	conv = MaxPooling1D(2)(conv)
-	conv = Conv1D(256,3,activation='relu',padding='same')(BatchNormalization()(conv))
-	conv = UpSampling1D(2)(conv)
-	conv = Conv1D(128,3,activation='relu',padding='same')(BatchNormalization()(conv))
-	conv = UpSampling1D(2)(conv)
-	conv = Conv1D(64,5,activation='relu',padding='same')(BatchNormalization()(conv))
-	conv = UpSampling1D(2)(conv)
-	conv = Conv1D(32,7,activation='relu',padding='same')(BatchNormalization()(conv))
-	out = Conv1D(feature_num,1)(conv)
 
+def refine_autoencoder_CNN(lossfunc, lr, input_dim, feature_num, input_length):
+	"""Return a convolutional autoencoder."""
+	inputs = Input((None, input_dim))
+	conv = Conv1D(32, 7, activation='relu', padding='same')(inputs)
+	conv = MaxPooling1D(2)(conv)
+	conv = Conv1D(64, 5, activation='relu', padding='same')(
+		BatchNormalization()(conv))
+	conv = MaxPooling1D(2)(conv)
+	conv = Conv1D(128, 3, activation='relu', padding='same')(
+		BatchNormalization()(conv))
+	conv = MaxPooling1D(2)(conv)
+	conv = Conv1D(256, 3, activation='relu', padding='same')(
+		BatchNormalization()(conv))
+	conv = UpSampling1D(2)(conv)
+	conv = Conv1D(128, 3, activation='relu', padding='same')(
+		BatchNormalization()(conv))
+	conv = UpSampling1D(2)(conv)
+	conv = Conv1D(64, 5, activation='relu', padding='same')(
+		BatchNormalization()(conv))
+	conv = UpSampling1D(2)(conv)
+	conv = Conv1D(32, 7, activation='relu', padding='same')(
+		BatchNormalization()(conv))
+	out = Conv1D(feature_num, 1)(conv)
+
+	# Define and compile model
 	model = Model(inputs=[inputs], outputs=[out])
-
 	model.compile(optimizer=Adam(lr=lr), loss=lossfunc, metrics=['mse'])
-
 	return model
+
 
 def unet2d(lossfunc, lr, input_dim, feature_num):
-	"""
-	Initialize 2D U-net
+	"""Initialize 2D U-net.
 
-	Uses the Keras functional API to construct a U-Net. The net is fully convolutional, so it can be trained
-		and tested on variable size input (thus the x-y input dimensions are undefined)
+	Uses the Keras functional API to construct a U-Net. The net is fully
+		convolutional, so it can be trained and tested on variable size input
+		(thus the x-y input dimensions are undefined)
 	inputs--
 		lossfunc: loss function
 		lr: float; learning rate
@@ -101,25 +105,33 @@ def unet2d(lossfunc, lr, input_dim, feature_num):
 	conv5 = Conv2D(512, (3, 3), padding='same')(conv5)
 	conv5 = Activation('relu')(BatchNormalization()(conv5))
 
-	up6 = concatenate([Conv2DTranspose(256, (2, 2), strides=(2, 2), padding='same')(conv5), conv4], axis=3)
+	up6 = concatenate(
+		[Conv2DTranspose(256, (2, 2), strides=(2, 2), padding='same')(conv5),
+		 conv4], axis=3)
 	conv6 = Conv2D(256, (3, 3), padding='same')(up6)
 	conv6 = Activation('relu')(conv6)
 	conv6 = Conv2D(256, (3, 3), padding='same')(conv6)
 	conv6 = Activation('relu')(BatchNormalization()(conv6))
 
-	up7 = concatenate([Conv2DTranspose(128, (2, 2), strides=(2, 2), padding='same')(conv6), conv3], axis=3)
+	up7 = concatenate(
+		[Conv2DTranspose(128, (2, 2), strides=(2, 2), padding='same')(conv6),
+		 conv3], axis=3)
 	conv7 = Conv2D(128, (3, 3), padding='same')(up7)
 	conv7 = Activation('relu')(conv7)
 	conv7 = Conv2D(128, (3, 3), padding='same')(conv7)
 	conv7 = Activation('relu')(BatchNormalization()(conv7))
 
-	up8 = concatenate([Conv2DTranspose(64, (2, 2), strides=(2, 2), padding='same')(conv7), conv2], axis=3)
+	up8 = concatenate(
+		[Conv2DTranspose(64, (2, 2), strides=(2, 2), padding='same')(conv7),
+		 conv2], axis=3)
 	conv8 = Conv2D(64, (3, 3), padding='same')(up8)
 	conv8 = Activation('relu')(conv8)
 	conv8 = Conv2D(64, (3, 3), padding='same')(conv8)
 	conv8 = Activation('relu')(BatchNormalization()(conv8))
 
-	up9 = concatenate([Conv2DTranspose(32, (2, 2), strides=(2, 2), padding='same')(conv8), conv1], axis=3)
+	up9 = concatenate(
+		[Conv2DTranspose(32, (2, 2), strides=(2, 2), padding='same')(conv8),
+		 conv1], axis=3)
 	conv9 = Conv2D(32, (3, 3), padding='same')(up9)
 	conv9 = Activation('relu')(conv9)
 	conv9 = Conv2D(32, (3, 3), padding='same')(conv9)
@@ -133,19 +145,22 @@ def unet2d(lossfunc, lr, input_dim, feature_num):
 
 	return model
 
-def unet2d_fullbn(lossfunc, lr, input_dim, feature_num, metric='mse',multigpu=False, include_top = True):
-	"""
-	Initialize 2D U-net
 
-	Uses the Keras functional API to construct a U-Net. The net is fully convolutional, so it can be trained
-		and tested on variable size input (thus the x-y input dimensions are undefined)
+def unet2d_fullbn(
+	lossfunc, lr, input_dim, feature_num, metric='mse',
+	multigpu=False, include_top=True):
+	"""Initialize 2D U-net.
+
+    Uses the Keras functional API to construct a U-Net. The net is fully
+        convolutional, so it can be trained and tested on variable size input
+        (thus the x-y input dimensions are undefined)
 	inputs--
-		lossfunc: loss function
-		lr: float; learning rate
-		input_dim: int; number of feature channels in input
-		feature_num: int; number of output features
-	outputs--
-		model: Keras model object
+        lossfunc: loss function
+        lr: float; learning rate
+        input_dim: int; number of feature channels in input
+        feature_num: int; number of output features
+    outputs--
+        model: Keras model object
 	"""
 	inputs = Input((None, None, input_dim))
 	conv1 = Conv2D(32, (3, 3), padding='same')(inputs)
@@ -177,25 +192,33 @@ def unet2d_fullbn(lossfunc, lr, input_dim, feature_num, metric='mse',multigpu=Fa
 	conv5 = Conv2D(512, (3, 3), padding='same')(conv5)
 	conv5 = Activation('relu')(BatchNormalization()(conv5))
 
-	up6 = concatenate([Conv2DTranspose(256, (2, 2), strides=(2, 2), padding='same')(conv5), conv4], axis=3)
+	up6 = concatenate(
+		[Conv2DTranspose(256, (2, 2), strides=(2, 2), padding='same')(conv5),
+		 conv4], axis=3)
 	conv6 = Conv2D(256, (3, 3), padding='same')(up6)
 	conv6 = Activation('relu')(BatchNormalization()(conv6))
 	conv6 = Conv2D(256, (3, 3), padding='same')(conv6)
 	conv6 = Activation('relu')(BatchNormalization()(conv6))
 
-	up7 = concatenate([Conv2DTranspose(128, (2, 2), strides=(2, 2), padding='same')(conv6), conv3], axis=3)
+	up7 = concatenate(
+		[Conv2DTranspose(128, (2, 2), strides=(2, 2), padding='same')(conv6),
+		 conv3], axis=3)
 	conv7 = Conv2D(128, (3, 3), padding='same')(up7)
 	conv7 = Activation('relu')(BatchNormalization()(conv7))
 	conv7 = Conv2D(128, (3, 3), padding='same')(conv7)
 	conv7 = Activation('relu')(BatchNormalization()(conv7))
 
-	up8 = concatenate([Conv2DTranspose(64, (2, 2), strides=(2, 2), padding='same')(conv7), conv2], axis=3)
+	up8 = concatenate(
+		[Conv2DTranspose(64, (2, 2), strides=(2, 2), padding='same')(conv7),
+		 conv2], axis=3)
 	conv8 = Conv2D(64, (3, 3), padding='same')(up8)
 	conv8 = Activation('relu')(BatchNormalization()(conv8))
 	conv8 = Conv2D(64, (3, 3), padding='same')(conv8)
 	conv8 = Activation('relu')(BatchNormalization()(conv8))
 
-	up9 = concatenate([Conv2DTranspose(32, (2, 2), strides=(2, 2), padding='same')(conv8), conv1], axis=3)
+	up9 = concatenate(
+		[Conv2DTranspose(32, (2, 2), strides=(2, 2), padding='same')(conv8),
+		 conv1], axis=3)
 	conv9 = Conv2D(32, (3, 3), padding='same')(up9)
 	conv9 = Activation('relu')(BatchNormalization()(conv9))
 	conv9 = Conv2D(32, (3, 3), padding='same')(conv9)
@@ -203,25 +226,25 @@ def unet2d_fullbn(lossfunc, lr, input_dim, feature_num, metric='mse',multigpu=Fa
 
 	conv10 = Conv2D(feature_num, (1, 1), activation='sigmoid')(conv9)
 
-
 	if include_top:
 		model = Model(inputs=[inputs], outputs=[conv10])
 	else:
 		model = Model(inputs=[inputs], outputs=[conv9])
 
 	if multigpu:
-		model = multi_gpu_model(model,gpus=2)
+		model = multi_gpu_model(model, gpus=2)
 
 	model.compile(optimizer=Adam(lr=lr), loss=lossfunc, metrics=[metric])
 
 	return model
 
-def unet2d_fullbn_vgg19_1024deep_linout(lossfunc, lr, input_dim, feature_num):
-	"""
-	Initialize 2D U-net
 
-	Uses the Keras functional API to construct a U-Net. The net is fully convolutional, so it can be trained
-		and tested on variable size input (thus the x-y input dimensions are undefined)
+def unet2d_fullbn_vgg19_1024deep_linout(lossfunc, lr, input_dim, feature_num):
+	"""Initialize 2D U-net.
+
+	Uses the Keras functional API to construct a U-Net. The net is fully
+		convolutional, so it can be trained and tested on variable size input
+		(thus the x-y input dimensions are undefined)
 	inputs--
 		lossfunc: loss function
 		lr: float; learning rate
@@ -262,30 +285,37 @@ def unet2d_fullbn_vgg19_1024deep_linout(lossfunc, lr, input_dim, feature_num):
 	conv5 = Conv2D(1024, (3, 3), padding='same')(conv5)
 	conv5 = Activation('relu')(BatchNormalization()(conv5))
 
-	up7 = concatenate([Conv2DTranspose(512, (2, 2), strides=(2, 2), padding='same')(conv5), conv4], axis=3)
+	up7 = concatenate(
+		[Conv2DTranspose(512, (2, 2), strides=(2, 2), padding='same')(conv5),
+		 conv4], axis=3)
 	conv7 = Conv2D(512, (3, 3), padding='same')(up7)
 	conv7 = Activation('relu')(BatchNormalization()(conv7))
 	conv7 = Conv2D(512, (3, 3), padding='same')(conv7)
 	conv7 = Activation('relu')(BatchNormalization()(conv7))
 
-	up8 = concatenate([Conv2DTranspose(256, (2, 2), strides=(2, 2), padding='same')(conv7), conv3], axis=3)
+	up8 = concatenate(
+		[Conv2DTranspose(256, (2, 2), strides=(2, 2), padding='same')(conv7),
+		 conv3], axis=3)
 	conv8 = Conv2D(256, (3, 3), padding='same')(up8)
 	conv8 = Activation('relu')(BatchNormalization()(conv8))
 	conv8 = Conv2D(256, (3, 3), padding='same')(conv8)
 	conv8 = Activation('relu')(BatchNormalization()(conv8))
 
-	up9 = concatenate([Conv2DTranspose(128, (2, 2), strides=(2, 2), padding='same')(conv8), conv2], axis=3)
+	up9 = concatenate(
+		[Conv2DTranspose(128, (2, 2), strides=(2, 2), padding='same')(conv8),
+		 conv2], axis=3)
 	conv9 = Conv2D(128, (3, 3), padding='same')(up9)
 	conv9 = Activation('relu')(BatchNormalization()(conv9))
 	conv9 = Conv2D(128, (3, 3), padding='same')(conv9)
 	conv9 = Activation('relu')(BatchNormalization()(conv9))
 
-	up10 = concatenate([Conv2DTranspose(64, (2, 2), strides=(2, 2), padding='same')(conv9), conv1], axis=3)
+	up10 = concatenate(
+		[Conv2DTranspose(64, (2, 2), strides=(2, 2), padding='same')(conv9),
+		 conv1], axis=3)
 	conv10 = Conv2D(64, (3, 3), padding='same')(up10)
 	conv10 = Activation('relu')(BatchNormalization()(conv10))
 	conv10 = Conv2D(64, (3, 3), padding='same')(conv10)
 	conv10 = Activation('relu')(BatchNormalization()(conv10))
-
 
 	conv11 = Conv2D(feature_num, (1, 1), activation='linear')(conv10)
 
@@ -305,8 +335,10 @@ def unet2d_fullbn_vgg19_1024deep_linout(lossfunc, lr, input_dim, feature_num):
 
 	return model
 
-def unet3d_big_slowramp_2gpu(lossfunc, lr, input_dim, feature_num, num_cams, batch_norm=False):
 
+def unet3d_big_slowramp_2gpu(
+	lossfunc, lr, input_dim, feature_num, num_cams, batch_norm=False):
+	"""Initialize 3d Unet."""
 	if batch_norm:
 		def fun(inputs):
 			return BatchNormalization()(inputs)
@@ -315,7 +347,7 @@ def unet3d_big_slowramp_2gpu(lossfunc, lr, input_dim, feature_num, num_cams, bat
 			return inputs
 
 	with tf.device('/gpu:0'):
-		inputs = Input((None,None,None, input_dim*num_cams))
+		inputs = Input((None, None, None, input_dim * num_cams))
 		conv1 = Conv3D(32, (3, 3, 3), padding='same')(inputs)
 		conv1 = Activation('relu')(fun(conv1))
 		conv1 = Conv3D(32, (3, 3, 3), padding='same')(conv1)
@@ -337,23 +369,28 @@ def unet3d_big_slowramp_2gpu(lossfunc, lr, input_dim, feature_num, num_cams, bat
 		conv4 = Conv3D(512, (3, 3, 3), padding='same')(pool3)
 		conv4 = Activation('relu')(fun(conv4))
 
-
 	with tf.device('/gpu:1'):
 		conv4 = Conv3D(512, (3, 3, 3), padding='same')(conv4)
 		conv4 = Activation('relu')(fun(conv4))
-		up6 = concatenate([Conv3DTranspose(128, (2, 2, 2), strides=(2, 2, 2), padding='same')(conv4), conv3], axis=4)
+		up6 = concatenate(
+			[Conv3DTranspose(128, (2, 2, 2), strides=(2, 2, 2), padding='same')(conv4),
+			 conv3], axis=4)
 		conv6 = Conv3D(128, (3, 3, 3), padding='same')(up6)
 		conv6 = Activation('relu')(fun(conv6))
 		conv6 = Conv3D(128, (3, 3, 3), padding='same')(conv6)
 		conv6 = Activation('relu')(fun(conv6))
 
-		up7 = concatenate([Conv3DTranspose(64, (2, 2, 2), strides=(2, 2, 2), padding='same')(conv6), conv2], axis=4)
+		up7 = concatenate(
+			[Conv3DTranspose(64, (2, 2, 2), strides=(2, 2, 2), padding='same')(conv6),
+			 conv2], axis=4)
 		conv7 = Conv3D(64, (3, 3, 3), padding='same')(up7)
 		conv7 = Activation('relu')(fun(conv7))
 		conv7 = Conv3D(64, (3, 3, 3), padding='same')(conv7)
 		conv7 = Activation('relu')(fun(conv7))
 
-		up8 = concatenate([Conv3DTranspose(32, (2, 2, 2), strides=(2, 2, 2), padding='same')(conv7), conv1], axis=4)
+		up8 = concatenate(
+			[Conv3DTranspose(32, (2, 2, 2), strides=(2, 2, 2), padding='same')(conv7),
+			 conv1], axis=4)
 		conv8 = Conv3D(32, (3, 3, 3), padding='same')(up8)
 		conv8 = Activation('relu')(fun(conv8))
 		conv8 = Conv3D(32, (3, 3, 3), padding='same')(conv8)
@@ -363,13 +400,13 @@ def unet3d_big_slowramp_2gpu(lossfunc, lr, input_dim, feature_num, num_cams, bat
 
 		model = Model(inputs=[inputs], outputs=[conv10])
 
-
 	model.compile(optimizer=Adam(lr=lr), loss=lossfunc, metrics=['mse'])
-
 	return model
 
-def unet3d_big_1gpu_evalonly(lossfunc, lr, input_dim, feature_num, num_cams, batch_norm=False):
 
+def unet3d_big_1gpu_evalonly(
+	lossfunc, lr, input_dim, feature_num, num_cams, batch_norm=False):
+	"""Initialize 3d Unet."""
 	if batch_norm:
 		def fun(inputs):
 			return BatchNormalization()(inputs)
@@ -377,7 +414,7 @@ def unet3d_big_1gpu_evalonly(lossfunc, lr, input_dim, feature_num, num_cams, bat
 		def fun(inputs):
 			return inputs
 
-	inputs = Input((None,None,None, input_dim*num_cams))
+	inputs = Input((None, None, None, input_dim * num_cams))
 	conv1 = Conv3D(64, (3, 3, 3), padding='same')(inputs)
 	conv1 = Activation('relu')(fun(conv1))
 	conv1 = Conv3D(64, (3, 3, 3), padding='same')(conv1)
@@ -401,20 +438,25 @@ def unet3d_big_1gpu_evalonly(lossfunc, lr, input_dim, feature_num, num_cams, bat
 	conv4 = Conv3D(512, (3, 3, 3), padding='same')(conv4)
 	conv4 = Activation('relu')(fun(conv4))
 
-
-	up6 = concatenate([Conv3DTranspose(256, (2, 2, 2), strides=(2, 2, 2), padding='same')(conv4), conv3], axis=4)
+	up6 = concatenate(
+		[Conv3DTranspose(256, (2, 2, 2), strides=(2, 2, 2), padding='same')(conv4),
+		 conv3], axis=4)
 	conv6 = Conv3D(256, (3, 3, 3), padding='same')(up6)
 	conv6 = Activation('relu')(fun(conv6))
 	conv6 = Conv3D(256, (3, 3, 3), padding='same')(conv6)
 	conv6 = Activation('relu')(fun(conv6))
 
-	up7 = concatenate([Conv3DTranspose(128, (2, 2, 2), strides=(2, 2, 2), padding='same')(conv6), conv2], axis=4)
+	up7 = concatenate(
+		[Conv3DTranspose(128, (2, 2, 2), strides=(2, 2, 2), padding='same')(conv6),
+		 conv2], axis=4)
 	conv7 = Conv3D(128, (3, 3, 3), padding='same')(up7)
 	conv7 = Activation('relu')(fun(conv7))
 	conv7 = Conv3D(128, (3, 3, 3), padding='same')(conv7)
 	conv7 = Activation('relu')(fun(conv7))
 
-	up8 = concatenate([Conv3DTranspose(64, (2, 2, 2), strides=(2, 2, 2), padding='same')(conv7), conv1], axis=4)
+	up8 = concatenate(
+		[Conv3DTranspose(64, (2, 2, 2), strides=(2, 2, 2), padding='same')(conv7),
+		 conv1], axis=4)
 	conv8 = Conv3D(64, (3, 3, 3), padding='same')(up8)
 	conv8 = Activation('relu')(fun(conv8))
 	conv8 = Conv3D(64, (3, 3, 3), padding='same')(conv8)
@@ -424,14 +466,15 @@ def unet3d_big_1gpu_evalonly(lossfunc, lr, input_dim, feature_num, num_cams, bat
 
 	model = Model(inputs=[inputs], outputs=[conv10])
 
-
 	model.compile(optimizer=Adam(lr=lr), loss=lossfunc, metrics=['mse'])
-
 	return model
 
-def unet_2D_3D_nointer(lossfunc, lr, input_dim, feature_num, num_cams, 
-	batch_norm=False, batch_size=3, imwidheight = (512,512),grid_size = 64*64*64, grid_dims=2, loss_weights=[0,1]):
 
+def unet_2D_3D_nointer(
+	lossfunc, lr, input_dim, feature_num, num_cams, batch_norm=False,
+	batch_size=3, imwidheight=(512, 512), grid_size=64 * 64 * 64, grid_dims=2,
+	loss_weights=[0, 1]):
+	"""TODO(Describe): Describe this model."""
 	if batch_norm:
 		def fun(inputs):
 			return BatchNormalization()(inputs)
@@ -439,12 +482,18 @@ def unet_2D_3D_nointer(lossfunc, lr, input_dim, feature_num, num_cams,
 		def fun(inputs):
 			return inputs
 
-	with tf.device('/gpu:0'): #2D Unet
+	# 2D Unet
+	with tf.device('/gpu:0'):
 		inputs = Input((num_cams, imwidheight[0], imwidheight[1], input_dim))
-		# input will enter net as shape (batch_size, num_cams, im_height, im_width, num_channels)
-		# Need to reshape and collapse batch_size and num_cams so that we can use a single conv. decoder
-		inputs_ = Lambda(lambda x: K.reshape(x,(batch_size*num_cams,
-			K.int_shape(x)[2],K.int_shape(x)[3],K.int_shape(x)[4])))(inputs)
+		# input will enter net as shape
+		# (batch_size, num_cams, im_height, im_width, num_channels)
+		# Need to reshape and collapse batch_size and num_cams so that we can
+		# use a single conv. decoder
+		inputs_ = Lambda(lambda x: K.reshape(
+			x,
+			(batch_size * num_cams, K.int_shape(x)[2],
+				K.int_shape(x)[3], K
+				.int_shape(x)[4])))(inputs)
 
 		conv1 = Conv2D(32, (3, 3), padding='same')(inputs_)
 		conv1 = Activation('relu')(fun(conv1))
@@ -463,34 +512,44 @@ def unet_2D_3D_nointer(lossfunc, lr, input_dim, feature_num, num_cams,
 		conv3 = Conv2D(128, (3, 3), padding='same')(conv3)
 		conv3 = Activation('relu')(fun(conv3))
 
-		up1 = concatenate([Conv2DTranspose(64, (2, 2), strides=(2, 2), padding='same')(conv3), conv2], axis=3)
+		up1 = concatenate(
+			[Conv2DTranspose(64, (2, 2), strides=(2, 2), padding='same')(conv3),
+			 conv2], axis=3)
 		conv4 = Conv2D(64, (3, 3), padding='same')(up1)
 		conv4 = Activation('relu')(fun(conv4))
 		conv4 = Conv2D(64, (3, 3), padding='same')(conv4)
 		conv4 = Activation('relu')(fun(conv4))
 
-		up2 = concatenate([Conv2DTranspose(32, (2, 2), strides=(2, 2), padding='same')(conv4), conv1], axis=3)
+		up2 = concatenate(
+			[Conv2DTranspose(32, (2, 2), strides=(2, 2), padding='same')(conv4),
+			 conv1], axis=3)
 		conv5 = Conv2D(32, (3, 3), padding='same')(up2)
 		conv5 = Activation('relu')(fun(conv5))
 		conv5 = Conv2D(32, (3, 3), padding='same')(conv5)
 		conv5 = Activation('relu')(fun(conv5))
 
-		conv6 = Conv2D(feature_num, (3, 3), activation='sigmoid',padding='same')(conv5)
+		conv6 = Conv2D(
+			feature_num, (3, 3), activation='sigmoid', padding='same')(conv5)
 
+	# Project up to 3D
 	with tf.device('/gpu:1'):
-		# Project up to 3D
-		inputs_grid = Input((num_cams,grid_size,grid_dims))
-		inputs_grid_= Lambda(lambda x: K.reshape(x,(batch_size*num_cams,
-			K.int_shape(x)[2],K.int_shape(x)[3])))(inputs_grid)
+		inputs_grid = Input((num_cams, grid_size, grid_dims))
+		inputs_grid_ = Lambda(lambda x: K.reshape(
+			x,
+			(batch_size * num_cams, K.int_shape(x)[2], K.int_shape(x)[3])))(inputs_grid)
 
-		unprojected = Lambda(lambda x: ops.unproj(x[0],x[1], batch_size))([conv6, inputs_grid_])
+		unprojected = Lambda(lambda x: ops.unproj(
+			x[0], x[1], batch_size))([conv6, inputs_grid_])
 
-		# Permute so that the cameras are last (they come out of unproject as second) and can be reshaped together with channels to act ast he last feature axis
-		unprojected = Permute((2,3,4,5,1))(unprojected)
-		unprojected = Reshape((K.int_shape(x)[1],K.int_shape(x)[2],K.int_shape(x)[3],-1))(unprojected)
+		# Permute so that the cameras are last (they come out of unproject as
+		# second) and can be reshaped together with channels to act ast he last
+		# feature axis
+		unprojected = Permute((2, 3, 4, 5, 1))(unprojected)
+		# TODO(x): I'm getting an undefined flag. Where is x coming from?
+		unprojected = Reshape(
+			(K.int_shape(x)[1], K.int_shape(x)[2], K.int_shape(x)[3], -1))(unprojected)
 
-		#Now lets do a small 3D UNet
-		
+		# Now lets do a small 3D UNet
 		conv1_3D = Conv3D(32, (3, 3, 3), padding='same')(unprojected)
 		conv1_3D = Activation('relu')(fun(conv1_3D))
 		conv1_3D = Conv3D(32, (3, 3, 3), padding='same')(conv1_3D)
@@ -508,28 +567,34 @@ def unet_2D_3D_nointer(lossfunc, lr, input_dim, feature_num, num_cams,
 		conv3_3D = Conv3D(128, (3, 3, 3), padding='same')(conv3_3D)
 		conv3_3D = Activation('relu')(fun(conv3_3D))
 
-		up1_3D = concatenate([Conv3DTranspose(64, (2, 2, 2), strides=(2, 2, 2), padding='same')(conv3_3D), conv2_3D], axis=4)
+		up1_3D = concatenate(
+			[Conv3DTranspose(
+				64, (2, 2, 2), strides=(2, 2, 2), padding='same')(conv3_3D),
+			 conv2_3D], axis=4)
 		conv4_3D = Conv3D(64, (3, 3, 3), padding='same')(up1_3D)
 		conv4_3D = Activation('relu')(fun(conv4_3D))
 		conv4_3D = Conv3D(64, (3, 3, 3), padding='same')(conv4_3D)
 		conv4_3D = Activation('relu')(fun(conv4_3D))
 
-		up2_3D = concatenate([Conv3DTranspose(32, (2, 2, 2), strides=(2, 2, 2), padding='same')(conv4_3D), conv1_3D], axis=4)
+		up2_3D = concatenate(
+			[Conv3DTranspose(
+				32, (2, 2, 2), strides=(2, 2, 2), padding='same')(conv4_3D),
+			 conv1_3D], axis=4)
 		conv5_3D = Conv3D(32, (3, 3, 3), padding='same')(up2_3D)
 		conv5_3D = Activation('relu')(fun(conv5_3D))
 		conv5_3D = Conv3D(32, (3, 3, 3), padding='same')(conv5_3D)
 		conv5_3D = Activation('relu')(fun(conv5_3D))
 
-		conv6_3D = Conv3D(feature_num, (3, 3, 3), activation='sigmoid', padding='same')(conv5_3D)
+		conv6_3D = Conv3D(
+			feature_num, (3, 3, 3), activation='sigmoid', padding='same')(conv5_3D)
 
 		model = Model(inputs=[inputs, inputs_grid], outputs=[conv6_3D])
 
-
-	model.compile(optimizer=Adam(lr=lr), loss=[lossfunc], loss_weights=loss_weights)
-
+	model.compile(
+		optimizer=Adam(lr=lr), loss=[lossfunc], loss_weights=loss_weights)
 	return model
 
-def unet_2D_3D(lossfunc, lr, input_dim, feature_num, num_cams, 
+def unet_2D_3D(lossfunc, lr, input_dim, feature_num, num_cams,
 	batch_norm=False, batch_size=3, imwidheight = (512,512),grid_size = 64*64*64, grid_dims=2, loss_weights=[0,1]):
 
 	if batch_norm:
@@ -594,7 +659,7 @@ def unet_2D_3D(lossfunc, lr, input_dim, feature_num, num_cams,
 		unprojected = Lambda(lambda x: K.mean(x,axis=1))(unprojected)
 
 		#Now lets do a small 3D UNet
-		
+
 		conv1_3D = Conv3D(32, (3, 3, 3), padding='same')(unprojected)
 		conv1_3D = Activation('relu')(fun(conv1_3D))
 		conv1_3D = Conv3D(32, (3, 3, 3), padding='same')(conv1_3D)
@@ -1113,7 +1178,7 @@ def unet3d_big_2gpu(lossfunc, lr, input_dim, feature_num, num_cams, batch_norm=F
 
 	return model
 
-def test_project(lossfunc, lr, input_dim, feature_num, num_cams, num_grids, batch_norm=False, 
+def test_project(lossfunc, lr, input_dim, feature_num, num_cams, num_grids, batch_norm=False,
 	instance_norm = False, vmin=-120,vmax=120, nvox=64, outsize=512, batch_size=1):
 
 	inputs = Input(batch_shape=(batch_size,num_grids,nvox,nvox,nvox,feature_num))
@@ -1134,7 +1199,7 @@ def test_project(lossfunc, lr, input_dim, feature_num, num_cams, num_grids, batc
 
 	return model
 
-def unet3d_project(lossfunc, lr, input_dim, feature_num, num_cams, batch_norm=False, 
+def unet3d_project(lossfunc, lr, input_dim, feature_num, num_cams, batch_norm=False,
 	instance_norm = False, vmin=-120,vmax=120, nvox=64, outsize=512, batch_size=4):
 
 	if batch_norm and not instance_norm:
@@ -1390,7 +1455,7 @@ def unet2d_fullbn_vgg19_1024deep_3d_2gpu(lossfunc, lr, input_dim, feature_num, f
 
 	with tf.device('/gpu:1'):
 		input2 = model(inputs)
-		
+
 		output1 = Conv2D(feature_num, (1, 1), activation='sigmoid')(input2)
 		output1 = Lambda(lambda x: K.expand_dims(x,axis=0))(output1)
 
@@ -1502,7 +1567,7 @@ def unet2d_fullbn_vgg19_1024deep_3d_2gpu_dilation(lossfunc, lr, input_dim, featu
 
 	with tf.device('/gpu:1'):
 		input2 = model(inputs)
-		
+
 		output1 = Conv2D(feature_num, (1, 1), activation='sigmoid')(input2)
 		output1 = Lambda(lambda x: K.expand_dims(x,axis=0))(output1)
 

@@ -4,6 +4,25 @@ DANNCE (3-Dimensional Aligned Neural Network for Computational Ethology) is a co
 
 DANNCE is currently configured as a two-stage system. First, videos are processed to extract the overall position of the animal in each video frame. Then, these positions are used to create *unprojected* 3D image volumes for each view that contain the animal. These image volumes are used as input to the CNN to make keypoint predictions.
 
+## Installation
+
+The following combinations of operating systems, python, tensorflow, cuda, and cudnn distributions have been used for development.
+
+|      OS      | python | tensorflow-gpu | cuda | cudnn |
+|:------------:|:------:|:----------:|:----:|:-----:|
+| Ubuntu 18.04 |  3.6.8 |   1.10.0   |  9.0 |  7.2  |
+| Ubuntu 16.04 |  3.6.x |   1.10.x   |  9.0 |  7.x  |
+|  Windows 10  |  3.6.8 |   1.10.0   |  9.0 |  7.6  |
+|  Windows 10  |  3.6.8 |    1.4.x   |  8.0 |  6.0  |
+
+We recommend installing `DANNCE` within a conda environment using `python 3.6.x`. 
+
+1. Install tensorflow by following the instructions [here](https://www.tensorflow.org/install/pip). This is often as simple as `pip install tensorflow==1.10.0` or `pip install tensorflow-gpu==1.10.0` for gpu support.
+
+2. Install dependencies with the included setup script `python setup.py install`
+
+3. Configure Matlab engine for python (often requires admin priviledges). Open Matlab, enter the command `matlabroot` in the command-line, and copy the resulting path. In Unix systems, enter the command `sudo $(which python) matlabroot/extern/engines/python/setup.py install` replacing `matlabroot` with the path you copied. In Windows, start a command prompt with admin priviledges and enter the command `python_path matlabroot/extern/engines/python/setup.py install`, replacing `python_path` with the path to your environment's python.
+
 ## Formatting The Data
 During training and evaluation, DANNCE requires a set of videos across multiple views, a camera calibration parameters file, and a "matched frames" file that indexes the videos to ensure synchrony. DANNCE also supports data in the form of individual images and volumetric `.npy` files (used to accelerate training). For evaluation, the default data format is video.
 
