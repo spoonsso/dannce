@@ -1,17 +1,17 @@
 % Takes in manually labeled points, undistorts the points, and triangulates
 % to 3D using camera calibration info
 
-calibfile = '/home/twd/Dropbox/mocapdata_for_tim/CameraCalib_rd12_20190508_mice/20190508/20190405_calibration_rat/worldcoordinates_lframe.mat';
+calibfile = '/home/twd/Dropbox/Mouse videos/190618_Test01/190716_3camMouseVideos/Calibration/worldcoordinates_lframe.mat';
 CROP_HEIGHT = 0;%These offsets are critical! TODO: port this to python and
 % make sure this is read in from config file
-CROP_WIDTH = 20;%These offsets are critical! TODO: port this to python and
+CROP_WIDTH = 0;%These offsets are critical! TODO: port this to python and
 % make sure this is read in from config file
 load(calibfile);
-cams = [2, 3, 1]; %This ordering is critical! TODO: port this to python and
+cams = [1, 2, 3]; %This ordering is critical! TODO: port this to python and
 % make sure this is read in from config file
-camnames = {'CameraLmouse', 'CameraRmouse', 'CameraSmouse'};
+camnames = {'Left', 'Right', 'Top'};
 data = {};
-data_undisorted = {};
+data_undistorted = {};
 data_raw = {};
 for i = 1:numel(cams)
     load([camnames{i} '_manlabels.mat']);
@@ -67,6 +67,7 @@ for j=1:numel(campairs)
     data_3d = cat(4,data_3d,campairs{j});
 end
 data_3d = nanmedian(data_3d,4);
+%%
 data_sampleID = sampleID;
 data_frame = round(data_sampleID/33.3333);%This frame period! TODO: port this to python and
 % make sure this is read in from config file
