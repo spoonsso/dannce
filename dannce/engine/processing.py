@@ -6,7 +6,7 @@ import imageio
 import os
 import ast
 import PIL
-import matplotlib.pyplot as plt
+
 from six.moves import cPickle
 import scipy.io as sio
 
@@ -345,6 +345,10 @@ def err_vs_kept_percentile(err, pmax, bins=100, pct=50):
 
 def plot_markers_2d(im, markers, newfig=True):
 	"""Plot markers in two dimensions."""
+
+	# As a global import, this produces seg faults
+	import matplotlib.pyplot as plt
+
 	if newfig:
 		plt.figure()
 	plt.imshow((im - np.min(im)) / (np.max(im) - np.min(im)))
@@ -452,6 +456,10 @@ def moment_3d(im, mesh, thresh=0):
 
 def animate_predictions(preds):
 	"""Animate predictions."""
+
+	#As a global import, this produces seg faults
+	import matplotlib.pyplot as plt
+
 	truth_out = np.zeros((preds.shape[0], 20, 3))
 	pred_out = np.zeros((preds.shape[0], 20, 3))
 

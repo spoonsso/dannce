@@ -62,6 +62,7 @@ params = {
     'crop_width': CONFIG_PARAMS['CROP_WIDTH'],
     'crop_height': CONFIG_PARAMS['CROP_HEIGHT'],
     'bbox_dim': (CONFIG_PARAMS['BBOX_HEIGHT'], CONFIG_PARAMS['BBOX_WIDTH']),
+    'chunks': CONFIG_PARAMS['chunks'],
     'shuffle': True}
 
 labels = datadict_
