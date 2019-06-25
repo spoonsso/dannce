@@ -6,7 +6,6 @@ import imageio
 import os
 import ast
 import PIL
-import matplotlib.pyplot as plt
 from six.moves import cPickle
 import scipy.io as sio
 
@@ -178,8 +177,11 @@ def generate_readers(
 	# This is a trick (that should work) for getting rid of
 	# awkward sub-directory folder names when they are being used
 	mp4files_scrub = \
-		[os.path.join(f.split('/')[0], f.split('/')[-1])
+		[os.path.join(
+			os.path.normpath(f).split(os.sep)[0],
+			os.path.normpath(f).split(os.sep)[-1])
 		 for f in mp4files]
+
 	for i in range(len(mp4files)):
 		if pathonly:
 			out[mp4files_scrub[i]] = os.path.join(viddir, mp4files[i])
@@ -258,11 +260,16 @@ def write_config(resultsdir, configdict, message, filename='modelconfig.cfg'):
 
 
 def read_config(filename):
-	"""Read configuration file."""
+	"""Read configuration file.
+
+	:param filename: Path to configuration file.
+	"""
 	f = open(filename)
 	CONFIG_PARAMS = {}
 	for line in f:
 		if line[0] != '#' and line[:1] != '\n':
+			# TODO(yaml): can we switch yaml configuration files?
+			# The line split(':') messes with windows drive paths
 			elements = line.split(':')
 			try:
 				CONFIG_PARAMS[elements[0]] = ast.literal_eval(elements[1].strip())
@@ -345,6 +352,10 @@ def err_vs_kept_percentile(err, pmax, bins=100, pct=50):
 
 def plot_markers_2d(im, markers, newfig=True):
 	"""Plot markers in two dimensions."""
+
+	# As a global import, this produces seg faults
+	import matplotlib.pyplot as plt
+
 	if newfig:
 		plt.figure()
 	plt.imshow((im - np.min(im)) / (np.max(im) - np.min(im)))
@@ -452,6 +463,10 @@ def moment_3d(im, mesh, thresh=0):
 
 def animate_predictions(preds):
 	"""Animate predictions."""
+
+	# As a global import, this produces seg faults
+	import matplotlib.pyplot as plt
+
 	truth_out = np.zeros((preds.shape[0], 20, 3))
 	pred_out = np.zeros((preds.shape[0], 20, 3))
 

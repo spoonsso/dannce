@@ -8,6 +8,9 @@ import scipy.io as sio
 from copy import deepcopy
 import sys
 import dannce.engine.processing as processing
+import keras.losses
+from dannce.engine import nets
+from dannce.engine import losses
 import dannce.engine.ops as ops
 from dannce.engine.generator_aux import DataGenerator_downsample
 import dannce.engine.serve_data_COM as serve_data
@@ -16,18 +19,26 @@ from six.moves import cPickle
 import matlab
 import matlab.engine
 
-# Set up environment and params
+# Set up environment
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 eng = matlab.engine.start_matlab()
+
+# Load in the params
 params = processing.read_config(sys.argv[1])
-params['loss'] = locals()[params['loss']]
-params['net'] = eval(params['net'])
+
+# Load the appropriate loss function and network
+try:
+	params['loss'] = getattr(losses, params['loss'])
+except ModuleNotFoundError:
+	params['loss'] = getattr(keras.losses, params['loss'])
+params['net'] = getattr(nets, params['net'])
+
 undistort = params['undistort']
 vid_dir_flag = params['vid_dir_flag']
 _N_VIDEO_FRAMES = 3500
+
 # Build net
 print("Initializing Network...")
-
 model = params['net'](
 	params['loss'],
 	params['lr'],
@@ -61,7 +72,7 @@ def evaluate_COM_steps(start_ind, end_ind, steps):
 		# For each camera, cycle through videonames and close unneeded videos
 		for n in range(len(params['CAMNAMES'])):
 			for key in list(vids[params['CAMNAMES'][n]].keys()):
-				vikey = key.split('/')[1]
+				vikey = os.path.split(key)[1]
 				if lastvid == vikey:
 					print("Closing video: {}".format(key))
 					vids[params['CAMNAMES'][n]][key].close()
