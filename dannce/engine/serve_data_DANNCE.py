@@ -22,7 +22,7 @@ def prepare_data(CONFIG_PARAMS, com_flag=True, nanflag=True):
 
 	# Collect data labels and matched frames info. We will keep the 2d labels
 	# here just because we could in theory use this for training later.
-	# No need to collect 3d data but it sueful for checking predictions
+	# No need to collect 3d data but it useful for checking predictions
 	if len(CONFIG_PARAMS['CAMNAMES']) != len(CONFIG_PARAMS['datafile']):
 		raise Exception("need a datafile for every cameras")
 
