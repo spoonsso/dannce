@@ -9,6 +9,7 @@ setup(
                       'six',
                       'keras==2.2.2',
                       'imageio',
+                      'imageio-ffmpeg',
                       'scikit-image',
                       'matlab',
                       'matplotlib']
