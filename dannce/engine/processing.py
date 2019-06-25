@@ -463,7 +463,6 @@ def moment_3d(im, mesh, thresh=0):
 
 def animate_predictions(preds):
 	"""Animate predictions."""
-
 	# As a global import, this produces seg faults
 	import matplotlib.pyplot as plt
 
