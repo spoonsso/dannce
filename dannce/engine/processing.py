@@ -10,6 +10,10 @@ import PIL
 from six.moves import cPickle
 import scipy.io as sio
 
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+
 
 def trim_COM_pickle(
 	fpath, start_sample, end_sample, opath=None):
@@ -345,9 +349,6 @@ def err_vs_kept_percentile(err, pmax, bins=100, pct=50):
 
 def plot_markers_2d(im, markers, newfig=True):
 	"""Plot markers in two dimensions."""
-
-	# As a global import, this produces seg faults
-	import matplotlib.pyplot as plt
 
 	if newfig:
 		plt.figure()

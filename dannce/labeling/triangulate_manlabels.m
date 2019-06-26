@@ -1,20 +1,20 @@
 % Takes in manually labeled points, undistorts the points, and triangulates
 % to 3D using camera calibration info
 
-calibfile = '/home/twd/Dropbox/Mouse videos/190618_Test01/190716_3camMouseVideos/Calibration/worldcoordinates_lframe.mat';
+calibfile = '/home/twd/Dropbox/mocapdata_for_tim/CameraCalib_rd16_20190618/20190617_calibration_pup/worldcoordinates_lframe.mat';
 CROP_HEIGHT = 0;%These offsets are critical! TODO: port this to python and
 % make sure this is read in from config file
-CROP_WIDTH = 0;%These offsets are critical! TODO: port this to python and
+CROP_WIDTH = 20;%These offsets are critical! TODO: port this to python and
 % make sure this is read in from config file
 load(calibfile);
-cams = [1, 2, 3]; %This ordering is critical! TODO: port this to python and
+cams = [2, 3, 1]; %This ordering is critical! TODO: port this to python and
 % make sure this is read in from config file
-camnames = {'Left', 'Right', 'Top'};
+camnames = {'CameraLmouse', 'CameraRmouse', 'CameraSmouse'};
 data = {};
 data_undistorted = {};
 data_raw = {};
 for i = 1:numel(cams)
-    load([camnames{i} '_manlabels.mat']);
+    load([camnames{i} '_manlabels_worker0.mat']);
     data{i} = data2d;
     data_reshape = reshape(data2d,[size(data2d,1)*size(data2d,2),2]);
     data_reshape(:,2) = data_reshape(:,2) + CROP_HEIGHT;
@@ -67,19 +67,35 @@ for j=1:numel(campairs)
     data_3d = cat(4,data_3d,campairs{j});
 end
 data_3d = nanmedian(data_3d,4);
-%%
+
+%% Save data structures with 2d & 3d data, along with sampleIDs, for training
+% nets. WE CANNOT GET DATA_FRAME NAIVELY BY DIVIDING BY FRAME PERIOD
+% BECAUSE OF ROUNDING ERRORS and CAMERA blips. Must load in the frames
+% from matched frames. If not, significant offsets can result when training
+
+matched_frames_dir = '/home/twd/Dropbox/mocapdata_for_tim/CameraCalib_rd16_20190618/RecordingP7Pup_three/';
+matched_frames_sub = '_MatchedFrames.mat';
+basedir = './';
+data_3d = [];
+for j=1:numel(campairs)
+    data_3d = cat(4,data_3d,campairs{j});
+end
+data_3d = nanmedian(data_3d,4);
 data_sampleID = sampleID;
-data_frame = round(data_sampleID/33.3333);%This frame period! TODO: port this to python and
-% make sure this is read in from config file
 wpts = reshape(data_3d,[size(data_3d,1)*size(data_3d,2),size(data_3d,3)]);
 data_3d = reshape(permute(data_3d,[1,3,2]),[size(data_3d,1),size(data_3d,2)*size(data_3d,3)]);
 
 for camerause = 1:3
     % For each cameras, project to 2D and save the results
-    
+    d = load([matched_frames_dir camnames{camerause} matched_frames_sub]);
+    data_frame = [];
+    for i = 1:numel(data_sampleID)
+        data_frame(i) = d.data_frame(d.data_sampleID==data_sampleID(i));
+    end
     ipts = worldToImage(params_individual{cams(camerause)},rotationMatrix{cams(camerause)}, ...
-    translationVector{cams(camerause)}, wpts,'ApplyDistortion',true);
+        translationVector{cams(camerause)}, wpts,'ApplyDistortion',true);
     data_2d = reshape(ipts,[size(campairs{1},1),size(campairs{1},2),2]);
     data_2d = reshape(permute(data_2d,[1,3,2]),[size(data_2d,1),size(data_2d,2)*size(data_2d,3)]);
     save([basedir camnames{camerause} '_data_applyDistort.mat'],'data_frame','data_2d','data_3d','data_sampleID');
+    
 end
