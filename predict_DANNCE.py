@@ -7,6 +7,9 @@ import numpy as np
 import os
 import time
 import keras.backend as K
+from dannce.engine import losses
+from dannce.engine import nets
+import keras.losses
 import dannce.engine.serve_data_DANNCE as serve_data
 import dannce.engine.processing as processing
 from dannce.engine.processing import savedata_tomat, savedata_expval
@@ -18,8 +21,14 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 # Set up parameters
 CONFIG_PARAMS = processing.read_config(sys.argv[1])
-CONFIG_PARAMS['loss'] = locals()[CONFIG_PARAMS['loss']]
-CONFIG_PARAMS['net'] = eval(CONFIG_PARAMS['net'])
+
+# Load the appropriate loss function and network
+try:
+	CONFIG_PARAMS['loss'] = getattr(losses, CONFIG_PARAMS['loss'])
+except ModuleNotFoundError:
+	CONFIG_PARAMS['loss'] = getattr(keras.losses, CONFIG_PARAMS['loss'])
+CONFIG_PARAMS['net'] = getattr(nets, CONFIG_PARAMS['net'])
+
 CONFIG_PARAMS['experiment'] = processing.read_config(sys.argv[2])
 RESULTSDIR = CONFIG_PARAMS['experiment']['RESULTSDIR']
 print(RESULTSDIR)
