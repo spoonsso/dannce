@@ -49,8 +49,8 @@ class DataGenerator_downsample(keras.utils.Sequence):
 		self.on_epoch_end()
 
 		if immode == 'video':
-			self.extension = \
-				'.' + list(vidreaders[camnames[0]].keys())[0].rsplit('.')[-1]
+			self.extension = '.' + list(
+				vidreaders[camnames[0][0]].keys())[0].rsplit('.')[-1]
 
 		self.immode = immode
 		self.labelmode = labelmode
@@ -124,7 +124,8 @@ class DataGenerator_downsample(keras.utils.Sequence):
 		# Generate data
 		cnt = 0
 		for i, ID in enumerate(list_IDs_temp):
-			for camname in self.camnames:
+			experimentID = int(ID.split('_')[0])
+			for camname in self.camnames[experimentID]:
 				# Store sample
 				# TODO(Refactor): This section is tricky to read
 				if self.immode == 'video':
