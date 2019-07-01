@@ -28,7 +28,7 @@ params = processing.read_config(sys.argv[1])
 # Load the appropriate loss function and network
 try:
     params['loss'] = getattr(losses, params['loss'])
-except ModuleNotFoundError:
+except AttributeError:
     params['loss'] = getattr(keras.losses, params['loss'])
 params['net'] = getattr(nets, params['net'])
 
