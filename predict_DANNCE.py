@@ -14,27 +14,30 @@ import dannce.engine.serve_data_DANNCE as serve_data
 import dannce.engine.processing as processing
 from dannce.engine.processing import savedata_tomat, savedata_expval
 from dannce.engine.generator_kmeans import DataGenerator_3Dconv_kmeans
-
-# TODO(Devices): Is it necessary to set the device environment?
-# This could mess with people's setups.
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+from keras.layers import Conv3D, Input
+from keras.models import Model
+from keras.optimizers import Adam
 
 # Set up parameters
 CONFIG_PARAMS = processing.read_config(sys.argv[1])
 
 # Load the appropriate loss function and network
 try:
-	CONFIG_PARAMS['loss'] = getattr(losses, CONFIG_PARAMS['loss'])
+    CONFIG_PARAMS['loss'] = getattr(losses, CONFIG_PARAMS['loss'])
 except ModuleNotFoundError:
-	CONFIG_PARAMS['loss'] = getattr(keras.losses, CONFIG_PARAMS['loss'])
+    CONFIG_PARAMS['loss'] = getattr(keras.losses, CONFIG_PARAMS['loss'])
 CONFIG_PARAMS['net'] = getattr(nets, CONFIG_PARAMS['net'])
 
 CONFIG_PARAMS['experiment'] = processing.read_config(sys.argv[2])
-RESULTSDIR = CONFIG_PARAMS['experiment']['RESULTSDIR']
+RESULTSDIR = CONFIG_PARAMS['RESULTSDIR']
 print(RESULTSDIR)
 
 if not os.path.exists(RESULTSDIR):
     os.makedirs(RESULTSDIR)
+
+# TODO(Devices): Is it necessary to set the device environment?
+# This could mess with people's setups.
+os.environ["CUDA_VISIBLE_DEVICES"] =  CONFIG_PARAMS['gpuID']
 
 samples_, datadict_, datadict_3d_, data_3d_, cameras_ = \
     serve_data.prepare_data(CONFIG_PARAMS['experiment'])
@@ -45,7 +48,8 @@ datadict_, com3d_dict_ = serve_data.prepare_COM(
     weighted=CONFIG_PARAMS['weighted'],
     retriangulate=False,
     camera_mats=cameras_,
-    method=CONFIG_PARAMS['com_method'])
+    method=CONFIG_PARAMS['com_method'])#),
+    #eID=0)
 
 # Need to cap this at the number of samples included in our
 # COM finding estimates
@@ -53,7 +57,7 @@ tf = list(com3d_dict_.keys())
 samples_ = samples_[:len(tf)]
 data_3d_ = data_3d_[:len(tf)]
 samples_, data_3d_ = \
-    serve_data.remove_samples_com(samples_, data_3d_, com3d_dict_, rmc=True)
+    serve_data.remove_samples_com(samples_, data_3d_, com3d_dict_, rmc=True, cthresh=CONFIG_PARAMS['cthresh'])
 pre = len(samples_)
 msg = "Detected {} bad COMs and removed the associated frames from the dataset"
 print(msg.format(pre - len(samples_)))
@@ -90,17 +94,18 @@ if CONFIG_PARAMS['IMMODE'] == 'vid':
                 CONFIG_PARAMS['experiment']['viddir'],
                 os.path.join(CONFIG_PARAMS['experiment']['CAMNAMES'][i], addl),
                 minopt=0,
-                maxopt=10,
+                maxopt=4000, # FIXXX
                 extension=CONFIG_PARAMS['experiment']['extension'])
 
 # Get frame count per video using the keys of the vids dictionary
+print(samples)
 ke = list(vids[camnames[0][0]].keys())
 if len(ke) == 1:
     framecnt = None
 else:
     key0 = int(ke[0].split('/')[-1].split('.')[0])
     key1 = int(ke[1].split('/')[-1].split('.')[0])
-    framecnt = key1 - key0
+    framecnt = abs(key1 - key0)
     print("Videos contain {} frames".format(framecnt))
 
 # Parameters
@@ -148,23 +153,57 @@ valid_generator = DataGenerator_3Dconv_kmeans(
 # Build net
 print("Initializing Network...")
 
-# with tf.device("/gpu:0"):
-model = CONFIG_PARAMS['net'](
-    CONFIG_PARAMS['loss'],
-    CONFIG_PARAMS['lr'],
-    CONFIG_PARAMS['N_CHANNELS_IN'] + CONFIG_PARAMS['DEPTH'],
-    CONFIG_PARAMS['N_CHANNELS_OUT'],
-    len(camnames[0]),
-    batch_norm=CONFIG_PARAMS['batch_norm'],
-    instance_norm=CONFIG_PARAMS['instance_norm'])
-print("COMPLETE\n")
+if CONFIG_PARAMS['EXPVAL']:
+    model = CONFIG_PARAMS['net'](
+        CONFIG_PARAMS['loss'],
+        CONFIG_PARAMS['lr'],
+        CONFIG_PARAMS['N_CHANNELS_IN'] + CONFIG_PARAMS['DEPTH'],
+        CONFIG_PARAMS['N_CHANNELS_OUT'],
+        len(camnames[0]),
+        batch_norm=CONFIG_PARAMS['batch_norm'],
+        instance_norm=CONFIG_PARAMS['instance_norm'],
+        last_kern_size=CONFIG_PARAMS['NEW_LAST_KERNEL_SIZE'])
+    print("COMPLETE\n")
+else:
+    model = CONFIG_PARAMS['net'](CONFIG_PARAMS['loss'],
+                                 CONFIG_PARAMS['lr'],
+                                 CONFIG_PARAMS['N_CHANNELS_IN'] + CONFIG_PARAMS['DEPTH'],
+                                 CONFIG_PARAMS['N_CHANNELS_OUT'],
+                                 len(camnames[0]),
+                                 batch_norm=CONFIG_PARAMS['batch_norm'],
+                                 instance_norm=CONFIG_PARAMS['instance_norm'],
+                                 include_top=False)
 
-model.load_weights(CONFIG_PARAMS['weightsfile'])
+    # lock first conv. layer
+    for layer in model.layers[:2]:
+        layer.trainable = False
+
+    # Do forward pass all the way until end
+    idim = CONFIG_PARAMS['N_CHANNELS_IN'] + CONFIG_PARAMS['DEPTH']
+    ncams = len(camnames[0])
+    input_ = inputs = Input((None, None, None, idim*ncams))
+
+    old_out = model(input_)
+
+    # Add new output conv. layer
+    new_conv = Conv3D(CONFIG_PARAMS['NEW_N_CHANNELS_OUT'],
+                      CONFIG_PARAMS['NEW_LAST_KERNEL_SIZE'],
+                      activation='sigmoid',
+                      padding='same')(old_out)
+
+    model = Model(inputs=[input_], outputs=[new_conv])
+
+    model.compile(optimizer=Adam(lr=CONFIG_PARAMS['lr']),
+                  loss=CONFIG_PARAMS['loss'],
+                  metrics=CONFIG_PARAMS['metric'])
+
+    model.load_weights(CONFIG_PARAMS['weightsfile'])
+
 
 save_data = {}
 
 
-def evaluate_ondemand(start_ind, end_ind, valid_gen):
+def evaluate_ondemand(start_ind, end_ind, valid_gen, vids):
     """Evaluate experiment.
 
     :param start_ind: Starting frame
@@ -203,10 +242,12 @@ def evaluate_ondemand(start_ind, end_ind, valid_gen):
             lastvid = str(currentframes // framecnt * framecnt - framecnt) \
                 + CONFIG_PARAMS['experiment']['extension']
             currvid = maxframes // framecnt * framecnt
+            print(currvid)
+            print(maxframes)
 
             # TODO(vids): I think there are situations in which vids may
             # be unassigned at this point.
-            vids, lastvid_, currvid_ = processing.close_open_vids(
+            vids_, lastvid_, currvid_ = processing.close_open_vids(
                 lastvid, lastvid_,
                 currvid,
                 currvid_,
@@ -217,7 +258,8 @@ def evaluate_ondemand(start_ind, end_ind, valid_gen):
                 CONFIG_PARAMS['experiment']['viddir'],
                 currentframes,
                 maxframes)
-            valid_gen.vidreaders = vids
+            valid_gen.vidreaders = vids_
+            vids = vids_
 
         ims = valid_gen.__getitem__(i)
         pred = model.predict(ims[0])
@@ -252,11 +294,14 @@ def evaluate_ondemand(start_ind, end_ind, valid_gen):
                     'logmax': np.log(pred_max) - np.log(pred_total),
                     'sampleID': sampleID}
 
+max_eval_batch = CONFIG_PARAMS['maxbatch']
+if max_eval_batch == 'max':
+    max_eval_batch = len(valid_generator)
 
 if CONFIG_PARAMS['EXPVAL']:
     get_output = K.function(
         [model.layers[0].input, K.learning_phase()], [model.layers[-3].output])
-    evaluate_ondemand(0, len(valid_generator), valid_generator)
+    evaluate_ondemand(0, max_eval_batch, valid_generator, vids)
 
     p_n = savedata_expval(
         RESULTSDIR + 'save_data_AVG.mat',
@@ -265,7 +310,7 @@ if CONFIG_PARAMS['EXPVAL']:
         tcoord=False,
         pmax=True)
 else:
-    evaluate_ondemand(0, len(valid_generator), valid_generator)
+    evaluate_ondemand(0, max_eval_batch, valid_generator, vids)
 
     p_n = savedata_tomat(
         RESULTSDIR + 'save_data_MAX.mat',

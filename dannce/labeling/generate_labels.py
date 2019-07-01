@@ -19,6 +19,8 @@ print("Saving images to: " + RESULTSDIR)
 if not os.path.exists(RESULTSDIR):
     os.makedirs(RESULTSDIR)
 
+if 'seed' in CONFIG_PARAMS.keys():
+    np.random.seed(CONFIG_PARAMS['seed'])
 # Load data structure for indices
 samples_, datadict_, datadict_3d_, data_3d_ = \
     serve_data.prepare_data(CONFIG_PARAMS, com_flag=False)
@@ -58,7 +60,7 @@ params = {
     'dim_out': (CONFIG_PARAMS['OUTPUT_HEIGHT'], CONFIG_PARAMS['OUTPUT_WIDTH']),
     'batch_size': CONFIG_PARAMS['BATCH_SIZE'],
     'n_channels_out': CONFIG_PARAMS['N_CHANNELS_OUT'],
-    'camnames': CONFIG_PARAMS['CAMNAMES'],
+    'camnames': {0: CONFIG_PARAMS['CAMNAMES']},
     'crop_width': CONFIG_PARAMS['CROP_WIDTH'],
     'crop_height': CONFIG_PARAMS['CROP_HEIGHT'],
     'bbox_dim': (CONFIG_PARAMS['BBOX_HEIGHT'], CONFIG_PARAMS['BBOX_WIDTH']),
@@ -79,7 +81,8 @@ generator = \
 # currently uses imageio's default, which is optimzied compression. However,
 # doing an image diff between default compression and no compression
 # (which creates significantly large file sizes) reveals no major differences.
-generator.save_for_dlc(RESULTSDIR)
+generator.save_for_dlc(RESULTSDIR,
+                       compress_level=CONFIG_PARAMS['compress_level'])
 
 # Write manifest file
 folder = sys.argv[3]

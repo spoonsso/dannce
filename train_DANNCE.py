@@ -30,17 +30,14 @@ from keras.models import Model
 from keras.optimizers import Adam
 from keras.callbacks import ModelCheckpoint, CSVLogger, TensorBoard
 
-# TODO(Devices): Is it necessary to set the device environment?
-# This could mess with people's setups.
-# Tim: For a multi-gpu system, this is necessary to not tie up all
-# GPUs with one script, as keras/TF will automatically allocate all
-# system GPUs
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-
 # Set up parameters
 CONFIG_PARAMS = processing.read_config(sys.argv[1])
 CONFIG_PARAMS['loss'] = getattr(losses, CONFIG_PARAMS['loss'])
 CONFIG_PARAMS['net'] = getattr(nets, CONFIG_PARAMS['net'])
+
+# set GPU ID
+os.environ["CUDA_VISIBLE_DEVICES"] = CONFIG_PARAMS['gpuID']
+
 
 samples = []
 datadict = {}
@@ -63,23 +60,31 @@ for e in range(num_experiments):
         datadict_,
         comthresh=CONFIG_PARAMS['comthresh'],
         weighted=CONFIG_PARAMS['weighted'],
-        retriangulate=False,
+        retriangulate=CONFIG_PARAMS['retriangulate'],
         camera_mats=cameras_,
-        method=CONFIG_PARAMS['com_method'])
+        method=CONFIG_PARAMS['com_method'])#,
+        #eID=0)
 
     # Need to cap this at the number of samples included in our
     # COM finding estimates
     tf = list(com3d_dict_.keys())
     samples_ = samples_[:len(tf)]
     data_3d_ = data_3d_[:len(tf)]
+
+    pre = len(samples_)
+
     samples_, data_3d_ = \
         serve_data.remove_samples_com(samples_,
                                       data_3d_,
                                       com3d_dict_,
-                                      rmc=True)
-    pre = len(samples_)
+                                      rmc=True,
+                                      cthresh=CONFIG_PARAMS['cthresh'])
+    
     msg = "Detected {} bad COMs and removed the associated frames from the dataset"
     print(msg.format(pre - len(samples_)))
+
+    print("Using {} samples total.".format(len(samples_)))
+    
 
     samples, datadict, datadict_3d, com3d_dict = serve_data.add_experiment(
         e, samples, datadict, datadict_3d, com3d_dict,
@@ -185,34 +190,40 @@ valid_params = {
     'crop_im': False}   # This should stay False
 
 # Setup a generator that will read videos and labels
-tifdirs = []  # Trainign from single images not yet supported in this demo
-
-all_inds = np.arange(len(samples))
-
-# extract random inds from each set for validation
-v = CONFIG_PARAMS['num_validation_per_exp']
-valid_inds = []
-for e in range(num_experiments):
-    tinds = [i for i in range(len(samples))
-             if int(samples[i].split('_')[0]) == e]
-    valid_inds = valid_inds + list(np.random.choice(tinds,
-                                                    (v,), replace=False))
-
-train_inds = [i for i in all_inds if i not in valid_inds]
-
-assert (set(valid_inds) & set(train_inds)) == set()
+tifdirs = []  # Training from single images not yet supported in this demo
 
 partition = {}
+if CONFIG_PARAMS['load_valid'] is None:
+    all_inds = np.arange(len(samples))
 
-partition['valid_sampleIDs'] = samples[valid_inds]
-partition['train_sampleIDs'] = samples[train_inds]
+    # extract random inds from each set for validation
+    v = CONFIG_PARAMS['num_validation_per_exp']
+    valid_inds = []
+    for e in range(num_experiments):
+        tinds = [i for i in range(len(samples))
+                 if int(samples[i].split('_')[0]) == e]
+        valid_inds = valid_inds + list(np.random.choice(tinds,
+                                                        (v,), replace=False))
 
-# Save train/val inds
-with open(RESULTSDIR + 'val_samples.pickle', 'wb') as f:
-    cPickle.dump(partition['valid_sampleIDs'], f)
+    train_inds = [i for i in all_inds if i not in valid_inds]
 
-with open(RESULTSDIR + 'train_samples.pickle', 'wb') as f:
-    cPickle.dump(partition['train_sampleIDs'], f)
+    assert (set(valid_inds) & set(train_inds)) == set()
+
+    partition['valid_sampleIDs'] = samples[valid_inds]
+    partition['train_sampleIDs'] = samples[train_inds]
+
+    # Save train/val inds
+    with open(RESULTSDIR + 'val_samples.pickle', 'wb') as f:
+        cPickle.dump(partition['valid_sampleIDs'], f)
+
+    with open(RESULTSDIR + 'train_samples.pickle', 'wb') as f:
+        cPickle.dump(partition['train_sampleIDs'], f)
+else:
+    # Load validation samples from elsewhere
+    with open(os.path.join(CONFIG_PARAMS['load_valid'], 'val_samples.pickle'),
+              'rb') as f:
+        partition['valid_sampleIDs'] = cPickle.load(f)
+    partition['train_sampleIDs'] = [f for f in samples if f not in partition['valid_sampleIDs']]
 
 train_generator = DataGenerator_3Dconv_kmeans(partition['train_sampleIDs'],
                                               datadict,
@@ -307,7 +318,8 @@ print("COMPLETE\n")
 
 # For fine-tuning:
 # load in weights
-model.load_weights(CONFIG_PARAMS['WEIGHTS'], by_name=True)
+if CONFIG_PARAMS['lockfirst']:
+    model.load_weights(CONFIG_PARAMS['WEIGHTS'], by_name=True)
 
 # lock first conv. layer
 for layer in model.layers[:2]:
@@ -327,6 +339,9 @@ new_conv = Conv3D(CONFIG_PARAMS['NEW_N_CHANNELS_OUT'],
                   padding='same')(old_out)
 
 model = Model(inputs=[input_], outputs=[new_conv])
+
+if not CONFIG_PARAMS['lockfirst']:
+    model.load_weights(CONFIG_PARAMS['WEIGHTS'])
 
 model.compile(optimizer=Adam(lr=CONFIG_PARAMS['lr']),
               loss=CONFIG_PARAMS['loss'],
@@ -354,5 +369,8 @@ model.fit_generator(generator=train_generator,
                     epochs=CONFIG_PARAMS['EPOCHS'],
                     max_queue_size=CONFIG_PARAMS['MAX_QUEUE_SIZE'],
                     callbacks=[csvlog, model_checkpoint, tboard])
+
+print("Saving full model at end of training")
+model.save(os.path.join(RESULTSDIR, 'fullmodel_end.hdf5'))
 
 print("done!")
