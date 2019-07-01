@@ -43,7 +43,7 @@ def close_open_vids(
 	Thus, we need to keep track of which videos are required
 	for each batch and open/close them as necessary.
 	"""
-	ext = '.' + vids.keys()[0].split('.')[-1]
+	ext = '.' + list(vids.keys())[0].split('.')[-1]
 	# Only trigger closing if there is a "new" lastvid
 	if lastvid != lastvid_:
 		print('attempting to close video')
@@ -63,12 +63,12 @@ def close_open_vids(
 				addl = ''
 			else:
 				# TODO(undefined): camnames
-				addl = os.listdir(os.path.join(viddir, camnames[j]))[0]
-			vids[camnames[j]] = \
+				addl = os.listdir(os.path.join(viddir, cnames[j]))[0]
+			vids[cnames[j]] = \
 				generate_readers(
 					viddir,
-					os.path.join(camnames[j], addl),
-					minopt=currentframes // framecnt * framecnt,
+					os.path.join(cnames[j], addl),
+					minopt=currentframes // framecnt * framecnt - framecnt,
 					maxopt=maxframes,
 					extension=ext)
 	return vids, lastvid_, currvid_

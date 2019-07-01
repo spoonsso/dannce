@@ -26,17 +26,12 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-# TODO(Devices): Is it necessary to set the device environment?
-# This could mess with people's setups.
-# Tim: For a multi-gpu system, this is necessary to not tie up all
-# GPUs with one script, as keras/TF will automatically allocate all
-# system GPUs whenever it can
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-
 # Set up parameters
 CONFIG_PARAMS = processing.read_config(sys.argv[1])
 CONFIG_PARAMS['loss'] = getattr(losses, CONFIG_PARAMS['loss'])
 CONFIG_PARAMS['net'] = getattr(nets, CONFIG_PARAMS['net'])
+
+os.environ["CUDA_VISIBLE_DEVICES"] = CONFIG_PARAMS['gpuID']
 
 samples = []
 datadict = {}
@@ -132,7 +127,7 @@ params = {'dim_in': (CONFIG_PARAMS['INPUT_HEIGHT'],
           'n_channels_in': CONFIG_PARAMS['N_CHANNELS_IN'],
           'dim_out': (CONFIG_PARAMS['OUTPUT_HEIGHT'],
                       CONFIG_PARAMS['OUTPUT_WIDTH']),
-          'batch_size': CONFIG_PARAMS['BATCH_SIZE'],
+          'batch_size': 1,
           'n_channels_out': CONFIG_PARAMS['N_CHANNELS_OUT'],
           'out_scale': CONFIG_PARAMS['SIGMA'],
           'camnames': camnames,
@@ -146,24 +141,31 @@ params = {'dim_in': (CONFIG_PARAMS['INPUT_HEIGHT'],
 valid_params = deepcopy(params)
 valid_params['shuffle'] = True
 
-all_inds = np.arange(len(samples))
-
-# extract random inds from each set for validation
-v = CONFIG_PARAMS['num_validation_per_exp']
-valid_inds = []
-for e in range(num_experiments):
-    tinds = [i for i in range(len(samples))
-             if int(samples[i].split('_')[0]) == e]
-    valid_inds = valid_inds + list(np.random.choice(tinds,
-                                                    (v,), replace=False))
-
-train_inds = [i for i in all_inds if i not in valid_inds]
-
-assert (set(valid_inds) & set(train_inds)) == set()
-
 partition = {}
-partition['train'] = samples[train_inds]
-partition['valid'] = samples[valid_inds]
+if CONFIG_PARAMS['load_valid'] is None:
+
+    all_inds = np.arange(len(samples))
+
+    # extract random inds from each set for validation
+    v = CONFIG_PARAMS['num_validation_per_exp']
+    valid_inds = []
+    for e in range(num_experiments):
+        tinds = [i for i in range(len(samples))
+                 if int(samples[i].split('_')[0]) == e]
+        valid_inds = valid_inds + list(np.random.choice(tinds,
+                                                        (v,), replace=False))
+
+    train_inds = [i for i in all_inds if i not in valid_inds]
+    assert (set(valid_inds) & set(train_inds)) == set()
+
+    partition['train'] = samples[train_inds]
+    partition['valid'] = samples[valid_inds]
+else:
+    # Load validation samples from elsewhere
+    with open(os.path.join(CONFIG_PARAMS['load_valid'], 'val_samples.pickle'),
+              'rb') as f:
+        partition['valid'] = cPickle.load(f)
+    partition['train'] = [f for f in samples if f not in partition['valid']]
 
 # Save train/val inds
 with open(RESULTSDIR + 'val_samples.pickle', 'wb') as f:
@@ -193,8 +195,9 @@ print("COMPLETE\n")
 if CONFIG_PARAMS['weights'] is not None:
     model.load_weights(CONFIG_PARAMS['weights'])
 
-for layer in model.layers[:2]:
-    layer.trainable = False
+if CONFIG_PARAMS['lockfirst']:
+    for layer in model.layers[:2]:
+        layer.trainable = False
     
 model.compile(optimizer=Adam(lr=CONFIG_PARAMS['lr']), loss=CONFIG_PARAMS['loss'], metrics=['mse'])
 
@@ -263,3 +266,26 @@ model.fit(ims_train,
           epochs=CONFIG_PARAMS['EPOCHS'],
           callbacks=[csvlog, model_checkpoint, tboard],
           shuffle=True)
+
+if CONFIG_PARAMS['debug']:
+    # Plot predictions on validation frames
+    debugdir = os.path.join(CONFIG_PARAMS['RESULTSDIR'], 'debug_im_out_valid')
+    print("Saving debug images to: " + debugdir)
+    if not os.path.exists(debugdir):
+        os.makedirs(debugdir)
+
+    plt.figure()
+    for i in range(ims_valid.shape[0]):
+        plt.cla()
+        processing.plot_markers_2d(processing.norm_im(ims_valid[i]),
+                                   model.predict(ims_valid[i:i+1])[0],
+                                   newfig=False)
+        plt.gca().xaxis.set_major_locator(plt.NullLocator())
+        plt.gca().yaxis.set_major_locator(plt.NullLocator())
+
+        imname = str(i) + '.png'
+        plt.savefig(os.path.join(debugdir, imname),
+                    bbox_inches='tight', pad_inches=0)
+
+print("Saving full model at end of training")
+model.save(os.path.join(RESULTSDIR, 'fullmodel_end.hdf5'))

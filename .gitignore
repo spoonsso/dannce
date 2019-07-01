@@ -2,3 +2,6 @@ build
 dist
 dannce.egg-info
 __pycache__
+labeling/
+dannce/engine/__pycache__/
+dannce/labeling/__pycache__/
