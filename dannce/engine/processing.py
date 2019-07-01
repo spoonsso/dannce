@@ -13,6 +13,8 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
+import yaml
+
 
 def trim_COM_pickle(
 	fpath, start_sample, end_sample, opath=None):
@@ -268,19 +270,9 @@ def read_config(filename):
 
 	:param filename: Path to configuration file.
 	"""
-	f = open(filename)
-	CONFIG_PARAMS = {}
-	for line in f:
-		if line[0] != '#' and line[:1] != '\n':
-			# TODO(yaml): can we switch yaml configuration files?
-			# The line split(':') messes with windows drive paths
-			elements = line.split(':')
-			try:
-				CONFIG_PARAMS[elements[0]] = ast.literal_eval(elements[1].strip())
-			# TODO(bare_except): exception class should inherit from base_except
-			except:
-				CONFIG_PARAMS[elements[0]] = elements[1].strip()
-	f.close()
+	with open(filename) as f:
+		CONFIG_PARAMS = yaml.safe_load(f)
+
 	return CONFIG_PARAMS
 
 

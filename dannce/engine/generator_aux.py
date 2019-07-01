@@ -280,6 +280,7 @@ class DataGenerator_downsample(keras.utils.Sequence):
                 allcoords[cnt, :, 1:] = this_y.T
 
                 # TODO(os.path): This is unix-specific
+                # These paths should be using AWS/UNIX only
                 relpath = imfolder.split('/')[-2]
                 relpath = \
                     '../' + relpath + '/sample{}_'.format(ID) + camname + ext

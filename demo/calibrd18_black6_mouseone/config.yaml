@@ -1,11 +1,11 @@
 # path to folder where randomly sampled images will be saved
-RESULTSDIR: ./RecordingP0Pup_one/
+RESULTSDIR: ./
 
 # path to folder containing formatted data files 
-datadir: /home/twd/Dropbox/mocapdata_for_tim/CameraCalib_rd16_20190618/RecordingP0Pup_one/
+datadir: ./data/
 
 # path to folder contraining video sub directories
-viddir: /home/twd/Dropbox/mocapdata_for_tim/CameraCalib_rd16_20190618/RecordingP0Pup_one/
+viddir: ./videos/
 
 # names of data files. must match the order of CAMNAMES below
 datafile: ['CameraLmouse_MatchedFrames', 'CameraRmouse_MatchedFrames', 'CameraSmouse_MatchedFrames']
@@ -49,3 +49,15 @@ vid_dir_flag: False
 
 # Video file extension
 extension: '.mp4'
+
+# The number of frames in each video file. If only a single video file exists for each camera, set this to 1e10
+chunks: 3500
+
+# Required AWS identification for labeling
+WorkteamArn: "arn:aws:sagemaker:us-east-1:458691804448:workteam/private-crowd/Mashunn"
+role-arn: "arn:aws:iam::458691804448:role/service-role/AmazonSageMaker-ExecutionRole-20190207T125408"
+PreHumanTaskLambdaArn: "arn:aws:lambda:us-east-1:458691804448:function:SageMaker"
+AnnotationConsolidationLambdaArn: "arn:aws:lambda:us-east-1:458691804448:function:SageMaker_out"
+
+# Path to the labelign task template file
+lbl_template: ./labeling/mouse.template
