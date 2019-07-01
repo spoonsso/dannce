@@ -1,4 +1,4 @@
-# DANNCE
+![Image](./common/dannce_logo.png)
 
 DANNCE (3-Dimensional Aligned Neural Network for Computational Ethology) is a convolutional neural network (CNN) that extracts the 3D positions of user-defined anatomical keypoints from video of behaving animals. While DANNCE can work with just a single view, it is designed to operate over a set of calibrated cameras.
 
@@ -15,7 +15,7 @@ The following combinations of operating systems, python, tensorflow, cuda, and c
 |  Windows 10  |  3.6.8 |   1.10.0   |  9.0 |  7.6  |
 |  Windows 10  |  3.6.8 |    1.4.x   |  8.0 |  6.0  |
 
-We recommend installing `DANNCE` within a conda environment using `python 3.6.x`. 
+We recommend installing `DANNCE` within a conda environment using `python 3.6.x`.
 
 1. Install tensorflow by following the instructions [here](https://www.tensorflow.org/install/pip). This is often as simple as `pip install tensorflow==1.10.0` or `pip install tensorflow-gpu==1.10.0` for gpu support.
 
@@ -43,7 +43,7 @@ DANNCE requires a parent video directory with *n* sub-directories, one for each 
 
 |\_\_+--0.mp4
 
-DANNCE can also accommodate an additional level of subdirectories if `vid_dir_flag` is set to `False` during configuration. 
+DANNCE can also accommodate an additional level of subdirectories if `vid_dir_flag` is set to `False` during configuration.
 
 ./Videos/
 
@@ -83,7 +83,7 @@ To ensure that individual video frames are synchronized at each time point, DANN
 - *prediction mode, labeling mode*. Use `utils/preprocess_data.m` to convert Jesse's matched frame files into DANNCE format
 - *training mode with motion capture*. Use `utils/preprocess_rd4_noavg.m` to convert Jesse's mocap data structures into DANNCE format
 - *training with hand-labeled data*. See **Hand-labeling** below.
-    
+
 ## Predicting Keypoints With DANNCE
 
 Making predictions with a trained DANNCE network requires 3 steps.
@@ -153,7 +153,7 @@ The relevant fields are
 
 #### 6) Consolidate the labels
 
-Now we run another python script to parse and sort the labels, `./labeling/consolidate_labels.py` 
+Now we run another python script to parse and sort the labels, `./labeling/consolidate_labels.py`
 
 #### 7) Triangulate and save new data structures for analysis and DANNCE training
 
