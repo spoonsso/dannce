@@ -62,8 +62,8 @@ for e in range(num_experiments):
         weighted=CONFIG_PARAMS['weighted'],
         retriangulate=CONFIG_PARAMS['retriangulate'],
         camera_mats=cameras_,
-        method=CONFIG_PARAMS['com_method'])#,
-        #eID=0)
+        method=CONFIG_PARAMS['com_method'],
+        eID=0)
 
     # Need to cap this at the number of samples included in our
     # COM finding estimates
