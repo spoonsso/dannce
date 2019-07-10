@@ -79,7 +79,7 @@ chunks: 3500
 #COMdebug: CameraLmouse
 
 # How many frames to you want to predict over? Set to 'max' for all video frames.
-max_num_samples: max
+max_num_samples: 35000
 
 # For prediction, False means Matlab will do the undistort, True means python will do it (slower)
 undistort: False

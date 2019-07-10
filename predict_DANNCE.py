@@ -1,6 +1,6 @@
 """Runs DANNCE over videos to predict keypoints.
 
-Usage: python predict_DANNCE.py settings_config path_to_experiment_config
+Usage: python predict_DANNCE.py settings_config
 """
 import sys
 import numpy as np
@@ -20,7 +20,8 @@ from keras.models import Model, load_model
 from keras.optimizers import Adam
 
 # Set up parameters
-CONFIG_PARAMS = processing.read_config(sys.argv[1])
+PARENT_PARAMS = processing.read_config(sys.argv[1])
+CONFIG_PARAMS = processing.read_config(PARENT_PARAMS['DANNCE_CONFIG'])
 
 # Load the appropriate loss function and network
 try:
@@ -29,8 +30,11 @@ except AttributeError:
     CONFIG_PARAMS['loss'] = getattr(keras.losses, CONFIG_PARAMS['loss'])
 CONFIG_PARAMS['net'] = getattr(nets, CONFIG_PARAMS['net'])
 
-CONFIG_PARAMS['experiment'] = processing.read_config(sys.argv[2])
-RESULTSDIR = CONFIG_PARAMS['RESULTSDIR']
+# While we can use experiment files for DANNCE training, 
+# for prediction we use the base data files present in the main config
+
+CONFIG_PARAMS['experiment'] = PARENT_PARAMS
+RESULTSDIR = CONFIG_PARAMS['RESULTSDIR_PREDICT']
 print(RESULTSDIR)
 
 if not os.path.exists(RESULTSDIR):
@@ -42,12 +46,22 @@ os.environ["CUDA_VISIBLE_DEVICES"] =  CONFIG_PARAMS['gpuID']
 
 samples_, datadict_, datadict_3d_, data_3d_, cameras_ = \
     serve_data.prepare_data(CONFIG_PARAMS['experiment'])
+
+# Load in the COM file at the default location, or use one in the config file if provided
+if 'COMfilename' in CONFIG_PARAMS.keys():
+    comfn = CONFIG_PARAMS['COMfilename']
+else:
+    comfn = os.path.join('.', 'COM', 'predict_results')
+    comfn = os.listdir(comfn)
+    comfn = [f for f in comfn if 'COM_undistorted.pickle' in f]
+    comfn = os.path.join('.', 'COM', 'predict_results', comfn[0])
+
 datadict_, com3d_dict_ = serve_data.prepare_COM(
-    CONFIG_PARAMS['experiment']['COMfilename'],
+    comfn,
     datadict_,
     comthresh=CONFIG_PARAMS['comthresh'],
     weighted=CONFIG_PARAMS['weighted'],
-    retriangulate=False,
+    retriangulate=True,
     camera_mats=cameras_,
     method=CONFIG_PARAMS['com_method'])
 
@@ -63,6 +77,9 @@ msg = "Detected {} bad COMs and removed the associated frames from the dataset"
 print(msg.format(pre - len(samples_)))
 
 # TODO(Comment): Unclear what this section is doing.
+# The library is configured to be able to train over multiple animals ("experiments")
+# at once. Because supporting code expects to see an experiment ID# prepended to
+# each of these data keys, we need to add a token experiment ID here.
 samples = []
 datadict = {}
 datadict_3d = {}
@@ -94,11 +111,10 @@ if CONFIG_PARAMS['IMMODE'] == 'vid':
                 CONFIG_PARAMS['experiment']['viddir'],
                 os.path.join(CONFIG_PARAMS['experiment']['CAMNAMES'][i], addl),
                 minopt=0,
-                maxopt=4000, # FIXXX
+                maxopt=1,
                 extension=CONFIG_PARAMS['experiment']['extension'])
 
 # Get frame count per video using the keys of the vids dictionary
-print(samples)
 ke = list(vids[camnames[0][0]].keys())
 if len(ke) == 1:
     framecnt = None
@@ -124,7 +140,7 @@ valid_params = {
     'interp': CONFIG_PARAMS['INTERP'],
     'depth': CONFIG_PARAMS['DEPTH'],
     'channel_combo': CONFIG_PARAMS['CHANNEL_COMBO'],
-    'mode': CONFIG_PARAMS['OUT_MODE'],
+    'mode': 'coordinates',
     'camnames': camnames,
     'immode': CONFIG_PARAMS['IMMODE'],
     'training': False,
@@ -155,7 +171,21 @@ print("Initializing Network...")
 # This requires that the network be saved as a full model, not just weights.
 # As a precaution, we import all possible custom objects that could be used
 # by a model and thus need declarations
-model = load_model(CONFIG_PARAMS['WEIGHTS'], 
+
+if 'predict_model' in CONFIG_PARAMS.keys():
+    mdl_file = CONFIG_PARAMS['predict_model']
+else:
+    wdir = os.path.join('.', 'DANNCE', 'train_results')
+    weights = os.listdir(wdir)
+    weights = [f for f in weights if '.hdf5' in f]
+    weights = sorted(weights,
+                     key=lambda x: int(x.split('.')[1].split('-')[0]))
+    weights = weights[-1]
+
+    mdl_file = os.path.join(wdir, weights)
+    print("Loading model from " + mdl_file)
+
+model = load_model(mdl_file, 
                    custom_objects={'ops': ops,
                                    'slice_input': nets.slice_input,
                                    'mask_nan_keep_loss': losses.mask_nan_keep_loss,
@@ -207,8 +237,6 @@ def evaluate_ondemand(start_ind, end_ind, valid_gen, vids):
             print(currvid)
             print(maxframes)
 
-            # TODO(vids): I think there are situations in which vids may
-            # be unassigned at this point.
             vids_, lastvid_, currvid_ = processing.close_open_vids(
                 lastvid, lastvid_,
                 currvid,

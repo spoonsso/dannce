@@ -204,6 +204,11 @@ def evaluate_COM_steps(start_ind, end_ind, steps):
                     save_data[sampleID_]['triangulation']["{}_{}".format(
                         params['CAMNAMES'][j], params['CAMNAMES'][k])] = test3d
 
+        # Save COM checkpoint in case of later crash. For instance, sometimes
+        # there are more stated frames in a video than actually exist, which will crash
+        # late into prediction
+        processing.save_COM_checkpoint(save_data, params['CAMNAMES'])
+
 
 RESULTSDIR = os.path.join(params['RESULTSDIR_PREDICT'])
 print(RESULTSDIR)
@@ -284,16 +289,9 @@ else:
     # TODO(Undistort): This should probably be moved to its own function.
     # We need to (awkwardly) send our data into matlab for bulk undistortion
     # Colate all coms
-    n = len(list(save_data.keys()))
-    num_cams = len(params['CAMNAMES'])
-    allCOMs = np.zeros((num_cams, n, 2))
-    for (i, key) in enumerate(save_data.keys()):
-        for c in range(num_cams):
-            allCOMs[c, i] = save_data[key][params['CAMNAMES'][c]]['COM']
 
     # Save Coms to a mat file
-    comfile = 'allCOMs_distorted.mat'
-    sio.savemat(comfile, {'allCOMs': allCOMs})
+    comfile = processing.save_COM_checkpoint(save_data, params['CAMNAMES'])
 
     # Use Matlab undistort function to undistort COMs
     eng.undistort_allCOMS(
