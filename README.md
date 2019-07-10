@@ -113,12 +113,6 @@ We have configured DANNCE to work best with a specific organization of data dire
 
 |\_\_+--Camera2_params.mat
 
-+-- DANNCE
-
-|\_\_+--weights
-
-|\_\_\_\_\_+--Max-DANNCE.hdf5
-
 See ./demo/calibrd18_black6_mouseone_green/ for more details. 
 
 The videos in the demo are too big to be uploaded, and can be found here:
