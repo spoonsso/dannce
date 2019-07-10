@@ -4,7 +4,7 @@
 % Use: navigate to folder containing a calibration file in Jesse format, then run this script. 
 load('worldcoordinates_lframe.mat')
 
-for camerause = 1:3
+for camerause = 1:6
     RDistort = params_individual{camerause}.RadialDistortion;
     TDistort = params_individual{camerause}.TangentialDistortion;
     r = rotationMatrix{camerause};

@@ -29,7 +29,7 @@ During training and evaluation, DANNCE requires a set of videos across multiple 
 **video directories**.
 DANNCE requires a parent video directory with *n* sub-directories, one for each of *n* cameras. Within each subdirectory, videos must be named according the frame index of the first frame in the file. For example, for a three-camera system, the video directory must look like:
 
-./Videos/
+./videos/
 
 +-- Camera1
 
@@ -45,7 +45,7 @@ DANNCE requires a parent video directory with *n* sub-directories, one for each 
 
 DANNCE can also accommodate an additional level of subdirectories if `vid_dir_flag` is set to `False` during configuration.
 
-./Videos/
+./videos/
 
 +-- Camera1
 
@@ -68,20 +68,11 @@ DANNCE can also accommodate an additional level of subdirectories if `vid_dir_fl
 **camera calibration parameters**.
 DANNCE requires a .mat file for each camera containing the camera's rotation matrix, translation vector, intrinsic matrix, radial distortion, and tangential distortion. To convert from Jesse's calibration format to the required format, use `utils/convert_calibration.m`.
 
-A properly formatted calibration file has the following fields,
-
-`import scipy.io as sio`
-
-`calib = sio.loadmat('Camera1_calib.mat')`
-
-`calib.keys()`
-
-`['R','t','K','RDistort','TDistort']`
+A properly formatted calibration file has the following fields, `['R','t','K','RDistort','TDistort']`.
 
 **matched frames file**.
 To ensure that individual video frames are synchronized at each time point, DANNCE requires an array that associates each time point (in any unit) to an associated video frame in each camera. During dataset formatting, these indices are combined with any available training labels to form the core data representation. For making predictions with DANNCE, these training labels are ignored, although DANNCE still expects to find placeholder label arrays.
 - *prediction mode, labeling mode*. Use `utils/preprocess_data.m` to convert Jesse's matched frame files into DANNCE format
-- *training mode with motion capture*. Use `utils/preprocess_rd4_noavg.m` to convert Jesse's mocap data structures into DANNCE format
 - *training with hand-labeled data*. See **Hand-labeling** below.
 
 ## Predicting Keypoints With DANNCE
@@ -92,69 +83,87 @@ Making predictions with a trained DANNCE network requires 3 steps.
 #### 2) Find the animal center of mass (COM) in each video frame
 You can use your favorite method to find an estimate of the animal COM in each frame. We trained a U-Net to do it. To find the COM with our U-Net, run `predict_COMfinder.py`. This will generate a COM file that is used by DANNCE.
 
-This requires an additional configuration file. See the example @ `./config/COM/modelconfig.cfg`.
-
 #### 3) Run the everything through DANNCE
 Given formatted data and a COM file, DANNCE can now predict keypoints from your video streams.
-To do this, run `predict_DANNCE.py*`. See the python file for specific usage instructions.
-This requires two additional configuration files. See the examples @ `./config/DANNCE/prediction/`. To run DANNCE over the demo data, run `python predict_DANNCE.py ./config/DANNCE/prediction/prediction_AVG_rat_settings.cfg ./config/DANNCE/prediction/prediction_AVG_rat_experiment.cfg`
+To do this, run `predict_DANNCE.py`. See the python file for specific usage instructions. 
 
-Currently, we provide pre-trained weights for three different versions of DANNCE:
+We have configured DANNCE to work best with a specific organization of data directories: 
 
-a) Max-DANNCE. This version of DANNCE was trained to output 3D spherical Gaussians for each keypoint. The resolution is lower, and predictions are a bit noisier. However, for now it is the only version that performs well when fine-tuning with mouse data.
+./MyProject/
 
-b) Avg-DANNCE. This version of DANNCE has an additional spatial average layer that increases output resolution. Works well on rats (and humans).
++-- videos
 
-c) Max-DANNCE (Mouse). Max-DANNCE fine-tuned using hand-labeled mouse data.
+|\_\_+--Camera1
+
+|\_\_\_\_\_+--0.mp4
+
+|\_\_+--Camera2
+
+|\_\_\_\_\_+--0.mp4
+
++-- data
+
+|\_\_+--Camera1_MatchedFrames.mat
+
+|\_\_+--Camera2_MatchedFrames.mat
+
++-- calibration
+
+|\_\_+--Camera1_params.mat
+
+|\_\_+--Camera2_params.mat
+
++-- DANNCE
+
+|\_\_+--weights
+
+|\_\_\_\_\_+--Max-DANNCE.hdf5
+
+See ./demo/calibrd18_black6_mouseone_green/ for more details. 
+
+The videos in the demo are too big to be uploaded, and can be found here:
+
+calibrd18_black6_mouseone_green: https://www.dropbox.com/sh/q385p1689zdw8iz/AABPuxCyUBHffFZnGEmbOwQMa?dl=0
+calibrd18_black6_mousetwo_green: https://www.dropbox.com/sh/1xvpe8e97x53ah6/AACaY3N7E-WzINoqY2ggFa6va?dl=0
+
 
 ## Training The COMfinder U-Net
 DANNCE requires a reasonable estimate of the 3D position of the animal in each frame. We obtain this by triangulating the 2D COM of the animal in each frame. Our U-Net is brittle and typically requires some additional training data to get it working on new views, new environments, and new species. If working with hand-labeled data, your same data structures can be used to train the COMfinder network.
 
-Given formatted data, run *
+Given formatted data, a properly organized directory structure, and a config file (see demo folder), navigate to your project folder and run
 
-This requires a separate confgiuration file, see the example @ ''.
+`python $my_path_to_DANNCE/train_COMfinder.py ./config.yaml`, where `$my_path_to_DANNCE` is a path to the root DANNCE directory.
+
+After training, run `python $my_path_to_DANNCE/predict_COMfinder.py ./config.yaml`. To generate center of mass predictions.
+
+## Training DANNCE
+
+Once the COM is found, the main DANNCE network can be trained by running:
+
+`python $my_path_to_DANNCE/train_DANNCE.py ./config.yaml`
+
+After training, run
+
+`python $my_path_to_DANNCE/predict_DANNCE.py ./config.yaml` to make 3D predictions using the trained model.
+
+Consult the demo folder for directory and config file formatting examples
 
 ## Hand-Labeling
 Before starting, create an Amazon account and follow the instructions to set up the AWS CLI.
 
-#### 1) Create a new s3 folder
-Your images and labeling results need to be stored in a new folder on S3.
 
-`aws s3api put-object --bucket ratception-tolabel --key black6_mouse_42/`
+#### 1) Run ./dannce/labeling/prelabel.py
 
-#### 2) Generate random images to label
-Given a formatted matched frames file, and yet another config file (see `./config/Labeling/labeling.cfg` for an example), run `./labeling/generate_labels.py`. See the head of the python file for specific usage instructions. This script will also generate a necessary "manifest" file for uploading to S3.
+This requires a standard configuration file and project directory structure, see ./demo/calibrd18_black6_mouseone_green/ for details.
 
-#### 3) Upload the data, the data manifest, and the labeling task template file to your s3 folder
-Use ./config/Labeling/mouse.template for mouse.
+Example: Navigating to your project directory and running prelabel.py ./config.yaml 100 s3://myS3bucket/labeling1/ will create a labeling subdirectory, extract 100 random images from each of your videos, upload them to the indicated s3 bucket, and create a bash script that can be run to start the Amazon labeling job.
 
-`aws s3 cp ./labeling/black6_mouse_42/imDir/ s3://ratception-tolabel/black6_mouse_42/ --recursive`
+#### 2) Run create_job.sh
 
-`aws s3 cp ./labeling/black6_mouse_42/dataset.manifest s3://ratception-tolabel/black6_mouse_42/`
+`prelabel.py` will create a bash script at ./myproject/labeling/imDir/create_job.sh. On Linux/UNIX, run this using `bash`.
 
-`aws s3 cp ./config/Labeling/mouse.template s3://ratception-tolabel/black6_mouse_42/`
+#### 3) When labeling is completed, run ./dannce/labeling/postlabel.py
 
-#### 4) Start the labeling job
-To start the labeling job, update the relevant fields in `./labeling/create_job.sh` and then run `bash ./labeling/create_job.sh`.
+This uses the same config file as step #1. Navigate to your project directory and run `postlabel.py ./config.yaml`
 
-The relevant fields are
-- *--labeling-job-name*. Provide a name for this job.
-- *--input-config*. After `ManifestS3Uri=`, provide the full path to your uploaded data manifest file
-- *--output-config*. After `S3OutputPath=`, provide a path to an existing folder where the labels will live. I normally just choose the base directory where I've put the manifest file.
-- *UiTemplateS3Uri*. Provide the full path to the task template file.
-
-#### 5) When labeling is completed, download the labels
-
-`mkdir ./labeling/black6_mouse_42/iteration-1`
-
-`aws s3 cp s3://ratception-tolabel/black6_mouse_42/black6-mouse-42/annotations/intermediate/1/annotations.json ./labeling/black6_mouse_42/`
-
-`aws s3 cp s3://ratception-tolabel/black6_mouse_42/black6-mouse-42/annotations/worker-response/iteration-1/ ./labeling/black6_mouse_42/iteration-1 --recursive`
-
-#### 6) Consolidate the labels
-
-Now we run another python script to parse and sort the labels, `./labeling/consolidate_labels.py`
-
-#### 7) Triangulate and save new data structures for analysis and DANNCE training
-
-Finally, we triangulate and save DANNCE-formatted data using `./labeling/triangulate_manlabels.m`
+`postlabel.py` will generate data files that immediately be used to train CMfindr or DANNCE!

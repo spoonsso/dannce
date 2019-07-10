@@ -1,0 +1,47 @@
+# path to folder where randomly sampled images will be saved
+RESULTSDIR: ./
+
+# path to folder containing formatted data files 
+datadir: ./data/
+
+# path to folder contraining video sub directories
+viddir: ./videos/
+
+# names of data files. must match the order of CAMNAMES below
+datafile: ['CameraLmouse_MatchedFrames', 'CameraRmouse_MatchedFrames', 'CameraSmouse_MatchedFrames']
+
+# How to crop the input images. For labeling, this is not strictly required
+CROP_HEIGHT: [0, 1024]
+CROP_WIDTH: [20, 1300]
+
+# Names for each of the camera subdirectories in the video folder. Order should match the datafiles above.
+CAMNAMES: ['CameraLmouse', 'CameraRmouse', 'CameraSmouse']
+
+# Batch size -- for labeling, should be kept at 1
+BATCH_SIZE: 1
+
+# Degree of downsampling applied to image input. Default 1.
+DOWNFAC: 1
+
+# If true, each camera's video directory contains only the video files. If false, each camera's video directory contains an additional subdirectory, which then contains the video files
+vid_dir_flag: False
+
+# Video file extension
+extension: '.mp4'
+
+# The number of frames in each video file. If only a single video file exists for each camera, set this to 1e10
+chunks: 3500
+
+# Required AWS identification for labeling
+WorkteamArn: "arn:aws:sagemaker:us-east-1:458691804448:workteam/private-crowd/Mashunn"
+role-arn: "arn:aws:iam::458691804448:role/service-role/AmazonSageMaker-ExecutionRole-20190207T125408"
+PreHumanTaskLambdaArn: "arn:aws:lambda:us-east-1:458691804448:function:SageMaker"
+AnnotationConsolidationLambdaArn: "arn:aws:lambda:us-east-1:458691804448:function:SageMaker_out"
+
+# Path to the labelign task template file
+lbl_template: ./labeling/mouse.template
+
+# Names for each of the camera subdirectories in the video folder. Order should match the datafiles above.
+CAMNAMES: ['CameraLmouse', 'CameraRmouse', 'CameraSmouse']
+CALIBDIR: ./calibration/
+calib_file: ['hires_cam2_params.mat','hires_cam3_params.mat','hires_cam1_params.mat']

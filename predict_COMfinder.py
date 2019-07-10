@@ -16,14 +16,19 @@ from dannce.engine.generator_aux import DataGenerator_downsample
 import dannce.engine.serve_data_COM as serve_data
 import os
 from six.moves import cPickle
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 import matlab
 import matlab.engine
 
 # Set up environment
 eng = matlab.engine.start_matlab()
-
+# undistort_allCOMS.m needs to be in the same directory as predict_COMfinder.py
+eng.addpath(os.path.dirname(os.path.abspath(__file__)))
 # Load in the params
-params = processing.read_config(sys.argv[1])
+PARENT_PARAMS = processing.read_config(sys.argv[1])
+params = processing.read_config(PARENT_PARAMS['COM_CONFIG'])
 
 # Load the appropriate loss function and network
 try:
@@ -34,19 +39,45 @@ params['net'] = getattr(nets, params['net'])
 
 undistort = params['undistort']
 vid_dir_flag = params['vid_dir_flag']
-_N_VIDEO_FRAMES = 3500
+_N_VIDEO_FRAMES = params['chunks']
 
 os.environ["CUDA_VISIBLE_DEVICES"] = params['gpuID']
+
+# Inherit required parameters from main config file
+
+params = \
+    processing.inherit_config(params,
+                              PARENT_PARAMS,
+                              ['CAMNAMES',
+                               'CALIBDIR',
+                               'calib_file',
+                               'extension',
+                               'datafile',
+                               'datadir',
+                               'viddir'])
 
 # Build net
 print("Initializing Network...")
 model = params['net'](
     params['loss'],
-    params['lr'],
+    float(params['lr']),
     params['N_CHANNELS_IN'],
     params['N_CHANNELS_OUT'],
     params['metric'], multigpu=False)
-model.load_weights(params['weights'])
+
+if 'predict_weights' in params.keys():
+    model.load_weights(params['weights'])
+else:
+    wdir = os.path.join('.', 'COM', 'train_results')
+    weights = os.listdir(wdir)
+    weights = [f for f in weights if '.hdf5' in f]
+    weights = sorted(weights,
+                     key=lambda x: int(x.split('.')[1].split('-')[0]))
+    weights = weights[-1]
+
+    print("Loading weights from " + os.path.join(wdir, weights))
+    model.load_weights(os.path.join(wdir, weights))
+
 print("COMPLETE\n")
 
 
@@ -94,17 +125,20 @@ def evaluate_COM_steps(start_ind, end_ind, steps):
                     maxopt=maxframes,
                     extension=params['extension'])
 
-        valid_generator = DataGenerator_downsample(
-            partition['valid'][i:i + steps], labels, vids, **valid_params)
+        e_ind = np.min([end_ind, i + steps])
 
-        pred_ = model.predict_generator(valid_generator, steps=steps, verbose=1)
+        valid_generator = DataGenerator_downsample(
+            partition['valid'][i:e_ind], labels, vids, **valid_params)
+
+        pred_ = model.predict_generator(valid_generator, steps=e_ind-i, verbose=1)
 
         print(i)
         pred_ = np.reshape(
             pred_,
-            [steps, len(params['CAMNAMES']), pred_.shape[1], pred_.shape[2]])
+            [-1, len(params['CAMNAMES']), pred_.shape[1], pred_.shape[2]])
 
-        for m in range(len(partition['valid'][i:i + steps])):
+        
+        for m in range(len(partition['valid'][i:e_ind])):
             # odd loop condition, but it's because at the end of samples,
             # predict_generator will continue to make predictions in a way I
             # don't grasp yet, but also in a way we should ignore
@@ -125,6 +159,23 @@ def evaluate_COM_steps(start_ind, end_ind, steps):
                 # now, the center of mass is (x,y) instead of (i,j)
                 # now, we need to use camera calibration to triangulate
                 # from 2D to 3D
+
+                if 'COMdebug' in params.keys() and j == cnum:
+                    # Write preds
+                    plt.figure(0)
+                    plt.cla()
+                    plt.imshow(np.squeeze(pred[j]))
+                    plt.savefig(os.path.join(cmapdir,
+                                             params['COMdebug'] + str(i+m) + '.png'))
+
+                    plt.figure(1)
+                    plt.cla()
+                    im = valid_generator.__getitem__(i+m)
+                    plt.imshow(processing.norm_im(im[0][j]))
+                    plt.plot((ind[0]-params['CROP_WIDTH'][0])/2,
+                             (ind[1]-params['CROP_HEIGHT'][0])/2,'or')
+                    plt.savefig(os.path.join(overlaydir,
+                                             params['COMdebug'] + str(i+m) + '.png'))
 
                 save_data[sampleID_][params['CAMNAMES'][j]] = \
                     {'pred_max': pred_max, 'COM': ind}
@@ -154,17 +205,28 @@ def evaluate_COM_steps(start_ind, end_ind, steps):
                         params['CAMNAMES'][j], params['CAMNAMES'][k])] = test3d
 
 
-RESULTSDIR = params['RESULTSDIR']
+RESULTSDIR = os.path.join(params['RESULTSDIR_PREDICT'])
 print(RESULTSDIR)
 
 if not os.path.exists(RESULTSDIR):
     os.makedirs(RESULTSDIR)
 
+if 'COMdebug' in params.keys():
+    cmapdir = os.path.join(RESULTSDIR, 'cmap')
+    overlaydir = os.path.join(RESULTSDIR, 'overlay')
+    if not os.path.exists(cmapdir):
+        os.makedirs(cmapdir)
+    if not os.path.exists(overlaydir):
+        os.makedirs(overlaydir)
+    cnum = params['CAMNAMES'].index(params['COMdebug'])
+    print("Writing " + params['COMdebug'] + " confidence maps to " + cmapdir)
+    print("Writing " + params['COMdebug'] + "COM-image overlays to " + overlaydir)
+
 samples, datadict, datadict_3d, cameras, camera_mats, vids = \
     serve_data.prepare_data(
         params, vid_dir_flag=params['vid_dir_flag'], minopt=0, maxopt=0)
 
-# Zero any negative frames -- DEPRECATED
+# Zero any negative frames
 for key in datadict.keys():
     for key_ in datadict[key]['frames'].keys():
         if datadict[key]['frames'][key_] < 0:
@@ -180,18 +242,18 @@ datadict = datadict_
 
 # Parameters
 valid_params = {
-    'dim_in': (params['INPUT_HEIGHT'], params['INPUT_WIDTH']),
+    'dim_in': (params['CROP_HEIGHT'][1]-params['CROP_HEIGHT'][0],
+               params['CROP_WIDTH'][1]-params['CROP_WIDTH'][0]),
     'n_channels_in': params['N_CHANNELS_IN'],
-    'dim_out': (params['OUTPUT_HEIGHT'], params['OUTPUT_WIDTH']),
-    'batch_size': params['BATCH_SIZE'],
+    'batch_size': 1,
     'n_channels_out': params['N_CHANNELS_OUT'],
     'out_scale': params['SIGMA'],
     'camnames': {0: params['CAMNAMES']},
     'crop_width': params['CROP_WIDTH'],
     'crop_height': params['CROP_HEIGHT'],
-    'bbox_dim': (params['BBOX_HEIGHT'], params['BBOX_WIDTH']),
     'downsample': params['DOWNFAC'],
-    'labelmode': params['LABELMODE'],
+    'labelmode': 'coord',
+    'chunks': params['chunks'],
     'shuffle': False}
 
 partition = {}
@@ -235,8 +297,9 @@ else:
 
     # Use Matlab undistort function to undistort COMs
     eng.undistort_allCOMS(
-        comfile, params['CALIB_DIR'] + 'worldcoordinates_lframe.mat',
-        matlab.double([2, 3, 1]), nargout=0)
+        comfile, [os.path.join(params['CALIBDIR'], f)
+                  for f in params['calib_file']],
+        nargout=0)
 
     # Get undistorted COMs frames and clean up
     allCOMs_u = sio.loadmat('allCOMs_undistorted.mat')['allCOMs_u']

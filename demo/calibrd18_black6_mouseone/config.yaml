@@ -10,15 +10,6 @@ viddir: ./videos/
 # names of data files. must match the order of CAMNAMES below
 datafile: ['CameraLmouse_MatchedFrames', 'CameraRmouse_MatchedFrames', 'CameraSmouse_MatchedFrames']
 
-# INPUT_WIDTH DEPRECATED. WILL REMOVE. For now, must match the cropped size of the input images
-INPUT_WIDTH: 1280
-# INPUT_HEIGHT DEPRECATED. WILL REMOVE. For now, must match the cropped size of the input images
-INPUT_HEIGHT: 1024
-# OUTPUT_WIDTH DEPRECATED. WILL REMOVE. For now, must match the cropped size of the input images
-OUTPUT_WIDTH: 1280
-# OUTPUT_HEIGHT DEPRECATED. WILL REMOVE. For now, must match the cropped size of the input images
-OUTPUT_HEIGHT: 1024
-
 # How to crop the input images. For labeling, this is not strictly required
 CROP_HEIGHT: [0, 1024]
 CROP_WIDTH: [20, 1300]
@@ -26,20 +17,8 @@ CROP_WIDTH: [20, 1300]
 # Number of channels for each input image (e.g. RGB == 3)
 N_CHANNELS_IN: 3
 
-# DEPRECATED. Ignored for labeling
-N_CHANNELS_OUT: 20
-
-# BBOX_WIDTH DEPRECATED. WILL REMOVE. For now, must match the cropped size of the input images
-BBOX_WIDTH: 1280
-
-# BBOX_HEIGHT DEPRECATED. WILL REMOVE. For now, must match the cropped size of the input images
-BBOX_HEIGHT: 1024
-
 # Names for each of the camera subdirectories in the video folder. Order should match the datafiles above.
 CAMNAMES: ['CameraLmouse', 'CameraRmouse', 'CameraSmouse']
-
-# Batch size -- for labeling, should be kept at 1
-BATCH_SIZE: 1
 
 # Degree of downsampling applied to image input. Default 1.
 DOWNFAC: 1
@@ -61,3 +40,8 @@ AnnotationConsolidationLambdaArn: "arn:aws:lambda:us-east-1:458691804448:functio
 
 # Path to the labelign task template file
 lbl_template: ./labeling/mouse.template
+
+# Names for each of the camera subdirectories in the video folder. Order should match the datafiles above.
+CAMNAMES: ['CameraLmouse', 'CameraRmouse', 'CameraSmouse']
+CALIBDIR: ./calibration/
+calib_file: ['hires_cam2_params.mat','hires_cam3_params.mat','hires_cam1_params.mat']

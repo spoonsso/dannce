@@ -1,11 +1,8 @@
 """
 Trains the COMfinder U-Net.
 
-Usage: python train_COMfinder.py settings_config path_to_experiment1_config,
-     ..., path_to_experimentN_config
+Usage: python train_COMfinder.py settings_config
 
-In contrast to predict_DANNCE.py, train_DANNCE.py can process multiple
-experiment config files  to support training over multiple animals.
 """
 import sys
 import numpy as np
@@ -27,7 +24,8 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 # Set up parameters
-CONFIG_PARAMS = processing.read_config(sys.argv[1])
+PARENT_PARAMS = processing.read_config(sys.argv[1])
+CONFIG_PARAMS = processing.read_config(PARENT_PARAMS['COM_CONFIG'])
 CONFIG_PARAMS['loss'] = getattr(losses, CONFIG_PARAMS['loss'])
 CONFIG_PARAMS['net'] = getattr(nets, CONFIG_PARAMS['net'])
 
@@ -39,14 +37,29 @@ datadict_3d = {}
 cameras = {}
 camnames = {}
 
-exps = sys.argv[2:]
+if 'exp_path' not in CONFIG_PARAMS:
+  def_ep = os.path.join('.', 'COM')
+  exps = os.listdir(def_ep)
+  exps = [os.path.join(def_ep, f) for f in exps if '.yaml' in f and 'exp' in f]
+else:
+  exps = CONFIG_PARAMS['exp_path']
 num_experiments = len(exps)
 CONFIG_PARAMS['experiment'] = {}
 for e in range(num_experiments):
     CONFIG_PARAMS['experiment'][e] = processing.read_config(exps[e])
 
+
+    CONFIG_PARAMS['experiment'][e] = \
+        processing.inherit_config(CONFIG_PARAMS['experiment'][e],
+                                  PARENT_PARAMS,
+                                  ['CAMNAMES',
+                                   'CALIBDIR',
+                                   'calib_file',
+                                   'extension',
+                                   'datafile'])
+
     samples_, datadict_, datadict_3d_, data_3d_, cameras_ = \
-        serve_data.prepare_data(CONFIG_PARAMS['experiment'][e],nanflag=False)
+        serve_data.prepare_data(CONFIG_PARAMS['experiment'][e], nanflag=False)
 
     # No need to prepare any COM file (they don't exist yet).
     # We call this because we want to support multiple experiments,
@@ -95,6 +108,8 @@ cameras = cameras_
 
 samples = np.array(samples)
 
+e = 0
+
 # Open videos for all experiments
 vids = {}
 for e in range(num_experiments):
@@ -122,27 +137,24 @@ for e in range(num_experiments):
                                                                 = r[key]
 
 
-params = {'dim_in': (CONFIG_PARAMS['INPUT_HEIGHT'],
-                     CONFIG_PARAMS['INPUT_WIDTH']),
+params = {'dim_in': (CONFIG_PARAMS['CROP_HEIGHT'][1]-CONFIG_PARAMS['CROP_HEIGHT'][0],
+                     CONFIG_PARAMS['CROP_WIDTH'][1]-CONFIG_PARAMS['CROP_WIDTH'][0]),
           'n_channels_in': CONFIG_PARAMS['N_CHANNELS_IN'],
-          'dim_out': (CONFIG_PARAMS['OUTPUT_HEIGHT'],
-                      CONFIG_PARAMS['OUTPUT_WIDTH']),
           'batch_size': 1,
           'n_channels_out': CONFIG_PARAMS['N_CHANNELS_OUT'],
           'out_scale': CONFIG_PARAMS['SIGMA'],
           'camnames': camnames,
           'crop_width': CONFIG_PARAMS['CROP_WIDTH'],
           'crop_height': CONFIG_PARAMS['CROP_HEIGHT'],
-          'bbox_dim': (CONFIG_PARAMS['BBOX_HEIGHT'],
-                       CONFIG_PARAMS['BBOX_WIDTH']),
           'downsample': CONFIG_PARAMS['DOWNFAC'],
-          'shuffle': True}
+          'shuffle': True,
+          'chunks': CONFIG_PARAMS['chunks']}
 
 valid_params = deepcopy(params)
 valid_params['shuffle'] = True
 
 partition = {}
-if CONFIG_PARAMS['load_valid'] is None:
+if 'load_valid' not in CONFIG_PARAMS.keys():
 
     all_inds = np.arange(len(samples))
 
@@ -186,20 +198,24 @@ valid_generator = DataGenerator_downsample(partition['valid'],
 print("Initializing Network...")
 
 # with tf.device("/gpu:0"):
-model = CONFIG_PARAMS['net'](CONFIG_PARAMS['loss'], CONFIG_PARAMS['lr'],
+model = CONFIG_PARAMS['net'](CONFIG_PARAMS['loss'], float(CONFIG_PARAMS['lr']),
                              CONFIG_PARAMS['N_CHANNELS_IN'],
                              CONFIG_PARAMS['N_CHANNELS_OUT'],
                              CONFIG_PARAMS['metric'], multigpu=False)
 print("COMPLETE\n")
 
 if CONFIG_PARAMS['weights'] is not None:
-    model.load_weights(CONFIG_PARAMS['weights'])
+    weights = os.listdir(CONFIG_PARAMS['weights'])
+    weights = [f for f in weights if '.hdf5' in f]
+    weights = weights[0]
 
-if CONFIG_PARAMS['lockfirst']:
+    model.load_weights(os.path.join(CONFIG_PARAMS['weights'],weights))
+
+if 'lockfirst' in CONFIG_PARAMS.keys() and CONFIG_PARAMS['lockfirst']:
     for layer in model.layers[:2]:
         layer.trainable = False
     
-model.compile(optimizer=Adam(lr=CONFIG_PARAMS['lr']), loss=CONFIG_PARAMS['loss'], metrics=['mse'])
+model.compile(optimizer=Adam(lr=float(CONFIG_PARAMS['lr'])), loss=CONFIG_PARAMS['loss'], metrics=['mse'])
 
 # Create checkpoint and logging callbacks
 model_checkpoint = ModelCheckpoint(os.path.join(RESULTSDIR,
@@ -214,8 +230,10 @@ tboard = TensorBoard(log_dir=RESULTSDIR + 'logs',
 
 # Initialize data structures
 ncams = len(camnames[0])
-dh = CONFIG_PARAMS['INPUT_HEIGHT']//CONFIG_PARAMS['DOWNFAC']
-dw = CONFIG_PARAMS['INPUT_WIDTH']//CONFIG_PARAMS['DOWNFAC']
+dh = (CONFIG_PARAMS['CROP_HEIGHT'][1]-CONFIG_PARAMS['CROP_HEIGHT'][0]) \
+        // CONFIG_PARAMS['DOWNFAC']
+dw = (CONFIG_PARAMS['CROP_WIDTH'][1]-CONFIG_PARAMS['CROP_WIDTH'][0]) \
+        // CONFIG_PARAMS['DOWNFAC']
 ims_train = np.zeros((ncams*len(partition['train']),
                      dh, dw, 3), dtype='float32')
 y_train = np.zeros((ncams*len(partition['train']),
@@ -288,4 +306,7 @@ if CONFIG_PARAMS['debug']:
                     bbox_inches='tight', pad_inches=0)
 
 print("Saving full model at end of training")
-model.save(os.path.join(RESULTSDIR, 'fullmodel_end.hdf5'))
+sdir = os.path.join(CONFIG_PARAMS['RESULTSDIR'], 'fullmodel_weights')
+if not os.path.exists(sdir):
+    os.makedirs(sdir)
+model.save(os.path.join(sdir, 'fullmodel_end.hdf5'))

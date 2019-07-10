@@ -12,10 +12,11 @@ from dannce.engine import nets
 import keras.losses
 import dannce.engine.serve_data_DANNCE as serve_data
 import dannce.engine.processing as processing
+import dannce.engine.ops as ops
 from dannce.engine.processing import savedata_tomat, savedata_expval
 from dannce.engine.generator_kmeans import DataGenerator_3Dconv_kmeans
 from keras.layers import Conv3D, Input
-from keras.models import Model
+from keras.models import Model, load_model
 from keras.optimizers import Adam
 
 # Set up parameters
@@ -48,8 +49,7 @@ datadict_, com3d_dict_ = serve_data.prepare_COM(
     weighted=CONFIG_PARAMS['weighted'],
     retriangulate=False,
     camera_mats=cameras_,
-    method=CONFIG_PARAMS['com_method'])#),
-    #eID=0)
+    method=CONFIG_PARAMS['com_method'])
 
 # Need to cap this at the number of samples included in our
 # COM finding estimates
@@ -110,15 +110,14 @@ else:
 
 # Parameters
 valid_params = {
-    'dim_in': (CONFIG_PARAMS['INPUT_HEIGHT'], CONFIG_PARAMS['INPUT_WIDTH']),
+    'dim_in': (CONFIG_PARAMS['CROP_HEIGHT'][1]-CONFIG_PARAMS['CROP_HEIGHT'][0],
+               CONFIG_PARAMS['CROP_WIDTH'][1]-CONFIG_PARAMS['CROP_WIDTH'][0]),
     'n_channels_in': CONFIG_PARAMS['N_CHANNELS_IN'],
-    'dim_out': (CONFIG_PARAMS['OUTPUT_HEIGHT'], CONFIG_PARAMS['OUTPUT_WIDTH']),
     'batch_size': CONFIG_PARAMS['BATCH_SIZE'],
     'n_channels_out': CONFIG_PARAMS['N_CHANNELS_OUT'],
     'out_scale': CONFIG_PARAMS['SIGMA'],
     'crop_width': CONFIG_PARAMS['CROP_WIDTH'],
     'crop_height': CONFIG_PARAMS['CROP_HEIGHT'],
-    'bbox_dim': (CONFIG_PARAMS['BBOX_HEIGHT'], CONFIG_PARAMS['BBOX_WIDTH']),
     'vmin': CONFIG_PARAMS['VMIN'],
     'vmax': CONFIG_PARAMS['VMAX'],
     'nvox': CONFIG_PARAMS['NVOX'],
@@ -153,52 +152,15 @@ valid_generator = DataGenerator_3Dconv_kmeans(
 # Build net
 print("Initializing Network...")
 
-if CONFIG_PARAMS['EXPVAL']:
-    model = CONFIG_PARAMS['net'](
-        CONFIG_PARAMS['loss'],
-        CONFIG_PARAMS['lr'],
-        CONFIG_PARAMS['N_CHANNELS_IN'] + CONFIG_PARAMS['DEPTH'],
-        CONFIG_PARAMS['N_CHANNELS_OUT'],
-        len(camnames[0]),
-        batch_norm=CONFIG_PARAMS['batch_norm'],
-        instance_norm=CONFIG_PARAMS['instance_norm'],
-        last_kern_size=CONFIG_PARAMS['NEW_LAST_KERNEL_SIZE'])
-    print("COMPLETE\n")
-else:
-    model = CONFIG_PARAMS['net'](CONFIG_PARAMS['loss'],
-                                 CONFIG_PARAMS['lr'],
-                                 CONFIG_PARAMS['N_CHANNELS_IN'] + CONFIG_PARAMS['DEPTH'],
-                                 CONFIG_PARAMS['N_CHANNELS_OUT'],
-                                 len(camnames[0]),
-                                 batch_norm=CONFIG_PARAMS['batch_norm'],
-                                 instance_norm=CONFIG_PARAMS['instance_norm'],
-                                 include_top=False)
-
-    # lock first conv. layer
-    for layer in model.layers[:2]:
-        layer.trainable = False
-
-    # Do forward pass all the way until end
-    idim = CONFIG_PARAMS['N_CHANNELS_IN'] + CONFIG_PARAMS['DEPTH']
-    ncams = len(camnames[0])
-    input_ = inputs = Input((None, None, None, idim*ncams))
-
-    old_out = model(input_)
-
-    # Add new output conv. layer
-    new_conv = Conv3D(CONFIG_PARAMS['NEW_N_CHANNELS_OUT'],
-                      CONFIG_PARAMS['NEW_LAST_KERNEL_SIZE'],
-                      activation='sigmoid',
-                      padding='same')(old_out)
-
-    model = Model(inputs=[input_], outputs=[new_conv])
-
-    model.compile(optimizer=Adam(lr=CONFIG_PARAMS['lr']),
-                  loss=CONFIG_PARAMS['loss'],
-                  metrics=CONFIG_PARAMS['metric'])
-
-    model.load_weights(CONFIG_PARAMS['weightsfile'])
-
+# This requires that the network be saved as a full model, not just weights.
+# As a precaution, we import all possible custom objects that could be used
+# by a model and thus need declarations
+model = load_model(CONFIG_PARAMS['WEIGHTS'], 
+                   custom_objects={'ops': ops,
+                                   'slice_input': nets.slice_input,
+                                   'mask_nan_keep_loss': losses.mask_nan_keep_loss,
+                                   'euclidean_distance_3D': losses.euclidean_distance_3D,
+                                   'centered_euclidean_distance_3D': losses.centered_euclidean_distance_3D})
 
 save_data = {}
 

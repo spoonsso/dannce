@@ -106,7 +106,7 @@ def do_retriangulate(this_com, j, k, uCamnames, camera_mats):
 
 def prepare_COM(
     comfile, datadict, comthresh=0.01, weighted=True, retriangulate=False,
-    camera_mats=None, conf_rescale=None, method='mean', eID=None):
+    camera_mats=None, conf_rescale=None, method='mean'):
     """Replace 2d coords with preprocessed COM coords, return 3d COM coords.
 
     Loads COM file, replaces 2D coordinates in datadict with the preprocessed
@@ -117,8 +117,6 @@ def prepare_COM(
     Returns nan for 2d COM if camera does not reach thresh. This should be
     detected by the generator to return nans such that bad camera
     frames do not get averaged in to image data
-
-    if eID is an integer, it expects the COM keys to have an experiment ID appended in front
     """
     if camera_mats is None and retriangulate:
         raise Exception("Need camera matrices to retriangulate")
@@ -140,7 +138,10 @@ def prepare_COM(
     elif method == 'median':
         print('using median to get 3D COM')
 
-    if eID is not None:
+    # It's possible that the keys in the COM dict are strings with an experiment ID
+    # prepended in front. We need to handle this appropriately.
+    firstkey = list(com.keys())[0]
+    if isinstance(firstkey, str):
         com_ = {}
         for key in com.keys():
             com_[int(key.split('_')[-1])] = com[key]
