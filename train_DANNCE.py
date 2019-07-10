@@ -14,8 +14,6 @@ experiment config files  to support training over multiple animals.
 import sys
 import numpy as np
 import os
-import time
-import ast
 import keras.backend as K
 import dannce.engine.serve_data_DANNCE as serve_data
 import dannce.engine.processing as processing
@@ -24,16 +22,27 @@ from dannce.engine.generator_kmeans import DataGenerator_3Dconv_kmeans
 from dannce.engine.generator_kmeans import DataGenerator_3Dconv_frommem
 from dannce.engine import nets
 from dannce.engine import losses
+from dannce.engine import ops
 from six.moves import cPickle
 from keras.layers import Conv3D, Input
-from keras.models import Model
+from keras.models import Model, load_model
 from keras.optimizers import Adam
 from keras.callbacks import ModelCheckpoint, CSVLogger, TensorBoard
+import keras
 
 # Set up parameters
 CONFIG_PARAMS = processing.read_config(sys.argv[1])
 CONFIG_PARAMS['loss'] = getattr(losses, CONFIG_PARAMS['loss'])
 CONFIG_PARAMS['net'] = getattr(nets, CONFIG_PARAMS['net'])
+
+# Convert all metric strings to objects
+metrics = []
+for m in CONFIG_PARAMS['metric']:
+    try:
+        m_obj = getattr(losses, m)
+    except AttributeError:
+        m_obj = getattr(keras.losses, m)
+    metrics.append(m_obj)
 
 # set GPU ID
 os.environ["CUDA_VISIBLE_DEVICES"] = CONFIG_PARAMS['gpuID']
@@ -62,8 +71,7 @@ for e in range(num_experiments):
         weighted=CONFIG_PARAMS['weighted'],
         retriangulate=CONFIG_PARAMS['retriangulate'],
         camera_mats=cameras_,
-        method=CONFIG_PARAMS['com_method'],
-        eID=0)
+        method=CONFIG_PARAMS['com_method'])
 
     # Need to cap this at the number of samples included in our
     # COM finding estimates
@@ -160,15 +168,14 @@ for e in range(num_experiments):
 
 # Parameters
 valid_params = {
-    'dim_in': (CONFIG_PARAMS['INPUT_HEIGHT'], CONFIG_PARAMS['INPUT_WIDTH']),
+    'dim_in': (CONFIG_PARAMS['CROP_HEIGHT'][1]-CONFIG_PARAMS['CROP_HEIGHT'][0],
+               CONFIG_PARAMS['CROP_WIDTH'][1]-CONFIG_PARAMS['CROP_WIDTH'][0]),
     'n_channels_in': CONFIG_PARAMS['N_CHANNELS_IN'],
-    'dim_out': (CONFIG_PARAMS['OUTPUT_HEIGHT'], CONFIG_PARAMS['OUTPUT_WIDTH']),
     'batch_size': 1,
     'n_channels_out': CONFIG_PARAMS['NEW_N_CHANNELS_OUT'],
     'out_scale': CONFIG_PARAMS['SIGMA'],
     'crop_width': CONFIG_PARAMS['CROP_WIDTH'],
     'crop_height': CONFIG_PARAMS['CROP_HEIGHT'],
-    'bbox_dim': (CONFIG_PARAMS['BBOX_HEIGHT'], CONFIG_PARAMS['BBOX_WIDTH']),
     'vmin': CONFIG_PARAMS['VMIN'],
     'vmax': CONFIG_PARAMS['VMAX'],
     'nvox': CONFIG_PARAMS['NVOX'],
@@ -193,7 +200,7 @@ valid_params = {
 tifdirs = []  # Training from single images not yet supported in this demo
 
 partition = {}
-if CONFIG_PARAMS['load_valid'] is None:
+if 'load_valid' not in CONFIG_PARAMS.keys():
     all_inds = np.arange(len(samples))
 
     # extract random inds from each set for validation
@@ -249,12 +256,6 @@ X_train = np.zeros((len(partition['train_sampleIDs']),
                     CONFIG_PARAMS['NVOX'],
                     CONFIG_PARAMS['N_CHANNELS_IN']*len(camnames[0])),
                    dtype='float32')
-y_train = np.zeros((len(partition['train_sampleIDs']),
-                    CONFIG_PARAMS['NVOX'],
-                    CONFIG_PARAMS['NVOX'],
-                    CONFIG_PARAMS['NVOX'],
-                    CONFIG_PARAMS['NEW_N_CHANNELS_OUT']),
-                   dtype='float32')
 
 X_valid = np.zeros((len(partition['valid_sampleIDs']),
                     CONFIG_PARAMS['NVOX'],
@@ -262,23 +263,59 @@ X_valid = np.zeros((len(partition['valid_sampleIDs']),
                     CONFIG_PARAMS['NVOX'],
                     CONFIG_PARAMS['N_CHANNELS_IN']*len(camnames[0])),
                    dtype='float32')
-y_valid = np.zeros((len(partition['valid_sampleIDs']),
-                    CONFIG_PARAMS['NVOX'],
-                    CONFIG_PARAMS['NVOX'],
-                    CONFIG_PARAMS['NVOX'],
-                    CONFIG_PARAMS['NEW_N_CHANNELS_OUT']),
-                   dtype='float32')
+
+X_train_grid = None
+X_valid_grid = None
+if CONFIG_PARAMS['EXPVAL']:
+    y_train = np.zeros((len(partition['train_sampleIDs']),
+                        3,
+                        CONFIG_PARAMS['NEW_N_CHANNELS_OUT']),
+                       dtype='float32')
+    X_train_grid = np.zeros((len(partition['train_sampleIDs']),
+                             CONFIG_PARAMS['NVOX']**3, 3),
+                            dtype='float32')
+
+    y_valid = np.zeros((len(partition['valid_sampleIDs']),
+                        3,
+                        CONFIG_PARAMS['NEW_N_CHANNELS_OUT']),
+                       dtype='float32')
+    X_valid_grid = np.zeros((len(partition['valid_sampleIDs']),
+                             CONFIG_PARAMS['NVOX']**3, 3),
+                            dtype='float32')
+else:
+    y_train = np.zeros((len(partition['train_sampleIDs']),
+                        CONFIG_PARAMS['NVOX'],
+                        CONFIG_PARAMS['NVOX'],
+                        CONFIG_PARAMS['NVOX'],
+                        CONFIG_PARAMS['NEW_N_CHANNELS_OUT']),
+                       dtype='float32')
+
+    y_valid = np.zeros((len(partition['valid_sampleIDs']),
+                        CONFIG_PARAMS['NVOX'],
+                        CONFIG_PARAMS['NVOX'],
+                        CONFIG_PARAMS['NVOX'],
+                        CONFIG_PARAMS['NEW_N_CHANNELS_OUT']),
+                       dtype='float32')
+
 
 print("Loading training data into memory")
 for i in range(len(partition['train_sampleIDs'])):
     rr = train_generator.__getitem__(i)
-    X_train[i] = rr[0]
+    if CONFIG_PARAMS['EXPVAL']:
+        X_train[i] = rr[0][0]
+        X_train_grid[i] = rr[0][1]
+    else:
+        X_train[i] = rr[0]
     y_train[i] = rr[1]
 
 print("Loading validation data into memory")
 for i in range(len(partition['valid_sampleIDs'])):
     rr = valid_generator.__getitem__(i)
-    X_valid[i] = rr[0]
+    if CONFIG_PARAMS['EXPVAL']:
+        X_valid[i] = rr[0][0]
+        X_valid_grid[i] = rr[0][1]
+    else:
+        X_valid[i] = rr[0]
     y_valid[i] = rr[1]
 
 # Now we can generate from memory with shuffling, rotation, etc.
@@ -291,61 +328,70 @@ train_generator = \
                                  y_train,
                                  batch_size=CONFIG_PARAMS['BATCH_SIZE'],
                                  random=randflag,
-                                 rotation=CONFIG_PARAMS['ROTATE'])
+                                 rotation=CONFIG_PARAMS['ROTATE'],
+                                 expval=CONFIG_PARAMS['EXPVAL'],
+                                 xgrid=X_train_grid,
+                                 nvox=CONFIG_PARAMS['NVOX'])
 valid_generator = \
     DataGenerator_3Dconv_frommem(np.arange(len(partition['valid_sampleIDs'])),
                                  X_valid,
                                  y_valid,
                                  batch_size=CONFIG_PARAMS['BATCH_SIZE'],
                                  random=randflag,
-                                 rotation=CONFIG_PARAMS['ROTATE'])
+                                 rotation=CONFIG_PARAMS['ROTATE'],
+                                 expval=CONFIG_PARAMS['EXPVAL'],
+                                 xgrid=X_valid_grid,
+                                 nvox=CONFIG_PARAMS['NVOX'])
 
 # Build net
 print("Initializing Network...")
 
 assert not (CONFIG_PARAMS['batch_norm'] == True) & (CONFIG_PARAMS['instance_norm'] == True)
-# with tf.device("/gpu:0"):
-model = CONFIG_PARAMS['net'](CONFIG_PARAMS['loss'],
-                             CONFIG_PARAMS['lr'],
-                             CONFIG_PARAMS['N_CHANNELS_IN'] + CONFIG_PARAMS['DEPTH'],
-                             CONFIG_PARAMS['N_CHANNELS_OUT'],
-                             len(camnames[0]),
-                             batch_norm=CONFIG_PARAMS['batch_norm'],
-                             instance_norm=CONFIG_PARAMS['instance_norm'],
-                             include_top=False)
+
+# Currently, we expect four modes of use:
+# 1) Training a new network from scratch
+# 2) Fine-tuning a network trained on a diff. dataset (transfer learning)
+# 3) Continuing to train 1) or 2) from a full model checkpoint (including optimizer state)
+
+gridsize = (CONFIG_PARAMS['NVOX'], CONFIG_PARAMS['NVOX'], CONFIG_PARAMS['NVOX'])
+if CONFIG_PARAMS['train_mode'] == 'new':
+    model = CONFIG_PARAMS['net'](CONFIG_PARAMS['loss'],
+                                 float(CONFIG_PARAMS['lr']),
+                                 CONFIG_PARAMS['N_CHANNELS_IN'] + CONFIG_PARAMS['DEPTH'],
+                                 CONFIG_PARAMS['N_CHANNELS_OUT'],
+                                 len(camnames[0]),
+                                 batch_norm=CONFIG_PARAMS['batch_norm'],
+                                 instance_norm=CONFIG_PARAMS['instance_norm'],
+                                 include_top=True,
+                                 gridsize=gridsize)
+elif CONFIG_PARAMS['train_mode'] == 'finetune':
+    model = CONFIG_PARAMS['net'](CONFIG_PARAMS['loss'],
+                                 float(CONFIG_PARAMS['lr']),
+                                 CONFIG_PARAMS['N_CHANNELS_IN'] + CONFIG_PARAMS['DEPTH'],
+                                 CONFIG_PARAMS['N_CHANNELS_OUT'],
+                                 len(camnames[0]),
+                                 CONFIG_PARAMS['NEW_LAST_KERNEL_SIZE'],
+                                 CONFIG_PARAMS['NEW_N_CHANNELS_OUT'],
+                                 CONFIG_PARAMS['WEIGHTS'],
+                                 CONFIG_PARAMS['N_LAYERS_LOCKED'],
+                                 batch_norm=CONFIG_PARAMS['batch_norm'],
+                                 instance_norm=CONFIG_PARAMS['instance_norm'],
+                                 gridsize=gridsize)
+elif CONFIG_PARAMS['train_mode'] == 'continued':
+    model = load_model(CONFIG_PARAMS['WEIGHTS'], 
+                       custom_objects={'ops': ops,
+                                       'slice_input': nets.slice_input,
+                                       'mask_nan_keep_loss': losses.mask_nan_keep_loss,
+                                       'euclidean_distance_3D': losses.euclidean_distance_3D,
+                                       'centered_euclidean_distance_3D': losses.centered_euclidean_distance_3D})
+else:
+    raise Exception("Invalid training mode")
+
+model.compile(optimizer=Adam(lr=float(CONFIG_PARAMS['lr'])),
+              loss=CONFIG_PARAMS['loss'],
+              metrics=metrics)
 
 print("COMPLETE\n")
-
-# For fine-tuning:
-# load in weights
-if CONFIG_PARAMS['lockfirst']:
-    model.load_weights(CONFIG_PARAMS['WEIGHTS'], by_name=True)
-
-# lock first conv. layer
-for layer in model.layers[:2]:
-    layer.trainable = False
-
-# Do forward pass all the way until end
-idim = CONFIG_PARAMS['N_CHANNELS_IN'] + CONFIG_PARAMS['DEPTH']
-ncams = len(camnames[0])
-input_ = inputs = Input((None, None, None, idim*ncams))
-
-old_out = model(input_)
-
-# Add new output conv. layer
-new_conv = Conv3D(CONFIG_PARAMS['NEW_N_CHANNELS_OUT'],
-                  CONFIG_PARAMS['NEW_LAST_KERNEL_SIZE'],
-                  activation='sigmoid',
-                  padding='same')(old_out)
-
-model = Model(inputs=[input_], outputs=[new_conv])
-
-if not CONFIG_PARAMS['lockfirst']:
-    model.load_weights(CONFIG_PARAMS['WEIGHTS'])
-
-model.compile(optimizer=Adam(lr=CONFIG_PARAMS['lr']),
-              loss=CONFIG_PARAMS['loss'],
-              metrics=CONFIG_PARAMS['metric'])
 
 # Create checkpoint and logging callbacks
 model_checkpoint = ModelCheckpoint(os.path.join(RESULTSDIR,

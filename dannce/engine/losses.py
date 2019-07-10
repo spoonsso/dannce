@@ -16,25 +16,7 @@ def mask_nan_keep_loss(y_true, y_pred):
     y_true = K.cast(
         tf.where(~tf.is_nan(y_true), y_true, tf.zeros_like(y_true)), 'float32')
     loss = K.sum((K.flatten(y_pred) - K.flatten(y_true))**2) / num_notnan
-    return loss
-
-
-# TODO(remove): I don't see a difference between these mask_nan_keep_loss,
-# and mask_nan_keep_loss_safe, but I don't know which is used.
-def mask_nan_keep_loss_safe(y_true, y_pred):
-    """Mask out nan values in the calulation of MSE."""
-    nan_true = K.cast(~tf.is_nan(y_true), 'float32')
-    num_notnan = K.sum(K.flatten(nan_true))
-    y_pred = tf.multiply(y_pred, nan_true)
-
-    # We need to use tf.where to do this substitution, because when trying to
-    # multiply with just the nan_true masks,
-    # NaN*0 = NaN, so NaNs are not removed
-    y_true = K.cast(
-        tf.where(~tf.is_nan(y_true), y_true, tf.zeros_like(y_true)), 'float32')
-    loss = K.sum((K.flatten(y_pred) - K.flatten(y_true))**2) / num_notnan
     return tf.where(~tf.is_nan(loss), loss, 0)
-
 
 def metric_dist_max(y_true, y_pred):
     """Get distance between the (row, col) indices of each maximum.
@@ -67,23 +49,46 @@ def mse_with_var_regularization(y_true, y_pred):
 
 
 def identity_pred(y_true, y_pred):
-    """Work with variance regularizer in spatial expected value networks."""
+    """Works with variance regularizer in spatial expected value networks."""
     return K.mean(K.flatten(y_pred))
+
+
+def K_nanmean(tensor):
+    """
+    Returns the nanmean of the input tensor. If tensor is all NaN, returns 0
+    """
+    notnan = K.cast(~tf.is_nan(tensor), 'float32')
+    num_notnan = K.sum(K.flatten(notnan))
+
+    nonan = K.cast(tf.where(~tf.is_nan(tensor),
+                            tensor,
+                            tf.zeros_like(tensor)), 'float32')
+
+    loss = K.sum(nonan)/num_notnan
+
+    return tf.where(~tf.is_inf(loss), loss, 0)
 
 
 def euclidean_distance_3D(y_true, y_pred):
     """Get 3d Euclidean distance.
 
-    Assumes predictions of shape (batch_size,3*num_markers)
+    Assumes predictions of shape (batch_size,3,num_markers)
+
+    Ignores NaN when necessary
     """
-    return K.mean(K.flatten(K.sqrt(K.sum(K.pow(y_true - y_pred, 2), axis=1))))
+    ed3D = K.flatten(K.sqrt(K.sum(K.pow(y_true - y_pred, 2), axis=1)))
+    return K_nanmean(ed3D)
 
 
 def centered_euclidean_distance_3D(y_true, y_pred):
     """Get centered 3d Euclidean distance.
 
-    Assumes predictions of shape (batch_size,3*num_markers)
+    Assumes predictions of shape (batch_size,3,num_markers)
+
+    Ignores NaN when necessary
     """
     y_true = y_true - K.mean(y_true, axis=-1, keepdims=True)
     y_pred = y_pred - K.mean(y_pred, axis=-1, keepdims=True)
-    return K.mean(K.flatten(K.sqrt(K.sum(K.pow(y_true - y_pred, 2), axis=1))))
+
+    ced3D = K.flatten(K.sqrt(K.sum(K.pow(y_true - y_pred, 2), axis=1)))
+    return K_nanmean(ced3D)

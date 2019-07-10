@@ -34,6 +34,18 @@ def trim_COM_pickle(
 		cPickle.dump(sd, f)
 	return sd
 
+def inherit_config(child, parent, keys):
+	"""
+	If a key in keys does not exist in child, assigns the key-value in parent to
+		child.
+	"""
+	for key in keys:
+		if key not in child.keys():
+			child[key] = parent[key]
+
+	return child
+
+
 
 def close_open_vids(
 	lastvid, lastvid_, currvid, currvid_, framecnt, cnames, vids,

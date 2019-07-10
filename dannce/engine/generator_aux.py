@@ -17,19 +17,19 @@ class DataGenerator_downsample(keras.utils.Sequence):
 
     def __init__(
         self, list_IDs, labels, vidreaders, batch_size=32,
-        dim_in=(32, 32, 32), n_channels_in=1,
-        dim_out=(32, 32, 32), n_channels_out=1,
+        dim_in=(1024, 1280), n_channels_in=1,
+        n_channels_out=1,
         out_scale=5, shuffle=True,
         camnames=_DEFAULT_CAM_NAMES,
         crop_width=(0, 1024), crop_height=(20, 1300),
-        tilefac=1, bbox_dim=(32, 32, 32), downsample=1, immode='video',
+        downsample=1, immode='video',
         labelmode='prob', preload=True, dsmode='dsm', chunks=3500):
         """Initialize generator.
 
         TODO(params_definitions)
         """
         self.dim_in = dim_in
-        self.dim_out = dim_out
+        self.dim_out = dim_in
         self.batch_size = batch_size
         self.labels = labels
         self.vidreaders = vidreaders
@@ -42,8 +42,6 @@ class DataGenerator_downsample(keras.utils.Sequence):
         self.camnames = camnames
         self.crop_width = crop_width
         self.crop_height = crop_height
-        self.tilefac = tilefac
-        self.bbox_dim = bbox_dim
         self.downsample = downsample
         self.preload = preload
         self.dsmode = dsmode
@@ -55,7 +53,7 @@ class DataGenerator_downsample(keras.utils.Sequence):
 
         self.immode = immode
         self.labelmode = labelmode
-        self.chunks = chunks
+        self.chunks = int(chunks)
 
     def __len__(self):
         """Denote the number of batches per epoch."""
@@ -84,7 +82,7 @@ class DataGenerator_downsample(keras.utils.Sequence):
     def load_vid_frame(self, ind, camname, preload=True, extension='.mp4'):
         """Load the video frame from a single camera."""
         fname = str(self.chunks * int(np.floor(ind / self.chunks))) + extension
-        frame_num = ind % self.chunks
+        frame_num = int(ind % self.chunks)
 
         keyname = os.path.join(camname, fname)
 
@@ -154,11 +152,8 @@ class DataGenerator_downsample(keras.utils.Sequence):
                 if self.immode == 'video':
                     this_y[0, :] = this_y[0, :] - self.crop_width[0]
                     this_y[1, :] = this_y[1, :] - self.crop_height[0]
-                elif self.immode == 'tif':
-                    # DIRTY: HERE WE ASSUME TIF MODE IS ONLY
-                    # FOR PRE-DOWNSAMPLED SAVED TIFS
-                    this_y[0, :] = this_y[0, :] - self.crop_width[0] * 2
-                    this_y[1, :] = this_y[1, :] - self.crop_height[0] * 2
+                else:
+                    raise Exception("Unsupported image format. Needs to be video files.")
 
                 (x_coord, y_coord) = np.meshgrid(
                     np.arange(self.dim_out[1]), np.arange(self.dim_out[0]))
@@ -198,20 +193,8 @@ class DataGenerator_downsample(keras.utils.Sequence):
                     y, fac=self.downsample, method=self.dsmode)
                 y /= np.max(np.max(y, axis=1), axis=1)[
                     :, np.newaxis, np.newaxis, :]
-        # Again, we sloppily assume that tifs are already downsampled
-        if self.downsample == 1:
-            if self.labelmode == 'prob' and self.immode == 'tif':
-                y = processing.downsample_batch(
-                    y, fac=self.downsample * 2, method=self.dsmode)
-                y /= np.max(np.max(y, axis=1), axis=1)[
-                    :, np.newaxis, np.newaxis, :]
 
-        if self.tilefac > 1:
-            return (
-                processing.return_tile(pp_vgg19(X), fac=self.tilefac),
-                processing.return_tile(y, fac=self.tilefac))
-        else:
-            return pp_vgg19(X), y
+        return pp_vgg19(X), y
 
     def save_for_dlc(self, imfolder, ext='.png', full_data=True, compress_level=9):
         """Generate data.

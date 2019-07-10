@@ -3,8 +3,8 @@
 % just set to NaN here.
 
 % paths to matched frames
-basedir = './Recording_black6_mouseone/';
-mdir = [basedir 'Recording_black6_mouseone_matchedframes.mat'];
+basedir = './Recording_shaved_headcap_one_view/';
+mdir = [basedir 'Recording_shaved_headcap_one_view_matchedframes.mat'];
 %% load
 load(mdir)
 num_markers = 16; %hard-coded for mouse
