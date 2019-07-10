@@ -70,7 +70,7 @@ def prepare_data(CONFIG_PARAMS, com_flag=True, nanflag=True):
         cameras = {}
         for i in range(len(CONFIG_PARAMS['CAMNAMES'])):
             test = sio.loadmat(
-                os.path.join(CONFIG_PARAMS['CALIB_DIR'], CONFIG_PARAMS['calib_file'][i]))
+                os.path.join(CONFIG_PARAMS['CALIBDIR'], CONFIG_PARAMS['calib_file'][i]))
             cameras[CONFIG_PARAMS['CAMNAMES'][i]] = {
                 'K': test['K'], 'R': test['r'], 't': test['t']}
             if 'RDistort' in list(test.keys()):
