@@ -14,8 +14,8 @@ datafile: ['CameraLmouse_MatchedFrames', 'CameraRmouse_MatchedFrames', 'CameraSm
 CROP_HEIGHT: [0, 1024]
 CROP_WIDTH: [20, 1300]
 
-# Names for each of the camera subdirectories in the video folder. Order should match the datafiles above.
-CAMNAMES: ['CameraLmouse', 'CameraRmouse', 'CameraSmouse']
+# Number of channels for each input image (e.g. RGB == 3)
+N_CHANNELS_IN: 3
 
 # Batch size -- for labeling, should be kept at 1
 BATCH_SIZE: 1
@@ -45,3 +45,6 @@ lbl_template: ./labeling/mouse.template
 CAMNAMES: ['CameraLmouse', 'CameraRmouse', 'CameraSmouse']
 CALIBDIR: ./calibration/
 calib_file: ['hires_cam2_params.mat','hires_cam3_params.mat','hires_cam1_params.mat']
+
+# Path to the COM config file.
+COM_CONFIG: ./COM/config.yaml

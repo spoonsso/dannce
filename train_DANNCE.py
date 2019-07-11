@@ -5,8 +5,7 @@ This memory-based training is only available when using a small number of
 hand-labeled frames. Code for training over chronic recordings / motion
 capture to come.
 
-Usage: python train_DANNCE.py settings_config path_to_experiment1_config,
-     ..., path_to_experimentN_config
+Usage: python train_DANNCE.py settings_config 
 
 In contrast to predict_DANNCE.py, train_DANNCE.py can process multiple
 experiment config files  to support training over multiple animals.
@@ -31,9 +30,16 @@ from keras.callbacks import ModelCheckpoint, CSVLogger, TensorBoard
 import keras
 
 # Set up parameters
-CONFIG_PARAMS = processing.read_config(sys.argv[1])
+PARENT_PARAMS = processing.read_config(sys.argv[1])
+PARENT_PARAMS = processing.make_paths_safe(PARENT_PARAMS)
+
+CONFIG_PARAMS = processing.read_config(PARENT_PARAMS['DANNCE_CONFIG'])
+CONFIG_PARAMS = processing.make_paths_safe(CONFIG_PARAMS)
+
 CONFIG_PARAMS['loss'] = getattr(losses, CONFIG_PARAMS['loss'])
 CONFIG_PARAMS['net'] = getattr(nets, CONFIG_PARAMS['net'])
+
+_N_VIEWS = 6
 
 # Convert all metric strings to objects
 metrics = []
@@ -47,6 +53,13 @@ for m in CONFIG_PARAMS['metric']:
 # set GPU ID
 os.environ["CUDA_VISIBLE_DEVICES"] = CONFIG_PARAMS['gpuID']
 
+# find the weights given config path
+if CONFIG_PARAMS['weights'] is not None:
+    weights = os.listdir(CONFIG_PARAMS['weights'])
+    weights = [f for f in weights if '.hdf5' in f]
+    weights = weights[0]
+
+    CONFIG_PARAMS['weights'] = os.path.join(CONFIG_PARAMS['weights'],weights)
 
 samples = []
 datadict = {}
@@ -55,21 +68,56 @@ com3d_dict = {}
 cameras = {}
 camnames = {}
 
-exps = sys.argv[2:]
+if 'exp_path' not in CONFIG_PARAMS:
+  def_ep = os.path.join('.', 'DANNCE')
+  exps = os.listdir(def_ep)
+  exps = [os.path.join(def_ep, f) for f in exps if '.yaml' in f and 'exp' in f]
+else:
+  exps = CONFIG_PARAMS['exp_path']
+
 num_experiments = len(exps)
 CONFIG_PARAMS['experiment'] = {}
 for e in range(num_experiments):
     CONFIG_PARAMS['experiment'][e] = processing.read_config(exps[e])
+    CONFIG_PARAMS['experiment'][e] = processing.make_paths_safe(CONFIG_PARAMS['experiment'][e])
+
+    CONFIG_PARAMS['experiment'][e] = \
+    processing.inherit_config(CONFIG_PARAMS['experiment'][e],
+                              PARENT_PARAMS,
+                              ['CAMNAMES',
+                               'CALIBDIR',
+                               'calib_file',
+                               'extension',
+                               'datafile'])
+
+    # If len(CONFIG_PARAMS['experiment'][e]['CAMNAMES']) divides evenly into 6, duplicate here
+    dupes = ['CAMNAMES', 'datafile','calib_file']
+    for d in dupes:
+        val = CONFIG_PARAMS['experiment'][e][d]
+        if _N_VIEWS % len(val) == 0:
+            num_reps = _N_VIEWS  // len(val)
+            CONFIG_PARAMS['experiment'][e][d] = val * num_reps
+        else:
+            raise Exception("The length of the {} list must divide evenly into {}.".format(d, _N_VIEWS))
 
     samples_, datadict_, datadict_3d_, data_3d_, cameras_ = \
         serve_data.prepare_data(CONFIG_PARAMS['experiment'][e])
 
+    # Load in the COM file at the default location, or use one in the config file if provided
+    if 'COMfilename' in CONFIG_PARAMS['experiment'][e]:
+        comfn = CONFIG_PARAMS['experiment'][e]['COMfilename']
+    else:
+        comfn = os.path.join('.', 'COM', 'predict_results')
+        comfn = os.listdir(comfn)
+        comfn = [f for f in comfn if 'COM_undistorted.pickle' in f]
+        comfn = os.path.join('.', 'COM', 'predict_results', comfn[0])
+
     datadict_, com3d_dict_ = serve_data.prepare_COM(
-        CONFIG_PARAMS['experiment'][e]['COMfilename'],
+        comfn,
         datadict_,
         comthresh=CONFIG_PARAMS['comthresh'],
         weighted=CONFIG_PARAMS['weighted'],
-        retriangulate=CONFIG_PARAMS['retriangulate'],
+        retriangulate=True,
         camera_mats=cameras_,
         method=CONFIG_PARAMS['com_method'])
 
@@ -106,6 +154,7 @@ print(RESULTSDIR)
 
 if not os.path.exists(RESULTSDIR):
     os.makedirs(RESULTSDIR)
+
 
 # Additionally, to keep videos unique across experiments, need to add
 # experiment labels in other places. E.g. experiment 0 CameraE's "camname"
@@ -167,6 +216,11 @@ for e in range(num_experiments):
                                                                     = r[key]
 
 # Parameters
+if CONFIG_PARAMS['EXPVAL']:
+    outmode = 'coordinates'
+else:
+    outmode = '3dprob'
+
 valid_params = {
     'dim_in': (CONFIG_PARAMS['CROP_HEIGHT'][1]-CONFIG_PARAMS['CROP_HEIGHT'][0],
                CONFIG_PARAMS['CROP_WIDTH'][1]-CONFIG_PARAMS['CROP_WIDTH'][0]),
@@ -182,7 +236,7 @@ valid_params = {
     'interp': CONFIG_PARAMS['INTERP'],
     'depth': CONFIG_PARAMS['DEPTH'],
     'channel_combo': CONFIG_PARAMS['CHANNEL_COMBO'],
-    'mode': CONFIG_PARAMS['OUT_MODE'],
+    'mode': outmode,
     'camnames': camnames,
     'immode': CONFIG_PARAMS['IMMODE'],
     'training': False,  # This means we are not sampling from K-Means clusters
@@ -231,6 +285,12 @@ else:
               'rb') as f:
         partition['valid_sampleIDs'] = cPickle.load(f)
     partition['train_sampleIDs'] = [f for f in samples if f not in partition['valid_sampleIDs']]
+
+# print(samples)
+# print("in gen train")
+# print(partition['train_sampleIDs'])
+# print("in gen val")
+# print(partition['valid_sampleIDs'])
 
 train_generator = DataGenerator_3Dconv_kmeans(partition['train_sampleIDs'],
                                               datadict,
@@ -372,13 +432,13 @@ elif CONFIG_PARAMS['train_mode'] == 'finetune':
                                  len(camnames[0]),
                                  CONFIG_PARAMS['NEW_LAST_KERNEL_SIZE'],
                                  CONFIG_PARAMS['NEW_N_CHANNELS_OUT'],
-                                 CONFIG_PARAMS['WEIGHTS'],
+                                 CONFIG_PARAMS['weights'],
                                  CONFIG_PARAMS['N_LAYERS_LOCKED'],
                                  batch_norm=CONFIG_PARAMS['batch_norm'],
                                  instance_norm=CONFIG_PARAMS['instance_norm'],
                                  gridsize=gridsize)
 elif CONFIG_PARAMS['train_mode'] == 'continued':
-    model = load_model(CONFIG_PARAMS['WEIGHTS'], 
+    model = load_model(CONFIG_PARAMS['weights'], 
                        custom_objects={'ops': ops,
                                        'slice_input': nets.slice_input,
                                        'mask_nan_keep_loss': losses.mask_nan_keep_loss,
@@ -417,6 +477,9 @@ model.fit_generator(generator=train_generator,
                     callbacks=[csvlog, model_checkpoint, tboard])
 
 print("Saving full model at end of training")
-model.save(os.path.join(RESULTSDIR, 'fullmodel_end.hdf5'))
+sdir = os.path.join(CONFIG_PARAMS['RESULTSDIR'], 'fullmodel_weights')
+if not os.path.exists(sdir):
+    os.makedirs(sdir)
+model.save(os.path.join(sdir, 'fullmodel_end.hdf5'))
 
 print("done!")

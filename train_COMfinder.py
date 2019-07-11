@@ -25,7 +25,11 @@ import matplotlib.pyplot as plt
 
 # Set up parameters
 PARENT_PARAMS = processing.read_config(sys.argv[1])
+PARENT_PARAMS = processing.make_paths_safe(PARENT_PARAMS)
+
 CONFIG_PARAMS = processing.read_config(PARENT_PARAMS['COM_CONFIG'])
+CONFIG_PARAMS = processing.make_paths_safe(CONFIG_PARAMS)
+
 CONFIG_PARAMS['loss'] = getattr(losses, CONFIG_PARAMS['loss'])
 CONFIG_PARAMS['net'] = getattr(nets, CONFIG_PARAMS['net'])
 
@@ -47,7 +51,7 @@ num_experiments = len(exps)
 CONFIG_PARAMS['experiment'] = {}
 for e in range(num_experiments):
     CONFIG_PARAMS['experiment'][e] = processing.read_config(exps[e])
-
+    CONFIG_PARAMS['experiment'][e] = processing.make_paths_safe(CONFIG_PARAMS['experiment'][e])
 
     CONFIG_PARAMS['experiment'][e] = \
         processing.inherit_config(CONFIG_PARAMS['experiment'][e],

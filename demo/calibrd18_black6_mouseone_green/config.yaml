@@ -17,7 +17,6 @@ CROP_WIDTH: [20, 1300]
 # Number of channels for each input image (e.g. RGB == 3)
 N_CHANNELS_IN: 3
 
-
 # Names for each of the camera subdirectories in the video folder. Order should match the datafiles above.
 CAMNAMES: ['CameraLmouse', 'CameraRmouse', 'CameraSmouse']
 CALIBDIR: ./calibration/
@@ -49,3 +48,6 @@ lbl_template: ./labeling/mouse.template
 
 # Path to the COM config file.
 COM_CONFIG: ./COM/config.yaml
+
+# Path to the DANNCE config file
+DANNCE_CONFIG: ./DANNCE/config.yaml

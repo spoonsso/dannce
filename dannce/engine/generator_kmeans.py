@@ -82,7 +82,7 @@ class DataGenerator(keras.utils.Sequence):
         """
         fname = str(
             _N_VIDEO_FRAMES * int(np.floor(ind / _N_VIDEO_FRAMES))) + extension
-        frame_num = ind % _N_VIDEO_FRAMES
+        frame_num = int(ind % _N_VIDEO_FRAMES)
         keyname = os.path.join(camname, fname)
         if preload:
             return self.vidreaders[camname][keyname].get_data(
