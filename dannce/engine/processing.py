@@ -16,6 +16,17 @@ import matplotlib.pyplot as plt
 import yaml
 
 
+def make_paths_safe(params):
+	"""Given a parameter dictionary, loops through the keys and replaces any \\ or / with os.sep
+	to promote OS agnosticism
+	"""
+	for key in params.keys():
+		if isinstance(params[key], str):
+			params[key] = params[key].replace('/', os.sep)
+			params[key] = params[key].replace('\\', os.sep)
+
+	return params
+
 def trim_COM_pickle(
     fpath, start_sample, end_sample, opath=None):
     """Trim dictionary entries to the range [start_sample, end_sample].
@@ -88,7 +99,7 @@ def close_open_vids(
         print('attempting to close video')
         for n in range(len(cnames)):
             for key in list(vids[cnames[n]].keys()):
-                vikey = key.split('/')[1]
+                vikey = key.split(os.sep)[1]
                 if lastvid == vikey:
                     print("Closing video: {}".format(key))
                     vids[cnames[n]][key].close()

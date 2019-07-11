@@ -28,7 +28,10 @@ eng = matlab.engine.start_matlab()
 eng.addpath(os.path.dirname(os.path.abspath(__file__)))
 # Load in the params
 PARENT_PARAMS = processing.read_config(sys.argv[1])
+PARENT_PARAMS = processing.make_paths_safe(PARENT_PARAMS)
+
 params = processing.read_config(PARENT_PARAMS['COM_CONFIG'])
+params = processing.make_paths_safe(params)
 
 # Load the appropriate loss function and network
 try:

@@ -293,16 +293,16 @@ def add_experiment(
     Append *_in variables to out variables, after appending the experiment
     number to the front of keys
     """
-    samples_in = [str(experiment) + '_' + str(x) for x in samples_in]
+    samples_in = [str(experiment) + '_' + str(int(x)) for x in samples_in]
     samples_out = samples_out + samples_in
 
     for key in datadict_in.keys():
-        datadict_out[str(experiment) + '_' + str(key)] = datadict_in[key]
+        datadict_out[str(experiment) + '_' + str(int(key))] = datadict_in[key]
 
     for key in datadict_3d_in.keys():
-        datadict_3d_out[str(experiment) + '_' + str(key)] = datadict_3d_in[key]
+        datadict_3d_out[str(experiment) + '_' + str(int(key))] = datadict_3d_in[key]
 
     for key in com3d_dict_in.keys():
-        com3d_dict_out[str(experiment) + '_' + str(key)] = com3d_dict_in[key]
+        com3d_dict_out[str(experiment) + '_' + str(int(key))] = com3d_dict_in[key]
 
     return samples_out, datadict_out, datadict_3d_out, com3d_dict_out
