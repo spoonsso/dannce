@@ -2,9 +2,12 @@ build
 dist
 dannce.egg-info
 __pycache__
-labeling/
 dannce/engine/__pycache__/
 dannce/labeling/__pycache__/
 old_repo/
 demo/calibrd18_black6_mouseone_green/videos/
 demo/calibrd18_black6_mousetwo_green/videos/
+
+demo/calibrd18_black6_mouseone_green/labeling/imDir/
+demo/calibrd18_black6_mousetwo_green/labeling/imDir/
+demo/calibrd18_black6_mousetwo_green/labeling/imDir_reproject/
