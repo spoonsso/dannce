@@ -8,9 +8,7 @@ import keras.initializers as initializers
 import keras.constraints as constraints
 import keras.regularizers as regularizers
 from keras.utils.generic_utils import get_custom_objects
-import matlab.engine
-import matlab
-eng = matlab.engine.start_matlab()
+import cv2
 
 
 def camera_matrix(K, R, t):
@@ -179,20 +177,33 @@ def unproj(feats, grid, batch_size):
     return Ibilin
 
 
-def unDistortPoints(pts, intrinsicMatrix, radialDistortion, tangentDistortion):
+def unDistortPoints(pts, 
+                    intrinsicMatrix,
+                    radialDistortion,
+                    tangentDistortion,
+                    rotationMatrix,
+                    translationVector):
     """Remove lense distortion from the input points.
 
     Input is size (M,2), where M is the number of points
     """
-    # First we need to create the camera parameters object that the matlab
-    # undistort function expects as input
-    camParams = eng.cameraParameters(
-        'IntrinsicMatrix', matlab.double(intrinsicMatrix.tolist()),
-        'RadialDistortion', matlab.double(radialDistortion.tolist()),
-        'TangentialDistortion', matlab.double(tangentDistortion.tolist()))
-    pts = matlab.double(pts.tolist())
-    pts = eng.undistortPoints(pts, camParams)
-    return np.array(pts)
+
+    dcoef = radialDistortion.ravel()[:2].tolist() + tangentDistortion.ravel().tolist()
+
+    if len(radialDistortion.ravel()) == 3:
+        dcoef = dcoef + [radialDistortion.ravel()[-1]]
+    else:
+        dcoef = dcoef + [0]
+
+    pts_u = cv2.undistortPoints(np.reshape(pts,(-1,1,2)).astype('float64'),
+                                intrinsicMatrix.T,
+                                np.array(dcoef),
+                                P=intrinsicMatrix.T)
+
+    pts_u = np.reshape(pts_u, (-1,2))
+
+    return pts_u
+
 
 
 def triangulate(pts1, pts2, cam1, cam2):

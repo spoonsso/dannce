@@ -90,7 +90,7 @@ datadict_, com3d_dict_ = serve_data.prepare_COM(
     datadict_,
     comthresh=CONFIG_PARAMS['comthresh'],
     weighted=CONFIG_PARAMS['weighted'],
-    retriangulate=True,
+    retriangulate=CONFIG_PARAMS['retriangulate'] if 'retriangulate' in CONFIG_PARAMS.keys() else True,
     camera_mats=dcameras_ if 'allcams' in CONFIG_PARAMS.keys() and CONFIG_PARAMS['allcams'] else cameras_,
     method=CONFIG_PARAMS['com_method'],
     allcams=CONFIG_PARAMS['allcams'] if 'allcams' in CONFIG_PARAMS.keys() and CONFIG_PARAMS['allcams'] else False)
@@ -344,8 +344,6 @@ def evaluate_ondemand(start_ind, end_ind, valid_gen, vids):
                 coord = np.stack((coordx, coordy, coordz))
                 sampleID = partition['valid_sampleIDs'][i * pred.shape[0] + j]
 
-                # TODO(pred_max_check): The saved value is pred_max_0,
-                # which is undefined. changed to pred_max
                 save_data[i * pred.shape[0] + j] = {
                     'pred_max': pred_max,
                     'pred_coord': coord,
