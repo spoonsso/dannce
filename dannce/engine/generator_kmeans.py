@@ -6,7 +6,6 @@ from dannce.engine import processing as processing
 from dannce.engine import ops as ops
 import imageio
 import warnings
-_N_VIDEO_FRAMES = 3500
 
 
 class DataGenerator(keras.utils.Sequence):
@@ -18,7 +17,7 @@ class DataGenerator(keras.utils.Sequence):
         n_channels_out=1, out_scale=5, shuffle=True, camnames=[],
         crop_width=(0, 1024), crop_height=(20, 1300),
         samples_per_cluster=0, training=True,
-        vidreaders=None):
+        vidreaders=None, chunks=3500):
         """Initialize Generator."""
         self.dim_in = dim_in
         self.dim_out = dim_in
@@ -37,6 +36,7 @@ class DataGenerator(keras.utils.Sequence):
         self.clusterIDs = clusterIDs
         self.samples_per_cluster = samples_per_cluster
         self.training = training
+        self._N_VIDEO_FRAMES = chunks
         self.on_epoch_end()
 
         if self.vidreaders is not None:
@@ -81,8 +81,8 @@ class DataGenerator(keras.utils.Sequence):
         This is currently implemented for handling only one camera as input
         """
         fname = str(
-            _N_VIDEO_FRAMES * int(np.floor(ind / _N_VIDEO_FRAMES))) + extension
-        frame_num = int(ind % _N_VIDEO_FRAMES)
+           self. _N_VIDEO_FRAMES * int(np.floor(ind / self._N_VIDEO_FRAMES))) + extension
+        frame_num = int(ind % self._N_VIDEO_FRAMES)
         keyname = os.path.join(camname, fname)
         if preload:
             return self.vidreaders[camname][keyname].get_data(
@@ -110,13 +110,13 @@ class DataGenerator_3Dconv_kmeans(DataGenerator):
         preload=True, samples_per_cluster=0, immode='tif', training=True,
         rotation=False, pregrid=None, pre_projgrid=None, stamp=False,
         vidreaders=None, distort=False, expval=False, multicam=True,
-        var_reg=False, COM_aug=None, crop_im=True, norm_im=True):
+        var_reg=False, COM_aug=None, crop_im=True, norm_im=True, chunks=3500):
         """Initialize data generator."""
         DataGenerator.__init__(
             self, list_IDs, labels, clusterIDs, batch_size, dim_in,
             n_channels_in, n_channels_out, out_scale, shuffle,
             camnames, crop_width, crop_height,
-            samples_per_cluster, training, vidreaders)
+            samples_per_cluster, training, vidreaders, chunks)
         self.vmin = vmin
         self.vmax = vmax
         self.nvox = nvox
@@ -355,9 +355,8 @@ class DataGenerator_3Dconv_kmeans(DataGenerator):
                     axis=1)
 
             for camname in self.camnames[experimentID]:
-                # !!!! Note that this unnecessary round actually saved me
-                # otherwise this_y would be decreasing every iteration.
-                # Should probably replace by a copy here
+                
+                # Need this copy so that this_y does not change
                 this_y = np.round(self.labels[ID]['data'][camname]).copy()
 
                 if np.all(np.isnan(this_y)):

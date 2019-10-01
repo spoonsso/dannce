@@ -6,6 +6,7 @@ import os
 from six.moves import cPickle
 from scipy.special import comb
 import warnings
+from copy import deepcopy
 
 
 def prepare_data(CONFIG_PARAMS, com_flag=True, nanflag=True):
@@ -106,7 +107,7 @@ def do_retriangulate(this_com, j, k, uCamnames, camera_mats):
 
 def prepare_COM(
     comfile, datadict, comthresh=0.01, weighted=True, retriangulate=False,
-    camera_mats=None, conf_rescale=None, method='mean'):
+    camera_mats=None, conf_rescale=None, method='mean', allcams=False):
     """Replace 2d coords with preprocessed COM coords, return 3d COM coords.
 
     Loads COM file, replaces 2D coordinates in datadict with the preprocessed
@@ -121,13 +122,6 @@ def prepare_COM(
     if camera_mats is None and retriangulate:
         raise Exception("Need camera matrices to retriangulate")
 
-    camnames = np.array(list(datadict[list(datadict.keys())[0]]['data'].keys()))
-
-    # Because I repeat cameras to fill up 6 camera quota, I need grab only
-    # the unique names
-    _, idx = np.unique(camnames, return_index=True)
-    uCamnames = camnames[np.sort(idx)]
-
     with open(comfile, 'rb') as f:
         com = cPickle.load(f)
     com3d_dict = {}
@@ -138,15 +132,28 @@ def prepare_COM(
     elif method == 'median':
         print('using median to get 3D COM')
 
+
+    firstkey = list(com.keys())[0]
+
+    if allcams: # Then use all possible cameras, for better COM
+        camnames = np.array([s for s in list(com[firstkey].keys()) if 'triangulation' not in s])
+    else:
+        camnames = np.array(list(datadict[list(datadict.keys())[0]]['data'].keys()))
+
+        # Because I repeat cameras to fill up 6 camera quota, I need grab only
+        # the unique names
+    _, idx = np.unique(camnames, return_index=True)
+    uCamnames = camnames[np.sort(idx)]
+
     # It's possible that the keys in the COM dict are strings with an experiment ID
     # prepended in front. We need to handle this appropriately.
-    firstkey = list(com.keys())[0]
     if isinstance(firstkey, str):
         com_ = {}
         for key in com.keys():
             com_[int(key.split('_')[-1])] = com[key]
         com = com_
 
+    fcom = list(com.keys())[0]
     for key in com.keys():
         this_com = com[key]
 
@@ -169,7 +176,17 @@ def prepare_COM(
             for j in range(len(uCamnames)):
                 for k in range(j + 1, len(uCamnames)):
                     if retriangulate:
+
+                        #Verify retriangulation happened
+                        if key == fcom:
+                            dtemp = deepcopy(this_com)
+                            do_retriangulate(this_com, j, k, uCamnames, camera_mats)
+                            print("Verifying retriangulation")
+                            assert np.any(dtemp['triangulation']['{}_{}'.format(uCamnames[j], uCamnames[k])] != this_com['triangulation']['{}_{}'.format(uCamnames[j], uCamnames[k])])
+                            assert np.all(this_com['triangulation']['{}_{}'.format(uCamnames[j], uCamnames[k])] == this_com['triangulation']['{}_{}'.format(uCamnames[j], uCamnames[k])])
+                        
                         do_retriangulate(this_com, j, k, uCamnames, camera_mats)
+
                     if (this_com[uCamnames[j]]['pred_max'] > comthresh) and (
                         this_com[uCamnames[k]]['pred_max'] > comthresh):
                         com3d[:, cnt] = \

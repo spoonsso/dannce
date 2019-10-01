@@ -10,6 +10,7 @@ from keras import backend as K
 from keras.applications.vgg19 import VGG19
 from keras.utils import multi_gpu_model
 from dannce.engine import ops as ops
+import numpy as np
 import gc
 
 
@@ -438,8 +439,10 @@ def unet3d_big_tiedfirstlayer(lossfunc, lr, input_dim, feature_num, num_cams, ba
 
     return model
 
-def unet3d_big(lossfunc, lr, input_dim, feature_num, num_cams, batch_norm=False, instance_norm = False, include_top=True, last_kern_size=(1,1,1)):
-
+def unet3d_big(lossfunc, lr, input_dim, feature_num, 
+                num_cams, batch_norm=False, instance_norm = False, 
+                include_top=True, last_kern_size=(1,1,1), gridsize=None):
+    # Gridsize unused, necessary for argument consistency with other nets
     if batch_norm and not instance_norm:
         print('using batch normalization')
         def fun(inputs):
@@ -535,9 +538,14 @@ def finetune_AVG(lossfunc, lr, input_dim, feature_num,
 
     post = model.get_weights()
 
-    # print("evaluating weight deltas:")
+    print("evaluating weight deltas in the first conv layer")
 
-    # for 
+    print("pre-weights")
+    print(pre[1][0])
+    print("post-weights")
+    print(post[1][0])
+    print("delta:")
+    print(np.sum(pre[1][0] - post[1][0]))
 
     # Lock desired number of layers
     for layer in model.layers[:num_layers_locked]:

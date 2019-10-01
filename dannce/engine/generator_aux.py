@@ -264,9 +264,9 @@ class DataGenerator_downsample(keras.utils.Sequence):
 
                 # TODO(os.path): This is unix-specific
                 # These paths should be using AWS/UNIX only
-                relpath = imfolder.split('/')[-2]
+                relpath = imfolder.split(os.sep)[-2]
                 relpath = \
-                    '../' + relpath + '/sample{}_'.format(ID) + camname + ext
+                    '..' + os.sep + relpath + os.sep + 'sample{}_'.format(ID) + camname + ext
                 fnames.append(relpath)
 
                 cnt = cnt + 1
