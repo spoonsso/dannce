@@ -131,4 +131,6 @@ cthresh: 300
 CHANNEL_COMBO: random
 
 # max. number of batches to evaluate during prediction. set to 'max' to evaluate over all data/video frames
-maxbatch: 250
+maxbatch: 8750
+
+DLC_PATH: /home/twd/Dropbox/mocapdata_for_tim/dlc/Recording_black6_mouseone/allpair_tri_ALL.mat

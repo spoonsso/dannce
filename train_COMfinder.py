@@ -96,7 +96,6 @@ for e in range(num_experiments):
 
     CONFIG_PARAMS['experiment'][e]['CAMNAMES'] = camnames[e]
 
-# Change the camnames in the data dictionaries as well
 for key in datadict.keys():
     enum = key.split('_')[0]
     datadict_[key] = {}
@@ -118,6 +117,13 @@ e = 0
 vids = {}
 for e in range(num_experiments):
 
+    # How many videos do we need to open?
+    # Find the largest sampleID for this experiment
+    esamp = [int(s.split('_')[-1]) for s in samples if int(s.split('_')[0])==e]
+    esamp = np.sort(esamp)[-1]
+    maxframes = datadict[str(e) + '_' + str(esamp)]['frames']
+    maxframes = min(list(maxframes.values()))
+
     for i in range(len(CONFIG_PARAMS['experiment'][e]['CAMNAMES'])):
         if CONFIG_PARAMS['vid_dir_flag']:
             addl = ''
@@ -130,7 +136,7 @@ for e in range(num_experiments):
                 CONFIG_PARAMS['experiment'][e]['viddir'],
                 os.path.join(CONFIG_PARAMS['experiment'][e]
                              ['CAMNAMES'][i].split('_')[1], addl),
-                maxopt=np.inf,  # Large enough to encompass all videos in directory.
+                maxopt=maxframes,
                 extension=CONFIG_PARAMS['experiment'][e]['extension'])
 
         # Add e to key
@@ -140,6 +146,7 @@ for e in range(num_experiments):
                                                                 '_' + key]\
                                                                 = r[key]
 
+print("Using {} downsampling".format(CONFIG_PARAMS['dsmode'] if 'dsmode' in CONFIG_PARAMS.keys() else 'dsm'))
 
 params = {'dim_in': (CONFIG_PARAMS['CROP_HEIGHT'][1]-CONFIG_PARAMS['CROP_HEIGHT'][0],
                      CONFIG_PARAMS['CROP_WIDTH'][1]-CONFIG_PARAMS['CROP_WIDTH'][0]),
@@ -151,11 +158,12 @@ params = {'dim_in': (CONFIG_PARAMS['CROP_HEIGHT'][1]-CONFIG_PARAMS['CROP_HEIGHT'
           'crop_width': CONFIG_PARAMS['CROP_WIDTH'],
           'crop_height': CONFIG_PARAMS['CROP_HEIGHT'],
           'downsample': CONFIG_PARAMS['DOWNFAC'],
-          'shuffle': True,
-          'chunks': CONFIG_PARAMS['chunks']}
+          'shuffle': False,
+          'chunks': CONFIG_PARAMS['chunks'],
+          'dsmode': CONFIG_PARAMS['dsmode'] if 'dsmode' in CONFIG_PARAMS.keys() else 'dsm'}
 
 valid_params = deepcopy(params)
-valid_params['shuffle'] = True
+valid_params['shuffle'] = False
 
 partition = {}
 if 'load_valid' not in CONFIG_PARAMS.keys():
@@ -182,6 +190,19 @@ else:
               'rb') as f:
         partition['valid'] = cPickle.load(f)
     partition['train'] = [f for f in samples if f not in partition['valid']]
+
+# Optionally, we can subselect a number of random train indices
+if 'num_train_per_exp' in CONFIG_PARAMS.keys():
+    nt = CONFIG_PARAMS['num_train_per_exp']
+    subtrain = []
+    for e in range(num_experiments):
+        tinds = np.array([i for i in partition['train']
+                 if int(i.split('_')[0]) == e])
+        tinds_ = np.random.choice(np.arange(len(tinds)), (nt,), replace=False)
+        tinds_ = np.sort(tinds_)
+        subtrain = subtrain + list(tinds[tinds_])
+
+    partition['train'] = subtrain
 
 # Save train/val inds
 with open(RESULTSDIR + 'val_samples.pickle', 'wb') as f:
@@ -224,7 +245,7 @@ model.compile(optimizer=Adam(lr=float(CONFIG_PARAMS['lr'])), loss=CONFIG_PARAMS[
 # Create checkpoint and logging callbacks
 model_checkpoint = ModelCheckpoint(os.path.join(RESULTSDIR,
                                    'weights.{epoch:02d}-{val_loss:.5f}.hdf5'),
-                                   monitor='val_loss',
+                                   monitor='loss',
                                    save_best_only=True,
                                    save_weights_only=True)
 csvlog = CSVLogger(os.path.join(RESULTSDIR, 'training.csv'))
@@ -251,6 +272,7 @@ y_valid = np.zeros((ncams*len(partition['valid']),
 
 print("Loading data")
 for i in range(len(partition['train'])):
+    print(i, end='\r')
     ims = train_generator.__getitem__(i)
     ims_train[i*ncams:(i+1)*ncams] = ims[0]
     y_train[i*ncams:(i+1)*ncams] = ims[1]
@@ -259,6 +281,18 @@ for i in range(len(partition['valid'])):
     ims = valid_generator.__getitem__(i)
     ims_valid[i*ncams:(i+1)*ncams] = ims[0]
     y_valid[i*ncams:(i+1)*ncams] = ims[1]
+
+# We don't need the videos any longer, so close them
+print('closing videos')
+for key in vids.keys():
+  for key_ in vids[key].keys():
+    vids[key][key_].close()
+
+# Now shuffle the training data and targets together
+inds = np.arange(ims_train.shape[0])
+np.random.shuffle(inds)
+ims_train = ims_train[inds]
+y_train = y_train[inds]
 
 if CONFIG_PARAMS['debug']:
     # Plot all training images and save

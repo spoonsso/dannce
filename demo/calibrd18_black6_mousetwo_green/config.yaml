@@ -48,3 +48,4 @@ calib_file: ['hires_cam2_params.mat','hires_cam3_params.mat','hires_cam1_params.
 
 # Path to the COM config file.
 COM_CONFIG: ./COM/config.yaml
+DANNCE_CONFIG: ./DANNCE/config.yaml

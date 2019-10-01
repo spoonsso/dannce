@@ -137,12 +137,15 @@ if len(sys.argv) == 4 or not eval(sys.argv[4]):
 
     # Write manifest file
     folder = sys.argv[3]
+    folder = folder.rstrip('/')
+    folder = folder + '/'
+
     allc = sio.loadmat(os.path.join(RESULTSDIR, 'allcoords.mat'))['filenames']
     with open(os.path.join(
             RESULTSDIR, 'dataset.manifest'), 'w') as f:
         for it in allc:
             fname = it.strip()
-            fname = fname.split('/')[-1]
+            fname = fname.split(os.sep)[-1]
             write_string = "\"source-ref\":\"{}\"".format(folder + fname)
             write_string = "{" + write_string + "}\n"
             f.write(write_string)
@@ -223,3 +226,5 @@ base = "#!/bin/bash\n" + \
 
 with open(os.path.join(RESULTSDIR, 'create_job.sh'), 'w') as f:
     f.write(base)
+
+sys.exit()

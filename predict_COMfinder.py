@@ -69,7 +69,7 @@ model = params['net'](
     params['metric'], multigpu=False)
 
 if 'predict_weights' in params.keys():
-    model.load_weights(params['weights'])
+    model.load_weights(params['predict_weights'])
 else:
     wdir = os.path.join('.', 'COM', 'train_results')
     weights = os.listdir(wdir)
@@ -155,7 +155,7 @@ def evaluate_COM_steps(start_ind, end_ind, steps):
                 # out in pred in the same order as CONFIG_PARAMS['CAMNAMES']
                 pred_max = np.max(np.squeeze(pred[j]))
                 ind = \
-                    np.array(processing.get_peak_inds(np.squeeze(pred[j]))) * 2
+                    np.array(processing.get_peak_inds(np.squeeze(pred[j]))) * params['DOWNFAC']
                 ind[0] += params['CROP_HEIGHT'][0]
                 ind[1] += params['CROP_WIDTH'][0]
                 ind = ind[::-1]
@@ -175,8 +175,8 @@ def evaluate_COM_steps(start_ind, end_ind, steps):
                     plt.cla()
                     im = valid_generator.__getitem__(i+m)
                     plt.imshow(processing.norm_im(im[0][j]))
-                    plt.plot((ind[0]-params['CROP_WIDTH'][0])/2,
-                             (ind[1]-params['CROP_HEIGHT'][0])/2,'or')
+                    plt.plot((ind[0]-params['CROP_WIDTH'][0])/params['DOWNFAC'],
+                             (ind[1]-params['CROP_HEIGHT'][0])/params['DOWNFAC'],'or')
                     plt.savefig(os.path.join(overlaydir,
                                              params['COMdebug'] + str(i+m) + '.png'))
 
@@ -262,7 +262,8 @@ valid_params = {
     'downsample': params['DOWNFAC'],
     'labelmode': 'coord',
     'chunks': params['chunks'],
-    'shuffle': False}
+    'shuffle': False,
+    'dsmode': params['dsmode'] if 'dsmode' in params.keys() else 'dsm'}
 
 partition = {}
 partition['valid'] = samples
@@ -272,10 +273,11 @@ labels_3d = datadict_3d
 save_data = {}
 
 # If we just want to analyze a chunk of video...
+st_ind = params['start_sample_index'] if 'start_sample_index' in params.keys() else 0
 if params['max_num_samples'] == 'max':
-    evaluate_COM_steps(0, len(samples), _N_VIDEO_FRAMES)
+    evaluate_COM_steps(st_ind, len(samples), _N_VIDEO_FRAMES)
 else:
-    evaluate_COM_steps(0, params['max_num_samples'], _N_VIDEO_FRAMES)
+    evaluate_COM_steps(st_ind, st_ind + params['max_num_samples'], _N_VIDEO_FRAMES)
 
 # Close video objects
 for j in range(len(params['CAMNAMES'])):

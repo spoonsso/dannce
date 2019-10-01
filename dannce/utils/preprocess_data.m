@@ -1,13 +1,14 @@
 %% processes matched_frames_aligned to provide a data structure used for model training
 % Note that the model data files require marker label data, which we will
 % just set to NaN here.
-
+clear all; close all;
 % paths to matched frames
-basedir = './RecordingP14Pup_one/';
-mdir = [basedir 'RecordingP14Pup_one_matchedframes.mat'];
+dirname = 'Recording_day7_cafftwo_nopedestal';
+basedir = ['.' filesep dirname filesep];
+mdir = [basedir dirname '_matchedframes.mat'];
 %% load
 load(mdir)
-num_markers = 16; %hard-coded for mouse
+num_markers = 20; %hard-coded for mouse
 frame_period = 33.3333; %this should be in whatever units the matched frame files is in.
 % Typically milliseconds.
 %% This saves a data structure for use by Keras. 

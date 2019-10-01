@@ -1,4 +1,6 @@
 """To finalize COM prediction after a crash, with COM checkpoint saved
+
+Usage: python run_undistort.py path_to_config
 """
 
 import numpy as np

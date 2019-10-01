@@ -6,7 +6,7 @@ datadir: ./labeling/
 viddir: ./videos/
 
 # names of data files. must match the order of CAMNAMES below. We need 6 views total as input, so if the number of files here divides evenly into 6, will duplicate automatically
-datafile: ['CameraLmouse_dataApplyDistort_worker0','CameraRmouse_dataApplyDistort_worker0','CameraSmouse_dataApplyDistort_worker0']
+datafile: ['CameraLmouse_dataApplyDistort_worker0_29samples','CameraRmouse_dataApplyDistort_worker0_29samples','CameraSmouse_dataApplyDistort_worker0_29samples']
 
 # Names for each of the camera subdirectories in the video folder. Order should match the datafiles above.
 # Note that we need 6 views total to fine-tune from rat, even if it means repeatign a view. As we only have

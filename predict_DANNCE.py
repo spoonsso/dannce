@@ -18,16 +18,22 @@ from dannce.engine.generator_kmeans import DataGenerator_3Dconv_kmeans
 from keras.layers import Conv3D, Input
 from keras.models import Model, load_model
 from keras.optimizers import Adam
+import scipy.io as sio
+
+_N_VIEWS = 6
 
 # Set up parameters
 PARENT_PARAMS = processing.read_config(sys.argv[1])
+PARENT_PARAMS = processing.make_paths_safe(PARENT_PARAMS)
 CONFIG_PARAMS = processing.read_config(PARENT_PARAMS['DANNCE_CONFIG'])
+CONFIG_PARAMS = processing.make_paths_safe(CONFIG_PARAMS)
 
 # Load the appropriate loss function and network
 try:
     CONFIG_PARAMS['loss'] = getattr(losses, CONFIG_PARAMS['loss'])
 except AttributeError:
     CONFIG_PARAMS['loss'] = getattr(keras.losses, CONFIG_PARAMS['loss'])
+netname = CONFIG_PARAMS['net']
 CONFIG_PARAMS['net'] = getattr(nets, CONFIG_PARAMS['net'])
 
 # While we can use experiment files for DANNCE training, 
@@ -44,6 +50,16 @@ if not os.path.exists(RESULTSDIR):
 # This could mess with people's setups.
 os.environ["CUDA_VISIBLE_DEVICES"] =  CONFIG_PARAMS['gpuID']
 
+# If len(CONFIG_PARAMS['experiment']['CAMNAMES']) divides evenly into 6, duplicate here
+dupes = ['CAMNAMES', 'datafile', 'calib_file']
+for d in dupes:
+    val = CONFIG_PARAMS['experiment'][d]
+    if _N_VIEWS % len(val) == 0:
+        num_reps = _N_VIEWS // len(val)
+        CONFIG_PARAMS['experiment'][d] = val * num_reps
+    else:
+        raise Exception("The length of the {} list must divide evenly into {}.".format(d, _N_VIEWS))
+
 samples_, datadict_, datadict_3d_, data_3d_, cameras_ = \
     serve_data.prepare_data(CONFIG_PARAMS['experiment'])
 
@@ -56,25 +72,47 @@ else:
     comfn = [f for f in comfn if 'COM_undistorted.pickle' in f]
     comfn = os.path.join('.', 'COM', 'predict_results', comfn[0])
 
+if 'allcams' in CONFIG_PARAMS.keys() and CONFIG_PARAMS['allcams']: # Make sure all cameras in debug fields are added, so that COM predictions
+# can be more stable
+    dcameras_ = {}
+    for i in range(len(CONFIG_PARAMS['dCAMNAMES'])):
+        test = sio.loadmat(
+            os.path.join(CONFIG_PARAMS['dCALIBDIR'], CONFIG_PARAMS['dcalib_file'][i]))
+        dcameras_[CONFIG_PARAMS['dCAMNAMES'][i]] = {
+            'K': test['K'], 'R': test['r'], 't': test['t']}
+        if 'RDistort' in list(test.keys()):
+            # Added Distortion params on Dec. 19 2018
+            dcameras_[CONFIG_PARAMS['dCAMNAMES'][i]]['RDistort'] = test['RDistort']
+            dcameras_[CONFIG_PARAMS['dCAMNAMES'][i]]['TDistort'] = test['TDistort']
+
 datadict_, com3d_dict_ = serve_data.prepare_COM(
     comfn,
     datadict_,
     comthresh=CONFIG_PARAMS['comthresh'],
     weighted=CONFIG_PARAMS['weighted'],
     retriangulate=True,
-    camera_mats=cameras_,
-    method=CONFIG_PARAMS['com_method'])
+    camera_mats=dcameras_ if 'allcams' in CONFIG_PARAMS.keys() and CONFIG_PARAMS['allcams'] else cameras_,
+    method=CONFIG_PARAMS['com_method'],
+    allcams=CONFIG_PARAMS['allcams'] if 'allcams' in CONFIG_PARAMS.keys() and CONFIG_PARAMS['allcams'] else False)
 
 # Need to cap this at the number of samples included in our
 # COM finding estimates
 tf = list(com3d_dict_.keys())
 samples_ = samples_[:len(tf)]
 data_3d_ = data_3d_[:len(tf)]
+pre = len(samples_)
 samples_, data_3d_ = \
     serve_data.remove_samples_com(samples_, data_3d_, com3d_dict_, rmc=True, cthresh=CONFIG_PARAMS['cthresh'])
-pre = len(samples_)
 msg = "Detected {} bad COMs and removed the associated frames from the dataset"
 print(msg.format(pre - len(samples_)))
+
+# Write 3D COM to file
+cfilename = os.path.join(RESULTSDIR,'COM3D_undistorted.mat')
+print("Saving 3D COM to {}".format(cfilename))
+c3d = np.zeros((len(samples_), 3))
+for i in range(len(samples_)):
+    c3d[i] = com3d_dict_[samples_[i]]
+sio.savemat(cfilename, {'sampleID': samples_, 'com': c3d})
 
 # TODO(Comment): Unclear what this section is doing.
 # The library is configured to be able to train over multiple animals ("experiments")
@@ -114,15 +152,8 @@ if CONFIG_PARAMS['IMMODE'] == 'vid':
                 maxopt=1,
                 extension=CONFIG_PARAMS['experiment']['extension'])
 
-# Get frame count per video using the keys of the vids dictionary
-ke = list(vids[camnames[0][0]].keys())
-if len(ke) == 1:
-    framecnt = None
-else:
-    key0 = int(ke[0].split('/')[-1].split('.')[0])
-    key1 = int(ke[1].split('/')[-1].split('.')[0])
-    framecnt = abs(key1 - key0)
-    print("Videos contain {} frames".format(framecnt))
+# Set framecnt according to the "chunks" config param
+framecnt = CONFIG_PARAMS['chunks']
 
 # Parameters
 valid_params = {
@@ -152,7 +183,8 @@ valid_params = {
     'vidreaders': vids,
     'distort': CONFIG_PARAMS['DISTORT'],
     'expval': CONFIG_PARAMS['EXPVAL'],
-    'crop_im': False}
+    'crop_im': False,
+    'chunks': CONFIG_PARAMS['chunks']}
 
 # Datasets
 partition = {}
@@ -185,12 +217,28 @@ else:
     mdl_file = os.path.join(wdir, weights)
     print("Loading model from " + mdl_file)
 
-model = load_model(mdl_file, 
-                   custom_objects={'ops': ops,
-                                   'slice_input': nets.slice_input,
-                                   'mask_nan_keep_loss': losses.mask_nan_keep_loss,
-                                   'euclidean_distance_3D': losses.euclidean_distance_3D,
-                                   'centered_euclidean_distance_3D': losses.centered_euclidean_distance_3D})
+if netname == 'unet3d_big_tiedfirstlayer_expectedvalue' or \
+     'FROM_WEIGHTS' in CONFIG_PARAMS.keys():
+    # This network is too "custom" to be loaded in as a full model, until I
+    # figure out how to unroll the first tied weights layer
+    gridsize = (CONFIG_PARAMS['NVOX'], CONFIG_PARAMS['NVOX'], CONFIG_PARAMS['NVOX'])
+    model = CONFIG_PARAMS['net'](CONFIG_PARAMS['loss'],
+                                 float(CONFIG_PARAMS['lr']),
+                                 CONFIG_PARAMS['N_CHANNELS_IN'] + CONFIG_PARAMS['DEPTH'],
+                                 CONFIG_PARAMS['N_CHANNELS_OUT'],
+                                 len(camnames[0]),
+                                 batch_norm=CONFIG_PARAMS['batch_norm'],
+                                 instance_norm=CONFIG_PARAMS['instance_norm'],
+                                 include_top=True,
+                                 gridsize=gridsize)
+    model.load_weights(mdl_file)
+else:
+    model = load_model(mdl_file, 
+                       custom_objects={'ops': ops,
+                                       'slice_input': nets.slice_input,
+                                       'mask_nan_keep_loss': losses.mask_nan_keep_loss,
+                                       'euclidean_distance_3D': losses.euclidean_distance_3D,
+                                       'centered_euclidean_distance_3D': losses.centered_euclidean_distance_3D})
 
 save_data = {}
 
@@ -211,6 +259,29 @@ def evaluate_ondemand(start_ind, end_ind, valid_gen, vids):
             print(i)
             print("100 batches took {} seconds".format(time.time() - end_time))
             end_time = time.time()
+
+        if (i - start_ind) % 1000 == 0 and i != start_ind:
+            print('Saving checkpoint at {}th batch'.format(i))
+            if CONFIG_PARAMS['EXPVAL']:
+                p_n = savedata_expval(
+                    RESULTSDIR + 'save_data_AVG.mat',
+                    write=True,
+                    data=save_data,
+                    tcoord=False,
+                    num_markers=nchn,
+                    pmax=True)
+            else:
+                p_n = savedata_tomat(
+                    RESULTSDIR + 'save_data_MAX.mat',
+                    CONFIG_PARAMS['VMIN'],
+                    CONFIG_PARAMS['VMAX'],
+                    CONFIG_PARAMS['NVOX'],
+                    write=True,
+                    data=save_data,
+                    num_markers=nchn,
+                    tcoord=False)                
+                pass
+
 
         # TODO(Repeated2): This motif is also repeated, consider modularizing
         if framecnt is not None:
@@ -234,8 +305,6 @@ def evaluate_ondemand(start_ind, end_ind, valid_gen, vids):
             lastvid = str(currentframes // framecnt * framecnt - framecnt) \
                 + CONFIG_PARAMS['experiment']['extension']
             currvid = maxframes // framecnt * framecnt
-            print(currvid)
-            print(maxframes)
 
             vids_, lastvid_, currvid_ = processing.close_open_vids(
                 lastvid, lastvid_,
@@ -288,6 +357,11 @@ max_eval_batch = CONFIG_PARAMS['maxbatch']
 if max_eval_batch == 'max':
     max_eval_batch = len(valid_generator)
 
+if 'NEW_N_CHANNELS_OUT' in CONFIG_PARAMS.keys():
+    nchn = CONFIG_PARAMS['NEW_N_CHANNELS_OUT']
+else:
+    nchn = CONFIG_PARAMS['N_CHANNELS_OUT']
+
 if CONFIG_PARAMS['EXPVAL']:
     get_output = K.function(
         [model.layers[0].input, K.learning_phase()], [model.layers[-3].output])
@@ -298,6 +372,7 @@ if CONFIG_PARAMS['EXPVAL']:
         write=True,
         data=save_data,
         tcoord=False,
+        num_markers=nchn,
         pmax=True)
 else:
     evaluate_ondemand(0, max_eval_batch, valid_generator, vids)
@@ -309,7 +384,7 @@ else:
         CONFIG_PARAMS['NVOX'],
         write=True,
         data=save_data,
-        num_markers=CONFIG_PARAMS['N_CHANNELS_OUT'],
+        num_markers=nchn,
         tcoord=False)
 
 print("done!")
