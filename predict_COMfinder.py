@@ -19,13 +19,7 @@ from six.moves import cPickle
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-import matlab
-import matlab.engine
 
-# Set up environment
-eng = matlab.engine.start_matlab()
-# undistort_allCOMS.m needs to be in the same directory as predict_COMfinder.py
-eng.addpath(os.path.dirname(os.path.abspath(__file__)))
 # Load in the params
 PARENT_PARAMS = processing.read_config(sys.argv[1])
 PARENT_PARAMS = processing.make_paths_safe(PARENT_PARAMS)
@@ -195,11 +189,15 @@ def evaluate_COM_steps(start_ind, end_ind, steps):
                         pts1 = ops.unDistortPoints(
                             pts1, cameras[params['CAMNAMES'][j]]['K'],
                             cameras[params['CAMNAMES'][j]]['RDistort'],
-                            cameras[params['CAMNAMES'][j]]['TDistort'])
+                            cameras[params['CAMNAMES'][j]]['TDistort'],
+                            cameras[params['CAMNAMES'][j]]['R'],
+                            cameras[params['CAMNAMES'][j]]['t'])
                         pts2 = ops.unDistortPoints(
                             pts2, cameras[params['CAMNAMES'][k]]['K'],
                             cameras[params['CAMNAMES'][k]]['RDistort'],
-                            cameras[params['CAMNAMES'][k]]['TDistort'])
+                            cameras[params['CAMNAMES'][k]]['TDistort'],
+                            cameras[params['CAMNAMES'][k]]['R'],
+                            cameras[params['CAMNAMES'][k]]['t'])
                     test3d = ops.triangulate(
                         pts1, pts2, camera_mats[params['CAMNAMES'][j]],
                         camera_mats[params['CAMNAMES'][k]]).squeeze()
@@ -284,38 +282,10 @@ for j in range(len(params['CAMNAMES'])):
     for key in vids[params['CAMNAMES'][j]]:
         vids[params['CAMNAMES'][j]][key].close()
 
-if undistort:
-    # Then undistortion already happened, just save
-    f = open(RESULTSDIR + 'COM_undistorted.pickle', 'wb')
-    cPickle.dump(save_data, f)
-    f.close()
 
-else:
-    # TODO(Undistort): This should probably be moved to its own function.
-    # We need to (awkwardly) send our data into matlab for bulk undistortion
-    # Colate all coms
+# Save undistorted 2D COMs and their 3D triangulations
+f = open(RESULTSDIR + 'COM_undistorted.pickle', 'wb')
+cPickle.dump(save_data, f)
+f.close()
 
-    # Save Coms to a mat file
-    comfile = processing.save_COM_checkpoint(save_data, params['CAMNAMES'])
-
-    # Use Matlab undistort function to undistort COMs
-    eng.undistort_allCOMS(
-        comfile, [os.path.join(params['CALIBDIR'], f)
-                  for f in params['calib_file']],
-        nargout=0)
-
-    # Get undistorted COMs frames and clean up
-    allCOMs_u = sio.loadmat('allCOMs_undistorted.mat')['allCOMs_u']
-    os.remove('allCOMs_distorted.mat')
-    os.remove('allCOMs_undistorted.mat')
-
-    # Save data to a pickle file
-    save_data_u = deepcopy(save_data)
-    num_cams = len(params['CAMNAMES'])
-    for (i, key) in enumerate(save_data.keys()):
-        for c in range(num_cams):
-            save_data_u[key][params['CAMNAMES'][c]]['COM'] = allCOMs_u[c, i]
-    f = open(os.path.join(RESULTSDIR,'COM_undistorted.pickle'), 'wb')
-    cPickle.dump(save_data_u, f)
-    f.close()
 print('done!')
