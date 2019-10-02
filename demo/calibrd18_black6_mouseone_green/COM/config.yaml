@@ -70,7 +70,7 @@ debug: True
 #exp_path: [exp1.yaml, exp2.yaml, exp3.yaml]
 
 # When using a system with multiple GPUs, we should just target one ofthem
-gpuID: "0"
+gpuID: "1"
 
 # Number of frames in each video file
 chunks: 3500
