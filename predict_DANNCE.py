@@ -207,7 +207,7 @@ print("Initializing Network...")
 if 'predict_model' in CONFIG_PARAMS.keys():
     mdl_file = CONFIG_PARAMS['predict_model']
 else:
-    wdir = os.path.join('.', 'DANNCE', 'train_results')
+    wdir = CONFIG_PARAMS['RESULTSDIR']
     weights = os.listdir(wdir)
     weights = [f for f in weights if '.hdf5' in f]
     weights = sorted(weights,
