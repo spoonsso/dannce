@@ -107,7 +107,7 @@ def do_retriangulate(this_com, j, k, uCamnames, camera_mats):
 
 def prepare_COM(
     comfile, datadict, comthresh=0.01, weighted=True, retriangulate=False,
-    camera_mats=None, conf_rescale=None, method='mean', allcams=False):
+    camera_mats=None, conf_rescale=None, method='mean', allcams=False, save_retriangulate=True):
     """Replace 2d coords with preprocessed COM coords, return 3d COM coords.
 
     Loads COM file, replaces 2D coordinates in datadict with the preprocessed
@@ -213,6 +213,11 @@ def prepare_COM(
             com3d_dict[key] = com3d
         else:
             warnings.warn("Key in COM file but not in datadict")
+
+    if retriangulate and save_retriangulate:
+        # Then save the retriangulated, undistorted COM pickle so that it doesn't need to be retriangulated in the future
+        with open('COM_undistorted_retriangulate.pickl','wb') as ff:
+            cPickle.dump(com, ff)
 
     return datadict, com3d_dict
 
