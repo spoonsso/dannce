@@ -21,6 +21,12 @@ def prepare_data(CONFIG_PARAMS, com_flag=True, nanflag=True):
         os.path.join(CONFIG_PARAMS['datadir'], CONFIG_PARAMS['datafile'][0]))
     samples = np.squeeze(data['data_sampleID'])
 
+    if data['data_sampleID'].shape == (1, 1):
+        # Then the squeezed value is just a number, so we add to to a list so
+        # that is can be iterated over downstream
+        samples = [samples]
+        warnings.warn("Note: only 1 sample in labe file")
+
     # Collect data labels and matched frames info. We will keep the 2d labels
     # here just because we could in theory use this for training later.
     # No need to collect 3d data but it useful for checking predictions
