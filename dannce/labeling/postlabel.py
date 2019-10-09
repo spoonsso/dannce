@@ -165,7 +165,9 @@ for j in range(numcams):
                                 mc,
                                 cammat['K'],
                                 np.squeeze(cammat['RDistort']),
-                                np.squeeze(cammat['TDistort']))
+                                np.squeeze(cammat['TDistort']),
+                                np.squeeze(cammat['r']),
+                                np.squeeze(cammat['t']))
 
     # Replace NaNs
     undistort_coords[inds, j, :] = np.nan
@@ -178,17 +180,6 @@ for j in range(numcams):
     cammats_sep[j]['TDistort'] = np.squeeze(cammat['TDistort'])
 
     cammats[j] = ops.camera_matrix(cammat['K'], cammat['r'], cammat['t'])
-    # wpts2d = ops.distortPoints(undistort_coords[:,j,:], cammats_sep[j]['K'],
-    #                            cammats_sep[j]['RDistort'],
-    #                            cammats_sep[j]['TDistort']).T
-    # wpts2d[inds,:] = np.nan
-    # wpts2d[:, 0] -= CONFIG_PARAMS['CROP_WIDTH'][0]
-    # wpts2d[:, 1] -= CONFIG_PARAMS['CROP_HEIGHT'][0]
-    # wpts2d = np.reshape(wpts2d,(marker_coords.shape[0],-1,2))
-    # sio.savemat(os.path.join(
-    #     annotdir, '{}_test_worker{}.mat'.format(camnames[j], workerID)),
-    #     {'data_2d': wpts2d, 
-    #      'data_sampleID': sampleID[:, j]})
 
 
 data3d = np.zeros((undistort_coords.shape[0], int(comb(numcams, 2)), 3))

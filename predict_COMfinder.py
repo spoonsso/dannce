@@ -288,4 +288,8 @@ f = open(RESULTSDIR + 'COM_undistorted.pickle', 'wb')
 cPickle.dump(save_data, f)
 f.close()
 
+# Clean up checkpoints
+os.remove('allCOMs_distorted.mat')
+os.remove('save_data.pickle')
+
 print('done!')
