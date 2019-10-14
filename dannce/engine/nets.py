@@ -196,7 +196,7 @@ def unet3d_big_expectedvalue(lossfunc, lr, input_dim, feature_num, num_cams, gri
 
 def slice_input(inp,k):
     print(K.int_shape(inp))
-    return inp[:,:,:,:,k*input_dim:(k+1)*input_dim]
+    return inp[:,:,:,:,k*3:(k+1)*3]
 
 def unet3d_big_tiedfirstlayer_expectedvalue(lossfunc, lr, input_dim, feature_num, num_cams, gridsize=(64,64,64),
                                             batch_norm=False, instance_norm = False, include_top=True, regularize_var=False,

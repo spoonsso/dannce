@@ -56,7 +56,7 @@ for m in CONFIG_PARAMS['metric']:
 os.environ["CUDA_VISIBLE_DEVICES"] = CONFIG_PARAMS['gpuID']
 
 # find the weights given config path
-if CONFIG_PARAMS['weights'] is not None:
+if CONFIG_PARAMS['weights'] != 'None':
     weights = os.listdir(CONFIG_PARAMS['weights'])
     weights = [f for f in weights if '.hdf5' in f]
     weights = weights[0]
