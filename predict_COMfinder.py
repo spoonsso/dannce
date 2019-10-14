@@ -185,19 +185,19 @@ def evaluate_COM_steps(start_ind, end_ind, steps):
                     pts1 = pts1[np.newaxis, :]
                     pts2 = pts2[np.newaxis, :]
 
-                    if undistort:
-                        pts1 = ops.unDistortPoints(
-                            pts1, cameras[params['CAMNAMES'][j]]['K'],
-                            cameras[params['CAMNAMES'][j]]['RDistort'],
-                            cameras[params['CAMNAMES'][j]]['TDistort'],
-                            cameras[params['CAMNAMES'][j]]['R'],
-                            cameras[params['CAMNAMES'][j]]['t'])
-                        pts2 = ops.unDistortPoints(
-                            pts2, cameras[params['CAMNAMES'][k]]['K'],
-                            cameras[params['CAMNAMES'][k]]['RDistort'],
-                            cameras[params['CAMNAMES'][k]]['TDistort'],
-                            cameras[params['CAMNAMES'][k]]['R'],
-                            cameras[params['CAMNAMES'][k]]['t'])
+                    pts1 = ops.unDistortPoints(
+                        pts1, cameras[params['CAMNAMES'][j]]['K'],
+                        cameras[params['CAMNAMES'][j]]['RDistort'],
+                        cameras[params['CAMNAMES'][j]]['TDistort'],
+                        cameras[params['CAMNAMES'][j]]['R'],
+                        cameras[params['CAMNAMES'][j]]['t'])
+                    pts2 = ops.unDistortPoints(
+                        pts2, cameras[params['CAMNAMES'][k]]['K'],
+                        cameras[params['CAMNAMES'][k]]['RDistort'],
+                        cameras[params['CAMNAMES'][k]]['TDistort'],
+                        cameras[params['CAMNAMES'][k]]['R'],
+                        cameras[params['CAMNAMES'][k]]['t'])
+                    
                     test3d = ops.triangulate(
                         pts1, pts2, camera_mats[params['CAMNAMES'][j]],
                         camera_mats[params['CAMNAMES'][k]]).squeeze()
@@ -273,9 +273,9 @@ save_data = {}
 # If we just want to analyze a chunk of video...
 st_ind = params['start_sample_index'] if 'start_sample_index' in params.keys() else 0
 if params['max_num_samples'] == 'max':
-    evaluate_COM_steps(st_ind, len(samples), _N_VIDEO_FRAMES)
+    evaluate_COM_steps(st_ind, len(samples), 1000)
 else:
-    evaluate_COM_steps(st_ind, st_ind + params['max_num_samples'], _N_VIDEO_FRAMES)
+    evaluate_COM_steps(st_ind, st_ind + params['max_num_samples'], 1000)
 
 # Close video objects
 for j in range(len(params['CAMNAMES'])):
