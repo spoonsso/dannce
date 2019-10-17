@@ -18,14 +18,7 @@ import os
 from six.moves import cPickle
 import matplotlib
 matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-import matlab
-import matlab.engine
 
-# Set up environment
-eng = matlab.engine.start_matlab()
-# undistort_allCOMS.m needs to be in the same directory as predict_COMfinder.py
-eng.addpath(os.path.dirname(os.path.abspath(__file__)))
 # Load in the params
 PARENT_PARAMS = processing.read_config(sys.argv[1])
 params = processing.read_config(PARENT_PARAMS['COM_CONFIG'])
@@ -56,25 +49,18 @@ params = \
                                'datadir',
                                'viddir'])
 
-comfile = 'allCOMs_distorted.mat'
-sdfile = 'save_data.pickle'
+sdfile = 'COM_undistorted.pickle'
 
 RESULTSDIR = os.path.join(params['RESULTSDIR_PREDICT'])
-print(RESULTSDIR)
+sdfile = os.path.join(RESULTSDIR,  sdfile)
+print("Distorting data in " + sdfile)
 
-if not os.path.exists(RESULTSDIR):
-    os.makedirs(RESULTSDIR)
 
-# Use Matlab undistort function to undistort COMs
-eng.undistort_allCOMS(
-    comfile, [os.path.join(params['CALIBDIR'], f)
-              for f in params['calib_file']],
-    nargout=0)
-
-# Get undistorted COMs frames and clean up
-allCOMs_u = sio.loadmat('allCOMs_undistorted.mat')['allCOMs_u']
-os.remove('allCOMs_distorted.mat')
-os.remove('allCOMs_undistorted.mat')
+# Process config to get camera params
+print("Loading camera params")
+samples, datadict, datadict_3d, cameras, camera_mats, vids = \
+    serve_data.prepare_data(
+        params, vid_dir_flag=params['vid_dir_flag'], minopt=0, maxopt=0)
 
 # Load in save_data template
 with open(sdfile,'rb') as f:
@@ -84,8 +70,33 @@ with open(sdfile,'rb') as f:
 save_data_u = deepcopy(save_data)
 num_cams = len(params['CAMNAMES'])
 for (i, key) in enumerate(save_data.keys()):
+    print(key)
     for c in range(num_cams):
-        save_data_u[key][params['CAMNAMES'][c]]['COM'] = allCOMs_u[c, i]
+        pts1 = save_data_u[key][params['CAMNAMES'][c]]['COM']
+        pts1 = pts1[np.newaxis, :]
+        pts1 = ops.unDistortPoints(
+            pts1, cameras[params['CAMNAMES'][c]]['K'],
+            cameras[params['CAMNAMES'][c]]['RDistort'],
+            cameras[params['CAMNAMES'][c]]['TDistort'],
+            cameras[params['CAMNAMES'][c]]['R'],
+            cameras[params['CAMNAMES'][c]]['t'])
+        save_data_u[key][params['CAMNAMES'][c]]['COM'] = np.squeeze(pts1)
+
+                # Triangulate for all unique pairs
+    for j in range(num_cams):
+        for k in range(j + 1, num_cams):
+            pts1 = save_data[key][params['CAMNAMES'][j]]['COM']
+            pts2 = save_data[key][params['CAMNAMES'][k]]['COM']
+            pts1 = pts1[np.newaxis, :]
+            pts2 = pts2[np.newaxis, :]
+            
+            test3d = ops.triangulate(
+                pts1, pts2, camera_mats[params['CAMNAMES'][j]],
+                camera_mats[params['CAMNAMES'][k]]).squeeze()
+
+            save_data_u[key]['triangulation']["{}_{}".format(
+                params['CAMNAMES'][j], params['CAMNAMES'][k])] = test3d    
+
 f = open(os.path.join(RESULTSDIR,'COM_undistorted.pickle'), 'wb')
 cPickle.dump(save_data_u, f)
 f.close()

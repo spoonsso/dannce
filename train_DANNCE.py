@@ -128,7 +128,7 @@ for e in range(num_experiments):
           datadict_,
           comthresh=CONFIG_PARAMS['comthresh'],
           weighted=CONFIG_PARAMS['weighted'],
-          retriangulate=True,
+          retriangulate=CONFIG_PARAMS['retriangulate'] if 'retriangulate' in CONFIG_PARAMS.keys() else True,
           camera_mats=cameras_,
           method=CONFIG_PARAMS['com_method'])
 
@@ -436,7 +436,11 @@ if len(sys.argv) == 3:
         # coordx, coordy, coordz = processing.plot_markers_3d(pred[j])
         # coord = np.stack((coordx, coordy, coordz))
 
-    sio.savemat('trainind_predictions_' + lmodel.split(os.sep)[-1].split('.hdf5')[0],
+    # To avoid errors, make sure there are no duplicate os seps
+    lmodel = lmodel.replace(os.sep+os.sep, os.sep)
+
+    ssfile = 'trainind_predictions_' + lmodel.split(os.sep)[-2] + lmodel.split(os.sep)[-1].split('.hdf5')[0]
+    sio.savemat(ssfile,
                     {'pred': pred})
     sys.exit()
 
