@@ -30,6 +30,9 @@ inds = np.where(~np.isnan(np.mean(data_3d, axis=1)))[0]
 # sample from inds without replacement
 inds = inds[np.random.choice(np.arange(len(inds)), (ns,), replace=False)]
 
+# sort inds so that samples can be read in faster when loading the data during training/eval
+inds = np.sort(inds)
+
 # Use these inds and apply to every datafile for each camera
 for i in range(len(dfs)):
     data = sio.loadmat(os.path.join(df, dfs[i]))

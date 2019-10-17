@@ -177,6 +177,17 @@ def evaluate_COM_steps(start_ind, end_ind, steps):
                 save_data[sampleID_][params['CAMNAMES'][j]] = \
                     {'pred_max': pred_max, 'COM': ind}
 
+                # Undistort this COM here.
+                pts1 = save_data[sampleID_][params['CAMNAMES'][j]]['COM']
+                pts1 = pts1[np.newaxis, :]
+                pts1 = ops.unDistortPoints(
+                    pts1, cameras[params['CAMNAMES'][j]]['K'],
+                    cameras[params['CAMNAMES'][j]]['RDistort'],
+                    cameras[params['CAMNAMES'][j]]['TDistort'],
+                    cameras[params['CAMNAMES'][j]]['R'],
+                    cameras[params['CAMNAMES'][j]]['t'])
+                save_data[sampleID_][params['CAMNAMES'][j]]['COM'] = np.squeeze(pts1)
+
             # Triangulate for all unique pairs
             for j in range(pred.shape[0]):
                 for k in range(j + 1, pred.shape[0]):
@@ -184,19 +195,6 @@ def evaluate_COM_steps(start_ind, end_ind, steps):
                     pts2 = save_data[sampleID_][params['CAMNAMES'][k]]['COM']
                     pts1 = pts1[np.newaxis, :]
                     pts2 = pts2[np.newaxis, :]
-
-                    pts1 = ops.unDistortPoints(
-                        pts1, cameras[params['CAMNAMES'][j]]['K'],
-                        cameras[params['CAMNAMES'][j]]['RDistort'],
-                        cameras[params['CAMNAMES'][j]]['TDistort'],
-                        cameras[params['CAMNAMES'][j]]['R'],
-                        cameras[params['CAMNAMES'][j]]['t'])
-                    pts2 = ops.unDistortPoints(
-                        pts2, cameras[params['CAMNAMES'][k]]['K'],
-                        cameras[params['CAMNAMES'][k]]['RDistort'],
-                        cameras[params['CAMNAMES'][k]]['TDistort'],
-                        cameras[params['CAMNAMES'][k]]['R'],
-                        cameras[params['CAMNAMES'][k]]['t'])
                     
                     test3d = ops.triangulate(
                         pts1, pts2, camera_mats[params['CAMNAMES'][j]],
