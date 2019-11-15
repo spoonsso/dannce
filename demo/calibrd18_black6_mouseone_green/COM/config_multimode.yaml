@@ -1,6 +1,6 @@
 # path to folder where DANNCE weights and logs will be saved
 RESULTSDIR: ./COM/train_results/
-RESULTSDIR_PREDICT: ./COM/predict_results/
+RESULTSDIR_PREDICT: ./COM/predict_results_multimode/
 
 # How to crop the input images. The U-Net expects each dimension size to be a multiple of 32.
 CROP_HEIGHT: [0, 1024]
@@ -9,8 +9,9 @@ CROP_WIDTH: [20, 1300]
 # Number of channels for each input image (e.g. RGB == 3)
 N_CHANNELS_IN: 3
 
-# Number of network output channels.
-N_CHANNELS_OUT: 1
+# Number of network output channels. For standard COM training, set this to 1. For multi-label COM training,
+# set to the number of tracked markers
+N_CHANNELS_OUT: 16
 
 # BATCH_SIZE*len(CAMNAMES) should be <= 6 for most COM training applications
 BATCH_SIZE: 2
@@ -25,7 +26,7 @@ MAX_QUEUE_SIZE: 10
 SIGMA: 10
 
 # Sets the number of training epochs
-EPOCHS: 100
+EPOCHS: 10
 
 # Sets the verbosity of training output
 VERBOSE: 1
@@ -70,7 +71,7 @@ debug: True
 #exp_path: [exp1.yaml, exp2.yaml, exp3.yaml]
 
 # When using a system with multiple GPUs, we should just target one ofthem
-gpuID: "1"
+gpuID: "0"
 
 # Number of frames in each video file
 chunks: 3500

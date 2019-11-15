@@ -40,6 +40,11 @@ _N_VIDEO_FRAMES = params['chunks']
 
 os.environ["CUDA_VISIBLE_DEVICES"] = params['gpuID']
 
+# If params['N_CHANNELS_OUT'] is greater than one, we enter a mode in
+# which we predict all available labels + the COM
+MULTI_MODE = params['N_CHANNELS_OUT'] > 1
+params['N_CHANNELS_OUT'] = params['N_CHANNELS_OUT'] + int(MULTI_MODE)
+
 # Inherit required parameters from main config file
 
 params = \
@@ -53,6 +58,7 @@ params = \
                                'datadir',
                                'viddir'])
 
+
 # Build net
 print("Initializing Network...")
 model = params['net'](
@@ -65,7 +71,7 @@ model = params['net'](
 if 'predict_weights' in params.keys():
     model.load_weights(params['predict_weights'])
 else:
-    wdir = os.path.join('.', 'COM', 'train_results')
+    wdir = params['RESULTSDIR']#os.path.join('.', 'COM', 'train_results')
     weights = os.listdir(wdir)
     weights = [f for f in weights if '.hdf5' in f]
     weights = sorted(weights,
@@ -93,7 +99,7 @@ def evaluate_COM_steps(start_ind, end_ind, steps):
 
         m = min([i + steps, len(partition['valid']) - 1])
         maxframes = labels[partition['valid'][m]]['frames']
-        maxframes = min(list(maxframes.values()))
+        maxframes = max(list(maxframes.values()))
         lastvid = str(
             (currentframes // _N_VIDEO_FRAMES) * _N_VIDEO_FRAMES -
             _N_VIDEO_FRAMES) + params['extension']
@@ -132,14 +138,18 @@ def evaluate_COM_steps(start_ind, end_ind, steps):
         print(i)
         pred_ = np.reshape(
             pred_,
-            [-1, len(params['CAMNAMES']), pred_.shape[1], pred_.shape[2]])
+            [-1, len(params['CAMNAMES']), pred_.shape[1], pred_.shape[2], pred_.shape[3]])
 
         
         for m in range(len(partition['valid'][i:e_ind])):
             # odd loop condition, but it's because at the end of samples,
             # predict_generator will continue to make predictions in a way I
             # don't grasp yet, but also in a way we should ignore
-            pred = pred_[m]
+
+            # By selecting -1 for the last axis, we get the COM index for a
+            # normal COM network, and also the COM index for a multi_mode COM network,
+            # as in multimode the COM label is put at the end
+            pred = pred_[m, :, :, :, -1]
             sampleID_ = partition['valid'][i + m]
             save_data[sampleID_] = {}
             save_data[sampleID_]['triangulation'] = {}
@@ -228,7 +238,7 @@ if 'COMdebug' in params.keys():
 
 samples, datadict, datadict_3d, cameras, camera_mats, vids = \
     serve_data.prepare_data(
-        params, vid_dir_flag=params['vid_dir_flag'], minopt=0, maxopt=0)
+        params, vid_dir_flag=params['vid_dir_flag'], minopt=0, maxopt=0, multimode=MULTI_MODE)
 
 # Zero any negative frames
 for key in datadict.keys():

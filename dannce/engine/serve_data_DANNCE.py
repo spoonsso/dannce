@@ -9,13 +9,15 @@ import warnings
 from copy import deepcopy
 
 
-def prepare_data(CONFIG_PARAMS, com_flag=True, nanflag=True):
+def prepare_data(CONFIG_PARAMS, com_flag=True, nanflag=True, multimode=False):
     """Assemble necessary data structures given a set of config params.
 
     Given a set of config params, assemble necessary data structures and
     return them -- tailored to center of mass finding
     That is, we are refactoring to get rid of unneeded data structures
     (i.e. data 3d)
+
+    multimode: when this True, we output all 2D markers AND their 2D COM
     """
     data = sio.loadmat(
         os.path.join(CONFIG_PARAMS['datadir'], CONFIG_PARAMS['datafile'][0]))
@@ -47,7 +49,14 @@ def prepare_data(CONFIG_PARAMS, com_flag=True, nanflag=True):
         # Correct for Matlab "1" indexing
         data = data - 1
 
-        if com_flag:
+        if multimode:
+            print("Entering multi-mode with {} + 1 targets".format(data.shape[-1]))
+            if nanflag:
+                dcom = np.mean(data, axis=2, keepdims=True)
+            else:
+                dcom = np.nanmean(data, axis=2, keepdims=True)
+            data = np.concatenate((data, dcom), axis=-1)
+        elif com_flag:
             # Convert to COM only
             if nanflag:
                 data = np.mean(data, axis=2)
@@ -195,8 +204,14 @@ def prepare_COM(
 
                     if (this_com[uCamnames[j]]['pred_max'] > comthresh) and (
                         this_com[uCamnames[k]]['pred_max'] > comthresh):
-                        com3d[:, cnt] = \
-                            this_com['triangulation']['{}_{}'.format(uCamnames[j], uCamnames[k])]
+                        if '{}_{}'.format(uCamnames[j], uCamnames[k]) in this_com['triangulation'].keys():
+                            com3d[:, cnt] = \
+                                this_com['triangulation']['{}_{}'.format(uCamnames[j], uCamnames[k])]
+                        elif '{}_{}'.format(uCamnames[k], uCamnames[j]) in this_com['triangulation'].keys():
+                            com3d[:, cnt] = \
+                                this_com['triangulation']['{}_{}'.format(uCamnames[k], uCamnames[j])]
+                        else:
+                            raise Exception("Could not find this camera pair: {}".format('{}_{}'.format(uCamnames[k], uCamnames[j]) ))
                         weights[cnt] = \
                             this_com[uCamnames[j]]['pred_max'] * this_com[uCamnames[k]]['pred_max']
                     cnt += 1

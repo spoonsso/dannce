@@ -23,7 +23,8 @@ class DataGenerator_downsample(keras.utils.Sequence):
         camnames=_DEFAULT_CAM_NAMES,
         crop_width=(0, 1024), crop_height=(20, 1300),
         downsample=1, immode='video',
-        labelmode='prob', preload=True, dsmode='dsm', chunks=3500):
+        labelmode='prob', preload=True, dsmode='dsm', chunks=3500,
+        multimode=False):
         """Initialize generator.
 
         TODO(params_definitions)
@@ -54,6 +55,7 @@ class DataGenerator_downsample(keras.utils.Sequence):
         self.immode = immode
         self.labelmode = labelmode
         self.chunks = int(chunks)
+        self.multimode = multimode
 
     def __len__(self):
         """Denote the number of batches per epoch."""
