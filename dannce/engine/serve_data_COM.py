@@ -9,7 +9,7 @@ _DEFAULT_CAM_NAMES = [
     'CameraR', 'CameraL', 'CameraE', 'CameraU', 'CameraS', 'CameraU2']
 
 
-def prepare_data(CONFIG_PARAMS, vid_dir_flag=True, minopt=0, maxopt=70000):
+def prepare_data(CONFIG_PARAMS, vid_dir_flag=True, minopt=0, maxopt=70000, multimode=False):
     """Assemble necessary data structures given a set of config params.
 
     Given a set of config params, assemble necessary data structures and
@@ -49,8 +49,13 @@ def prepare_data(CONFIG_PARAMS, vid_dir_flag=True, minopt=0, maxopt=70000):
         data = data - 1
 
         # Convert to COM only
-        data = np.nanmean(data, axis=2)
-        data = data[:, :, np.newaxis]
+        if multimode:
+            print("Entering multi-mode with {} + 1 targets".format(data.shape[-1]))
+            dcom = np.nanmean(data, axis=2, keepdims=True)
+            data = np.concatenate((data, dcom), axis=-1)
+        else:
+            data = np.nanmean(data, axis=2)
+            data = data[:, :, np.newaxis]
 
         ddict[CONFIG_PARAMS['CAMNAMES'][i]] = data
 

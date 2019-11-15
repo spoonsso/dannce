@@ -148,7 +148,7 @@ if 'mocap' in CONFIG_PARAMS.keys():
     # One thing we can try is to use a single camera's data_frame
     # Note that this assumes the order of cameras in mocap matched_frames_aligned
     # matches the order of cameras in the config files
-    camn = 0
+    camn = 5
     dframe = cameras[cnames[camn]]['frame']
     mocap = {}
     for m in range(len(markernames)):
@@ -198,6 +198,9 @@ if 'mocap' in CONFIG_PARAMS.keys():
         shifts = np.arange(-10, 10)
         smax = 0
         pmax = 0
+
+        # The marker used for alignment can be changed here. E.g. when aligning using a 
+        # COM trace, it helps to use SpineM instead of HeadF
         m = 0
         mg = mocap[markernames[m]].T.copy()
         pg = predictions[markernames[m]].T.copy()

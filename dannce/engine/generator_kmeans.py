@@ -660,3 +660,89 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
             return [X, X_grid], y_3d
         else:
             return X, y_3d
+
+class DataGenerator_3Dconv_multiviewconsistency(keras.utils.Sequence):
+    """Generate 3d conv data from memory, with a multiview consistency objective"""
+
+    def __init__(
+        self, list_IDs, data, labels, batch_size, rotation=True, random=True,
+        chan_num=3, shuffle=True, expval=False, xgrid=None, var_reg=False, nvox=64):
+        """Initialize data generator."""
+        self.list_IDs = list_IDs
+        self.data = data
+        self.labels = labels
+        self.rotation = rotation
+        self.batch_size = 1 # We expand the number of examples in each batch for the multi-view consistency loss
+        self.random = random
+        self.chan_num = 3
+        self.shuffle = shuffle
+        self.expval = expval
+        self.var_reg = var_reg
+        if self.expval:
+            self.xgrid = xgrid
+        self.nvox = nvox
+        self.on_epoch_end()
+
+    def __len__(self):
+        """Denote the number of batches per epoch."""
+        return int(np.floor(len(self.list_IDs) / self.batch_size))
+
+    def __getitem__(self, index):
+        """Generate one batch of data."""
+        # Generate indexes of the batch
+        indexes = \
+            self.indexes[index * self.batch_size:(index + 1) * self.batch_size]
+
+        # Find list of IDs
+        list_IDs_temp = [self.list_IDs[k] for k in indexes]
+
+        # Generate data
+        X, y = self.__data_generation(list_IDs_temp)
+
+        return X, y
+
+    def on_epoch_end(self):
+        """Update indexes after each epoch."""
+        self.indexes = np.arange(len(self.list_IDs))
+        if self.shuffle:
+            np.random.shuffle(self.indexes)
+
+    def __data_generation(self, list_IDs_temp):
+        """Generate data containing batch_size samples."""
+        # Initialization
+
+        X = np.zeros((self.batch_size*4, *self.data.shape[1:]))
+        y_3d = np.zeros((self.batch_size*4, *self.labels.shape[1:]))
+
+        for i, ID in enumerate(list_IDs_temp):
+            X[-1] = self.data[ID].copy()
+            y_3d = np.tile(self.labels[ID][np.newaxis, :, :, :, :], (4, 1, 1, 1, 1)) # We just take 4 copies of this
+
+        # Now we need to sub-select camera pairs in each of the first 3 examples,
+        # so
+        # idx 0: Camera1/Camera2
+        # idx 1: Camera2/Camera3
+        # idx 2: Camera1/Camera3
+        # idx 3: Camera1/Camera2/Camera3
+
+        order_dict = {}
+        order_dict[0] = [0, 0, 0, 1, 1, 1]
+        order_dict[1] = [1, 1, 1, 2, 2, 2]
+        order_dict[2] = [0, 0, 0, 2, 2, 2]
+
+        for i in range(3):
+            c1_2_X = X[-1].copy()
+
+            c1_2_X = np.reshape(
+                c1_2_X,
+                (c1_2_X.shape[0], c1_2_X.shape[1],
+                    c1_2_X.shape[2], self.chan_num, -1),
+                order='F')
+            c1_2_X = c1_2_X[:, :, :, :, order_dict[i]]
+            X[i] = np.reshape(
+                c1_2_X,
+                (c1_2_X.shape[0], c1_2_X.shape[1], c1_2_X.shape[2],
+                    c1_2_X.shape[3] * c1_2_X.shape[4]),
+                order='F')
+
+        return X, y_3d

@@ -285,11 +285,13 @@ if 'load_valid' not in CONFIG_PARAMS.keys():
     # extract random inds from each set for validation
     v = CONFIG_PARAMS['num_validation_per_exp']
     valid_inds = []
-    for e in range(num_experiments):
-        tinds = [i for i in range(len(samples))
-                 if int(samples[i].split('_')[0]) == e]
-        valid_inds = valid_inds + list(np.random.choice(tinds,
-                                                        (v,), replace=False))
+
+    if CONFIG_PARAMS['num_validation_per_exp'] > 0: #if 0, do not perform validation
+      for e in range(num_experiments):
+          tinds = [i for i in range(len(samples))
+                   if int(samples[i].split('_')[0]) == e]
+          valid_inds = valid_inds + list(np.random.choice(tinds,
+                                                          (v,), replace=False))
 
     train_inds = [i for i in all_inds if i not in valid_inds]
 
@@ -532,9 +534,16 @@ print("COMPLETE\n")
 
 
 # Create checkpoint and logging callbacks
+if CONFIG_PARAMS['num_validation_per_exp'] > 0:
+    kkey = 'weights.{epoch:02d}-{val_loss:.5f}.hdf5'
+    mon = 'val_loss'
+else:
+    kkey = 'weights.{epoch:02d}-{loss:.5f}.hdf5'
+    mon = 'loss'
+
 model_checkpoint = ModelCheckpoint(os.path.join(RESULTSDIR,
-                                   'weights.{epoch:02d}-{val_loss:.5f}.hdf5'),
-                                   monitor='val_loss',
+                                   kkey),
+                                   monitor=mon,
                                    save_best_only=True,
                                    save_weights_only=True)
 csvlog = CSVLogger(os.path.join(RESULTSDIR, 'training.csv'))

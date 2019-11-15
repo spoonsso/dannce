@@ -49,6 +49,12 @@ else:
   exps = CONFIG_PARAMS['exp_path']
 num_experiments = len(exps)
 CONFIG_PARAMS['experiment'] = {}
+
+# If CONFIG_PARAMS['N_CHANNELS_OUT'] is greater than one, we enter a mode in
+# which we predict all available labels + the COM
+MULTI_MODE = CONFIG_PARAMS['N_CHANNELS_OUT'] > 1
+CONFIG_PARAMS['N_CHANNELS_OUT'] = CONFIG_PARAMS['N_CHANNELS_OUT'] + int(MULTI_MODE)
+
 for e in range(num_experiments):
     CONFIG_PARAMS['experiment'][e] = processing.read_config(exps[e])
     CONFIG_PARAMS['experiment'][e] = processing.make_paths_safe(CONFIG_PARAMS['experiment'][e])
@@ -63,7 +69,10 @@ for e in range(num_experiments):
                                    'datafile'])
 
     samples_, datadict_, datadict_3d_, data_3d_, cameras_ = \
-        serve_data.prepare_data(CONFIG_PARAMS['experiment'][e], nanflag=False)
+        serve_data.prepare_data(CONFIG_PARAMS['experiment'][e], 
+                                nanflag=False, 
+                                com_flag= not MULTI_MODE,
+                                multimode = MULTI_MODE)
 
     # No need to prepare any COM file (they don't exist yet).
     # We call this because we want to support multiple experiments,
@@ -212,12 +221,10 @@ with open(RESULTSDIR + 'train_samples.pickle', 'wb') as f:
     cPickle.dump(partition['train'], f)
 
 labels = datadict
+
+# TODO: Remove?? Appears unused.
 labels_3d = datadict_3d
 
-train_generator = DataGenerator_downsample(partition['train'],
-                                           labels, vids, **params)
-valid_generator = DataGenerator_downsample(partition['valid'],
-                                           labels, vids, **valid_params)
 
 # Build net
 print("Initializing Network...")
@@ -234,7 +241,14 @@ if CONFIG_PARAMS['weights'] is not None:
     weights = [f for f in weights if '.hdf5' in f]
     weights = weights[0]
 
-    model.load_weights(os.path.join(CONFIG_PARAMS['weights'],weights))
+    try:
+        model.load_weights(os.path.join(CONFIG_PARAMS['weights'],weights))
+    except:
+        print("Note: model weights could not be loaded due to a mismatch in dimensions.\
+               Assuming that this is a fine-tune with a different number of outputs and removing \
+              the top of the net accordingly")
+        model.layers[-1].name = 'top_conv'
+        model.load_weights(os.path.join(CONFIG_PARAMS['weights'],weights), by_name=True)
 
 if 'lockfirst' in CONFIG_PARAMS.keys() and CONFIG_PARAMS['lockfirst']:
     for layer in model.layers[:2]:
@@ -270,6 +284,12 @@ y_valid = np.zeros((ncams*len(partition['valid']),
                     dh, dw, CONFIG_PARAMS['N_CHANNELS_OUT']),
                    dtype='float32')
 
+# When there are a lot of videos 
+train_generator = DataGenerator_downsample(partition['train'],
+                                           labels, vids, **params)
+valid_generator = DataGenerator_downsample(partition['valid'],
+                                           labels, vids, **valid_params)
+
 print("Loading data")
 for i in range(len(partition['train'])):
     print(i, end='\r')
@@ -289,12 +309,13 @@ for key in vids.keys():
     vids[key][key_].close()
 
 # Now shuffle the training data and targets together
+# TODO: Remove double shuffle? model.fit() should also be shuffling
 inds = np.arange(ims_train.shape[0])
 np.random.shuffle(inds)
 ims_train = ims_train[inds]
 y_train = y_train[inds]
 
-if CONFIG_PARAMS['debug']:
+if CONFIG_PARAMS['debug'] and not MULTI_MODE:
     # Plot all training images and save
     # create new directory for images if necessary
     debugdir = os.path.join(CONFIG_PARAMS['RESULTSDIR'], 'debug_im_out')
@@ -314,6 +335,8 @@ if CONFIG_PARAMS['debug']:
         imname = str(i) + '.png'
         plt.savefig(os.path.join(debugdir, imname),
                     bbox_inches='tight', pad_inches=0)
+elif CONFIG_PARAMS['debug'] and MULTI_MODE:
+    print("Note: Cannot output debug information in COM multi-mode")
 
 model.fit(ims_train,
           y_train,
@@ -323,7 +346,7 @@ model.fit(ims_train,
           callbacks=[csvlog, model_checkpoint, tboard],
           shuffle=True)
 
-if CONFIG_PARAMS['debug']:
+if CONFIG_PARAMS['debug'] and not MULTI_MODE:
     # Plot predictions on validation frames
     debugdir = os.path.join(CONFIG_PARAMS['RESULTSDIR'], 'debug_im_out_valid')
     print("Saving debug images to: " + debugdir)
@@ -342,6 +365,8 @@ if CONFIG_PARAMS['debug']:
         imname = str(i) + '.png'
         plt.savefig(os.path.join(debugdir, imname),
                     bbox_inches='tight', pad_inches=0)
+elif CONFIG_PARAMS['debug'] and MULTI_MODE:
+    print("Note: Cannot output debug information in COM multi-mode")
 
 print("Saving full model at end of training")
 sdir = os.path.join(CONFIG_PARAMS['RESULTSDIR'], 'fullmodel_weights')

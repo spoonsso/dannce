@@ -18,6 +18,25 @@ def mask_nan_keep_loss(y_true, y_pred):
     loss = K.sum((K.flatten(y_pred) - K.flatten(y_true))**2) / num_notnan
     return tf.where(~tf.is_nan(loss), loss, 0)
 
+def multiview_consistency(y_true,y_pred):
+    """
+    In a semi-supervised strategy, we have a normal mask_nan mse loss for where there are labels,
+    but also a loss that checks whether the output using different combinations of views is the same
+    """
+    alpha = 1#0.0001 # The weight on the multiview loss, which we hard-code for now..
+
+    msk_loss = mask_nan_keep_loss(y_true[-1], y_pred[-1])
+
+    # The output should be (BATCH_SIZE,NVOX,NVOX,NVOX,n_markers)
+    # For a 3-cam system, there are only 3 different possible pairs, so we discard the last, which is the complete set
+    y_pred_ = y_pred[:-1]
+    y_pred_diff = y_pred_[1:] - y_pred_[:-1]
+    multiview_loss = K.mean(K.flatten(y_pred_diff)**2)
+
+    return msk_loss + alpha*multiview_loss
+    #return alpha*multiview_loss
+    #return msk_loss
+
 def metric_dist_max(y_true, y_pred):
     """Get distance between the (row, col) indices of each maximum.
 
