@@ -281,9 +281,9 @@ save_data = {}
 # If we just want to analyze a chunk of video...
 st_ind = params['start_sample_index'] if 'start_sample_index' in params.keys() else 0
 if params['max_num_samples'] == 'max':
-    evaluate_COM_steps(st_ind, len(samples), 1000)
+    evaluate_COM_steps(st_ind, len(samples), 100)
 else:
-    evaluate_COM_steps(st_ind, st_ind + params['max_num_samples'], 1000)
+    evaluate_COM_steps(st_ind, st_ind + params['max_num_samples'], 100)
 
 # Close video objects
 for j in range(len(params['CAMNAMES'])):
