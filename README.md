@@ -5,11 +5,11 @@ DANNCE (3-Dimensional Aligned Neural Network for Computational Ethology) is a co
 ![Image](./common/Figure1.png)
 
 ## Camera Calibration
-To use DANNCE, acquisition cameras must be synchronized, calibrated, and ideally compressed. Synchronization is best done with a frametime trigger and a supplementary readout of frame times. Calibration is the process of determining the distortion introduced into an image from the camera lens (Camera Intrinsics), and the relative position and orientation of cameras to one another in space (Camera Extrinsics). We calibrate cameras in a two-step process, where first we use a checkerboard to find the camera intrinsics, and then an 'L-frame' to determine the camera extrinsics. The L-frame is a calibrated grid of four or more points that are labeled in each camera. A checkerboard can also be used for both procedures. We have included two examples of calibration in Matlab (in CameraCalibration/), one that is a long script, and a second that performs the steps independently.
+To use DANNCE, acquisition cameras must be synchronized, calibrated, and ideally compressed. Synchronization is best done with a frametime trigger and a supplementary readout of frame times. Calibration is the process of determining the distortion introduced into an image from the camera lens (Camera Intrinsics), and the relative position and orientation of cameras to one another in space (Camera Extrinsics). We calibrate cameras in a two-step process, where first we use a checkerboard to find the camera intrinsics, and then an 'L-frame' to determine the camera extrinsics. The L-frame is a calibrated grid of four or more points that are labeled in each camera. A checkerboard can also be used for both procedures. We have included two examples of calibration in Matlab (in CameraCalibration/), one that is a long script, and a second that performs the steps independently. 
 
-![Image](./Calibration/camerareproject1.png)
+Some tips:
+1) Try to sample the whole volume of the arena with the checkerboard.
 
-<video src="/Calibration/videofiles_run11.avi" width="320" height="200" controls preload></video>
 
 ## DANNCE Installation
 
