@@ -201,6 +201,12 @@ cameras = cameras_
 samples = np.array(samples)
 
 # Open videos for all experiments
+if 'VID_PRELOAD' not in CONFIG_PARAMS.keys():
+    CONFIG_PARAMS['VID_PRELOAD'] = True
+
+if not CONFIG_PARAMS['VID_PRELOAD']:
+    print("Not preloading all videos")
+    
 vids = {}
 for e in range(num_experiments):
     if CONFIG_PARAMS['IMMODE'] == 'vid':
@@ -228,7 +234,8 @@ for e in range(num_experiments):
                     os.path.join(CONFIG_PARAMS['experiment'][e]
                                  ['CAMNAMES'][i].split('_')[1], addl),
                     maxopt=flist,  # Large enough to encompass all videos in directory.
-                    extension=CONFIG_PARAMS['experiment'][e]['extension'])
+                    extension=CONFIG_PARAMS['experiment'][e]['extension'],
+                    pathonly=not CONFIG_PARAMS['VID_PRELOAD'])
 
             # Add e to key
             vids[CONFIG_PARAMS['experiment'][e]['CAMNAMES'][i]] = {}
@@ -273,7 +280,8 @@ valid_params = {
     'distort': CONFIG_PARAMS['DISTORT'],
     'expval': CONFIG_PARAMS['EXPVAL'],
     'crop_im': False,
-    'chunks': CONFIG_PARAMS['chunks']}   # This should stay False
+    'chunks': CONFIG_PARAMS['chunks'],
+    'preload': CONFIG_PARAMS['VID_PRELOAD']}   # This should stay False
 
 # Setup a generator that will read videos and labels
 tifdirs = []  # Training from single images not yet supported in this demo

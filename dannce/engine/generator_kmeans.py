@@ -6,6 +6,7 @@ from dannce.engine import processing as processing
 from dannce.engine import ops as ops
 import imageio
 import warnings
+import time
 
 
 class DataGenerator(keras.utils.Sequence):
@@ -90,6 +91,8 @@ class DataGenerator(keras.utils.Sequence):
         else:
             vid = imageio.get_reader(self.vidreaders[camname][keyname])
             im = vid.get_data(frame_num).astype('float32')
+            # Without a sleep here, ffmpeg can hang on video close
+            time.sleep(0.25)
             vid.close()
             return im
 
