@@ -6,10 +6,15 @@ DANNCE (3-Dimensional Aligned Neural Network for Computational Ethology) is a co
 
 ![Image](./common/Figure1.png)
 
+## Examples
+
+#### Mouse
 ![Image](./common/KyleMouse_longfast.gif)
 
+#### Mouse (slowmo)
 ![Image](./common/KyleMouse_shortslow.gif)
 
+#### Rat
 ![Image](./common/rat_JDM52.gif)
 
 ## Camera Calibration
