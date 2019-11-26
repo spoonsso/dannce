@@ -19,6 +19,8 @@ from keras.layers import Conv3D, Input
 from keras.models import Model, load_model
 from keras.optimizers import Adam
 import scipy.io as sio
+from copy import deepcopy
+import shutil
 
 _N_VIEWS = 6
 
@@ -45,6 +47,11 @@ print(RESULTSDIR)
 
 if not os.path.exists(RESULTSDIR):
     os.makedirs(RESULTSDIR)
+
+# Copy the configs into the RESULTSDIR, for reproducibility
+processing.copy_config(RESULTSDIR, sys.argv[1],
+                        PARENT_PARAMS['DANNCE_CONFIG'],
+                        PARENT_PARAMS['COM_CONFIG'])
 
 # TODO(Devices): Is it necessary to set the device environment?
 # This could mess with people's setups.
@@ -95,16 +102,34 @@ datadict_, com3d_dict_ = serve_data.prepare_COM(
     method=CONFIG_PARAMS['com_method'],
     allcams=CONFIG_PARAMS['allcams'] if 'allcams' in CONFIG_PARAMS.keys() and CONFIG_PARAMS['allcams'] else False)
 
-# Need to cap this at the number of samples included in our
-# COM finding estimates
-tf = list(com3d_dict_.keys())
-samples_ = samples_[:len(tf)]
-data_3d_ = data_3d_[:len(tf)]
-pre = len(samples_)
-samples_, data_3d_ = \
-    serve_data.remove_samples_com(samples_, data_3d_, com3d_dict_, rmc=True, cthresh=CONFIG_PARAMS['cthresh'])
-msg = "Detected {} bad COMs and removed the associated frames from the dataset"
-print(msg.format(pre - len(samples_)))
+if 'COM3D_DICT' not in CONFIG_PARAMS.keys():
+
+    # Need to cap this at the number of samples included in our
+    # COM finding estimates
+
+    tf = list(com3d_dict_.keys())
+    samples_ = samples_[:len(tf)]
+    data_3d_ = data_3d_[:len(tf)]
+    pre = len(samples_)
+    samples_, data_3d_ = \
+        serve_data.remove_samples_com(samples_, data_3d_, com3d_dict_, rmc=True, cthresh=CONFIG_PARAMS['cthresh'])
+    msg = "Detected {} bad COMs and removed the associated frames from the dataset"
+    print(msg.format(pre - len(samples_)))
+
+else:
+    print("Loading 3D COM and samples from file: {}".format(CONFIG_PARAMS['COM3D_DICT']))
+    c3dfile = sio.loadmat(CONFIG_PARAMS['COM3D_DICT'])
+    c3d = c3dfile['com']
+    c3dsi = np.squeeze(c3dfile['sampleID'])
+    com3d_dict_ = {}
+    for (i, s) in enumerate(c3dsi):
+        com3d_dict_[s] = c3d[i]
+
+    samples_ = c3dsi
+
+    #verify all of these samples are in datadict_, which we require in order to get the frames IDs
+    # for the videos
+    assert (set(samples_) & set(list(datadict_.keys()))) == set(samples_)
 
 # Write 3D COM to file
 cfilename = os.path.join(RESULTSDIR,'COM3D_undistorted.mat')
@@ -131,26 +156,7 @@ camnames = {}
 camnames[0] = CONFIG_PARAMS['experiment']['CAMNAMES']
 samples = np.array(samples)
 
-# TODO(Repeated): This motif occurs in predict_COMfinder.
-# Consider making a function out of it.
-# Initialize video objects
-vids = {}
-if CONFIG_PARAMS['IMMODE'] == 'vid':
-    for i in range(len(CONFIG_PARAMS['experiment']['CAMNAMES'])):
-        if CONFIG_PARAMS['vid_dir_flag']:
-            addl = ''
-        else:
-            addl = os.listdir(
-                os.path.join(
-                    CONFIG_PARAMS['experiment']['viddir'],
-                    CONFIG_PARAMS['experiment']['CAMNAMES'][i]))[0]
-        vids[CONFIG_PARAMS['experiment']['CAMNAMES'][i]] = \
-            processing.generate_readers(
-                CONFIG_PARAMS['experiment']['viddir'],
-                os.path.join(CONFIG_PARAMS['experiment']['CAMNAMES'][i], addl),
-                minopt=0,
-                maxopt=1,
-                extension=CONFIG_PARAMS['experiment']['extension'])
+vids = processing.initialize_vids_predict(CONFIG_PARAMS, minopt=0, maxopt=1)
 
 # Set framecnt according to the "chunks" config param
 framecnt = CONFIG_PARAMS['chunks']
@@ -282,43 +288,21 @@ def evaluate_ondemand(start_ind, end_ind, valid_gen, vids):
                     tcoord=False)                
                 pass
 
-
-        # TODO(Repeated2): This motif is also repeated, consider modularizing
         if framecnt is not None:
             # We can't keep all these videos open, so close the ones
             # that are not needed
-            # TODO(datadict class): Can we build classes that encapsulate these
-            # values to make it easier to access without the
-            # use of nested lists?
-            currentframes = datadict[
-                partition['valid_sampleIDs'][
-                    i * CONFIG_PARAMS['BATCH_SIZE']]]['frames']
-            m = min(
-                [i * CONFIG_PARAMS['BATCH_SIZE'] + CONFIG_PARAMS['BATCH_SIZE'],
-                 len(partition['valid_sampleIDs']) - 1]
-            )
 
-            curr_frames_max = \
-                datadict[partition['valid_sampleIDs'][m]]['frames']
-            maxframes = max(list(curr_frames_max.values()))
-            currentframes = min(list(currentframes.values()))
-            lastvid = str(currentframes // framecnt * framecnt - framecnt) \
-                + CONFIG_PARAMS['experiment']['extension']
-            currvid = maxframes // framecnt * framecnt
-
-            vids_, lastvid_, currvid_ = processing.close_open_vids(
-                lastvid, lastvid_,
-                currvid,
-                currvid_,
-                framecnt,
-                CONFIG_PARAMS['experiment']['CAMNAMES'],
-                vids,
-                CONFIG_PARAMS['vid_dir_flag'],
-                CONFIG_PARAMS['experiment']['viddir'],
-                currentframes,
-                maxframes)
+            vids_, lastvid_, currvid_ = processing.sequential_vid(vids,
+                                                                  datadict,
+                                                                  partition,
+                                                                  CONFIG_PARAMS,
+                                                                  framecnt,
+                                                                  currvid_,
+                                                                  lastvid_,
+                                                                  i)
             valid_gen.vidreaders = vids_
             vids = vids_
+
 
         ims = valid_gen.__getitem__(i)
         pred = model.predict(ims[0])
@@ -373,16 +357,18 @@ if CONFIG_PARAMS['EXPVAL']:
         num_markers=nchn,
         pmax=True)
 else:
-    evaluate_ondemand(0, max_eval_batch, valid_generator, vids)
+        evaluate_ondemand(0, max_eval_batch, valid_generator, vids)
 
-    p_n = savedata_tomat(
-        RESULTSDIR + 'save_data_MAX.mat',
-        CONFIG_PARAMS['VMIN'],
-        CONFIG_PARAMS['VMAX'],
-        CONFIG_PARAMS['NVOX'],
-        write=True,
-        data=save_data,
-        num_markers=nchn,
-        tcoord=False)
+        p_n = savedata_tomat(
+            RESULTSDIR + 'save_data_MAX.mat',
+            CONFIG_PARAMS['VMIN'],
+            CONFIG_PARAMS['VMAX'],
+            CONFIG_PARAMS['NVOX'],
+            write=True,
+            data=save_data,
+            num_markers=nchn,
+            tcoord=False)
+
+
 
 print("done!")

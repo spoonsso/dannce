@@ -14,7 +14,87 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 import yaml
+import shutil
 
+def initialize_vids_predict(CONFIG_PARAMS, minopt, maxopt):
+    """
+    Modularizes video dict initialization
+    """
+    vids = {}
+    if CONFIG_PARAMS['IMMODE'] == 'vid':
+        for i in range(len(CONFIG_PARAMS['experiment']['CAMNAMES'])):
+            if CONFIG_PARAMS['vid_dir_flag']:
+                addl = ''
+            else:
+                addl = os.listdir(
+                    os.path.join(
+                        CONFIG_PARAMS['experiment']['viddir'],
+                        CONFIG_PARAMS['experiment']['CAMNAMES'][i]))[0]
+            vids[CONFIG_PARAMS['experiment']['CAMNAMES'][i]] = \
+                generate_readers(
+                    CONFIG_PARAMS['experiment']['viddir'],
+                    os.path.join(CONFIG_PARAMS['experiment']['CAMNAMES'][i], addl),
+                    minopt=0,
+                    maxopt=1,
+                    extension=CONFIG_PARAMS['experiment']['extension'])
+
+    return vids
+    
+def sequential_vid(vids, datadict, partition, CONFIG_PARAMS, framecnt, currvid_, lastvid_, i, key='valid_sampleIDs'):
+    """
+    Modularizes ondemand video loading
+    """
+
+    currentframes = datadict[
+    partition[key][
+            i * CONFIG_PARAMS['BATCH_SIZE']]]['frames']
+    m = min(
+        [i * CONFIG_PARAMS['BATCH_SIZE'] + CONFIG_PARAMS['BATCH_SIZE'],
+         len(partition[key]) - 1]
+    )
+
+    curr_frames_max = \
+        datadict[partition[key][m]]['frames']
+    maxframes = max(list(curr_frames_max.values()))
+    currentframes = min(list(currentframes.values()))
+    lastvid = str(currentframes // framecnt * framecnt - framecnt) \
+        + CONFIG_PARAMS['experiment']['extension']
+    currvid = maxframes // framecnt * framecnt
+
+    vids_, lastvid_, currvid_ = close_open_vids(
+        lastvid, lastvid_,
+        currvid,
+        currvid_,
+        framecnt,
+        CONFIG_PARAMS['experiment']['CAMNAMES'],
+        vids,
+        CONFIG_PARAMS['vid_dir_flag'],
+        CONFIG_PARAMS['experiment']['viddir'],
+        currentframes,
+        maxframes)
+
+    return vids_, lastvid_, currvid_
+
+def copy_config(RESULTSDIR,
+                main_config,
+                dannce_config,
+                com_config):
+    """
+    Copies config files into the results directory
+    """
+    mconfig = os.path.join(RESULTSDIR, 
+                           'copy_main_config_' +
+                           main_config.split(os.sep)[-1])
+    dconfig = os.path.join(RESULTSDIR, 
+                           'copy_dannce_config_' +
+                           dannce_config.split(os.sep)[-1])
+    cconfig = os.path.join(RESULTSDIR, 
+                           'copy_com_config_' +
+                           com_config.split(os.sep)[-1])
+
+    shutil.copyfile(main_config, mconfig)
+    shutil.copyfile(dannce_config, dconfig)
+    shutil.copyfile(com_config, cconfig)
 
 def make_paths_safe(params):
 	"""Given a parameter dictionary, loops through the keys and replaces any \\ or / with os.sep
