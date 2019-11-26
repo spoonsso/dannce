@@ -5,14 +5,14 @@ DANNCE (3-Dimensional Aligned Neural Network for Computational Ethology) is a co
 ![Image](./common/Figure1.png)
 
 ## Camera Calibration
-To use DANNCE, acquisition cameras must be synchronized, calibrated, and ideally compressed. Synchronization is best done with a frametime trigger and a supplementary readout of frame times. Calibration is the process of determining the distortion introduced into an image from the camera lens (Camera Intrinsics), and the relative position and orientation of cameras to one another in space (Camera Extrinsics). We calibrate cameras in a two-step process, where first we use a checkerboard to find the camera intrinsics, and then an 'L-frame' to determine the camera extrinsics. The L-frame is a calibrated grid of four or more points that are labeled in each camera. A checkerboard can also be used for both procedures. We have included two examples of calibration in Matlab (in CameraCalibration/), one that is a long script, and a second that performs the steps independently. 
+To use DANNCE, acquisition cameras must be synchronized, calibrated, and ideally compressed. Synchronization is best done with a frametime trigger and a supplementary readout of frame times. Calibration is the process of determining the distortion introduced into an image from the camera lens (Camera Intrinsics), and the relative position and orientation of cameras to one another in space (Camera Extrinsics). We calibrate cameras in a two-step process, where first we use a checkerboard to find the camera intrinsics, and then an 'L-frame' to determine the camera extrinsics. The L-frame is a calibrated grid of four or more points that are labeled in each camera. A checkerboard can also be used for both procedures. We have included two examples of calibration in Matlab (in Calibration/), one that is a long script, and a second that performs the steps independently. 
 
 Some tips:
 1) Try to sample the whole volume of the arena with the checkerboard to fully map the distortion of the lenses.
 2) If you are using a confined arena (eg a plexiglass cylinder) that is hard to wand, it often works to compute the calibration without the cylinder present.
 3) More complicated L-Frames can be used, and can help, for computing the extrinsics. Sometimes using only a four point co-planar L-frame can result in a 'flipped' camera, so be sure to check camera poses after calibration. 
 
-It is often helpful to compress videos as they are acquired to reduce diskspace needed for streaming long recordings from multiple cameras. This can be done using ffmpeg or h264, and we have included an example script from Kyle Severson that runs ffmpeg compression on a GPU for streaming multiple cameras in Compression/.
+It is often helpful to compress videos as they are acquired to reduce diskspace needed for streaming long recordings from multiple cameras. This can be done using ffmpeg or x264, and we have included two example scripts in Compression/. One is from Kyle Severson that runs ffmpeg compression on a GPU for streaming multiple Basler cameras. A second, CameraCapture was originally written by Raj Poddar and can be used to read out older Point Grey/FLIR cameras (eg Grasshopper, Flea3).
 
 
 ## DANNCE Installation
