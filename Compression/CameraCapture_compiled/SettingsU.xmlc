@@ -1,0 +1,5 @@
+﻿<Cameras>
+  <PGRFlea3 Width="1328" Height="1048" FPS="120"
+            SavePath="Z:\Jesse\MocapVideos\CameraU"
+            NumFramesPerFile="3500" SerialNumber="16339405" Shutter="8.3" Gain="18.0"/>
+</Cameras>
