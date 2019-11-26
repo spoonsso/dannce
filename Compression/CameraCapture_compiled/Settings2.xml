@@ -1,0 +1,5 @@
+﻿<Cameras>
+  <PGRFlea3 Width="656" Height="524" FPS="120"
+            SavePath="D:\CameraData\PGRFlea3\2"
+            NumFramesPerFile="3600" SerialNumber="13292980" Shutter="5.0" Gain="18.0"/>
+</Cameras>

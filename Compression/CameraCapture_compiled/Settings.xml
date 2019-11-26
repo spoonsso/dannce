@@ -1,0 +1,11 @@
+﻿<Cameras>
+  <!--<ICubeCam DeviceNumber="0" Mode="2" Width="752" Height="480" Exposure="90" Gain="100" FPS="80"
+            ClockRate="40" SavePath="C:\Rajesh\CameraCapture\ICubeCam"
+            NumFramesPerFile="2400"/>-->
+  <WebCam Width="640" Height="480" FPS="30"
+            SavePath="D:\Rajesh\Ephys\CameraCapture\CameraCapture\bin\Debug"
+            NumFramesPerFile="900" DevicePath="\\?\usb#vid_0458&amp;pid_7073&amp;mi_00#7&amp;1fd7a803&amp;0&amp;0000#{65e8773d-8f56-11d0-a3b9-00a0c9223196}\global"/>
+  <!--<PGRFlea3 Width="656" Height="524" FPS="35"
+            SavePath="D:\Rajesh\Ephys\CameraCapture\iCube\iCube\bin\Debug"
+            NumFramesPerFile="350" SerialNumber="13292980" Shutter="5.0" Gain="18.0"/>-->
+</Cameras>
