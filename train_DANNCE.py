@@ -134,25 +134,37 @@ for e in range(num_experiments):
 
     # Need to cap this at the number of samples included in our
     # COM finding estimates
-    tf = list(com3d_dict_.keys())
-    samples_ = samples_[:len(tf)]
-    data_3d_ = data_3d_[:len(tf)]
+    if 'COM3D_DICT' not in CONFIG_PARAMS.keys():
 
-    pre = len(samples_)
+        # Need to cap this at the number of samples included in our
+        # COM finding estimates
 
-    samples_, data_3d_ = \
-        serve_data.remove_samples_com(samples_,
-                                      data_3d_,
-                                      com3d_dict_,
-                                      rmc=True,
-                                      cthresh=CONFIG_PARAMS['cthresh'])
-    
-    msg = "Detected {} bad COMs and removed the associated frames from the dataset"
-    print(msg.format(pre - len(samples_)))
+        tf = list(com3d_dict_.keys())
+        samples_ = samples_[:len(tf)]
+        data_3d_ = data_3d_[:len(tf)]
+        pre = len(samples_)
+        samples_, data_3d_ = \
+            serve_data.remove_samples_com(samples_, data_3d_, com3d_dict_, rmc=True, cthresh=CONFIG_PARAMS['cthresh'])
+        msg = "Detected {} bad COMs and removed the associated frames from the dataset"
+        print(msg.format(pre - len(samples_)))
+
+    else:
+        print("Loading 3D COM and samples from file: {}".format(CONFIG_PARAMS['COM3D_DICT']))
+        c3dfile = sio.loadmat(CONFIG_PARAMS['COM3D_DICT'])
+        c3d = c3dfile['com']
+        c3dsi = np.squeeze(c3dfile['sampleID'])
+        com3d_dict_ = {}
+        for (i, s) in enumerate(c3dsi):
+            com3d_dict_[s] = c3d[i]
+
+        samples_ = c3dsi
+
+        #verify all of these samples are in datadict_, which we require in order to get the frames IDs
+        # for the videos
+        assert (set(samples_) & set(list(datadict_.keys()))) == set(samples_)
 
     print("Using {} samples total.".format(len(samples_)))
     
-
     samples, datadict, datadict_3d, com3d_dict = serve_data.add_experiment(
         e, samples, datadict, datadict_3d, com3d_dict,
         samples_, datadict_, datadict_3d_, com3d_dict_)
@@ -206,7 +218,7 @@ if 'VID_PRELOAD' not in CONFIG_PARAMS.keys():
 
 if not CONFIG_PARAMS['VID_PRELOAD']:
     print("Not preloading all videos")
-    
+
 vids = {}
 for e in range(num_experiments):
     if CONFIG_PARAMS['IMMODE'] == 'vid':

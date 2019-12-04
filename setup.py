@@ -11,7 +11,6 @@ setup(
                       'imageio',
                       'imageio-ffmpeg',
                       'scikit-image',
-                      'matlab',
                       'matplotlib',
                       'opencv']
 )
