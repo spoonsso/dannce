@@ -159,9 +159,8 @@ for e in range(num_experiments):
 
         samples_ = c3dsi
 
-        #verify all of these samples are in datadict_, which we require in order to get the frames IDs
-        # for the videos
-        assert (set(samples_) & set(list(datadict_.keys()))) == set(samples_)
+        #verify all of the datadict_ keys are in this sample set
+        assert (set(samples_) & set(list(datadict_.keys()))) == set(list(datadict_.keys()))
 
     print("Using {} samples total.".format(len(samples_)))
     
