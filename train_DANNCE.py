@@ -157,10 +157,8 @@ for e in range(num_experiments):
         for (i, s) in enumerate(c3dsi):
             com3d_dict_[s] = c3d[i]
 
-        samples_ = c3dsi
-
         #verify all of the datadict_ keys are in this sample set
-        assert (set(samples_) & set(list(datadict_.keys()))) == set(list(datadict_.keys()))
+        assert (set(c3dsi) & set(list(datadict_.keys()))) == set(list(datadict_.keys()))
 
     print("Using {} samples total.".format(len(samples_)))
     
