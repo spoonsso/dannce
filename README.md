@@ -27,6 +27,11 @@ Some tips:
 
 It is often helpful to compress videos as they are acquired to reduce diskspace needed for streaming long recordings from multiple cameras. This can be done using ffmpeg or x264, and we have included two example scripts in `Compression/`. One, `campy.py`, was written by Kyle Severson and runs ffmpeg compression on a GPU for streaming multiple Basler cameras. A second, CameraCapture was originally written by Raj Poddar and uses x264 on the CPU to stream older Point Grey/FLIR cameras (eg Grasshopper, Flea3). We have included both a compiled version of the program and the original F-Sharp code that can be edited in Visual Studio. 
 
+Cameras tested:
+1) Point Grey Flea3
+2) Blackfly  BFS-U3-162M/C-CS
+3)  Basler Aca1920-155uc, Aca640-750um, Aca720-510um
+
 
 ## DANNCE Installation
 
