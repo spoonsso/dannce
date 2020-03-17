@@ -700,7 +700,7 @@ def finetune_AVG(lossfunc, lr, input_dim, feature_num,
     # Add new output conv. layer
     new_conv = Conv3D(new_n_channels_out,
                       new_last_kern_size,
-                      activation='sigmoid',
+                      activation='linear',
                       padding='same')(old_out)
 
     grid_centers = Input((None, 3))
