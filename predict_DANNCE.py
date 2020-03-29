@@ -15,6 +15,7 @@ import dannce.engine.processing as processing
 import dannce.engine.ops as ops
 from dannce.engine.processing import savedata_tomat, savedata_expval
 from dannce.engine.generator_kmeans import DataGenerator_3Dconv_kmeans
+from dannce.engine.generator_kmeans import DataGenerator_3Dconv_kmeans_torch
 from keras.layers import Conv3D, Input
 from keras.models import Model, load_model
 from keras.optimizers import Adam
@@ -208,9 +209,13 @@ partition['valid_sampleIDs'] = samples[valid_inds]
 tifdirs = []
 
 # Generators
-valid_generator = DataGenerator_3Dconv_kmeans(
+valid_generator = DataGenerator_3Dconv_kmeans_torch(
     partition['valid_sampleIDs'], datadict, datadict_3d, cameras,
     partition['valid_sampleIDs'], com3d_dict, tifdirs, **valid_params)
+
+# valid_generator = DataGenerator_3Dconv_kmeans(
+#     partition['valid_sampleIDs'], datadict, datadict_3d, cameras,
+#     partition['valid_sampleIDs'], com3d_dict, tifdirs, **valid_params)
 
 # Build net
 print("Initializing Network...")
@@ -270,9 +275,9 @@ def evaluate_ondemand(start_ind, end_ind, valid_gen, vids):
     currvid_ = 0
     for i in range(start_ind, end_ind):
         print("Predicting on batch {}".format(i))
-        if (i - start_ind) % 100 == 0 and i != start_ind:
+        if (i - start_ind) % 10 == 0 and i != start_ind:
             print(i)
-            print("100 batches took {} seconds".format(time.time() - end_time))
+            print("10 batches took {} seconds".format(time.time() - end_time))
             end_time = time.time()
 
         if (i - start_ind) % 1000 == 0 and i != start_ind:
@@ -312,9 +317,12 @@ def evaluate_ondemand(start_ind, end_ind, valid_gen, vids):
             valid_gen.vidreaders = vids_
             vids = vids_
 
-
+        ts = time.time()
         ims = valid_gen.__getitem__(i)
+        # print("Loading took {} seconds".format(time.time()-ts))
+        ts = time.time()
         pred = model.predict(ims[0])
+        # print("Prediction took {} seconds".format(time.time()-ts))
 
         if CONFIG_PARAMS['EXPVAL']:
             probmap = get_output([ims[0][0], 0])[0]
@@ -354,8 +362,7 @@ else:
     nchn = CONFIG_PARAMS['N_CHANNELS_OUT']
 
 if CONFIG_PARAMS['EXPVAL']:
-    get_output = K.function(
-        [model.layers[0].input, K.learning_phase()], [model.layers[-3].output])
+    get_output = K.function([model.layers[0].input, K.learning_phase()], [model.layers[-3].output])
     evaluate_ondemand(0, max_eval_batch, valid_generator, vids)
 
     p_n = savedata_expval(
@@ -366,18 +373,16 @@ if CONFIG_PARAMS['EXPVAL']:
         num_markers=nchn,
         pmax=True)
 else:
-        evaluate_ondemand(0, max_eval_batch, valid_generator, vids)
+    evaluate_ondemand(0, max_eval_batch, valid_generator, vids)
 
-        p_n = savedata_tomat(
-            RESULTSDIR + 'save_data_MAX.mat',
-            CONFIG_PARAMS['VMIN'],
-            CONFIG_PARAMS['VMAX'],
-            CONFIG_PARAMS['NVOX'],
-            write=True,
-            data=save_data,
-            num_markers=nchn,
-            tcoord=False)
-
-
+    p_n = savedata_tomat(
+        RESULTSDIR + 'save_data_MAX.mat',
+        CONFIG_PARAMS['VMIN'],
+        CONFIG_PARAMS['VMAX'],
+        CONFIG_PARAMS['NVOX'],
+        write=True,
+        data=save_data,
+        num_markers=nchn,
+        tcoord=False)
 
 print("done!")
