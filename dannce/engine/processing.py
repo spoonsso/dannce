@@ -15,6 +15,7 @@ import matplotlib.pyplot as plt
 
 import yaml
 import shutil
+import torch
 
 def initialize_vids_predict(CONFIG_PARAMS, minopt, maxopt):
     """
@@ -36,7 +37,8 @@ def initialize_vids_predict(CONFIG_PARAMS, minopt, maxopt):
                     os.path.join(CONFIG_PARAMS['experiment']['CAMNAMES'][i], addl),
                     minopt=0,
                     maxopt=1,
-                    extension=CONFIG_PARAMS['experiment']['extension'])
+                    extension=CONFIG_PARAMS['experiment']['extension'],
+                    gpuID = CONFIG_PARAMS['gpuID'])
 
     return vids
 
@@ -71,14 +73,12 @@ def sequential_vid(vids, datadict, partition, CONFIG_PARAMS, framecnt, currvid_,
         CONFIG_PARAMS['vid_dir_flag'],
         CONFIG_PARAMS['experiment']['viddir'],
         currentframes,
-        maxframes)
+        maxframes,
+        CONFIG_PARAMS['gpuID'])
 
     return vids_, lastvid_, currvid_
 
-def copy_config(RESULTSDIR,
-                main_config,
-                dannce_config,
-                com_config):
+def copy_config(RESULTSDIR,main_config,dannce_config,com_config):
     """
     Copies config files into the results directory
     """
@@ -161,11 +161,9 @@ def inherit_config(child, parent, keys):
 
     return child
 
-
-
 def close_open_vids(
     lastvid, lastvid_, currvid, currvid_, framecnt, cnames, vids,
-    vid_dir_flag, viddir, currentframes, maxframes):
+    vid_dir_flag, viddir, currentframes, maxframes, gpuID):
     """Track which videos are required for each batch and open/close them.
 
     When long recordings are split over many video files,
@@ -200,7 +198,8 @@ def close_open_vids(
                     os.path.join(cnames[j], addl),
                     minopt=currentframes // framecnt * framecnt - framecnt,
                     maxopt=maxframes,
-                    extension=ext)
+                    extension=ext,
+                    gpuID=gpuID)
             # This is necessary so we don't overwrite videos we might still be using
             for key in nvids:
                 vids[cnames[j]][key] = nvids[key] 
@@ -301,7 +300,7 @@ def batch_maximum(imstack):
 
 
 def generate_readers(
-    viddir, camname, minopt=0, maxopt=300000, pathonly=False, extension='.mp4'):
+    viddir, camname, minopt=0, maxopt=300000, pathonly=False, extension='.mp4', gpuID="0"):
     """Open all mp4 objects with imageio, and return them in a dictionary."""
     print('NOTE: Ignoring mp4 files numbered above {}'.format(maxopt))
     out = {}
@@ -319,12 +318,23 @@ def generate_readers(
             os.path.normpath(f).split(os.sep)[-1])
          for f in mp4files]
 
+    pixelformat = "yuv420p"
+    input_params_nvdec = ["-hwaccel","nvdec", "-c:v","h264_cuvid", "-hwaccel_device", gpuID]
+    input_params_x264 = []
+    output_params = []
+
     for i in range(len(mp4files)):
         if pathonly:
             out[mp4files_scrub[i]] = os.path.join(viddir, mp4files[i])
         else:
-            out[mp4files_scrub[i]] = \
-                imageio.get_reader(os.path.join(viddir, mp4files[i]))
+            try:
+                out[mp4files_scrub[i]] = \
+                    imageio.get_reader(os.path.join(viddir, mp4files[i]), 
+                        pixelformat=pixelformat,input_params=input_params_nvdec, output_params=output_params)
+            except:
+                out[mp4files_scrub[i]] = \
+                    imageio.get_reader(os.path.join(viddir, mp4files[i]), 
+                        pixelformat=pixelformat,input_params=input_params_x264, output_params=output_params)
     return out
 
 
@@ -378,6 +388,37 @@ def cropcom(im, com, size=512):
     if maxlim_c > im.shape[1]:
         out = np.concatenate(
             (out, np.zeros((out.shape[0], maxlim_c - im.shape[1], dim))),
+            axis=1)
+
+    return out
+
+def cropcom_torch(im, com, size=512):
+    """Crops single input image around the coordinates com."""
+    minlim_r = int(np.round(com[1])) - size // 2
+    maxlim_r = int(np.round(com[1])) + size // 2
+    minlim_c = int(np.round(com[0])) - size // 2
+    maxlim_c = int(np.round(com[0])) + size // 2
+
+    out = im[np.max([minlim_r, 0]):maxlim_r, np.max([minlim_c, 0]):maxlim_c, :]
+
+    dim = out.shape[2]
+
+    # pad with zeros if region ended up outside the bounds of the original image
+    if minlim_r < 0:
+        out = torch.concatenate(
+            (torch.zeros((abs(minlim_r), out.shape[1], dim)), out),
+            axis=0)
+    if maxlim_r > im.shape[0]:
+        out = torch.concatenate(
+            (out, torch.zeros((maxlim_r - im.shape[0], out.shape[1], dim))),
+            axis=0)
+    if minlim_c < 0:
+        out = torch.concatenate(
+            (torch.zeros((out.shape[0], abs(minlim_c), dim)), out),
+            axis=1)
+    if maxlim_c > im.shape[1]:
+        out = torch.concatenate(
+            (out, torch.zeros((out.shape[0], maxlim_c - im.shape[1], dim))),
             axis=1)
 
     return out
