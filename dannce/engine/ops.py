@@ -1,6 +1,6 @@
 """Operations for dannce."""
 import keras.backend as K
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator
 from keras.engine import Layer, InputSpec
@@ -9,7 +9,8 @@ import keras.constraints as constraints
 import keras.regularizers as regularizers
 from keras.utils.generic_utils import get_custom_objects
 import cv2
-
+import time
+import torch
 
 def camera_matrix(K, R, t):
     """Derive the camera matrix.
@@ -23,9 +24,8 @@ def camera_matrix(K, R, t):
     """
     return np.concatenate((R, t), axis=0) @ K
 
-
 def project_to2d(pts, K, R, t):
-    """Project 3d points to 3d.
+    """Project 3d points to 2d.
 
     Projects a set of 3-D points, pts, into 2-D using the camera intrinsic
     matrix (K), and the extrinsic rotation matric (R), and extrinsic
@@ -33,11 +33,29 @@ def project_to2d(pts, K, R, t):
     convention, such that
     M = [R;t] * K, and pts2d = pts3d * M
     """
+
     M = np.concatenate((R, t), axis=0) @ K
     projPts = np.concatenate((pts, np.ones((pts.shape[0], 1))), axis=1) @ M
     projPts[:, :2] = projPts[:, :2] / projPts[:, 2:]
+
     return projPts
 
+def project_to2d_torch(pts, M, device):
+    """Project 3d points to 2d.
+
+    Projects a set of 3-D points, pts, into 2-D using the camera intrinsic
+    matrix (K), and the extrinsic rotation matric (R), and extrinsic
+    translation vector (t). Note that this uses the matlab
+    convention, such that
+    M = [R;t] * K, and pts2d = pts3d * M
+    """
+    # pts = torch.Tensor(pts.copy()).cuda(device)
+    pts1 = torch.ones(pts.shape[0],1, dtype=torch.float).cuda(device)
+
+    projPts = torch.matmul(torch.cat((pts,pts1),1),M)
+    projPts[:, :2] = projPts[:, :2] / projPts[:, 2:]
+
+    return projPts
 
 def sample_grid(im, projPts, method='linear'):
     """Transfer 3d featers to 2d by projecting down to 2d grid.
@@ -47,6 +65,7 @@ def sample_grid(im, projPts, method='linear'):
     Note that function expects proj_grid to be flattened, so results should be
     reshaped after being returned
     """
+
     if method == 'linear':
         f_r = RegularGridInterpolator(
             (np.arange(im.shape[0]), np.arange(im.shape[1])),
@@ -73,7 +92,7 @@ def sample_grid(im, projPts, method='linear'):
         # Now I could index an array with the values
         projPts = np.round(projPts[:, ::-1]).astype('int')
 
-        # But some of them could be outside of the image
+        # But some of them could be rounded outside of the image
         projPts[projPts[:, 0] < 0, 0] = 0
         projPts[projPts[:, 0] >= im.shape[0], 0] = im.shape[0] - 1
         projPts[projPts[:, 1] < 0, 1] = 0
@@ -88,7 +107,7 @@ def sample_grid(im, projPts, method='linear'):
         proj_b = im[:, :, 2]
         proj_b = proj_b[projPts]
 
-    # Do nearest, but becauset he channel dimension can be arbitrarily large,
+    # Do nearest, but because the channel dimension can be arbitrarily large,
     # we put the final part of this in a loop
     elif method == 'out2d':
         # Now I could index an array with the values
@@ -110,6 +129,50 @@ def sample_grid(im, projPts, method='linear'):
     else:
         raise Exception("not a valid interpolation method")
     return proj_r, proj_g, proj_b
+
+def sample_grid_torch(im, projPts, device, method='linear'):
+    """Transfer 3d featers to 2d by projecting down to 2d grid.
+
+    Use 2d interpolation to transfer features to 3d points that have
+    projected down onto a 2d grid
+    Note that function expects proj_grid to be flattened, so results should be
+    reshaped after being returned
+    """
+
+    if method == 'linear':
+        interpMode = 'bilinear'
+    elif method == 'nearest' or method == 'out2d':
+        interpMode = 'nearest'
+    else:
+        raise Exception("not a valid interpolation method")
+    
+    im = torch.Tensor(im).cuda(device)
+    projPts = projPts.flip(1)
+
+    grid_y = projPts[ :, 0] / im.shape[0] * 2 - 1 # 1024 = H, normalized to [-1,1]
+    grid_x = projPts[ :, 1] / im.shape[1] * 2 - 1 # 1152 = W, normalized to [-1,1]
+
+    c = int(round(projPts.shape[0]**(1/3.))) # compute side length of 3D grid
+
+    grid_x = grid_x.reshape((1,c,c,c))
+    grid_y = grid_y.reshape((1,c,c,c))
+    grid_z = torch.zeros(1,c,c,c).cuda(device).float()
+
+    grid_xyz = torch.stack((grid_x, grid_y, grid_z), dim=4)
+
+    proj_rgb = torch.nn.functional.grid_sample(
+        im.permute(2,0,1).unsqueeze(1).unsqueeze(0), # make input 5D (B,C,X,Y,Z) batch, color,...
+        grid_xyz, # also needs to be 5D
+        mode = interpMode, # 'bilinear', 'nearest'
+        padding_mode = 'zeros') # 'zeros', 'border', 'reflection'
+
+    if method == 'nearest' or method == 'linear': # output rgb channels
+        return proj_rgb
+    elif  method == 'out2d': # arbitrary number of channels
+        for ii in range(im.shape[-1]):
+            tmp = im[:, :, ii]
+            imout[:, ii] = tmp[projPts]
+        return imout
 
 
 def unproj(feats, grid, batch_size):
@@ -176,18 +239,16 @@ def unproj(feats, grid, batch_size):
     Ibilin = tf.transpose(Ibilin, [0, 1, 3, 2, 4, 5])
     return Ibilin
 
-
 def unDistortPoints(pts, 
                     intrinsicMatrix,
                     radialDistortion,
                     tangentDistortion,
                     rotationMatrix,
                     translationVector):
-    """Remove lense distortion from the input points.
+    """Remove lens distortion from the input points.
 
     Input is size (M,2), where M is the number of points
     """
-
     dcoef = radialDistortion.ravel()[:2].tolist() + tangentDistortion.ravel().tolist()
 
     if len(radialDistortion.ravel()) == 3:
@@ -195,16 +256,16 @@ def unDistortPoints(pts,
     else:
         dcoef = dcoef + [0]
 
+    ts = time.time()
     pts_u = cv2.undistortPoints(np.reshape(pts,(-1,1,2)).astype('float64'),
                                 intrinsicMatrix.T,
                                 np.array(dcoef),
-                                P=intrinsicMatrix.T)
+                                P=intrinsicMatrix.T)    
+    print('cv2.undistort took ' + str(time.time() - ts) + ' seconds total.')
 
     pts_u = np.reshape(pts_u, (-1,2))
 
     return pts_u
-
-
 
 def triangulate(pts1, pts2, cam1, cam2):
     """Return triangulated 3- coordinates.
@@ -616,8 +677,7 @@ class InstanceNormalization(Layer):
 get_custom_objects().update({'InstanceNormalization': InstanceNormalization})
 
 
-def distortPoints(
-        points, intrinsicMatrix, radialDistortion, tangentialDistortion):
+def distortPoints(points, intrinsicMatrix, radialDistortion, tangentialDistortion):
     """Distort points according to camera parameters.
 
     Ported from Matlab 2018a
@@ -641,6 +701,7 @@ def distortPoints(
     r2 = xNorm**2 + yNorm**2
     r4 = r2 * r2
     r6 = r2 * r4
+
     k = np.zeros((3,))
     k[:2] = radialDistortion[:2]
     if len(radialDistortion) < 3:
@@ -667,8 +728,63 @@ def distortPoints(
             skew * distortedNormalizedPoints[:, 1])
     distortedPointsY = distortedNormalizedPoints[:, 1] * fy + cy
     distortedPoints = np.stack((distortedPointsX, distortedPointsY))
+
     return distortedPoints
 
+def distortPoints_torch(points, device, intrinsicMatrix, radialDistortion, tangentialDistortion):
+    """Distort points according to camera parameters.
+
+    Ported from Matlab 2018a
+    """
+    # unpack the intrinsic matrix
+    cx = intrinsicMatrix[2, 0]
+    cy = intrinsicMatrix[2, 1]
+    fx = intrinsicMatrix[0, 0]
+    fy = intrinsicMatrix[1, 1]
+    skew = intrinsicMatrix[1, 0]
+
+    # center the points
+    center = torch.Tensor((cx,cy)).cuda(device)
+    centeredPoints = points - center
+
+    # normalize the pcenteredPoints[:, 1] / fyoints
+    yNorm = centeredPoints[:, 1] / fy
+    xNorm = (centeredPoints[:, 0] - skew * yNorm) / fx
+
+    # compute radial distortion
+    r2 = xNorm**2 + yNorm**2
+    r4 = r2 * r2
+    r6 = r2 * r4
+    k = np.zeros((3,))
+    k[:2] = radialDistortion[:2]
+    if len(radialDistortion) < 3:
+        k[2] = 0
+    else:
+        k[2] = radialDistortion[2]
+    alpha = k[0] * r2 + k[1] * r4 + k[2] * r6
+
+    # compute tangential distortion
+    p = tangentialDistortion
+    xyProduct = xNorm * yNorm
+    dxTangential = 2 * p[0] * xyProduct + p[1] * (r2 + 2 * xNorm**2)
+    dyTangential = p[0] * (r2 + 2 * yNorm**2) + 2 * p[1] * xyProduct
+
+    # apply the distortion to the points
+    normalizedPoints = torch.transpose(torch.stack((xNorm, yNorm)),0,1)
+
+    distortedNormalizedPoints = normalizedPoints + \
+        normalizedPoints * torch.transpose(torch.stack((alpha, alpha)),0,1) + \
+            torch.transpose(torch.stack((dxTangential, dyTangential)),0,1)
+
+    distortedPointsX = \
+        distortedNormalizedPoints[:, 0]*fx + cx + skew*distortedNormalizedPoints[:, 1]
+
+    distortedPointsY = \
+        distortedNormalizedPoints[:, 1]*fy + cy
+
+    distortedPoints = torch.stack((distortedPointsX, distortedPointsY))
+
+    return distortedPoints
 
 def expected_value_3d(prob_map, grid_centers):
     """Calculate expected value of spatial distribution over output 3D grid.
