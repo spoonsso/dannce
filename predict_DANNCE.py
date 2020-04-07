@@ -60,6 +60,7 @@ processing.copy_config(RESULTSDIR, sys.argv[1],
 # TODO(Devices): Is it necessary to set the device environment?
 # This could mess with people's setups.
 os.environ["CUDA_VISIBLE_DEVICES"] =  CONFIG_PARAMS['gpuID']
+gpuID = CONFIG_PARAMS['gpuID']
 
 # If len(CONFIG_PARAMS['experiment']['CAMNAMES']) divides evenly into 6, duplicate here,
 # Unless the network was "hard" trained to use less than 6 cameras
@@ -319,10 +320,10 @@ def evaluate_ondemand(start_ind, end_ind, valid_gen, vids):
 
         ts = time.time()
         ims = valid_gen.__getitem__(i)
-        # print("Loading took {} seconds".format(time.time()-ts))
+        print("Loading took {} seconds".format(time.time()-ts))
         ts = time.time()
         pred = model.predict(ims[0])
-        # print("Prediction took {} seconds".format(time.time()-ts))
+        print("Prediction took {} seconds".format(time.time()-ts))
 
         if CONFIG_PARAMS['EXPVAL']:
             probmap = get_output([ims[0][0], 0])[0]
