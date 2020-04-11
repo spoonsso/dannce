@@ -16,6 +16,7 @@ import matplotlib.pyplot as plt
 import yaml
 import shutil
 import torch
+import time
 
 def initialize_vids_predict(CONFIG_PARAMS, minopt, maxopt):
     """
@@ -282,6 +283,55 @@ def downsample_batch(imstack, fac=2, method='PIL'):
                 out[i, :, :, j] = imstack[i, ::fac, ::fac, j]
     return out
 
+def downsample_batch_torch(imstack, fac=2, method='PIL', device=torch.device('cuda:' + '0')):
+    """Downsample each image in a batch."""
+    out = np.zeros(
+        (imstack.shape[0], imstack.shape[1] // fac,
+            imstack.shape[2] // fac, imstack.shape[3]),
+                dtype = 'float32')
+    # out = torch.zeros(
+    #     (imstack.shape[0], imstack.shape[1] // fac,
+    #         imstack.shape[2] // fac, imstack.shape[3]),
+    #             dtype = torch.float32)
+
+    # if torch.is_tensor(imstack):
+    #     imstack = imstack.cpu().numpy()
+
+    if method == 'PIL':
+        if out.shape[-1] == 3:
+            # this is just an RGB image, so no need to loop over channels with PIL
+            for i in range(imstack.shape[0]):
+                out[i] = np.array(
+                    PIL.Image.fromarray(imstack[i].astype('uint8')).resize(
+                        (out.shape[2], out.shape[1]), resample=PIL.Image.LANCZOS))
+        else:
+            for i in range(imstack.shape[0]):
+                for j in range(imstack.shape[3]):
+                    out[i, :, :, j] = np.array(
+                        PIL.Image.fromarray(imstack[i, :, :, j]).resize(
+                            (out.shape[2], out.shape[1]), resample=PIL.Image.LANCZOS))
+
+    elif method == 'dsm':
+        for i in range(imstack.shape[0]):
+            for j in range(imstack.shape[3]):
+                out[i, :, :, j] = dsm(imstack[i, :, :, j], (fac, fac))
+
+        # imstack = imstack.permute(0,3,1,2)
+        # out = torch.nn.functional.interpolate(
+        #     imstack, 
+        #     size = (imstack.shape[2] // fac, 
+        #         imstack.shape[3] // fac),
+        #     mode = 'bilinear',
+        #     align_corners = True)
+        # out = out.permute(0,2,3,1)
+
+    elif method == 'nn':
+        # do simple, faster nearest neighbors
+        for i in range(imstack.shape[0]):
+            for j in range(imstack.shape[3]):
+                out[i, :, :, j] = imstack[i, ::fac, ::fac, j]
+
+    return out
 
 def batch_maximum(imstack):
     """Find the location of the maximum for each image in a batch."""
@@ -320,7 +370,7 @@ def generate_readers(
 
     pixelformat = "yuv420p"
     input_params_nvdec = ["-hwaccel","nvdec", "-c:v","h264_cuvid", "-hwaccel_device", gpuID]
-    input_params_x264 = []
+    input_params = []
     output_params = []
 
     for i in range(len(mp4files)):
@@ -330,11 +380,15 @@ def generate_readers(
             try:
                 out[mp4files_scrub[i]] = \
                     imageio.get_reader(os.path.join(viddir, mp4files[i]), 
-                        pixelformat=pixelformat,input_params=input_params_nvdec, output_params=output_params)
+                        pixelformat=pixelformat, 
+                        input_params=input_params_nvdec, 
+                        output_params=output_params)
             except:
                 out[mp4files_scrub[i]] = \
                     imageio.get_reader(os.path.join(viddir, mp4files[i]), 
-                        pixelformat=pixelformat,input_params=input_params_x264, output_params=output_params)
+                        pixelformat=pixelformat, 
+                        input_params=input_params, 
+                        output_params=output_params)
     return out
 
 
@@ -405,19 +459,19 @@ def cropcom_torch(im, com, size=512):
 
     # pad with zeros if region ended up outside the bounds of the original image
     if minlim_r < 0:
-        out = torch.concatenate(
+        out = torch.cat(
             (torch.zeros((abs(minlim_r), out.shape[1], dim)), out),
             axis=0)
     if maxlim_r > im.shape[0]:
-        out = torch.concatenate(
+        out = torch.cat(
             (out, torch.zeros((maxlim_r - im.shape[0], out.shape[1], dim))),
             axis=0)
     if minlim_c < 0:
-        out = torch.concatenate(
+        out = torch.cat(
             (torch.zeros((out.shape[0], abs(minlim_c), dim)), out),
             axis=1)
     if maxlim_c > im.shape[1]:
-        out = torch.concatenate(
+        out = torch.cat(
             (out, torch.zeros((out.shape[0], maxlim_c - im.shape[1], dim))),
             axis=1)
 
@@ -564,7 +618,6 @@ def plot_markers_3d(stack, nonan=True):
             y.append(np.nan)
             z.append(np.nan)
     return x, y, z
-
 
 def write_unprojected_grids(imstack, fn):
     """Write grids to tif files for visualization.
