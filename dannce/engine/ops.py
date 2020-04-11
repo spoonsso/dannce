@@ -10,7 +10,10 @@ import keras.regularizers as regularizers
 from keras.utils.generic_utils import get_custom_objects
 import cv2
 import time
+
 import torch
+import tensorflow as tf2
+import sys
 
 def camera_matrix(K, R, t):
     """Derive the camera matrix.
@@ -50,10 +53,32 @@ def project_to2d_torch(pts, M, device):
     M = [R;t] * K, and pts2d = pts3d * M
     """
     # pts = torch.Tensor(pts.copy()).cuda(device)
-    pts1 = torch.ones(pts.shape[0],1, dtype=torch.float).cuda(device)
+    M = M.cuda(device=device)
+    pts1 = torch.ones(pts.shape[0], 1, dtype=torch.float32).cuda(device)
 
     projPts = torch.matmul(torch.cat((pts,pts1),1),M)
+    # print(projPts)
     projPts[:, :2] = projPts[:, :2] / projPts[:, 2:]
+    # print(projPts)
+
+    return projPts
+
+def project_to2d_tf(pts, M, device):
+    """Project 3d points to 2d.
+
+    Projects a set of 3-D points, pts, into 2-D using the camera intrinsic
+    matrix (K), and the extrinsic rotation matric (R), and extrinsic
+    translation vector (t). Note that this uses the matlab
+    convention, such that
+    M = [R;t] * K, and pts2d = pts3d * M
+    """
+    with tf2.device(device):
+        pts1 = tf2.ones([pts.shape[0], 1], dtype='float32')
+
+    projPts = tf2.matmul(tf.concat((pts,pts1),1),M)
+    # print(projPts.eval(session=tf.Session()))
+    projPts = projPts[:, :2] / projPts[:, 2:]
+    # print(projPts.eval(session=tf.Session()))
 
     return projPts
 
@@ -146,7 +171,7 @@ def sample_grid_torch(im, projPts, device, method='linear'):
     else:
         raise Exception("not a valid interpolation method")
     
-    im = torch.Tensor(im).cuda(device)
+    im = torch.as_tensor(im, device = device) # send uint8 image tensor to GPU
     projPts = projPts.flip(1)
 
     grid_y = projPts[ :, 0] / im.shape[0] * 2 - 1 # 1024 = H, normalized to [-1,1]
@@ -156,24 +181,21 @@ def sample_grid_torch(im, projPts, device, method='linear'):
 
     grid_x = grid_x.reshape((1,c,c,c))
     grid_y = grid_y.reshape((1,c,c,c))
-    grid_z = torch.zeros(1,c,c,c).cuda(device).float()
+    grid_z = torch.zeros((1,c,c,c),
+                dtype = torch.float32,
+                device = device)
 
     grid_xyz = torch.stack((grid_x, grid_y, grid_z), dim=4)
 
+    im = im.permute(2,0,1).unsqueeze(1).unsqueeze(0).float() # make 5D (B,C,X,Y,Z) batch, color, x, y, z
+
     proj_rgb = torch.nn.functional.grid_sample(
-        im.permute(2,0,1).unsqueeze(1).unsqueeze(0), # make input 5D (B,C,X,Y,Z) batch, color,...
+        im, # input 
         grid_xyz, # also needs to be 5D
         mode = interpMode, # 'bilinear', 'nearest'
-        padding_mode = 'zeros') # 'zeros', 'border', 'reflection'
+        padding_mode = 'zeros') # 'zeros', 'border', 'reflection') 
 
-    if method == 'nearest' or method == 'linear': # output rgb channels
-        return proj_rgb
-    elif  method == 'out2d': # arbitrary number of channels
-        for ii in range(im.shape[-1]):
-            tmp = im[:, :, ii]
-            imout[:, ii] = tmp[projPts]
-        return imout
-
+    return proj_rgb
 
 def unproj(feats, grid, batch_size):
     """Unproject features."""
@@ -257,11 +279,11 @@ def unDistortPoints(pts,
         dcoef = dcoef + [0]
 
     ts = time.time()
-    pts_u = cv2.undistortPoints(np.reshape(pts,(-1,1,2)).astype('float64'),
+    pts_u = cv2.undistortPoints(np.reshape(pts,(-1,1,2)).astype('float32'),
                                 intrinsicMatrix.T,
                                 np.array(dcoef),
-                                P=intrinsicMatrix.T)    
-    print('cv2.undistort took ' + str(time.time() - ts) + ' seconds total.')
+                                P=intrinsicMatrix.T)
+    # print('cv2.undistort took ' + str(time.time() - ts) + ' seconds total.')
 
     pts_u = np.reshape(pts_u, (-1,2))
 
@@ -744,7 +766,7 @@ def distortPoints_torch(points, device, intrinsicMatrix, radialDistortion, tange
     skew = intrinsicMatrix[1, 0]
 
     # center the points
-    center = torch.Tensor((cx,cy)).cuda(device)
+    center = torch.as_tensor((cx,cy), dtype = torch.float32, device = device)
     centeredPoints = points - center
 
     # normalize the pcenteredPoints[:, 1] / fyoints
@@ -755,6 +777,7 @@ def distortPoints_torch(points, device, intrinsicMatrix, radialDistortion, tange
     r2 = xNorm**2 + yNorm**2
     r4 = r2 * r2
     r6 = r2 * r4
+
     k = np.zeros((3,))
     k[:2] = radialDistortion[:2]
     if len(radialDistortion) < 3:
