@@ -16,12 +16,14 @@ import dannce.engine.ops as ops
 from dannce.engine.processing import savedata_tomat, savedata_expval
 from dannce.engine.generator_kmeans import DataGenerator_3Dconv_kmeans
 from dannce.engine.generator_kmeans import DataGenerator_3Dconv_kmeans_torch
+from dannce.engine.generator_kmeans import DataGenerator_3Dconv_kmeans_tf
 from keras.layers import Conv3D, Input
 from keras.models import Model, load_model
 from keras.optimizers import Adam
 import scipy.io as sio
 from copy import deepcopy
 import shutil
+import torch
 
 # Set up parameters
 PARENT_PARAMS = processing.read_config(sys.argv[1])
@@ -117,9 +119,9 @@ if 'COM3D_DICT' not in CONFIG_PARAMS.keys():
     # Need to cap this at the number of samples included in our
     # COM finding estimates
 
-    tf = list(com3d_dict_.keys())
-    samples_ = samples_[:len(tf)]
-    data_3d_ = data_3d_[:len(tf)]
+    tff = list(com3d_dict_.keys())
+    samples_ = samples_[:len(tff)]
+    data_3d_ = data_3d_[:len(tff)]
     pre = len(samples_)
     samples_, data_3d_ = \
         serve_data.remove_samples_com(samples_, data_3d_, com3d_dict_, rmc=True, cthresh=CONFIG_PARAMS['cthresh'])
@@ -325,6 +327,7 @@ def evaluate_ondemand(start_ind, end_ind, valid_gen, vids):
         pred = model.predict(ims[0])
         print("Prediction took {} seconds".format(time.time()-ts))
 
+        ts = time.time()
         if CONFIG_PARAMS['EXPVAL']:
             probmap = get_output([ims[0][0], 0])[0]
             for j in range(pred.shape[0]):
@@ -338,20 +341,21 @@ def evaluate_ondemand(start_ind, end_ind, valid_gen, vids):
         else:
             # get coords for each map
             for j in range(pred.shape[0]):
-                pred_max = np.max(np.max(np.max(
-                    pred[j, :, :, :, :], axis=0), axis=0), axis=0)
-                pred_total = np.sum(np.sum(np.sum(
-                    pred[j, :, :, :, :], axis=0), axis=0), axis=0)
-                coordx, coordy, coordz = processing.plot_markers_3d(pred[j])
+                pred_max = np.max(np.max(np.max(pred[j, :, :, :, :], axis=0), axis=0), axis=0)
+                pred_total = np.sum(np.sum(np.sum(pred[j, :, :, :, :], axis=0), axis=0), axis=0)
+                coordx, coordy, coordz = processing.plot_markers_3d(pred[j, :, :, :, :])
                 coord = np.stack((coordx, coordy, coordz))
                 sampleID = partition['valid_sampleIDs'][i * pred.shape[0] + j]
+                pred_log = np.log(pred_max) - np.log(pred_total)
 
                 save_data[i * pred.shape[0] + j] = {
                     'pred_max': pred_max,
                     'pred_coord': coord,
                     'true_coord_nogrid': ims[1][j],
-                    'logmax': np.log(pred_max) - np.log(pred_total),
+                    'logmax': pred_log,
                     'sampleID': sampleID}
+            print("Saving took {} sec.".format(time.time() - ts))
+
 
 max_eval_batch = CONFIG_PARAMS['maxbatch']
 if max_eval_batch == 'max':
