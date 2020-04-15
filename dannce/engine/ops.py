@@ -1,13 +1,22 @@
 """Operations for dannce."""
-import keras.backend as K
-import tensorflow.compat.v1 as tf
+import tensorflow.keras.backend as K
+import tensorflow as tf
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator
-from keras.engine import Layer, InputSpec
+
+# import tensorflow.keras.initializers as initializers
+# import tensorflow.keras.constraints as constraints
+# import tensorflow.keras.regularizers as regularizers
+
 import keras.initializers as initializers
 import keras.constraints as constraints
 import keras.regularizers as regularizers
+
+from keras.engine import Layer, InputSpec
+# from tensorflow.keras.layers import Layer, InputSpec
 from keras.utils.generic_utils import get_custom_objects
+# from tensorflow.keras.utils import get_custom_objects
+
 import cv2
 import time
 
@@ -54,7 +63,7 @@ def project_to2d_torch(pts, M, device):
     """
     # pts = torch.Tensor(pts.copy()).cuda(device)
     M = M.cuda(device=device)
-    pts1 = torch.ones(pts.shape[0], 1, dtype=torch.float32).cuda(device)
+    pts1 = torch.ones(pts.shape[0], 1, dtype=torch.float32, device = device)
 
     projPts = torch.matmul(torch.cat((pts,pts1),1),M)
     # print(projPts)
@@ -72,13 +81,13 @@ def project_to2d_tf(pts, M, device):
     convention, such that
     M = [R;t] * K, and pts2d = pts3d * M
     """
-    with tf2.device(device):
-        pts1 = tf2.ones([pts.shape[0], 1], dtype='float32')
 
-    projPts = tf2.matmul(tf.concat((pts,pts1),1),M)
-    # print(projPts.eval(session=tf.Session()))
+    with tf.device(device):
+        M = M
+        pts1 = tf.ones([pts.shape[0], 1], dtype='float32')
+        
+    projPts = tf.matmul(tf.concat((pts,pts1),1),M)
     projPts = projPts[:, :2] / projPts[:, 2:]
-    # print(projPts.eval(session=tf.Session()))
 
     return projPts
 

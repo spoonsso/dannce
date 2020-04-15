@@ -1,19 +1,18 @@
 """Define networks for dannce."""
 import tensorflow as tf
-from keras.models import Model
-from keras.layers import Input, concatenate, Conv2D, MaxPooling2D, Conv2DTranspose, Conv3D, Lambda, MaxPooling3D, Conv3DTranspose, Dense
-from keras.layers import Conv1D, MaxPooling1D, UpSampling1D, Add
-from keras.layers.core import Activation, Permute, Reshape
-from keras.optimizers import Adam
-from keras.layers.normalization import BatchNormalization
-from keras import backend as K
-from keras.applications.vgg19 import VGG19
-from keras.utils import multi_gpu_model
-from keras import regularizers
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import Input, concatenate, Conv2D, MaxPooling2D, Conv2DTranspose, Conv3D, Lambda, MaxPooling3D, Conv3DTranspose, Dense
+from tensorflow.keras.layers import Conv1D, MaxPooling1D, UpSampling1D, Add
+from tensorflow.keras.layers import Activation, Permute, Reshape
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.layers import BatchNormalization
+from tensorflow.keras import backend as K
+from tensorflow.keras.applications.vgg19 import VGG19
+from tensorflow.keras.utils import multi_gpu_model
+from tensorflow.keras import regularizers
 from dannce.engine import ops as ops
 import numpy as np
 import gc
-
 
 def unet2d_fullbn(
     lossfunc, lr, input_dim, feature_num, metric='mse',
@@ -700,7 +699,7 @@ def finetune_AVG(lossfunc, lr, input_dim, feature_num,
     # Add new output conv. layer
     new_conv = Conv3D(new_n_channels_out,
                       new_last_kern_size,
-                      activation='linear',
+                      activation='sigmoid',
                       padding='same')(old_out)
 
     grid_centers = Input((None, 3))
