@@ -6,10 +6,17 @@ import sys
 import numpy as np
 import os
 import time
-import keras.backend as K
+
+import tensorflow.keras.backend as K
+import tensorflow.keras.losses as keras_losses
+from tensorflow.keras.layers import Conv3D, Input
+from tensorflow.keras.optimizers import Adam
+
+# from tensorflow.keras.models import Model, load_model # error if using this module
+from keras.models import Model, load_model 
+
 from dannce.engine import losses
 from dannce.engine import nets
-import keras.losses
 import dannce.engine.serve_data_DANNCE as serve_data
 import dannce.engine.processing as processing
 import dannce.engine.ops as ops
@@ -17,9 +24,7 @@ from dannce.engine.processing import savedata_tomat, savedata_expval
 from dannce.engine.generator_kmeans import DataGenerator_3Dconv_kmeans
 from dannce.engine.generator_kmeans import DataGenerator_3Dconv_kmeans_torch
 from dannce.engine.generator_kmeans import DataGenerator_3Dconv_kmeans_tf
-from keras.layers import Conv3D, Input
-from keras.models import Model, load_model
-from keras.optimizers import Adam
+
 import scipy.io as sio
 from copy import deepcopy
 import shutil
@@ -40,7 +45,7 @@ _N_VIEWS = int(CONFIG_PARAMS['_N_VIEWS'] if '_N_VIEWS' in CONFIG_PARAMS.keys() e
 try:
     CONFIG_PARAMS['loss'] = getattr(losses, CONFIG_PARAMS['loss'])
 except AttributeError:
-    CONFIG_PARAMS['loss'] = getattr(keras.losses, CONFIG_PARAMS['loss'])
+    CONFIG_PARAMS['loss'] = getattr(keras_losses, CONFIG_PARAMS['loss'])
 netname = CONFIG_PARAMS['net']
 CONFIG_PARAMS['net'] = getattr(nets, CONFIG_PARAMS['net'])
 
@@ -265,7 +270,6 @@ else:
 
 save_data = {}
 
-
 def evaluate_ondemand(start_ind, end_ind, valid_gen, vids):
     """Evaluate experiment.
 
@@ -354,6 +358,7 @@ def evaluate_ondemand(start_ind, end_ind, valid_gen, vids):
                     'true_coord_nogrid': ims[1][j],
                     'logmax': pred_log,
                     'sampleID': sampleID}
+
             print("Saving took {} sec.".format(time.time() - ts))
 
 
