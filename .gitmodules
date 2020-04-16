@@ -1,0 +1,3 @@
+[submodule "Label3D"]
+	path = Label3D
+	url = https://github.com/diegoaldarondo/Label3D/
