@@ -111,14 +111,7 @@ for e in range(num_experiments):
     samples_, datadict_, datadict_3d_, data_3d_, cameras_ = \
         serve_data.prepare_data(CONFIG_PARAMS['experiment'][e])
 
-    # Load in the COM file at the default location, or use one in the config file if provided
-    if 'COMfilename' in CONFIG_PARAMS['experiment'][e]:
-        comfn = CONFIG_PARAMS['experiment'][e]['COMfilename']
-    else:
-        comfn = os.path.join('.', 'COM', 'predict_results')
-        comfn = os.listdir(comfn)
-        comfn = [f for f in comfn if 'COM_undistorted.pickle' in f]
-        comfn = os.path.join('.', 'COM', 'predict_results', comfn[0])
+
     
     # New option: if there is "clean" data (full marker set), can take the
     # 3D COM from the labels
@@ -128,43 +121,50 @@ for e in range(num_experiments):
         com3d_dict_ = deepcopy(datadict_3d_)
         for key in com3d_dict_.keys():
             com3d_dict_[key] = np.nanmean(datadict_3d_[key],axis=1,keepdims=True) 
-    else:
-      datadict_, com3d_dict_ = serve_data.prepare_COM(
-          comfn,
-          datadict_,
-          comthresh=CONFIG_PARAMS['comthresh'],
-          weighted=CONFIG_PARAMS['weighted'],
-          retriangulate=CONFIG_PARAMS['retriangulate'] if 'retriangulate' in CONFIG_PARAMS.keys() else True,
-          camera_mats=cameras_,
-          method=CONFIG_PARAMS['com_method'])
+    else: # then do traditional COM and sample alignment
+        if 'COM3D_DICT' not in CONFIG_PARAMS.keys():
 
-    # Need to cap this at the number of samples included in our
-    # COM finding estimates
-    if 'COM3D_DICT' not in CONFIG_PARAMS.keys():
+                # Load in the COM file at the default location, or use one in the config file if provided
+            if 'COMfilename' in CONFIG_PARAMS['experiment'][e]:
+                comfn = CONFIG_PARAMS['experiment'][e]['COMfilename']
+            else:
+                comfn = os.path.join('.', 'COM', 'predict_results')
+                comfn = os.listdir(comfn)
+                comfn = [f for f in comfn if 'COM_undistorted.pickle' in f]
+                comfn = os.path.join('.', 'COM', 'predict_results', comfn[0])
 
-        # Need to cap this at the number of samples included in our
-        # COM finding estimates
+                datadict_, com3d_dict_ = serve_data.prepare_COM(
+                    comfn,
+                    datadict_,
+                    comthresh=CONFIG_PARAMS['comthresh'],
+                    weighted=CONFIG_PARAMS['weighted'],
+                    retriangulate=CONFIG_PARAMS['retriangulate'] if 'retriangulate' in CONFIG_PARAMS.keys() else True,
+                    camera_mats=cameras_,
+                    method=CONFIG_PARAMS['com_method'])
 
-        tf = list(com3d_dict_.keys())
-        samples_ = samples_[:len(tf)]
-        data_3d_ = data_3d_[:len(tf)]
-        pre = len(samples_)
-        samples_, data_3d_ = \
-            serve_data.remove_samples_com(samples_, data_3d_, com3d_dict_, rmc=True, cthresh=CONFIG_PARAMS['cthresh'])
-        msg = "Detected {} bad COMs and removed the associated frames from the dataset"
-        print(msg.format(pre - len(samples_)))
+            # Need to cap this at the number of samples included in our
+            # COM finding estimates
 
-    else:
-        print("Loading 3D COM and samples from file: {}".format(CONFIG_PARAMS['COM3D_DICT']))
-        c3dfile = sio.loadmat(CONFIG_PARAMS['COM3D_DICT'])
-        c3d = c3dfile['com']
-        c3dsi = np.squeeze(c3dfile['sampleID'])
-        com3d_dict_ = {}
-        for (i, s) in enumerate(c3dsi):
-            com3d_dict_[s] = c3d[i]
+            tf = list(com3d_dict_.keys())
+            samples_ = samples_[:len(tf)]
+            data_3d_ = data_3d_[:len(tf)]
+            pre = len(samples_)
+            samples_, data_3d_ = \
+                serve_data.remove_samples_com(samples_, data_3d_, com3d_dict_, rmc=True, cthresh=CONFIG_PARAMS['cthresh'])
+            msg = "Detected {} bad COMs and removed the associated frames from the dataset"
+            print(msg.format(pre - len(samples_)))
 
-        #verify all of the datadict_ keys are in this sample set
-        assert (set(c3dsi) & set(list(datadict_.keys()))) == set(list(datadict_.keys()))
+        else:
+            print("Loading 3D COM and samples from file: {}".format(CONFIG_PARAMS['COM3D_DICT']))
+            c3dfile = sio.loadmat(CONFIG_PARAMS['COM3D_DICT'])
+            c3d = c3dfile['com']
+            c3dsi = np.squeeze(c3dfile['sampleID'])
+            com3d_dict_ = {}
+            for (i, s) in enumerate(c3dsi):
+                com3d_dict_[s] = c3d[i]
+
+            #verify all of the datadict_ keys are in this sample set
+            assert (set(c3dsi) & set(list(datadict_.keys()))) == set(list(datadict_.keys()))
 
     print("Using {} samples total.".format(len(samples_)))
     
