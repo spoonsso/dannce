@@ -22,13 +22,16 @@ import scipy.io as sio
 from copy import deepcopy
 import shutil
 
-_N_VIEWS = 6
-
 # Set up parameters
 PARENT_PARAMS = processing.read_config(sys.argv[1])
 PARENT_PARAMS = processing.make_paths_safe(PARENT_PARAMS)
 CONFIG_PARAMS = processing.read_config(PARENT_PARAMS['DANNCE_CONFIG'])
 CONFIG_PARAMS = processing.make_paths_safe(CONFIG_PARAMS)
+
+# Default to 6 views but a smaller number of views can be specified in the DANNCE config.
+# If the legnth of the camera files list is smaller than _N_VIEWS, relevant lists will be
+# duplicated in order to match _N_VIEWS, if possible.
+_N_VIEWS = int(CONFIG_PARAMS['_N_VIEWS'] if '_N_VIEWS' in CONFIG_PARAMS.keys() else 6)
 
 # Load the appropriate loss function and network
 try:
@@ -57,15 +60,19 @@ processing.copy_config(RESULTSDIR, sys.argv[1],
 # This could mess with people's setups.
 os.environ["CUDA_VISIBLE_DEVICES"] =  CONFIG_PARAMS['gpuID']
 
-# If len(CONFIG_PARAMS['experiment']['CAMNAMES']) divides evenly into 6, duplicate here
-dupes = ['CAMNAMES', 'datafile', 'calib_file']
-for d in dupes:
-    val = CONFIG_PARAMS['experiment'][d]
-    if _N_VIEWS % len(val) == 0:
-        num_reps = _N_VIEWS // len(val)
-        CONFIG_PARAMS['experiment'][d] = val * num_reps
-    else:
-        raise Exception("The length of the {} list must divide evenly into {}.".format(d, _N_VIEWS))
+# If len(CONFIG_PARAMS['experiment']['CAMNAMES']) divides evenly into 6, duplicate here,
+# Unless the network was "hard" trained to use less than 6 cameras
+if 'hard_train' in PARENT_PARAMS.keys() and PARENT_PARAMS['hard_train']:
+    print("Not duplicating camnames, datafiles, and calib files")
+else:
+    dupes = ['CAMNAMES', 'datafile', 'calib_file']
+    for d in dupes:
+        val = CONFIG_PARAMS['experiment'][d]
+        if _N_VIEWS % len(val) == 0:
+            num_reps = _N_VIEWS // len(val)
+            CONFIG_PARAMS['experiment'][d] = val * num_reps
+        else:
+            raise Exception("The length of the {} list must divide evenly into {}.".format(d, _N_VIEWS))
 
 samples_, datadict_, datadict_3d_, data_3d_, cameras_ = \
     serve_data.prepare_data(CONFIG_PARAMS['experiment'])
@@ -125,11 +132,12 @@ else:
     for (i, s) in enumerate(c3dsi):
         com3d_dict_[s] = c3d[i]
 
-    samples_ = c3dsi
+    #samples_ = c3dsi
 
     #verify all of these samples are in datadict_, which we require in order to get the frames IDs
     # for the videos
-    assert (set(samples_) & set(list(datadict_.keys()))) == set(samples_)
+    #assert (set(samples_) & set(list(datadict_.keys()))) == set(samples_)
+    assert (set(c3dsi) & set(list(datadict_.keys()))) == set(list(datadict_.keys()))
 
 # Write 3D COM to file
 cfilename = os.path.join(RESULTSDIR,'COM3D_undistorted.mat')

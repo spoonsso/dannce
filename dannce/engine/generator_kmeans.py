@@ -18,7 +18,7 @@ class DataGenerator(keras.utils.Sequence):
         n_channels_out=1, out_scale=5, shuffle=True, camnames=[],
         crop_width=(0, 1024), crop_height=(20, 1300),
         samples_per_cluster=0, training=True,
-        vidreaders=None, chunks=3500):
+        vidreaders=None, chunks=3500, preload=True):
         """Initialize Generator."""
         self.dim_in = dim_in
         self.dim_out = dim_in
@@ -38,6 +38,7 @@ class DataGenerator(keras.utils.Sequence):
         self.samples_per_cluster = samples_per_cluster
         self.training = training
         self._N_VIDEO_FRAMES = chunks
+        self.preload = preload
         self.on_epoch_end()
 
         if self.vidreaders is not None:
@@ -45,6 +46,14 @@ class DataGenerator(keras.utils.Sequence):
                 vidreaders[camnames[0][0]].keys())[0].rsplit('.')[-1]
 
         assert len(self.list_IDs) == len(self.clusterIDs)
+
+        if not self.preload:
+            # then we keep a running video object so at least we don't open a new one every time
+            self.currvideo = {}
+            self.currvideo_name = {}
+            for cc in camnames[0]:
+                self.currvideo[cc] = None
+                self.currvideo_name[cc] = None
 
     def __len__(self):
         """Denote the number of batches per epoch."""
@@ -89,11 +98,23 @@ class DataGenerator(keras.utils.Sequence):
             return self.vidreaders[camname][keyname].get_data(
                 frame_num).astype('float32')
         else:
-            vid = imageio.get_reader(self.vidreaders[camname][keyname])
+            thisvid_name = self.vidreaders[camname][keyname]
+            abname = thisvid_name.split('/')[-1]
+            if abname == self.currvideo_name[camname]:
+                vid = self.currvideo[camname]
+            else:
+                vid = imageio.get_reader(thisvid_name)
+                print("Loading new video: {} for {}".format(abname, camname))
+                self.currvideo_name[camname] = abname
+                # close current vid
+                # Without a sleep here, ffmpeg can hang on video close
+                time.sleep(0.25)
+                if self.currvideo[camname] is not None:
+                    self.currvideo[camname].close()
+                self.currvideo[camname] = vid
+
             im = vid.get_data(frame_num).astype('float32')
-            # Without a sleep here, ffmpeg can hang on video close
-            time.sleep(0.25)
-            vid.close()
+
             return im
 
 
@@ -119,7 +140,7 @@ class DataGenerator_3Dconv_kmeans(DataGenerator):
             self, list_IDs, labels, clusterIDs, batch_size, dim_in,
             n_channels_in, n_channels_out, out_scale, shuffle,
             camnames, crop_width, crop_height,
-            samples_per_cluster, training, vidreaders, chunks)
+            samples_per_cluster, training, vidreaders, chunks, preload)
         self.vmin = vmin
         self.vmax = vmax
         self.nvox = nvox
@@ -132,7 +153,6 @@ class DataGenerator_3Dconv_kmeans(DataGenerator):
         self.channel_combo = channel_combo
         print(self.channel_combo)
         self.mode = mode
-        self.preload = preload
         self.immode = immode
         self.tifdirs = tifdirs
         self.com3d = com3d
@@ -511,11 +531,6 @@ class DataGenerator_3Dconv_kmeans(DataGenerator):
                 else:
                     X, y_3d, rotate_log = self.random_rotate(X, y_3d, log=True)
 
-        # Then we also need to return the 3d grid center coordinates,
-        # for calculating a spatial expected value
-        # Xgrid is typically symmetric for 90 and 180 degree rotations
-        # (when vmax and vmin are symmetric)
-        # around the z-axis, so no need to rotate X_grid.
         if self.expval:
             if self.var_reg:
                 return (
@@ -540,7 +555,8 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
 
     def __init__(
         self, list_IDs, data, labels, batch_size, rotation=True, random=True,
-        chan_num=3, shuffle=True, expval=False, xgrid=None, var_reg=False, nvox=64):
+        chan_num=3, shuffle=True, expval=False, xgrid=None, var_reg=False, nvox=64,
+        cam3_train=False):
         """Initialize data generator."""
         self.list_IDs = list_IDs
         self.data = data
@@ -555,7 +571,9 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         if self.expval:
             self.xgrid = xgrid
         self.nvox = nvox
+        self.cam3_train = cam3_train
         self.on_epoch_end()
+
 
     def __len__(self):
         """Denote the number of batches per epoch."""
@@ -656,6 +674,13 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
                 (X.shape[0], X.shape[1], X.shape[2], X.shape[3],
                     X.shape[4] * X.shape[5]),
                 order='F')
+
+        if self.cam3_train:
+            # If random camera shuffling is turned on, we can just take the first 3 cameras and get a nice
+            # random distribution of sets of 3
+            if not self.random:
+                warnings.warn("Set to generate data from a random subset of 3 cameras, but cameras are not being shuffled")
+            X = X[:, :, :, :, :9] #3 cameras * 3 RGB channels
 
         if self.expval:
             if self.var_reg:

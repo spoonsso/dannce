@@ -39,7 +39,7 @@ def initialize_vids_predict(CONFIG_PARAMS, minopt, maxopt):
                     extension=CONFIG_PARAMS['experiment']['extension'])
 
     return vids
-    
+
 def sequential_vid(vids, datadict, partition, CONFIG_PARAMS, framecnt, currvid_, lastvid_, i, key='valid_sampleIDs'):
     """
     Modularizes ondemand video loading
