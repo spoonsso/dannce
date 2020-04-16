@@ -41,7 +41,10 @@ CONFIG_PARAMS = processing.make_paths_safe(CONFIG_PARAMS)
 CONFIG_PARAMS['loss'] = getattr(losses, CONFIG_PARAMS['loss'])
 CONFIG_PARAMS['net'] = getattr(nets, CONFIG_PARAMS['net'])
 
-_N_VIEWS = 6
+# Default to 6 views but a smaller number of views can be specified in the DANNCE config.
+# If the legnth of the camera files list is smaller than _N_VIEWS, relevant lists will be
+# duplicated in order to match _N_VIEWS, if possible.
+_N_VIEWS = int(CONFIG_PARAMS['_N_VIEWS'] if '_N_VIEWS' in CONFIG_PARAMS.keys() else 6)
 
 # Convert all metric strings to objects
 metrics = []
@@ -92,15 +95,18 @@ for e in range(num_experiments):
                                'extension',
                                'datafile'])
 
-    # If len(CONFIG_PARAMS['experiment'][e]['CAMNAMES']) divides evenly into 6, duplicate here
-    dupes = ['CAMNAMES', 'datafile', 'calib_file']
-    for d in dupes:
-        val = CONFIG_PARAMS['experiment'][e][d]
-        if _N_VIEWS % len(val) == 0:
-            num_reps = _N_VIEWS  // len(val)
-            CONFIG_PARAMS['experiment'][e][d] = val * num_reps
-        else:
-            raise Exception("The length of the {} list must divide evenly into {}.".format(d, _N_VIEWS))
+    if 'hard_train' in PARENT_PARAMS.keys() and PARENT_PARAMS['hard_train']:
+        print("Not duplicating camnames, datafiles, and calib files")
+    else:
+        # If len(CONFIG_PARAMS['experiment'][e]['CAMNAMES']) divides evenly into 6, duplicate here
+        dupes = ['CAMNAMES', 'datafile', 'calib_file']
+        for d in dupes:
+            val = CONFIG_PARAMS['experiment'][e][d]
+            if _N_VIEWS % len(val) == 0:
+                num_reps = _N_VIEWS  // len(val)
+                CONFIG_PARAMS['experiment'][e][d] = val * num_reps
+            else:
+                raise Exception("The length of the {} list must divide evenly into {}.".format(d, _N_VIEWS))
 
     samples_, datadict_, datadict_3d_, data_3d_, cameras_ = \
         serve_data.prepare_data(CONFIG_PARAMS['experiment'][e])
@@ -261,6 +267,14 @@ else:
 
 gridsize = (CONFIG_PARAMS['NVOX'], CONFIG_PARAMS['NVOX'], CONFIG_PARAMS['NVOX'])
 
+# When this true, the data generator will shuffle the cameras and then select the first 3,
+# to feed to a native 3 camera model
+
+if 'cam3_train' in CONFIG_PARAMS.keys() and CONFIG_PARAMS['cam3_train']:
+    cam3_train = True
+else:
+    cam3_train = False
+
 valid_params = {
     'dim_in': (CONFIG_PARAMS['CROP_HEIGHT'][1]-CONFIG_PARAMS['CROP_HEIGHT'][0],
                CONFIG_PARAMS['CROP_WIDTH'][1]-CONFIG_PARAMS['CROP_WIDTH'][0]),
@@ -290,7 +304,7 @@ valid_params = {
     'expval': CONFIG_PARAMS['EXPVAL'],
     'crop_im': False,
     'chunks': CONFIG_PARAMS['chunks'],
-    'preload': CONFIG_PARAMS['VID_PRELOAD']}   # This should stay False
+    'preload': CONFIG_PARAMS['VID_PRELOAD']}
 
 # Setup a generator that will read videos and labels
 tifdirs = []  # Training from single images not yet supported in this demo
@@ -472,7 +486,8 @@ train_generator = \
                                  rotation=CONFIG_PARAMS['ROTATE'],
                                  expval=CONFIG_PARAMS['EXPVAL'],
                                  xgrid=X_train_grid,
-                                 nvox=CONFIG_PARAMS['NVOX'])
+                                 nvox=CONFIG_PARAMS['NVOX'],
+                                 cam3_train=cam3_train)
 valid_generator = \
     DataGenerator_3Dconv_frommem(np.arange(len(partition['valid_sampleIDs'])),
                                  X_valid,
@@ -483,7 +498,8 @@ valid_generator = \
                                  expval=CONFIG_PARAMS['EXPVAL'],
                                  xgrid=X_valid_grid,
                                  nvox=CONFIG_PARAMS['NVOX'],
-                                 shuffle=False)
+                                 shuffle=False,
+                                 cam3_train=cam3_train)
 
 # Build net
 print("Initializing Network...")
@@ -532,7 +548,7 @@ elif CONFIG_PARAMS['train_mode'] == 'continued_weights_only':
                                  float(CONFIG_PARAMS['lr']),
                                  CONFIG_PARAMS['N_CHANNELS_IN'] + CONFIG_PARAMS['DEPTH'],
                                  CONFIG_PARAMS['N_CHANNELS_OUT'],
-                                 len(camnames[0]),
+                                 3 if cam3_train else len(camnames[0]),
                                  batch_norm=CONFIG_PARAMS['batch_norm'],
                                  instance_norm=CONFIG_PARAMS['instance_norm'],
                                  include_top=True,

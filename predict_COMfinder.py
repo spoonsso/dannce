@@ -322,12 +322,12 @@ _, com3d_dict = serve_data_DANNCE.prepare_COM(
 cfilename = os.path.join(RESULTSDIR, 'COM3D_undistorted.mat')
 print("Saving 3D COM to {}".format(cfilename))
 samples_keys = list(com3d_dict.keys())
-#samples_ = [int(s.split('_')[-1]) for s in samples_keys]
+
 c3d = np.zeros((len(samples_keys), 3))
 for i in range(len(samples_keys)):
     c3d[i] = com3d_dict[samples_keys[i]]
 
-# smooth with optional median filter
+# optionally, smooth with median filter
 if 'MEDFILT_WINDOW' in params:
     #Make window size odd if not odd
     if params['MEDFILT_WINDOW'] % 2 == 0:
