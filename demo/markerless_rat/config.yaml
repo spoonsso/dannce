@@ -5,7 +5,7 @@ datadir: ./data/ # path to folder containing formatted data files
 viddir: ./videos/
 
 # names of data files. must match the order of CAMNAMES below
-datafile: ['demo_indices', 'demo_indices', 'demo_indices', 'demo_indices, 'demo_indices', 'demo_indices']
+datafile: ['demo_indices', 'demo_indices', 'demo_indices', 'demo_indices', 'demo_indices', 'demo_indices']
 
 # How to crop the input images. The U-Net expects each dimension size to be a multiple of 32.
 CROP_HEIGHT: [0, 1024]

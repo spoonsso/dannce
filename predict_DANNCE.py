@@ -77,14 +77,6 @@ else:
 samples_, datadict_, datadict_3d_, data_3d_, cameras_ = \
     serve_data.prepare_data(CONFIG_PARAMS['experiment'])
 
-# Load in the COM file at the default location, or use one in the config file if provided
-if 'COMfilename' in CONFIG_PARAMS.keys():
-    comfn = CONFIG_PARAMS['COMfilename']
-else:
-    comfn = os.path.join('.', 'COM', 'predict_results')
-    comfn = os.listdir(comfn)
-    comfn = [f for f in comfn if 'COM_undistorted.pickle' in f]
-    comfn = os.path.join('.', 'COM', 'predict_results', comfn[0])
 
 if 'allcams' in CONFIG_PARAMS.keys() and CONFIG_PARAMS['allcams']: # Make sure all cameras in debug fields are added, so that COM predictions
 # can be more stable
@@ -99,7 +91,18 @@ if 'allcams' in CONFIG_PARAMS.keys() and CONFIG_PARAMS['allcams']: # Make sure a
             dcameras_[CONFIG_PARAMS['dCAMNAMES'][i]]['RDistort'] = test['RDistort']
             dcameras_[CONFIG_PARAMS['dCAMNAMES'][i]]['TDistort'] = test['TDistort']
 
-datadict_, com3d_dict_ = serve_data.prepare_COM(
+if 'COM3D_DICT' not in CONFIG_PARAMS.keys():
+
+    # Load in the COM file at the default location, or use one in the config file if provided
+    if 'COMfilename' in CONFIG_PARAMS.keys():
+        comfn = CONFIG_PARAMS['COMfilename']
+    else:
+        comfn = os.path.join('.', 'COM', 'predict_results')
+        comfn = os.listdir(comfn)
+        comfn = [f for f in comfn if 'COM_undistorted.pickle' in f]
+        comfn = os.path.join('.', 'COM', 'predict_results', comfn[0])
+
+    datadict_, com3d_dict_ = serve_data.prepare_COM(
     comfn,
     datadict_,
     comthresh=CONFIG_PARAMS['comthresh'],
@@ -108,8 +111,6 @@ datadict_, com3d_dict_ = serve_data.prepare_COM(
     camera_mats=dcameras_ if 'allcams' in CONFIG_PARAMS.keys() and CONFIG_PARAMS['allcams'] else cameras_,
     method=CONFIG_PARAMS['com_method'],
     allcams=CONFIG_PARAMS['allcams'] if 'allcams' in CONFIG_PARAMS.keys() and CONFIG_PARAMS['allcams'] else False)
-
-if 'COM3D_DICT' not in CONFIG_PARAMS.keys():
 
     # Need to cap this at the number of samples included in our
     # COM finding estimates
