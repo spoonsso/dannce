@@ -49,11 +49,13 @@ The following combinations of operating systems, python, tensorflow, cuda, and c
 |  Windows 10  |  3.6.8 |   1.10.0   |  9.0 |  7.6  |
 |  Windows 10  |  3.6.8 |    1.4.x   |  8.0 |  6.0  |
 
-We recommend installing `DANNCE` within a conda environment using `python 3.6.x`.
+We recommend installing `DANNCE` within a conda environment using `python 3.6.x`. We also recommend installing tensorflow 1.9.0 or 1.10.0 for `DANNCE`, as we have extensively tested `DANNCE` with these builds. The following steps can be followed for installation:
 
-1. Install tensorflow by following the instructions [here](https://www.tensorflow.org/install/pip). This is often as simple as `pip install tensorflow==1.10.0` or `pip install tensorflow-gpu==1.10.0` for gpu support.
+1. Install dependencies with the included setup script `python setup.py install`
 
-2. Install dependencies with the included setup script `python setup.py install`
+2. Install required GPU drivers, along with CUDA v9.0 and cuDNN v7.2. For more information, see [here](https://docs.nvidia.com/deeplearning/sdk/cudnn-install/index.html). For Ubuntu 18.04, you can also use the bash script in this repository, `ubuntu18.04_cuda_9.0_cudnn_install_instructions.sh`.
+
+3. Install tensorflow 1.9.0 using `conda install tensorflow-gpu==1.9.0 or tensorflow 1.10.0 using `conda install tensorflow-gpu==1.10.0.
 
 ## Formatting The Data
 During training and evaluation, DANNCE requires a set of videos across multiple views, a camera calibration parameters file, and a "matched frames" file that indexes the videos to ensure synchrony. DANNCE also supports data in the form of individual images and volumetric `.npy` files (used to accelerate training). For evaluation, the default data format is video.
@@ -104,8 +106,6 @@ A properly formatted calibration file has the following fields, `['R','t','K','R
 
 **matched frames file**.
 To ensure that individual video frames are synchronized at each time point, DANNCE requires an array that associates each time point (in any unit) to an associated video frame in each camera. During dataset formatting, these indices are combined with any available training labels to form the core data representation. For making predictions with DANNCE, these training labels are ignored, although DANNCE still expects to find placeholder label arrays.
-- *prediction mode, labeling mode*. Use `utils/preprocess_data.m` to convert Jesse's matched frame files into DANNCE format
-- *training with hand-labeled data*. See **Hand-labeling** below.
 
 ## Predicting Keypoints With DANNCE
 
@@ -145,15 +145,10 @@ We have configured DANNCE to work best with a specific organization of data dire
 
 |\_\_+--Camera2_params.mat
 
-See ./demo/calibrd18_black6_mouseone_green/ for more details. 
-
-The videos in the demo are too big to be uploaded, and can be found here:
-
-calibrd18_black6_mouseone_green: https://www.dropbox.com/sh/q385p1689zdw8iz/AABPuxCyUBHffFZnGEmbOwQMa?dl=0
-calibrd18_black6_mousetwo_green: https://www.dropbox.com/sh/1xvpe8e97x53ah6/AACaY3N7E-WzINoqY2ggFa6va?dl=0
+See the demos for more details. 
 
 ## Hand-Labeling
-For fine-tuning DANNCE to work with your animal and system, we developed a labeling GUI, which can be found in a separate repo: https://github.com/diegoaldarondo/Label3D. When labeling is completed, the labels can be used to train DANNCE (see below).
+For fine-tuning DANNCE to work with your animal and system, we developed a labeling GUI, which can be found in a separate repo: https://github.com/diegoaldarondo/Label3D. The `Label3D` repository should be cloned with `DANNCE` automatically as a submodule when using `git clone --recursive https://github.com/spoonsso/DANNCE` When labeling is completed, the labels can be used to train DANNCE (see below).
 
 ## Training The COMfinder U-Net
 DANNCE requires a reasonable estimate of the 3D position of the animal in each frame. We obtain this by triangulating the 2D COM of the animal in each frame. Our U-Net is brittle and typically requires some additional training data to get it working on new views, new environments, and new species. If working with hand-labeled data, your same data structures can be used to train the COMfinder network.

@@ -3,14 +3,14 @@ from setuptools import setup
 
 setup(
     name='dannce',
-    version='0.0.0',
+    version='0.0.1',
     install_requires=['numpy',
                       'scipy',
                       'six',
-                      'keras==2.2.2',
+                      'keras==2.2.4',
                       'imageio',
                       'imageio-ffmpeg',
                       'scikit-image',
                       'matplotlib',
-                      'opencv']
+                      'opencv-python']
 )
