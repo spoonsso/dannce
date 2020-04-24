@@ -7,13 +7,15 @@ import numpy as np
 import os
 import time
 
-import tensorflow.keras.backend as K
+import tensorflow as tf
 import tensorflow.keras.losses as keras_losses
 from tensorflow.keras.layers import Conv3D, Input
 from tensorflow.keras.optimizers import Adam
 
+from keras.models import Model, load_model
 # from tensorflow.keras.models import Model, load_model # error if using this module
-from keras.models import Model, load_model 
+import keras.backend as K
+# import tensorflow.keras.backend as K
 
 from dannce.engine import losses
 from dannce.engine import nets
@@ -272,7 +274,6 @@ save_data = {}
 
 def evaluate_ondemand(start_ind, end_ind, valid_gen, vids):
     """Evaluate experiment.
-
     :param start_ind: Starting frame
     :param end_ind: Ending frame
     :param valid_gen: Generator
@@ -333,7 +334,7 @@ def evaluate_ondemand(start_ind, end_ind, valid_gen, vids):
 
         ts = time.time()
         if CONFIG_PARAMS['EXPVAL']:
-            probmap = get_output([ims[0][0], 0])[0]
+            probmap = get_output([ims[0][0], 0])[0] 
             for j in range(pred.shape[0]):
                 pred_max = np.max(np.max(np.max(
                     probmap[j], axis=0), axis=0), axis=0)
@@ -342,6 +343,9 @@ def evaluate_ondemand(start_ind, end_ind, valid_gen, vids):
                     'pred_max': pred_max,
                     'pred_coord': pred[j],
                     'sampleID': sampleID}
+
+            print("Saving took {} sec.".format(time.time() - ts))
+            
         else:
             # get coords for each map
             for j in range(pred.shape[0]):
