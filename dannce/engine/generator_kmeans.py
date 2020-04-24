@@ -1,6 +1,6 @@
 """Kmeans generator for keras."""
 import numpy as np
-import tensorflow.keras as keras
+from tensorflow import keras
 import os
 from dannce.engine import processing as processing
 from dannce.engine import ops as ops
@@ -137,7 +137,7 @@ class DataGenerator_3Dconv_kmeans(DataGenerator):
         tifdirs, batch_size=32, dim_in=(32, 32, 32), n_channels_in=1,
         n_channels_out=1, out_scale=5, shuffle=True,
         camnames=[], crop_width=(0, 1024), crop_height=(20, 1300),
-        vmin=-100, vmax=100, nvox=32,
+        vmin=-100, vmax=100, nvox=32, gpuID = '0',
         interp='linear', depth=False, channel_combo=None, mode='3dprob',
         preload=True, samples_per_cluster=0, immode='tif', training=True,
         rotation=False, pregrid=None, pre_projgrid=None, stamp=False,
@@ -176,6 +176,7 @@ class DataGenerator_3Dconv_kmeans(DataGenerator):
         self.crop_im = crop_im
         # If saving npy as uint8 rather than training directly, dont normalize
         self.norm_im = norm_im
+        self.gpuID = gpuID
 
         if self.pregrid is not None:
             # Then we need to save our world size for later use
@@ -619,20 +620,22 @@ class DataGenerator_3Dconv_kmeans_torch(DataGenerator):
         self.norm_im = norm_im
 
         ts = time.time()
+
         self.device = torch.device('cuda:' + self.gpuID)
+        # self.device = torch.device('cpu')
 
         # print(tf.test.is_built_with_cuda())
         # print(tf.test.is_built_with_gpu_support())
-        # tf.compat.v1.disable_eager_execution()
 
+        # Limit GPU usage by Tensorflow
         config = tf.compat.v1.ConfigProto()
         config.gpu_options.per_process_gpu_memory_fraction = 0.5
-        # Limits GPU usage by Tensorflow
         # Sweet spot is enough memory for model, but leave enough room for tensor ops
         # Adjust if prediction runs into Out-of-memory errors (increase for Tf, decrease for torch)
         # TF Needs at least 3 GB for 64^3 model, Torch needs ~2 GB
         config.gpu_options.allow_growth = True
         session = tf.compat.v1.InteractiveSession(config=config)
+        # tf.compat.v1.disable_eager_execution()
 
         if self.pregrid is not None:
             # Then we need to save our world size for later use
@@ -661,8 +664,8 @@ class DataGenerator_3Dconv_kmeans_torch(DataGenerator):
                 t = self.camera_params[experimentID][camname]['t']
                 M = torch.as_tensor(ops.camera_matrix(K,R,t),
                     dtype = torch.float32)
-
                 self.camera_params[experimentID][camname]['M'] = M
+
         print("Init took {} sec.".format(time.time()-ts))
 
     def __getitem__(self, index):
@@ -676,11 +679,6 @@ class DataGenerator_3Dconv_kmeans_torch(DataGenerator):
 
         # Generate data
         X, y = self.__data_generation(list_IDs_temp)
-
-        if torch.is_tensor(X):
-            X = X.cpu().numpy()
-        if torch.is_tensor(y):
-            y = y.cpu().numpy()
 
         return X, y
 
@@ -797,7 +795,7 @@ class DataGenerator_3Dconv_kmeans_torch(DataGenerator):
         if self.expval:
             sz = self.dim_out_3d[0] * self.dim_out_3d[1] * self.dim_out_3d[2]
             X_grid = torch.zeros((self.batch_size, sz, 3), 
-                dtype = torch.float32, 
+                dtype = torch.float32,
                 device = self.device)
 
         # Generate data
@@ -824,14 +822,17 @@ class DataGenerator_3Dconv_kmeans_torch(DataGenerator):
                 xgrid = torch.arange(
                     self.vmin + this_COM_3d[0] + self.vsize / 2,
                     this_COM_3d[0] + self.vmax, self.vsize,
+                    dtype = torch.float32,
                     device = self.device)
                 ygrid = torch.arange(
                     self.vmin + this_COM_3d[1] + self.vsize / 2,
                     this_COM_3d[1] + self.vmax, self.vsize,
+                    dtype = torch.float32,
                     device = self.device)
                 zgrid = torch.arange(
                     self.vmin + this_COM_3d[2] + self.vsize / 2,
                     this_COM_3d[2] + self.vmax, self.vsize,
+                    dtype = torch.float32,
                     device = self.device)
                 (x_coord_3d, y_coord_3d, z_coord_3d) = \
                     torch.meshgrid(xgrid, ygrid, zgrid)
@@ -846,6 +847,13 @@ class DataGenerator_3Dconv_kmeans_torch(DataGenerator):
                     msg = "Note: ignoring dimension mismatch in 3D labels"
                     warnings.warn(msg)
             # print("Initialization took {} sec.".format(time.time() - ts))
+
+            if self.expval:
+                X_grid[i] = torch.stack(
+                    (x_coord_3d.transpose(0,1).flatten(), 
+                        y_coord_3d.transpose(0,1).flatten(), 
+                        z_coord_3d.transpose(0,1).flatten()),
+                    axis=1)
 
             for camname in self.camnames[experimentID]:
                 ts = time.time()
@@ -936,7 +944,8 @@ class DataGenerator_3Dconv_kmeans_torch(DataGenerator):
             if self.channel_combo == 'avg':
                 X = X.cpu().numpy()
                 X = np.nanmean(X, axis=-1)
-                X = torch.from_numpy(X).cuda(self.device)
+                X = torch.as_tensor(X, dtype = torch.float32, device = self.device)
+
             # Randomly reorder the cameras fed into the first layer
             elif self.channel_combo == 'random':
                 X = X[:, :, :, :, :, torch.randperm(X.shape[-1])]
@@ -953,7 +962,7 @@ class DataGenerator_3Dconv_kmeans_torch(DataGenerator):
         # Then leave the batch_size and num_cams combined
         y_3d = y_3d.cpu().numpy()
         y_3d = np.tile(y_3d, [len(self.camnames[experimentID]), 1, 1, 1, 1])
-        y_3d = torch.as_tensor(y_3d)
+        y_3d = torch.as_tensor(y_3d, device = self.device)
 
         if self.rotation:
             if self.expval:
@@ -973,10 +982,17 @@ class DataGenerator_3Dconv_kmeans_torch(DataGenerator):
                     X, y_3d = self.random_rotate(X, y_3d)
                 else:
                     X, y_3d, rotate_log = self.random_rotate(X, y_3d, log=True)
-
+        
+        # Convert pytorch tensors back to numpy format
+        if torch.is_tensor(X):
+            X = X.cpu().numpy()
+        if torch.is_tensor(y_3d):
+            y_3d = y_3d.cpu().numpy()
         # print("Wrap-up took {} sec".format(time.time() - ts))
 
         if self.expval:
+            if torch.is_tensor(X_grid):
+                X_grid = X_grid.cpu().numpy()
             if self.var_reg:
                 return (
                     [processing.preprocess_3d(X), X_grid],
@@ -1102,11 +1118,6 @@ class DataGenerator_3Dconv_kmeans_tf(DataGenerator):
         # Generate data
         X, y = self.__data_generation(list_IDs_temp)
 
-        if torch.is_tensor(X):
-            X = X.cpu().numpy()
-        if torch.is_tensor(y):
-            y = y.cpu().numpy()
-
         return X, y
 
     def rot90(self, X):
@@ -1182,7 +1193,7 @@ class DataGenerator_3Dconv_kmeans_tf(DataGenerator):
             c0 - self.nvox // 2:c0 + self.nvox // 2,
             c2 - self.nvox // 2:c2 + self.nvox // 2].copy()
         proj_grid = np.reshape(proj_grid, [-1, 3])
-        proj_grid = torch.from_numpy(proj_grid).cuda(device = self.device)
+        proj_grid = torch.as_tensor(proj_grid, dtype = torch.float32, device = self.device)
 
         return proj_grid
 
@@ -1202,7 +1213,12 @@ class DataGenerator_3Dconv_kmeans_tf(DataGenerator):
                 (self.batch_size * len(self.camnames[first_exp]),
                 *self.dim_out_3d, self.n_channels_in + self.depth), 
                 dtype = torch.float32,
-                device = self.device) # float32
+                device = self.device)
+
+        X2 = tf.zeros(
+            (self.batch_size * len(self.camnames[first_exp]),
+            *self.dim_out_3d, self.n_channels_in + self.depth), 
+            dtype = 'float32')
 
         if self.mode == '3dprob':
             y_3d = torch.zeros(
@@ -1233,25 +1249,29 @@ class DataGenerator_3Dconv_kmeans_tf(DataGenerator):
             ts = time.time()
             # For 3D ground truth
             this_y_3d = self.labels_3d[ID]
-            this_y_3d = torch.as_tensor(this_y_3d).cuda(self.device)
+            this_y_3d = torch.as_tensor(this_y_3d,
+                dtype = torch.float32, 
+                device = self.device)
             this_COM_3d = self.com3d[ID]
-            # this_COM_3d = torch.Tensor(this_COM_3d).cuda(self.device)
+            # this_COM_3d = torch.as_tensor(this_COM_3d, 
+            #     dtype = torch.float32, 
+            #     device = self.device)
 
             # Actually we need to create and project the grid here,
             # relative to the reference point (SpineM).
             if self.pregrid is None:
                 xgrid = torch.arange(
                     self.vmin + this_COM_3d[0] + self.vsize / 2,
-                    this_COM_3d[0] + self.vmax, self.vsize
-                    ).cuda(self.device)
+                    this_COM_3d[0] + self.vmax, self.vsize,
+                    device = self.device)
                 ygrid = torch.arange(
                     self.vmin + this_COM_3d[1] + self.vsize / 2,
-                    this_COM_3d[1] + self.vmax, self.vsize
-                    ).cuda(self.device)
+                    this_COM_3d[1] + self.vmax, self.vsize,
+                    device = self.device)
                 zgrid = torch.arange(
                     self.vmin + this_COM_3d[2] + self.vsize / 2,
-                    this_COM_3d[2] + self.vmax, self.vsize
-                    ).cuda(self.device)
+                    this_COM_3d[2] + self.vmax, self.vsize,
+                    device = self.device)
                 (x_coord_3d, y_coord_3d, z_coord_3d) = \
                     torch.meshgrid(xgrid, ygrid, zgrid)
 
@@ -1319,37 +1339,57 @@ class DataGenerator_3Dconv_kmeans_tf(DataGenerator):
 
                 # Project de novo or load in approximate (faster)
                 if self.pre_projgrid is None: # pre_projgrid = None
-                    # ts = time.time()
+                    ts = time.time()
                     proj_grid = ops.project_to2d_torch(
                         torch.stack(
-                            (x_coord_3d.transpose(0,1).flatten(), 
-                            y_coord_3d.transpose(0,1).flatten(), 
+                            (x_coord_3d.transpose(0,1).flatten(),
+                            y_coord_3d.transpose(0,1).flatten(),
                             z_coord_3d.transpose(0,1).flatten()),
                             axis=1),
                         self.camera_params[experimentID][camname]['M'],
                         self.device)
-                    # print("torch 2D Project took {} sec.".format(time.time() - ts))
+                    print("torch 2D Project took {} sec.".format(time.time() - ts))
 
-                    ts = time.time()
-                    proj_grid2 = ops.project_to2d_tf(
-                        tf.stack(
-                            (tf.transpose(tf.reshape(tx_coord_3d,[-1])), 
-                            tf.transpose(tf.reshape(ty_coord_3d,[-1])), 
-                            tf.transpose(tf.reshape(tz_coord_3d,[-1]))),
-                            axis=1),
-                        self.camera_params[experimentID][camname]['MM'],
-                        self.dtf)
-                    # print("2D Project took {} sec.".format(time.time() - ts))
+                    with tf.device(self.dtf):
+                        ts = time.time()
+                        proj_grid2 = ops.project_to2d_tf(
+                            tf.stack(
+                                (tf.transpose(tf.reshape(tx_coord_3d,[-1])), 
+                                tf.transpose(tf.reshape(ty_coord_3d,[-1])), 
+                                tf.transpose(tf.reshape(tz_coord_3d,[-1]))),
+                                axis=1),
+                            self.camera_params[experimentID][camname]['MM'],
+                            self.dtf)
+                    print("2D Project took {} sec.".format(time.time() - ts))
 
                 if self.distort: # distort = True
                     ts = time.time()
                     proj_grid = ops.distortPoints_torch(
                         proj_grid[:, :2], self.device,
-                        self.camera_params[experimentID][camname]['K'],
-                        np.squeeze(self.camera_params[experimentID][camname]['RDistort']),
-                        np.squeeze(self.camera_params[experimentID][camname]['TDistort']))
+                        torch.as_tensor(self.camera_params[experimentID][camname]['K']),
+                        torch.as_tensor(self.camera_params[experimentID][camname]['RDistort'],
+                            dtype = torch.float32,
+                            device = self.device,
+                            ).squeeze(),
+                        torch.as_tensor(self.camera_params[experimentID][camname]['TDistort'],
+                            dtype = torch.float32,
+                            device = self.device,
+                            ).squeeze())
                     proj_grid = proj_grid.transpose(0,1)
-                    # print("Distort took {} sec.".format(time.time() - ts))
+                    print("torch Distort took {} sec.".format(time.time() - ts))
+
+                    with tf.device(self.dtf):
+                        ts = time.time()
+                        proj_grid2 = ops.distortPoints_tf(
+                            proj_grid2[:, :2],
+                            tf.constant(self.camera_params[experimentID][camname]['K'],
+                                dtype = 'float32'),
+                            tf.squeeze(tf.constant(self.camera_params[experimentID][camname]['RDistort'],
+                                dtype = 'float32')),
+                            tf.squeeze(tf.constant(self.camera_params[experimentID][camname]['TDistort'],
+                                dtype = 'float32')))
+                        proj_grid2 = tf.transpose(proj_grid2)
+                    print("tf Distort took {} sec.".format(time.time() - ts))                
 
                 if self.crop_im:
                     proj_grid = \
@@ -1357,16 +1397,30 @@ class DataGenerator_3Dconv_kmeans_tf(DataGenerator):
                     # Now all coordinates should map properly to the image cropped around the COM
                 else:
                     # Then the only thing we need to correct for is crops at the borders
+                    ts = time.time()
                     proj_grid = proj_grid[:, :2]
                     proj_grid[:, 0] = proj_grid[:, 0] - self.crop_width[0]
                     proj_grid[:, 1] = proj_grid[:, 1] - self.crop_height[0]
 
-                ts = time.time()
-                rgb = ops.sample_grid_torch(thisim, proj_grid, self.device, method=self.interp)
-                # print("Sample grid took {} sec.".format(time.time() - ts))
+                    rgb = ops.sample_grid_torch(thisim, proj_grid, self.device, method=self.interp)
+                    print("Torch Sample grid took {} sec.".format(time.time() - ts))
+
+                    ts = time.time()
+                    # proj_grid2 = torch.as_tensor(proj_grid2.numpy(),device = self.device)
+                    # proj_grid2 = proj_grid2[:, :2]
+                    # proj_grid2[:, 0] = proj_grid2[:, 0] - self.crop_width[0]
+                    # proj_grid2[:, 1] = proj_grid2[:, 1] - self.crop_height[0]
+
+                    proj_grid3 = tf.transpose(tf.stack(
+                        (proj_grid2[:, 0] - self.crop_width[0],
+                        proj_grid2[:, 1] - self.crop_height[0])))
+
+                    rgb2 = ops.sample_grid_tf(thisim, proj_grid3, self.dtf, method='linear')
+                    print("tf Sample grid took {} sec.".format(time.time() - ts))      
 
                 if ~np.any(np.isnan(com_precrop)) or (self.channel_combo == 'avg') or not self.crop_im:
                     X[cnt, :, :, :, :] = rgb.permute(0,2,3,4,1)
+                    X2[cnt, :, :, :, :] = rgb2.permute(0,2,3,4,1)
 
                 cnt = cnt + 1
                 # print("Projection grid took {} sec total.".format(time.time() - tss))
@@ -1382,7 +1436,7 @@ class DataGenerator_3Dconv_kmeans_tf(DataGenerator):
             if self.channel_combo == 'avg':
                 X = X.cpu().numpy()
                 X = np.nanmean(X, axis=-1)
-                X = torch.from_numpy(X).cuda(self.device)
+                X = torch.as_tensor(X, dtype = torch.float32, device = self.device)
             # Randomly reorder the cameras fed into the first layer
             elif self.channel_combo == 'random':
                 X = X[:, :, :, :, :, torch.randperm(X.shape[-1])]
