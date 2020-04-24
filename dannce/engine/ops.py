@@ -1,6 +1,6 @@
 """Operations for dannce."""
-import tensorflow.keras.backend as K
 import tensorflow as tf
+import tensorflow.keras.backend as K
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator
 
@@ -19,10 +19,7 @@ from keras.utils.generic_utils import get_custom_objects
 
 import cv2
 import time
-
 import torch
-import tensorflow as tf2
-import sys
 
 def camera_matrix(K, R, t):
     """Derive the camera matrix.
@@ -61,8 +58,8 @@ def project_to2d_torch(pts, M, device):
     convention, such that
     M = [R;t] * K, and pts2d = pts3d * M
     """
-    # pts = torch.Tensor(pts.copy()).cuda(device)
-    M = M.cuda(device=device)
+    # pts = torch.Tensor(pts.copy()).to(device)
+    M = M.to(device=device)
     pts1 = torch.ones(pts.shape[0], 1, dtype=torch.float32, device = device)
 
     projPts = torch.matmul(torch.cat((pts,pts1),1),M)
@@ -85,9 +82,9 @@ def project_to2d_tf(pts, M, device):
     with tf.device(device):
         M = M
         pts1 = tf.ones([pts.shape[0], 1], dtype='float32')
-        
-    projPts = tf.matmul(tf.concat((pts,pts1),1),M)
-    projPts = projPts[:, :2] / projPts[:, 2:]
+
+        projPts = tf.matmul(tf.concat((pts,pts1),1),M)
+        projPts = projPts[:, :2] / projPts[:, 2:]
 
     return projPts
 
@@ -197,6 +194,95 @@ def sample_grid_torch(im, projPts, device, method='linear'):
     grid_xyz = torch.stack((grid_x, grid_y, grid_z), dim=4)
 
     im = im.permute(2,0,1).unsqueeze(1).unsqueeze(0).float() # make 5D (B,C,X,Y,Z) batch, color, x, y, z
+
+    proj_rgb = torch.nn.functional.grid_sample(
+        im, # input 
+        grid_xyz, # also needs to be 5D
+        mode = interpMode, # 'bilinear', 'nearest'
+        padding_mode = 'zeros') # 'zeros', 'border', 'reflection') 
+
+    return proj_rgb
+
+def sample_grid_tf(im, projPts, device, method='linear'):
+    """Transfer 3d featers to 2d by projecting down to 2d grid.
+
+    Use 2d interpolation to transfer features to 3d points that have
+    projected down onto a 2d grid
+    Note that function expects proj_grid to be flattened, so results should be
+    reshaped after being returned
+    """
+
+    if method == 'linear':
+
+        with tf.device(device):
+            im = tf.cast(tf.convert_to_tensor(im),'float32')
+            im = tf.expand_dims(im,0)
+
+            # projPts = tf.convert_to_tensor(projPts, np.float32)
+            projPts = tf.reverse(projPts, [1])
+    #         projPts = tf.cast(tf.round(projPts), tf.int64)
+    #         print(projPts)
+            
+    #         # But some of them could be rounded outside of the image
+    #         # projPts[projPts[:, 0] < 0, 0] = 0
+    #         # projPts[projPts[:, 0] >= im.shape[0], 0] = im.shape[0] - 1
+    #         # projPts[projPts[:, 1] < 0, 1] = 0
+    #         # projPts[projPts[:, 1] >= im.shape[1], 1] = im.shape[1] - 1
+
+            projPts = tf.stack((projPts[:, 0], projPts[:, 1]),axis=1)
+
+            
+
+    # if method == 'nearest':
+    #     # Now I could index an array with the values
+    #     with tf.device(device):
+    #         projPts = tf.convert_to_tensor(projPts, np.float32)
+    #         projPts = tf.cast(tf.round(projPts), tf.int64)
+    #         print(projPts)
+            
+    #         # But some of them could be rounded outside of the image
+    #         # projPts[projPts[:, 0] < 0, 0] = 0
+    #         # projPts[projPts[:, 0] >= im.shape[0], 0] = im.shape[0] - 1
+    #         # projPts[projPts[:, 1] < 0, 1] = 0
+    #         # projPts[projPts[:, 1] >= im.shape[1], 1] = im.shape[1] - 1
+
+    #         projPts = tf.stack((projPts[:, 0], projPts[:, 1]),axis=1)
+    #         im = tf.cast(tf.convert_to_tensor(im),'float32')
+    #         print(projPts)
+    #         print(im)
+
+    #         proj_r = im[:, :, 0]
+    #         proj_r = proj_r[projPts]
+    #         proj_g = im[:, :, 1]
+    #         proj_g = proj_g[projPts]
+    #         proj_b = im[:, :, 2]
+    #         proj_b = proj_b[projPts]
+
+    #         proj_rgb = tf.stack((proj_r, proj_g, proj_b))
+
+    if method == 'linear':
+        interpMode = 'bilinear'
+    elif method == 'nearest' or method == 'out2d':
+        interpMode = 'nearest'
+    else:
+        raise Exception("not a valid interpolation method")
+    
+    im = torch.as_tensor(im).float() # send uint8 image tensor to GPU
+    projPts = tf.reverse(projPts,1)
+
+    grid_y = projPts[ :, 0] / im.shape[0] * 2 - 1 # 1024 = H, normalized to [-1,1]
+    grid_x = projPts[ :, 1] / im.shape[1] * 2 - 1 # 1152 = W, normalized to [-1,1]
+
+    c = int(round(projPts.shape[0]**(1/3.))) # compute side length of 3D grid
+
+    grid_x = tf.reshape(grid_x,(1,c,c,c))
+    grid_y = tf.reshape(grid_y,(1,c,c,c))
+    grid_z = tf.zeros((1,c,c,c), dtype = 'float32')
+
+    grid_xyz = tf.stack((grid_x, grid_y, grid_z), dim=4)
+
+    im = tf.permute(im,(2,0,1)) #.unsqueeze(1).unsqueeze(0).float() # make 5D (B,C,X,Y,Z) batch, color, x, y, z
+    im = tf.cast(tf.unsqueeze(tf.unsqueeze(im,0),1,'float32'))
 
     proj_rgb = torch.nn.functional.grid_sample(
         im, # input 
@@ -789,7 +875,7 @@ def distortPoints_torch(points, device, intrinsicMatrix, radialDistortion, tange
 
     k = np.zeros((3,))
     k[:2] = radialDistortion[:2]
-    if len(radialDistortion) < 3:
+    if list(radialDistortion.shape)[0] < 3:
         k[2] = 0
     else:
         k[2] = radialDistortion[2]
@@ -817,6 +903,60 @@ def distortPoints_torch(points, device, intrinsicMatrix, radialDistortion, tange
     distortedPoints = torch.stack((distortedPointsX, distortedPointsY))
 
     return distortedPoints
+
+def distortPoints_tf(points, intrinsicMatrix, radialDistortion, tangentialDistortion):
+    """Distort points according to camera parameters.
+
+    Ported from Matlab 2018a
+    """
+    # unpack the intrinsic matrix
+    cx = intrinsicMatrix[2, 0]
+    cy = intrinsicMatrix[2, 1]
+    fx = intrinsicMatrix[0, 0]
+    fy = intrinsicMatrix[1, 1]
+    skew = intrinsicMatrix[1, 0]
+
+    # center the points
+    center = tf.stack((cx,cy))
+    p = tangentialDistortion
+    centeredPoints = points - center
+
+    # normalize the pcenteredPoints[:, 1] / fyoints
+    yNorm = centeredPoints[:, 1] / fy
+    xNorm = (centeredPoints[:, 0] - skew * yNorm) / fx
+
+    # compute radial distortion
+    r2 = xNorm**2 + yNorm**2
+    r4 = r2 * r2
+    r6 = r2 * r4
+
+    k = radialDistortion
+    if list(radialDistortion.shape)[0] < 3:
+        k[2] = 0
+    alpha = k[0] * r2 + k[1] * r4 + k[2] * r6
+
+    # compute tangential distortion
+    xyProduct = xNorm * yNorm
+    dxTangential = 2 * p[0] * xyProduct + p[1] * (r2 + 2 * xNorm**2)
+    dyTangential = p[0] * (r2 + 2 * yNorm**2) + 2 * p[1] * xyProduct
+
+    # apply the distortion to the points
+    normalizedPoints = tf.transpose(tf.stack((xNorm, yNorm)))
+
+    distortedNormalizedPoints = normalizedPoints + \
+        normalizedPoints * tf.transpose(tf.stack((alpha, alpha))) + \
+            tf.transpose(tf.stack((dxTangential, dyTangential)))
+
+    distortedPointsX = \
+        distortedNormalizedPoints[:, 0]*fx + cx + skew*distortedNormalizedPoints[:, 1]
+
+    distortedPointsY = \
+        distortedNormalizedPoints[:, 1]*fy + cy
+
+    distortedPoints = tf.stack((distortedPointsX, distortedPointsY))
+
+    return distortedPoints
+
 
 def expected_value_3d(prob_map, grid_centers):
     """Calculate expected value of spatial distribution over output 3D grid.
