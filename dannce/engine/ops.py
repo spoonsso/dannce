@@ -63,9 +63,7 @@ def project_to2d_torch(pts, M, device):
     pts1 = torch.ones(pts.shape[0], 1, dtype=torch.float32, device = device)
 
     projPts = torch.matmul(torch.cat((pts,pts1),1),M)
-    # print(projPts)
     projPts[:, :2] = projPts[:, :2] / projPts[:, 2:]
-    # print(projPts)
 
     return projPts
 
@@ -80,16 +78,17 @@ def project_to2d_tf(pts, M, device):
     """
 
     with tf.device(device):
-        M = M
         pts1 = tf.ones([pts.shape[0], 1], dtype='float32')
 
         projPts = tf.matmul(tf.concat((pts,pts1),1),M)
-        projPts = projPts[:, :2] / projPts[:, 2:]
+        projPts = tf.Variable(projPts)
+        projPts[:, :2].assign(projPts[:, :2] / projPts[:, 2:])
+        projPts = tf.convert_to_tensor(projPts)
 
     return projPts
 
 def sample_grid(im, projPts, method='linear'):
-    """Transfer 3d featers to 2d by projecting down to 2d grid.
+    """Transfer 3d features to 2d by projecting down to 2d grid.
 
     Use 2d interpolation to transfer features to 3d points that have
     projected down onto a 2d grid
@@ -162,7 +161,7 @@ def sample_grid(im, projPts, method='linear'):
     return proj_r, proj_g, proj_b
 
 def sample_grid_torch(im, projPts, device, method='linear'):
-    """Transfer 3d featers to 2d by projecting down to 2d grid.
+    """Transfer 3d features to 2d by projecting down to 2d grid.
 
     Use 2d interpolation to transfer features to 3d points that have
     projected down onto a 2d grid
@@ -204,97 +203,109 @@ def sample_grid_torch(im, projPts, device, method='linear'):
     return proj_rgb
 
 def sample_grid_tf(im, projPts, device, method='linear'):
-    """Transfer 3d featers to 2d by projecting down to 2d grid.
+    """Transfer 3d features to 2d by projecting down to 2d grid.
 
     Use 2d interpolation to transfer features to 3d points that have
     projected down onto a 2d grid
     Note that function expects proj_grid to be flattened, so results should be
     reshaped after being returned
     """
+    with tf.device(device):
+        im = tf.constant(im, dtype = 'uint8')
+        im = tf.expand_dims(im,0)
+        if method == 'nearest':
+            projPts = tf.expand_dims(projPts,0)
+            proj_rgb = unproj_tf(im, projPts, 1, device, method)
+        elif method == 'linear':
+            im = tf.cast(im, 'float32')
+            projPts = tf.Variable(projPts)
+            projPts[:,0].assign(projPts[::-1,0])
+            projPts = tf.convert_to_tensor(projPts)
+            projPts = tf.expand_dims(projPts,0)
+            proj_rgb = tf.cast(unproj_tf(im, projPts, 1, device, method), 'uint8')
+            c = tf.shape(projPts)[1]
+            proj_rgb = tf.reshape(proj_rgb, (c,3))
+        else:
+            raise Exception("not a valid interpolation method")
 
-    if method == 'linear':
+        return proj_rgb
 
-        with tf.device(device):
-            im = tf.cast(tf.convert_to_tensor(im),'float32')
-            im = tf.expand_dims(im,0)
+def unproj_tf(feats, grid, batch_size, device, method = 'nearest'):
+    """Unproject features."""
+    # im_x, im_y are the x and y coordinates of each projected 3D position.
+    # These are concatenated here for every image in each batch,
+    with tf.device(device):
 
-            # projPts = tf.convert_to_tensor(projPts, np.float32)
-            projPts = tf.reverse(projPts, [1])
-    #         projPts = tf.cast(tf.round(projPts), tf.int64)
-    #         print(projPts)
-            
-    #         # But some of them could be rounded outside of the image
-    #         # projPts[projPts[:, 0] < 0, 0] = 0
-    #         # projPts[projPts[:, 0] >= im.shape[0], 0] = im.shape[0] - 1
-    #         # projPts[projPts[:, 1] < 0, 1] = 0
-    #         # projPts[projPts[:, 1] >= im.shape[1], 1] = im.shape[1] - 1
+        nR, fh, fw, fdim = K.int_shape(feats)
+        nR2, nV, nD = K.int_shape(grid)
 
-            projPts = tf.stack((projPts[:, 0], projPts[:, 1]),axis=1)
+        # make sure all projected indices fit onto the feature map
+        im_x = tf.clip_by_value(grid[:, :, 0], 0, fw - 1)
+        im_y = tf.clip_by_value(grid[:, :, 1], 0, fh - 1)
 
-            
+        # round all indices
+        im_x0 = tf.cast(tf.floor(im_x), 'int32')
+        # new array with rounded projected indices + 1
+        im_x1 = im_x0 + 1
+        im_y0 = tf.cast(tf.floor(im_y), 'int32')
+        im_y1 = im_y0 + 1
 
-    # if method == 'nearest':
-    #     # Now I could index an array with the values
-    #     with tf.device(device):
-    #         projPts = tf.convert_to_tensor(projPts, np.float32)
-    #         projPts = tf.cast(tf.round(projPts), tf.int64)
-    #         print(projPts)
-            
-    #         # But some of them could be rounded outside of the image
-    #         # projPts[projPts[:, 0] < 0, 0] = 0
-    #         # projPts[projPts[:, 0] >= im.shape[0], 0] = im.shape[0] - 1
-    #         # projPts[projPts[:, 1] < 0, 1] = 0
-    #         # projPts[projPts[:, 1] >= im.shape[1], 1] = im.shape[1] - 1
+        # Convert from int to float -- but these are still round
+        # numbers because of rounding step above
+        im_x0_f, im_x1_f = tf.cast(im_x0, 'float32'), tf.cast(im_x1, 'float32')
+        im_y0_f, im_y1_f = tf.cast(im_y0, 'float32'), tf.cast(im_y1, 'float32')
 
-    #         projPts = tf.stack((projPts[:, 0], projPts[:, 1]),axis=1)
-    #         im = tf.cast(tf.convert_to_tensor(im),'float32')
-    #         print(projPts)
-    #         print(im)
+        # nR should be batch_size*num_cams
+        # eg. [0,1,2,3,4,5] for 3 cams, batch_size=2
+        ind_grid = tf.range(0, nR)
+        ind_grid = tf.expand_dims(ind_grid, 1)
 
-    #         proj_r = im[:, :, 0]
-    #         proj_r = proj_r[projPts]
-    #         proj_g = im[:, :, 1]
-    #         proj_g = proj_g[projPts]
-    #         proj_b = im[:, :, 2]
-    #         proj_b = proj_b[projPts]
+        # nV is the number of voxels, so this tiling operation
+        # produces e.g. [0,0,0,0,0,0; 1,1,1,1,1,1]
+        im_ind = tf.tile(ind_grid, [1, nV])
 
-    #         proj_rgb = tf.stack((proj_r, proj_g, proj_b))
+        def _get_gather_inds(x, y):
+            return tf.reshape(tf.stack([im_ind, y, x], axis=2), [-1, 3])
 
-    if method == 'linear':
-        interpMode = 'bilinear'
-    elif method == 'nearest' or method == 'out2d':
-        interpMode = 'nearest'
-    else:
-        raise Exception("not a valid interpolation method")
-    
-    im = torch.as_tensor(im).float() # send uint8 image tensor to GPU
-    projPts = tf.reverse(projPts,1)
+        # Gather  values
+        # Samples all featuremaps per batch/camera at the projected indices,
+        # and their +1 counterparts. Stop at Ia for nearest neighbor interpolation.
+        # I* should be a tensor of shape:
+        # (num_cams*batch_size*len(im_x0)*len(im_y0), fdim)
+        if method == 'nearest':
+            im_xr = tf.cast(tf.round(im_x), 'int32')
+            im_yr = tf.cast(tf.round(im_y), 'int32')
+            Ir = tf.gather_nd(feats, _get_gather_inds(im_xr, im_yr))
+            return Ir
+        elif method == 'linear':
+            Ia = tf.gather_nd(feats, _get_gather_inds(im_x0, im_y0))
+            Ib = tf.gather_nd(feats, _get_gather_inds(im_x0, im_y1))
+            Ic = tf.gather_nd(feats, _get_gather_inds(im_x1, im_y0))
+            Id = tf.gather_nd(feats, _get_gather_inds(im_x1, im_y1))
 
-    grid_y = projPts[ :, 0] / im.shape[0] * 2 - 1 # 1024 = H, normalized to [-1,1]
-    grid_x = projPts[ :, 1] / im.shape[1] * 2 - 1 # 1152 = W, normalized to [-1,1]
+            # Calculate bilinear weights
+            # We've now sampled the feature maps at corners around the projected values
+            # Here, the corners are weights by distance from the projected value
+            wa = (im_x1_f - im_x) * (im_y1_f - im_y)
+            wb = (im_x1_f - im_x) * (im_y - im_y0_f)
+            wc = (im_x - im_x0_f) * (im_y1_f - im_y)
+            wd = (im_x - im_x0_f) * (im_y - im_y0_f)
 
-    c = int(round(projPts.shape[0]**(1/3.))) # compute side length of 3D grid
+            # TODO(reshape): Why is this reshape necessary?
+            wa, wb = tf.reshape(wa, [-1, 1]), tf.reshape(wb, [-1, 1])
+            wc, wd = tf.reshape(wc, [-1, 1]), tf.reshape(wd, [-1, 1])
+            Ibilin = tf.add_n([wa * Ia, wb * Ib, wc * Ic, wd * Id])
 
-    grid_x = tf.reshape(grid_x,(1,c,c,c))
-    grid_y = tf.reshape(grid_y,(1,c,c,c))
-    grid_z = tf.zeros((1,c,c,c), dtype = 'float32')
-
-    grid_xyz = tf.stack((grid_x, grid_y, grid_z), dim=4)
-
-    im = tf.permute(im,(2,0,1)) #.unsqueeze(1).unsqueeze(0).float() # make 5D (B,C,X,Y,Z) batch, color, x, y, z
-    im = tf.cast(tf.unsqueeze(tf.unsqueeze(im,0),1,'float32'))
-
-    proj_rgb = torch.nn.functional.grid_sample(
-        im, # input 
-        grid_xyz, # also needs to be 5D
-        mode = interpMode, # 'bilinear', 'nearest'
-        padding_mode = 'zeros') # 'zeros', 'border', 'reflection') 
-
-    return proj_rgb
+            Ibilin = tf.reshape(
+                Ibilin,
+                [batch_size, nR // batch_size, int((nV + 1)**(1 / 3)),
+                    int((nV + 1)**(1 / 3)), int((nV + 1)**(1 / 3)), fdim])
+            Ibilin = tf.transpose(Ibilin, [0, 1, 3, 2, 4, 5])
+            return Ibilin
 
 def unproj(feats, grid, batch_size):
     """Unproject features."""
-    # im_x, im_y are the x and y coordinates of eached projected 3D position.
+    # im_x, im_y are the x and y coordinates of each projected 3D position.
     # These are concatenated here for every image in each batch,
     nR, fh, fw, fdim = K.int_shape(feats)
     nR2, nV, nD = K.int_shape(grid)
@@ -848,9 +859,8 @@ def distortPoints(points, intrinsicMatrix, radialDistortion, tangentialDistortio
 
     return distortedPoints
 
-def distortPoints_torch(points, device, intrinsicMatrix, radialDistortion, tangentialDistortion):
+def distortPoints_torch(points, intrinsicMatrix, radialDistortion, tangentialDistortion, device):
     """Distort points according to camera parameters.
-
     Ported from Matlab 2018a
     """
     # unpack the intrinsic matrix
