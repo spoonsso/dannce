@@ -377,18 +377,20 @@ def generate_readers(
         if pathonly:
             out[mp4files_scrub[i]] = os.path.join(viddir, mp4files[i])
         else:
-            try:
-                out[mp4files_scrub[i]] = \
-                    imageio.get_reader(os.path.join(viddir, mp4files[i]), 
-                        pixelformat=pixelformat, 
-                        input_params=input_params_nvdec, 
-                        output_params=output_params)
-            except:
-                out[mp4files_scrub[i]] = \
-                    imageio.get_reader(os.path.join(viddir, mp4files[i]), 
-                        pixelformat=pixelformat, 
-                        input_params=input_params, 
-                        output_params=output_params)
+            #try:
+            print("Attempting GPU video decoding. There will be a delay if this fails.")
+            out[mp4files_scrub[i]] = \
+                imageio.get_reader(os.path.join(viddir, mp4files[i]), 
+                    pixelformat=pixelformat, 
+                    input_params=input_params_nvdec, 
+                    output_params=output_params)
+            # except:
+            #     print("GPU accelerated video decoding failed, falling back to CPU")
+            #     out[mp4files_scrub[i]] = \
+            #         imageio.get_reader(os.path.join(viddir, mp4files[i]), 
+            #             pixelformat=pixelformat, 
+            #             input_params=input_params, 
+            #             output_params=output_params)
     return out
 
 
