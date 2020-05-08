@@ -15,7 +15,6 @@ import matplotlib.pyplot as plt
 
 import yaml
 import shutil
-import torch
 import time
 
 def initialize_vids_predict(CONFIG_PARAMS, minopt, maxopt):
@@ -42,7 +41,7 @@ def initialize_vids_predict(CONFIG_PARAMS, minopt, maxopt):
                     gpuID = CONFIG_PARAMS['gpuID'])
 
     return vids
-
+    
 def sequential_vid(vids, datadict, partition, CONFIG_PARAMS, framecnt, currvid_, lastvid_, i, key='valid_sampleIDs'):
     """
     Modularizes ondemand video loading
@@ -283,56 +282,6 @@ def downsample_batch(imstack, fac=2, method='PIL'):
                 out[i, :, :, j] = imstack[i, ::fac, ::fac, j]
     return out
 
-def downsample_batch_torch(imstack, fac=2, method='PIL', device=torch.device('cuda:' + '0')):
-    """Downsample each image in a batch."""
-    out = np.zeros(
-        (imstack.shape[0], imstack.shape[1] // fac,
-            imstack.shape[2] // fac, imstack.shape[3]),
-                dtype = 'float32')
-    # out = torch.zeros(
-    #     (imstack.shape[0], imstack.shape[1] // fac,
-    #         imstack.shape[2] // fac, imstack.shape[3]),
-    #             dtype = torch.float32)
-
-    # if torch.is_tensor(imstack):
-    #     imstack = imstack.cpu().numpy()
-
-    if method == 'PIL':
-        if out.shape[-1] == 3:
-            # this is just an RGB image, so no need to loop over channels with PIL
-            for i in range(imstack.shape[0]):
-                out[i] = np.array(
-                    PIL.Image.fromarray(imstack[i].astype('uint8')).resize(
-                        (out.shape[2], out.shape[1]), resample=PIL.Image.LANCZOS))
-        else:
-            for i in range(imstack.shape[0]):
-                for j in range(imstack.shape[3]):
-                    out[i, :, :, j] = np.array(
-                        PIL.Image.fromarray(imstack[i, :, :, j]).resize(
-                            (out.shape[2], out.shape[1]), resample=PIL.Image.LANCZOS))
-
-    elif method == 'dsm':
-        for i in range(imstack.shape[0]):
-            for j in range(imstack.shape[3]):
-                out[i, :, :, j] = dsm(imstack[i, :, :, j], (fac, fac))
-
-        # imstack = imstack.permute(0,3,1,2)
-        # out = torch.nn.functional.interpolate(
-        #     imstack, 
-        #     size = (imstack.shape[2] // fac, 
-        #         imstack.shape[3] // fac),
-        #     mode = 'bilinear',
-        #     align_corners = True)
-        # out = out.permute(0,2,3,1)
-
-    elif method == 'nn':
-        # do simple, faster nearest neighbors
-        for i in range(imstack.shape[0]):
-            for j in range(imstack.shape[3]):
-                out[i, :, :, j] = imstack[i, ::fac, ::fac, j]
-
-    return out
-
 def batch_maximum(imstack):
     """Find the location of the maximum for each image in a batch."""
     maxpos = np.zeros((imstack.shape[0], 2))
@@ -369,7 +318,6 @@ def generate_readers(
          for f in mp4files]
 
     pixelformat = "yuv420p"
-    input_params_nvdec = ["-hwaccel","nvdec", "-c:v","h264_cuvid", "-hwaccel_device", gpuID]
     input_params = []
     output_params = []
 
@@ -377,15 +325,21 @@ def generate_readers(
         if pathonly:
             out[mp4files_scrub[i]] = os.path.join(viddir, mp4files[i])
         else:
-            #try:
-            print("Attempting GPU video decoding. There will be a delay if this fails.")
             out[mp4files_scrub[i]] = \
-                imageio.get_reader(os.path.join(viddir, mp4files[i]), 
-                    pixelformat=pixelformat, 
-                    input_params=input_params_nvdec, 
-                    output_params=output_params)
+                    imageio.get_reader(os.path.join(viddir, mp4files[i]), 
+                        pixelformat=pixelformat, 
+                        input_params=input_params, 
+                        output_params=output_params)
+            # NVdec (nvidia hardware decoding) is disabled on some FFmpeg packages, 
+            # causing delay on video reader generation. 
+            # Default X264 decoding (on CPU) performance and overhead is similar
+            # try:
+            #     out[mp4files_scrub[i]] = \
+            #         imageio.get_reader(os.path.join(viddir, mp4files[i]), 
+            #             pixelformat=pixelformat, 
+            #             input_params=["-hwaccel","nvdec", "-c:v","h264_cuvid", "-hwaccel_device", gpuID], 
+            #             output_params=output_params)
             # except:
-            #     print("GPU accelerated video decoding failed, falling back to CPU")
             #     out[mp4files_scrub[i]] = \
             #         imageio.get_reader(os.path.join(viddir, mp4files[i]), 
             #             pixelformat=pixelformat, 
@@ -447,38 +401,6 @@ def cropcom(im, com, size=512):
             axis=1)
 
     return out
-
-def cropcom_torch(im, com, size=512):
-    """Crops single input image around the coordinates com."""
-    minlim_r = int(np.round(com[1])) - size // 2
-    maxlim_r = int(np.round(com[1])) + size // 2
-    minlim_c = int(np.round(com[0])) - size // 2
-    maxlim_c = int(np.round(com[0])) + size // 2
-
-    out = im[np.max([minlim_r, 0]):maxlim_r, np.max([minlim_c, 0]):maxlim_c, :]
-
-    dim = out.shape[2]
-
-    # pad with zeros if region ended up outside the bounds of the original image
-    if minlim_r < 0:
-        out = torch.cat(
-            (torch.zeros((abs(minlim_r), out.shape[1], dim)), out),
-            axis=0)
-    if maxlim_r > im.shape[0]:
-        out = torch.cat(
-            (out, torch.zeros((maxlim_r - im.shape[0], out.shape[1], dim))),
-            axis=0)
-    if minlim_c < 0:
-        out = torch.cat(
-            (torch.zeros((out.shape[0], abs(minlim_c), dim)), out),
-            axis=1)
-    if maxlim_c > im.shape[1]:
-        out = torch.cat(
-            (out, torch.zeros((out.shape[0], maxlim_c - im.shape[1], dim))),
-            axis=1)
-
-    return out
-
 
 def write_config(resultsdir, configdict, message, filename='modelconfig.cfg'):
     """Write a dictionary of k-v pairs to file.
@@ -620,6 +542,38 @@ def plot_markers_3d(stack, nonan=True):
             y.append(np.nan)
             z.append(np.nan)
     return x, y, z
+
+def plot_markers_3d_torch(stack, nonan=True):
+    """Return the 3d coordinates for each of the peaks in probability maps."""
+    import torch
+
+    n_mark = stack.shape[-1]
+    x = []
+    y = []
+    z = []
+    for mark in range(0,n_mark):
+        index = stack[:, :, :, mark].argmax()
+        ind = unravel_index(index, stack[:, :, :, mark].shape)
+        if ~torch.isnan(stack[0, 0, 0, mark]) and nonan:
+            x.append(ind[1])
+            y.append(ind[0])
+            z.append(ind[2])
+        elif ~torch.isnan(stack[0, 0, 0, mark]) and not nonan:
+            x.append(ind[1])
+            y.append(ind[0])
+            z.append(ind[2])
+        elif not nonan:
+            x.append(torch.nan)
+            y.append(torch.nan)
+            z.append(torch.nan)
+    return x,y,z
+
+def unravel_index(index, shape):
+    out = []
+    for dim in reversed(shape):
+        out.append(index % dim)
+        index = index // dim
+    return tuple(reversed(out))
 
 def write_unprojected_grids(imstack, fn):
     """Write grids to tif files for visualization.
