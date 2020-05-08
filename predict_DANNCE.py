@@ -2,9 +2,9 @@
 
 Usage: python predict_DANNCE.py settings_config
 """
+import os
 import sys
 import numpy as np
-import os
 import time
 
 import tensorflow as tf
@@ -13,9 +13,7 @@ from tensorflow.keras.layers import Conv3D, Input
 from tensorflow.keras.optimizers import Adam
 
 from keras.models import Model, load_model
-# from tensorflow.keras.models import Model, load_model # error if using this module
 import keras.backend as K
-# import tensorflow.keras.backend as K
 
 from dannce.engine import losses
 from dannce.engine import nets
@@ -30,18 +28,16 @@ from dannce.engine.generator_kmeans import DataGenerator_3Dconv_kmeans_tf
 import scipy.io as sio
 from copy import deepcopy
 import shutil
-import torch
+
+predict_mode = 'torch' # 'torch', 'tf', 'none'
+
+_N_VIEWS = 6
 
 # Set up parameters
 PARENT_PARAMS = processing.read_config(sys.argv[1])
 PARENT_PARAMS = processing.make_paths_safe(PARENT_PARAMS)
 CONFIG_PARAMS = processing.read_config(PARENT_PARAMS['DANNCE_CONFIG'])
 CONFIG_PARAMS = processing.make_paths_safe(CONFIG_PARAMS)
-
-# Default to 6 views but a smaller number of views can be specified in the DANNCE config.
-# If the legnth of the camera files list is smaller than _N_VIEWS, relevant lists will be
-# duplicated in order to match _N_VIEWS, if possible.
-_N_VIEWS = int(CONFIG_PARAMS['_N_VIEWS'] if '_N_VIEWS' in CONFIG_PARAMS.keys() else 6)
 
 # Load the appropriate loss function and network
 try:
@@ -71,23 +67,27 @@ processing.copy_config(RESULTSDIR, sys.argv[1],
 os.environ["CUDA_VISIBLE_DEVICES"] =  CONFIG_PARAMS['gpuID']
 gpuID = CONFIG_PARAMS['gpuID']
 
-# If len(CONFIG_PARAMS['experiment']['CAMNAMES']) divides evenly into 6, duplicate here,
-# Unless the network was "hard" trained to use less than 6 cameras
-if 'hard_train' in PARENT_PARAMS.keys() and PARENT_PARAMS['hard_train']:
-    print("Not duplicating camnames, datafiles, and calib files")
-else:
-    dupes = ['CAMNAMES', 'datafile', 'calib_file']
-    for d in dupes:
-        val = CONFIG_PARAMS['experiment'][d]
-        if _N_VIEWS % len(val) == 0:
-            num_reps = _N_VIEWS // len(val)
-            CONFIG_PARAMS['experiment'][d] = val * num_reps
-        else:
-            raise Exception("The length of the {} list must divide evenly into {}.".format(d, _N_VIEWS))
+# If len(CONFIG_PARAMS['experiment']['CAMNAMES']) divides evenly into 6, duplicate here
+dupes = ['CAMNAMES', 'datafile', 'calib_file']
+for d in dupes:
+    val = CONFIG_PARAMS['experiment'][d]
+    if _N_VIEWS % len(val) == 0:
+        num_reps = _N_VIEWS // len(val)
+        CONFIG_PARAMS['experiment'][d] = val * num_reps
+    else:
+        raise Exception("The length of the {} list must divide evenly into {}.".format(d, _N_VIEWS))
 
 samples_, datadict_, datadict_3d_, data_3d_, cameras_ = \
     serve_data.prepare_data(CONFIG_PARAMS['experiment'])
 
+# Load in the COM file at the default location, or use one in the config file if provided
+if 'COMfilename' in CONFIG_PARAMS.keys():
+    comfn = CONFIG_PARAMS['COMfilename']
+else:
+    comfn = os.path.join('.', 'COM', 'predict_results')
+    comfn = os.listdir(comfn)
+    comfn = [f for f in comfn if 'COM_undistorted.pickle' in f]
+    comfn = os.path.join('.', 'COM', 'predict_results', comfn[0])
 
 if 'allcams' in CONFIG_PARAMS.keys() and CONFIG_PARAMS['allcams']: # Make sure all cameras in debug fields are added, so that COM predictions
 # can be more stable
@@ -102,18 +102,7 @@ if 'allcams' in CONFIG_PARAMS.keys() and CONFIG_PARAMS['allcams']: # Make sure a
             dcameras_[CONFIG_PARAMS['dCAMNAMES'][i]]['RDistort'] = test['RDistort']
             dcameras_[CONFIG_PARAMS['dCAMNAMES'][i]]['TDistort'] = test['TDistort']
 
-if 'COM3D_DICT' not in CONFIG_PARAMS.keys():
-
-    # Load in the COM file at the default location, or use one in the config file if provided
-    if 'COMfilename' in CONFIG_PARAMS.keys():
-        comfn = CONFIG_PARAMS['COMfilename']
-    else:
-        comfn = os.path.join('.', 'COM', 'predict_results')
-        comfn = os.listdir(comfn)
-        comfn = [f for f in comfn if 'COM_undistorted.pickle' in f]
-        comfn = os.path.join('.', 'COM', 'predict_results', comfn[0])
-
-    datadict_, com3d_dict_ = serve_data.prepare_COM(
+datadict_, com3d_dict_ = serve_data.prepare_COM(
     comfn,
     datadict_,
     comthresh=CONFIG_PARAMS['comthresh'],
@@ -122,6 +111,8 @@ if 'COM3D_DICT' not in CONFIG_PARAMS.keys():
     camera_mats=dcameras_ if 'allcams' in CONFIG_PARAMS.keys() and CONFIG_PARAMS['allcams'] else cameras_,
     method=CONFIG_PARAMS['com_method'],
     allcams=CONFIG_PARAMS['allcams'] if 'allcams' in CONFIG_PARAMS.keys() and CONFIG_PARAMS['allcams'] else False)
+
+if 'COM3D_DICT' not in CONFIG_PARAMS.keys():
 
     # Need to cap this at the number of samples included in our
     # COM finding estimates
@@ -144,12 +135,11 @@ else:
     for (i, s) in enumerate(c3dsi):
         com3d_dict_[s] = c3d[i]
 
-    #samples_ = c3dsi
+    samples_ = c3dsi
 
     #verify all of these samples are in datadict_, which we require in order to get the frames IDs
     # for the videos
-    #assert (set(samples_) & set(list(datadict_.keys()))) == set(samples_)
-    assert (set(c3dsi) & set(list(datadict_.keys()))) == set(list(datadict_.keys()))
+    assert (set(samples_) & set(list(datadict_.keys()))) == set(samples_)
 
 # Write 3D COM to file
 cfilename = os.path.join(RESULTSDIR,'COM3D_undistorted.mat')
@@ -219,13 +209,21 @@ partition['valid_sampleIDs'] = samples[valid_inds]
 tifdirs = []
 
 # Generators
-valid_generator = DataGenerator_3Dconv_kmeans_torch(
-    partition['valid_sampleIDs'], datadict, datadict_3d, cameras,
-    partition['valid_sampleIDs'], com3d_dict, tifdirs, **valid_params)
+if predict_mode is 'torch':
+    import torch
+    device = 'cuda:' + gpuID
+    valid_generator = DataGenerator_3Dconv_kmeans_torch(
+        partition['valid_sampleIDs'], datadict, datadict_3d, cameras,
+        partition['valid_sampleIDs'], com3d_dict, tifdirs, **valid_params)
+elif predict_mode is 'tf':
+    valid_generator = DataGenerator_3Dconv_kmeans_tf(
+        partition['valid_sampleIDs'], datadict, datadict_3d, cameras,
+        partition['valid_sampleIDs'], com3d_dict, tifdirs, **valid_params)
+else:
+    valid_generator = DataGenerator_3Dconv_kmeans(
+        partition['valid_sampleIDs'], datadict, datadict_3d, cameras,
+        partition['valid_sampleIDs'], com3d_dict, tifdirs, **valid_params)
 
-# valid_generator = DataGenerator_3Dconv_kmeans(
-#     partition['valid_sampleIDs'], datadict, datadict_3d, cameras,
-#     partition['valid_sampleIDs'], com3d_dict, tifdirs, **valid_params)
 
 # Build net
 print("Initializing Network...")
@@ -271,6 +269,23 @@ else:
                                        'centered_euclidean_distance_3D': losses.centered_euclidean_distance_3D})
 
 save_data = {}
+
+def save_predictions(pred, ims, sampleID):
+
+    pred_max = np.max(pred, axis=(0,1,2))
+    pred_total = np.sum(pred, axis=(0,1,2))
+    xcoord, ycoord, zcoord = processing.plot_markers_3d(pred)
+    coord = np.stack([xcoord,ycoord,zcoord])
+    pred_log = np.log(pred_max) - np.log(pred_total)
+
+    save_data = {
+        'pred_max': pred_max,
+        'pred_coord': coord,
+        'true_coord_nogrid': ims,
+        'logmax': pred_log,
+        'sampleID': sampleID}
+
+    return save_data
 
 def evaluate_ondemand(start_ind, end_ind, valid_gen, vids):
     """Evaluate experiment.
@@ -327,44 +342,56 @@ def evaluate_ondemand(start_ind, end_ind, valid_gen, vids):
 
         ts = time.time()
         ims = valid_gen.__getitem__(i)
-        print("Loading took {} seconds".format(time.time()-ts))
+        # print("Loading took {} seconds".format(time.time()-ts))
         ts = time.time()
         pred = model.predict(ims[0])
-        print("Prediction took {} seconds".format(time.time()-ts))
+        # print("Prediction took {} seconds".format(time.time()-ts))
 
         ts = time.time()
         if CONFIG_PARAMS['EXPVAL']:
             probmap = get_output([ims[0][0], 0])[0] 
             for j in range(pred.shape[0]):
-                pred_max = np.max(np.max(np.max(
-                    probmap[j], axis=0), axis=0), axis=0)
+                pred_max = np.max(probmap[j], axis=(0,1,2))
                 sampleID = partition['valid_sampleIDs'][i * pred.shape[0] + j]
                 save_data[i * pred.shape[0] + j] = {
                     'pred_max': pred_max,
                     'pred_coord': pred[j],
                     'sampleID': sampleID}
 
-            print("Saving took {} sec.".format(time.time() - ts))
+            # print("Saving took {} sec.".format(time.time() - ts))
             
         else:
-            # get coords for each map
-            for j in range(pred.shape[0]):
-                pred_max = np.max(np.max(np.max(pred[j, :, :, :, :], axis=0), axis=0), axis=0)
-                pred_total = np.sum(np.sum(np.sum(pred[j, :, :, :, :], axis=0), axis=0), axis=0)
-                coordx, coordy, coordz = processing.plot_markers_3d(pred[j, :, :, :, :])
-                coord = np.stack((coordx, coordy, coordz))
-                sampleID = partition['valid_sampleIDs'][i * pred.shape[0] + j]
-                pred_log = np.log(pred_max) - np.log(pred_total)
+            if predict_mode is 'torch':
+                if torch.__version__ == '1.4.0' or torch.__version__ == '1.5.0':
+                # # Slower than numpy on older versions of pytorch, faster on Pytorch version 1.4.0 and newer
+                # # get coords for each map
+                    for j in range(pred.shape[0]):
+                        preds = torch.as_tensor(pred[j,:,:,:,:], dtype = torch.float32, device = device)
+                        pred_max = preds.max(0).values.max(0).values.max(0).values
+                        pred_total = preds.sum(0).sum(0).sum(0)
+                        xcoord, ycoord, zcoord = processing.plot_markers_3d_torch(preds)
+                        coord = torch.as_tensor([xcoord,ycoord,zcoord])
+                        pred_log = torch.log(pred_max) - torch.log(pred_total)
+                        sampleID = partition['valid_sampleIDs'][i*pred.shape[0] + j]
 
-                save_data[i * pred.shape[0] + j] = {
-                    'pred_max': pred_max,
-                    'pred_coord': coord,
-                    'true_coord_nogrid': ims[1][j],
-                    'logmax': pred_log,
-                    'sampleID': sampleID}
+                        save_data[i*pred.shape[0] + j] = {
+                            'pred_max': pred_max.cpu().numpy(),
+                            'pred_coord': coord.cpu().numpy(),
+                            'true_coord_nogrid': ims[1][j],
+                            'logmax': pred_log.cpu().numpy(),
+                            'sampleID': sampleID}
+                else:
+                    for j in range(pred.shape[0]):
+                        save_data[i*pred.shape[0] + j] = save_predictions(
+                            pred[j,:,:,:,:], ims[1][j], partition['valid_sampleIDs'][i*pred.shape[0] + j])
 
-            print("Saving took {} sec.".format(time.time() - ts))
+            else:
+                # get coords for each map
+                for j in range(pred.shape[0]):
+                    save_data[i*pred.shape[0] + j] = save_predictions(
+                        pred[j,:,:,:,:], ims[1][j], partition['valid_sampleIDs'][i*pred.shape[0] + j])
 
+            # print("Saving took {} sec.".format(time.time() - ts))
 
 max_eval_batch = CONFIG_PARAMS['maxbatch']
 if max_eval_batch == 'max':
