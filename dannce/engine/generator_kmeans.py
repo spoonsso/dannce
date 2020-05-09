@@ -555,8 +555,6 @@ class DataGenerator_3Dconv_kmeans_torch(DataGenerator):
     Also handles data across multiple experiments
     """
 
-    torch = __import__('torch')
-
     def __init__(
         self, list_IDs, labels, labels_3d, camera_params, clusterIDs, com3d,
         tifdirs, batch_size=32, dim_in=(32, 32, 32), n_channels_in=1,
@@ -604,6 +602,8 @@ class DataGenerator_3Dconv_kmeans_torch(DataGenerator):
         # If saving npy as uint8 rather than training directly, dont normalize
         self.norm_im = norm_im
 
+        # importing torch here allows other modes to run without pytorch installed
+        self.torch = __import__('torch') 
         self.device = self.torch.device('cuda:' + self.gpuID)
         # self.device = self.torch.device('cpu')
 
