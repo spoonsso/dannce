@@ -15,6 +15,8 @@ import matplotlib.pyplot as plt
 
 import yaml
 import shutil
+import time
+import tensorflow as tf
 
 def initialize_vids_predict(CONFIG_PARAMS, minopt, maxopt):
     """
@@ -36,10 +38,11 @@ def initialize_vids_predict(CONFIG_PARAMS, minopt, maxopt):
                     os.path.join(CONFIG_PARAMS['experiment']['CAMNAMES'][i], addl),
                     minopt=0,
                     maxopt=1,
-                    extension=CONFIG_PARAMS['experiment']['extension'])
+                    extension=CONFIG_PARAMS['experiment']['extension'],
+                    gpuID = CONFIG_PARAMS['gpuID'])
 
     return vids
-
+    
 def sequential_vid(vids, datadict, partition, CONFIG_PARAMS, framecnt, currvid_, lastvid_, i, key='valid_sampleIDs'):
     """
     Modularizes ondemand video loading
@@ -71,14 +74,12 @@ def sequential_vid(vids, datadict, partition, CONFIG_PARAMS, framecnt, currvid_,
         CONFIG_PARAMS['vid_dir_flag'],
         CONFIG_PARAMS['experiment']['viddir'],
         currentframes,
-        maxframes)
+        maxframes,
+        CONFIG_PARAMS['gpuID'])
 
     return vids_, lastvid_, currvid_
 
-def copy_config(RESULTSDIR,
-                main_config,
-                dannce_config,
-                com_config):
+def copy_config(RESULTSDIR,main_config,dannce_config,com_config):
     """
     Copies config files into the results directory
     """
@@ -161,11 +162,9 @@ def inherit_config(child, parent, keys):
 
     return child
 
-
-
 def close_open_vids(
     lastvid, lastvid_, currvid, currvid_, framecnt, cnames, vids,
-    vid_dir_flag, viddir, currentframes, maxframes):
+    vid_dir_flag, viddir, currentframes, maxframes, gpuID):
     """Track which videos are required for each batch and open/close them.
 
     When long recordings are split over many video files,
@@ -200,7 +199,8 @@ def close_open_vids(
                     os.path.join(cnames[j], addl),
                     minopt=currentframes // framecnt * framecnt - framecnt,
                     maxopt=maxframes,
-                    extension=ext)
+                    extension=ext,
+                    gpuID=gpuID)
             # This is necessary so we don't overwrite videos we might still be using
             for key in nvids:
                 vids[cnames[j]][key] = nvids[key] 
@@ -283,7 +283,6 @@ def downsample_batch(imstack, fac=2, method='PIL'):
                 out[i, :, :, j] = imstack[i, ::fac, ::fac, j]
     return out
 
-
 def batch_maximum(imstack):
     """Find the location of the maximum for each image in a batch."""
     maxpos = np.zeros((imstack.shape[0], 2))
@@ -301,7 +300,7 @@ def batch_maximum(imstack):
 
 
 def generate_readers(
-    viddir, camname, minopt=0, maxopt=300000, pathonly=False, extension='.mp4'):
+    viddir, camname, minopt=0, maxopt=300000, pathonly=False, extension='.mp4', gpuID="0"):
     """Open all mp4 objects with imageio, and return them in a dictionary."""
     print('NOTE: Ignoring mp4 files numbered above {}'.format(maxopt))
     out = {}
@@ -319,12 +318,34 @@ def generate_readers(
             os.path.normpath(f).split(os.sep)[-1])
          for f in mp4files]
 
+    pixelformat = "yuv420p"
+    input_params = []
+    output_params = []
+
     for i in range(len(mp4files)):
         if pathonly:
             out[mp4files_scrub[i]] = os.path.join(viddir, mp4files[i])
         else:
             out[mp4files_scrub[i]] = \
-                imageio.get_reader(os.path.join(viddir, mp4files[i]))
+                    imageio.get_reader(os.path.join(viddir, mp4files[i]), 
+                        pixelformat=pixelformat, 
+                        input_params=input_params, 
+                        output_params=output_params)
+            # NVdec (nvidia hardware decoding) is disabled on some FFmpeg packages, 
+            # causing delay on video reader generation. 
+            # Default X264 decoding (on CPU) performance and overhead is similar
+            # try:
+            #     out[mp4files_scrub[i]] = \
+            #         imageio.get_reader(os.path.join(viddir, mp4files[i]), 
+            #             pixelformat=pixelformat, 
+            #             input_params=["-hwaccel","nvdec", "-c:v","h264_cuvid", "-hwaccel_device", gpuID], 
+            #             output_params=output_params)
+            # except:
+            #     out[mp4files_scrub[i]] = \
+            #         imageio.get_reader(os.path.join(viddir, mp4files[i]), 
+            #             pixelformat=pixelformat, 
+            #             input_params=input_params, 
+            #             output_params=output_params)
     return out
 
 
@@ -381,7 +402,6 @@ def cropcom(im, com, size=512):
             axis=1)
 
     return out
-
 
 def write_config(resultsdir, configdict, message, filename='modelconfig.cfg'):
     """Write a dictionary of k-v pairs to file.
@@ -524,6 +544,80 @@ def plot_markers_3d(stack, nonan=True):
             z.append(np.nan)
     return x, y, z
 
+def plot_markers_3d_tf(stack, nonan=True):
+    """Return the 3d coordinates for each of the peaks in probability maps."""
+    n_mark = stack.shape[-1]
+    indices = tf.math.argmax(tf.reshape(stack, [-1,n_mark]), output_type='int32')
+    inds = tf.unravel_index(indices=indices, dims=stack.shape[:-1])
+
+    if ~tf.math.reduce_any(tf.math.is_nan(stack[0, 0, 0, :])) and (nonan or not nonan):
+        x = tf.squeeze(inds[1,:])
+        y = tf.squeeze(inds[0,:])
+        z = tf.squeeze(inds[2,:])
+    elif not nonan:
+        x = tf.Variable(tf.cast(tf.squeeze(inds[1,:]), 'float32'))
+        y = tf.Variable(tf.cast(tf.squeeze(inds[0,:]), 'float32'))
+        z = tf.Variable(tf.cast(tf.squeeze(inds[2,:]), 'float32'))
+        nans = tf.math.is_nan(stack[0, 0, 0, :])
+        for mark in range(0,n_mark):
+            if nans[mark]:
+                x[mark].assign(np.nan)
+                y[mark].assign(np.nan)
+                z[mark].assign(np.nan)
+    return x, y, z
+
+def plot_markers_3d_torch(stack, nonan=True):
+    """Return the 3d coordinates for each of the peaks in probability maps."""
+    import torch
+    n_mark = stack.shape[-1]
+    index = stack.flatten(0,2).argmax(dim=0).to(torch.int32)
+    inds = unravel_index(index, stack.shape[:-1])
+    if ~torch.any(torch.isnan(stack[0, 0, 0, :])) and (nonan or not nonan):
+        x = inds[1]
+        y = inds[0]
+        z = inds[2]
+    elif not nonan:
+        x = inds[1]
+        y = inds[0]
+        z = inds[2]
+        for mark in range(0,n_mark):
+            if torch.isnan(stack[:,:,:,mark]):
+                x[mark] = torch.nan
+                y[mark] = torch.nan
+                z[mark] = torch.nan
+    return x,y,z
+
+def plot_markers_3d_torch_old(stack, nonan=True):
+    """Return the 3d coordinates for each of the peaks in probability maps."""
+    import torch
+
+    n_mark = stack.shape[-1]
+    x = []
+    y = []
+    z = []
+    for mark in range(0,n_mark):
+        index = stack[:, :, :, mark].argmax()
+        ind = unravel_index(index, stack[:, :, :, mark].shape)
+        if ~torch.isnan(stack[0, 0, 0, mark]) and nonan:
+            x.append(ind[1])
+            y.append(ind[0])
+            z.append(ind[2])
+        elif ~torch.isnan(stack[0, 0, 0, mark]) and not nonan:
+            x.append(ind[1])
+            y.append(ind[0])
+            z.append(ind[2])
+        elif not nonan:
+            x.append(torch.nan)
+            y.append(torch.nan)
+            z.append(torch.nan)
+    return x, y, z
+
+def unravel_index(index, shape):
+    out = []
+    for dim in reversed(shape):
+        out.append(index % dim)
+        index = index // dim
+    return tuple(reversed(out))
 
 def write_unprojected_grids(imstack, fn):
     """Write grids to tif files for visualization.
