@@ -16,6 +16,7 @@ import matplotlib.pyplot as plt
 import yaml
 import shutil
 import time
+import tensorflow as tf
 
 def initialize_vids_predict(CONFIG_PARAMS, minopt, maxopt):
     """
@@ -543,7 +544,50 @@ def plot_markers_3d(stack, nonan=True):
             z.append(np.nan)
     return x, y, z
 
+def plot_markers_3d_tf(stack, nonan=True):
+    """Return the 3d coordinates for each of the peaks in probability maps."""
+    n_mark = stack.shape[-1]
+    indices = tf.math.argmax(tf.reshape(stack, [-1,n_mark]), output_type='int32')
+    inds = tf.unravel_index(indices=indices, dims=stack.shape[:-1])
+
+    if ~tf.math.reduce_any(tf.math.is_nan(stack[0, 0, 0, :])) and (nonan or not nonan):
+        x = tf.squeeze(inds[1,:])
+        y = tf.squeeze(inds[0,:])
+        z = tf.squeeze(inds[2,:])
+    elif not nonan:
+        x = tf.Variable(tf.cast(tf.squeeze(inds[1,:]), 'float32'))
+        y = tf.Variable(tf.cast(tf.squeeze(inds[0,:]), 'float32'))
+        z = tf.Variable(tf.cast(tf.squeeze(inds[2,:]), 'float32'))
+        nans = tf.math.is_nan(stack[0, 0, 0, :])
+        for mark in range(0,n_mark):
+            if nans[mark]:
+                x[mark].assign(np.nan)
+                y[mark].assign(np.nan)
+                z[mark].assign(np.nan)
+    return x, y, z
+
 def plot_markers_3d_torch(stack, nonan=True):
+    """Return the 3d coordinates for each of the peaks in probability maps."""
+    import torch
+    n_mark = stack.shape[-1]
+    index = stack.flatten(0,2).argmax(dim=0).to(torch.int32)
+    inds = unravel_index(index, stack.shape[:-1])
+    if ~torch.any(torch.isnan(stack[0, 0, 0, :])) and (nonan or not nonan):
+        x = inds[1]
+        y = inds[0]
+        z = inds[2]
+    elif not nonan:
+        x = inds[1]
+        y = inds[0]
+        z = inds[2]
+        for mark in range(0,n_mark):
+            if torch.isnan(stack[:,:,:,mark]):
+                x[mark] = torch.nan
+                y[mark] = torch.nan
+                z[mark] = torch.nan
+    return x,y,z
+
+def plot_markers_3d_torch_old(stack, nonan=True):
     """Return the 3d coordinates for each of the peaks in probability maps."""
     import torch
 
@@ -566,7 +610,7 @@ def plot_markers_3d_torch(stack, nonan=True):
             x.append(torch.nan)
             y.append(torch.nan)
             z.append(torch.nan)
-    return x,y,z
+    return x, y, z
 
 def unravel_index(index, shape):
     out = []
