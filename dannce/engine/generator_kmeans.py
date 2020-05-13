@@ -1239,7 +1239,7 @@ class DataGenerator_3Dconv_kmeans_tf(DataGenerator):
                 # cropped around the COM
             else:
                 # Then the only thing we need to correct for is crops at the borders
-                proj_grid = proj_grid - tf.cast(tf.stack(self.crop_width[0],self.crop_height[0]), 'float32')
+                proj_grid = proj_grid - tf.cast(tf.stack([self.crop_width[0],self.crop_height[0]]), 'float32')
 
             ts = time.time()
             rgb = ops.sample_grid_tf(thisim, proj_grid, device, method=self.interp)
