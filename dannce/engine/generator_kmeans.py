@@ -608,6 +608,8 @@ class DataGenerator_3Dconv_kmeans_torch(DataGenerator):
         self.device = self.torch.device('cuda:' + self.gpuID)
         # self.device = self.torch.device('cpu')
 
+        self.threadpool = ThreadPool(len(self.camnames[0]))
+
         ts = time.time()
         # Limit GPU memory usage by Tensorflow to leave memory for PyTorch
         config = tf.compat.v1.ConfigProto()
@@ -901,13 +903,13 @@ class DataGenerator_3Dconv_kmeans_torch(DataGenerator):
 
             # Compute projected images in parallel using multithreading 
             ts = time.time()
-            pool = ThreadPool(int(len(self.camnames[experimentID])))
+            num_cams = len(self.camnames[experimentID])
             arglist = []
-            for c in range(len(self.camnames[experimentID])):
+            for c in range(num_cams):
                 arglist.append([X_grid[i], self.camnames[experimentID][c], ID, experimentID])
-            result = pool.starmap(self.project_grid, arglist)
+            result = self.threadpool.starmap(self.project_grid, arglist)
 
-            for c in range(len(self.camnames[experimentID])):
+            for c in range(num_cams):
                 ic = c + i*len(self.camnames[experimentID])
                 X[ic,:,:,:,:] = result[c]
             # print('MP took {} sec.'.format(time.time()-ts))
@@ -1045,6 +1047,8 @@ class DataGenerator_3Dconv_kmeans_tf(DataGenerator):
 
         self.device = ('/GPU:' + self.gpuID)
         # self.device = ('/CPU:0')
+
+        self.threadpool = ThreadPool(len(self.camnames[0]))
 
         with tf.device(self.device):
             ts = time.time()
@@ -1329,19 +1333,19 @@ class DataGenerator_3Dconv_kmeans_tf(DataGenerator):
                 # print('Initialization took {} sec.'.format(time.time() - ts))
                 if tf.executing_eagerly():
                     # Compute projection grids using multithreading
-                    pool = ThreadPool(int(len(self.camnames[experimentID])))
+                    num_cams = int(len(self.camnames[experimentID]))
                     arglist = []
-                    for c in range(len(self.camnames[experimentID])):
+                    for c in range(num_cams):
                         arglist.append(
                             [xg, self.camnames[experimentID][c], ID, experimentID, self.device])
-                    result = pool.starmap(self.project_grid, arglist)
-                    for c in range(len(self.camnames[experimentID])):
+                    result = self.threadpool.starmap(self.project_grid, arglist)
+                    for c in range(num_cams):
                         if i==0 and c==0:
                             X = tf.expand_dims(result[c],0)
                         else:
                             X = tf.concat([X, tf.expand_dims(result[c],0)], axis=0)
                 else:
-                    for c in range(len(self.camnames[experimentID])):
+                    for c in range(num_cams):
                         if c==0:
                             X = tf.expand_dims(self.project_grid(
                                     xg, self.camnames[experimentID][c], ID, experimentID, self.device),0)
