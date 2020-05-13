@@ -12,8 +12,8 @@ import tensorflow.keras.losses as keras_losses
 from tensorflow.keras.layers import Conv3D, Input
 from tensorflow.keras.optimizers import Adam
 
-from keras.models import Model, load_model
-import keras.backend as K
+from tensorflow.keras.models import Model, load_model
+import tensorflow.keras.backend as K
 
 from dannce.engine import losses
 from dannce.engine import nets
