@@ -68,8 +68,8 @@ def project_to2d_torch(pts, M, device):
 
     return projPts
 
-@tf.function
-def project_to2d_tf(pts, M):
+# @tf.function
+def project_to2d_tf(projPts, M):
     """Project 3d points to 2d.
 
     Projects a set of 3-D points, pts, into 2-D using the camera intrinsic
@@ -78,8 +78,8 @@ def project_to2d_tf(pts, M):
     convention, such that
     M = [R;t] * K, and pts2d = pts3d * M
     """
-    pts1 = tf.ones([pts.shape[0], 1], dtype='float32')
-    projPts = tf.matmul(tf.concat((pts,pts1),1), M)
+
+    projPts = tf.matmul(projPts, M)
     projPts = projPts[:, :2] / projPts[:, 2:]
 
     return projPts
