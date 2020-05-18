@@ -91,22 +91,28 @@ class DataGenerator(keras.utils.Sequence):
         fname = str(
            self. _N_VIDEO_FRAMES * int(np.floor(ind / self._N_VIDEO_FRAMES))) + extension
         keyname = os.path.join(camname, fname)
+        frame_num = int(ind % self._N_VIDEO_FRAMES)
         if preload:
             vid = self.vidreaders[camname][keyname]
-            _,im = vid.read()
-            return im
-            # return self.vidreaders[camname][keyname].get_data(frame_num).astype('uint8')
-        else:
-            frame_num = int(ind % self._N_VIDEO_FRAMES)
-            vid = cv2.VideoCapture(self.vidreaders[camname][keyname])
-            time.sleep(0.001)
             vid.set(1, frame_num)
-            time.sleep(0.001)
-            _,im = vid.read()
-            time.sleep(0.001)
-            vid.release()
-            time.sleep(0.001)
-            return im
+            _, im = vid.read()
+            return im[:, :, ::-1].copy()  # BGR->RGB
+        else:
+            thisvid_name = self.vidreaders[camname][keyname]
+            abname = thisvid_name.split('/')[-1]
+            if abname == self.currvideo_name[camname]:
+                vid = self.currvideo[camname]
+            else:
+                vid = cv2.VideoCapture(thisvid_name)
+                print("Loading new video: {} for {}".format(abname, camname))
+                self.currvideo_name[camname] = abname
+                if self.currvideo[camname] is not None:
+                    self.currvideo[camname].release()
+                self.currvideo[camname] = vid
+
+            vid.set(1, frame_num)
+            _, im = vid.read()
+            return im[:, :, ::-1].copy()  # BGR->RGB
 
 
 class DataGenerator_3Dconv_kmeans(DataGenerator):

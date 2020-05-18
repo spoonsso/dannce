@@ -13,25 +13,21 @@ experiment config files  to support training over multiple animals.
 import sys
 import numpy as np
 import os
-import keras.backend as K
+
 from copy import deepcopy
 import dannce.engine.serve_data_DANNCE as serve_data
 import dannce.engine.processing as processing
-from dannce.engine.processing import savedata_tomat, savedata_expval
 from dannce.engine.generator_kmeans import DataGenerator_3Dconv_kmeans
-from dannce.engine.generator_kmeans import DataGenerator_3Dconv_kmeans_tf
-from dannce.engine.generator_kmeans import DataGenerator_3Dconv_kmeans_torch
 from dannce.engine.generator_kmeans import DataGenerator_3Dconv_frommem
 from dannce.engine import nets
 from dannce.engine import losses
 from dannce.engine import ops
 from six.moves import cPickle
-from keras.layers import Conv3D, Input
-from keras.models import Model, load_model
-from keras.optimizers import Adam
-from keras.callbacks import ModelCheckpoint, CSVLogger, TensorBoard
+from tensorflow.keras.models import load_model
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.callbacks import ModelCheckpoint, CSVLogger, TensorBoard
 import scipy.io as sio
-import keras
+import tensorflow
 
 # Set up parameters
 PARENT_PARAMS = processing.read_config(sys.argv[1])
@@ -54,7 +50,7 @@ for m in CONFIG_PARAMS['metric']:
     try:
         m_obj = getattr(losses, m)
     except AttributeError:
-        m_obj = getattr(keras.losses, m)
+        m_obj = getattr(tensorflow.keras.losses, m)
     metrics.append(m_obj)
 
 # set GPU ID
