@@ -87,6 +87,8 @@ def sample_grid(im, projPts, method='linear'):
     reshaped after being returned
     """
 
+    im = im[:,:,::-1]
+
     if method == 'linear':
         f_r = RegularGridInterpolator(
             (np.arange(im.shape[0]), np.arange(im.shape[1])),
@@ -169,7 +171,7 @@ def sample_grid_torch(im, projPts, device, method='bilinear'):
         raise Exception("not a valid interpolation method")
     
     im = torch.as_tensor(im, device = device) # send uint8 image tensor to GPU
-    # im = im.flip(-1) # convert BGR to RGB
+    im = im.flip(-1) # convert BGR to RGB
     im = im.permute(2,0,1).unsqueeze(1).unsqueeze(0).float() # make 5D (B,C,X,Y,Z) batch, color, x, y, z
     projPts = projPts.flip(1)
 
@@ -205,6 +207,7 @@ def sample_grid_tf(im, projPts, device, method='linear'):
     """
     with tf.device(device):
         im = tf.constant(im)
+        im = im[:,:,::-1]
         im = tf.expand_dims(im,0)
         if method == 'nearest':
             projPts = tf.expand_dims(projPts,0)
@@ -221,7 +224,7 @@ def sample_grid_tf(im, projPts, device, method='linear'):
 
         return proj_rgb
 
-@tf.function
+@tf.function #@tf.autograph.experimental.do_not_convert
 def unproj_tf_nearest(feats, grid, batch_size):
     """Unproject features."""
     # im_x, im_y are the x and y coordinates of each projected 3D position.

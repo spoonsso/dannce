@@ -1,15 +1,15 @@
 """Define networks for dannce."""
 import tensorflow as tf
-from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Input, concatenate, Conv2D, MaxPooling2D, Conv2DTranspose, Conv3D, Lambda, MaxPooling3D, Conv3DTranspose, Dense
-from tensorflow.keras.layers import Conv1D, MaxPooling1D, UpSampling1D, Add
-from tensorflow.keras.layers import Activation, Permute, Reshape
-from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.layers import BatchNormalization
-from tensorflow.keras import backend as K
-from tensorflow.keras.applications.vgg19 import VGG19
-from tensorflow.keras.utils import multi_gpu_model
-from tensorflow.keras import regularizers
+from keras.models import Model
+from keras.layers import Input, concatenate, Conv2D, MaxPooling2D, Conv2DTranspose, Conv3D, Lambda, MaxPooling3D, Conv3DTranspose, Dense
+from keras.layers import Conv1D, MaxPooling1D, UpSampling1D, Add
+from keras.layers import Activation, Permute, Reshape
+from keras.optimizers import Adam
+from keras.layers import BatchNormalization
+from keras import backend as K
+from keras.applications.vgg19 import VGG19
+from keras.utils import multi_gpu_model
+from keras import regularizers
 from dannce.engine import ops as ops
 import numpy as np
 import gc

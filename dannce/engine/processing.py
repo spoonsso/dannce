@@ -319,36 +319,11 @@ def generate_readers(
             os.path.normpath(f).split(os.sep)[-1])
          for f in mp4files]
 
-    pixelformat = "yuv420p"
-    input_params = []
-    output_params = []
-
     for i in range(len(mp4files)):
         if pathonly:
             out[mp4files_scrub[i]] = os.path.join(viddir, mp4files[i])
-            # out[mp4files_scrub[i]] = cv2.VideoCapture(os.path.join(viddir, mp4files[i]))
         else:
-            # out[mp4files_scrub[i]] = cv2.VideoCapture(os.path.join(viddir, mp4files[i]))
-            out[mp4files_scrub[i]] = \
-                    imageio.get_reader(os.path.join(viddir, mp4files[i]), 
-                        pixelformat=pixelformat, 
-                        input_params=input_params, 
-                        output_params=output_params)
-            # NVdec (nvidia hardware decoding) is disabled on some FFmpeg packages, 
-            # causing delay on video reader generation. 
-            # Default X264 decoding (on CPU) performance and overhead is similar
-            # try:
-            #     out[mp4files_scrub[i]] = \
-            #         imageio.get_reader(os.path.join(viddir, mp4files[i]), 
-            #             pixelformat=pixelformat, 
-            #             input_params=["-hwaccel","nvdec", "-c:v","h264_cuvid", "-hwaccel_device", gpuID], 
-            #             output_params=output_params)
-            # except:
-            #     out[mp4files_scrub[i]] = \
-            #         imageio.get_reader(os.path.join(viddir, mp4files[i]), 
-            #             pixelformat=pixelformat, 
-            #             input_params=input_params, 
-            #             output_params=output_params)
+            out[mp4files_scrub[i]] = cv2.VideoCapture(os.path.join(viddir, mp4files[i]))
     return out
 
 

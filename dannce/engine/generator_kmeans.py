@@ -9,7 +9,7 @@ import warnings
 import time
 
 import tensorflow as tf
-from multiprocessing.dummy import Pool as ThreadPool
+from multiprocessing.pool import ThreadPool as ThreadPool
 import cv2
 
 # import multiprocessing as mp
@@ -92,19 +92,20 @@ class DataGenerator(keras.utils.Sequence):
            self. _N_VIDEO_FRAMES * int(np.floor(ind / self._N_VIDEO_FRAMES))) + extension
         keyname = os.path.join(camname, fname)
         if preload:
-            _,im = self.vidreaders[camname][keyname].read()
+            vid = self.vidreaders[camname][keyname]
+            _,im = vid.read()
             return im
             # return self.vidreaders[camname][keyname].get_data(frame_num).astype('uint8')
         else:
             frame_num = int(ind % self._N_VIDEO_FRAMES)
             vid = cv2.VideoCapture(self.vidreaders[camname][keyname])
-            time.sleep(0.01)
+            time.sleep(0.001)
             vid.set(1, frame_num)
-            time.sleep(0.01)
+            time.sleep(0.001)
             _,im = vid.read()
-            time.sleep(0.01)
+            time.sleep(0.001)
             vid.release()
-            time.sleep(0.01)
+            time.sleep(0.001)
             return im
 
 
@@ -285,7 +286,7 @@ class DataGenerator_3Dconv_kmeans(DataGenerator):
             dtype='float32')
 
         if self.mode == '3dprob':
-            print('3dprob')
+            # print('3dprob')
             y_3d = np.zeros(
                 (self.batch_size, self.n_channels_out, *self.dim_out_3d),
                 dtype='float32')
@@ -933,9 +934,12 @@ class DataGenerator_3Dconv_kmeans_torch(DataGenerator):
                 X = X.transpose(4,5).reshape((X.shape[0], X.shape[1], 
                     X.shape[2], X.shape[3],
                     X.shape[4] * X.shape[5])) 
+        else:
+            # Then leave the batch_size and num_cams combined
+            y_3d = y_3d.repeat(num_cams,1,1,1,1)
 
-        # Then leave the batch_size and num_cams combined
-        y_3d = y_3d.repeat(num_cams,1,1,1,1)
+        if self.mode == '3dprob':
+            y_3d = y_3d.permute([0, 2, 3, 4, 1])
 
         if self.rotation:
             if self.expval:
@@ -1433,7 +1437,7 @@ class DataGenerator_3Dconv_kmeans_tf(DataGenerator):
                 y_3d = y_3d.eval(session=self.session)
                 X_grid = X_grid.eval(session=self.session)
 
-            print('Eval took {} sec.'.format(time.time()-ts))
+            # print('Eval took {} sec.'.format(time.time()-ts))
 
         # print('Wrap-up took {} sec.'.format(time.time()-ts))
 
@@ -1460,7 +1464,8 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
 
     def __init__(
         self, list_IDs, data, labels, batch_size, rotation=True, random=True,
-        chan_num=3, shuffle=True, expval=False, xgrid=None, var_reg=False, nvox=64):
+        chan_num=3, shuffle=True, expval=False, xgrid=None, var_reg=False, nvox=64,
+        cam3_train=False):
         """Initialize data generator."""
         self.list_IDs = list_IDs
         self.data = data
@@ -1475,6 +1480,7 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         if self.expval:
             self.xgrid = xgrid
         self.nvox = nvox
+        self.cam3_train=cam3_train
         self.on_epoch_end()
 
     def __len__(self):
@@ -1577,6 +1583,13 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
                     X.shape[4] * X.shape[5]),
                 order='F')
 
+        if self.cam3_train:
+            # If random camera shuffling is turned on, we can just take the first 3 cameras and get a nice
+            # random distribution of sets of 3
+            if not self.random:
+                warnings.warn("Set to generate data from a random subset of 3 cameras, but cameras are not being shuffled")
+            X = X[:, :, :, :, :9] #3 cameras * 3 RGB channels
+        
         if self.expval:
             if self.var_reg:
                 return [X, X_grid], [y_3d, np.zeros(self.batch_size)]
