@@ -346,7 +346,7 @@ else:
         partition['valid_sampleIDs'] = cPickle.load(f)
     partition['train_sampleIDs'] = [f for f in samples if f not in partition['valid_sampleIDs']]
 
-train_generator = DataGenerator_3Dconv_kmeans_torch(partition['train_sampleIDs'],
+train_generator = DataGenerator_3Dconv_kmeans(partition['train_sampleIDs'],
                                               datadict,
                                               datadict_3d,
                                               cameras,
@@ -354,7 +354,7 @@ train_generator = DataGenerator_3Dconv_kmeans_torch(partition['train_sampleIDs']
                                               com3d_dict,
                                               tifdirs,
                                               **valid_params)
-valid_generator = DataGenerator_3Dconv_kmeans_torch(partition['valid_sampleIDs'],
+valid_generator = DataGenerator_3Dconv_kmeans(partition['valid_sampleIDs'],
                                               datadict,
                                               datadict_3d,
                                               cameras,
