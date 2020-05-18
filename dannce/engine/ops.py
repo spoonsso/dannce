@@ -157,7 +157,109 @@ def sample_grid(im, projPts, method='linear'):
         raise Exception("not a valid interpolation method")
     return proj_r, proj_g, proj_b
 
-def sample_grid_torch(im, projPts, device, method='bilinear'):
+def sample_grid_torch_nearest(im, projPts, device, method='bilinear'):
+    """Unproject features."""
+    # im_x, im_y are the x and y coordinates of each projected 3D position.
+    # These are concatenated here for every image in each batch,
+    import torch
+
+    feats = torch.as_tensor(im, device = device) 
+    grid = projPts
+    c = int(round(projPts.shape[0]**(1/3.)))
+
+    fh, fw, fdim = list(feats.shape)
+
+    # # make sure all projected indices fit onto the feature map
+    im_x = torch.clamp(grid[:, 0], 0, fw - 1)
+    im_y = torch.clamp(grid[:, 1], 0, fh - 1)
+
+    im_xr = im_x.round().type(torch.long)
+    im_yr = im_y.round().type(torch.long)
+
+    Ir = feats[im_yr, im_xr]
+    
+    print(Ir.shape)
+
+    return Ir.reshape((c,c,c,-1)).permute(3,0,1,2).unsqueeze(0)
+
+def sample_grid_torch_linear(im, projPts, device, method='bilinear'):
+    """Unproject features."""
+    # im_x, im_y are the x and y coordinates of each projected 3D position.
+    # These are concatenated here for every image in each batch,
+    import torch
+
+    feats = torch.as_tensor(im, device = device) 
+    grid = projPts
+    c = int(round(projPts.shape[0]**(1/3.)))
+
+    fh, fw, fdim = list(feats.shape)
+
+    # # make sure all projected indices fit onto the feature map
+    im_x = torch.clamp(grid[:, 0], 0, fw - 1)
+    im_y = torch.clamp(grid[:, 1], 0, fh - 1)
+
+    # round all indices
+    im_x0 = torch.floor(im_x).type(torch.long)
+    # new array with rounded projected indices + 1
+    im_x1 = im_x0 + 1
+    im_y0 = torch.floor(im_y).type(torch.long)
+    im_y1 = im_y0 + 1
+
+    # Convert from int to float -- but these are still round
+    # numbers because of rounding step above
+    im_x0_f, im_x1_f = im_x0.type(torch.float), im_x1.type(torch.float)
+    im_y0_f, im_y1_f = im_y0.type(torch.float), im_y1.type(torch.float)
+
+    # Gather  values
+    # Samples all featuremaps at the projected indices,
+    # and their +1 counterparts. Stop at Ia for nearest neighbor interpolation.
+
+    # need to clip the corner indices because they might be out of bounds...
+    # This could lead to different behavior compared to TF/numpy, which return 0 
+    # when an index is out of bounds
+    im_x1_safe = torch.clamp(im_x1, 0, fw - 1)
+    im_y1_safe = torch.clamp(im_y1, 0, fh - 1)
+
+    Ia = feats[im_y0, im_x0]
+    Ib = feats[im_y0, im_x1_safe]
+    Ic = feats[im_y1_safe, im_x0]
+    Id = feats[im_y1_safe, im_x1_safe]
+
+    # o recaptiulate behavior  in numpy/TF, zero out values that fall outside bounds
+    Ib[im_x1 > fw-1] = 0
+    Ib[im_y1 > fh-1] = 0
+    Id[(im_x1 > fw-1) | (im_y1 > fh-1)] = 0
+    # Calculate bilinear weights
+    # We've now sampled the feature maps at corners around the projected values
+    # Here, the corners are weights by distance from the projected value
+    wa = (im_x1_f - im_x) * (im_y1_f - im_y)
+    wb = (im_x1_f - im_x) * (im_y - im_y0_f)
+    wc = (im_x - im_x0_f) * (im_y1_f - im_y)
+    wd = (im_x - im_x0_f) * (im_y - im_y0_f)
+
+    Ibilin = wa.unsqueeze(1) * Ia + wb.unsqueeze(1) * Ib + \
+        wc.unsqueeze(1) * Ic + wd.unsqueeze(1) * Id
+
+    return Ibilin.reshape((c,c,c,-1)).permute(3,0,1,2).unsqueeze(0)
+
+def sample_grid_torch(im, projPts, device, method='linear'):
+    """Transfer 3d features to 2d by projecting down to 2d grid, using torch.
+
+    Use 2d interpolation to transfer features to 3d points that have
+    projected down onto a 2d grid
+    Note that function expects proj_grid to be flattened, so results should be
+    reshaped after being returned
+    """
+    if method == 'nearest' or method == 'out2d':
+        proj_rgb = sample_grid_torch_nearest(im, projPts, device, method)
+    elif method == 'linear' or method == 'bilinear':
+        proj_rgb = sample_grid_torch_linear(im, projPts, device, method)
+    else:
+        raise Exception("{} not a valid interpolation method".format(method))
+
+    return proj_rgb
+
+def sample_grid_tf(im, projPts, device, method='linear'):
     """Transfer 3d features to 2d by projecting down to 2d grid.
 
     Use 2d interpolation to transfer features to 3d points that have
@@ -165,40 +267,23 @@ def sample_grid_torch(im, projPts, device, method='bilinear'):
     Note that function expects proj_grid to be flattened, so results should be
     reshaped after being returned
     """
-    import torch
+    with tf.device(device):
+        im = tf.constant(im)
+        im = tf.expand_dims(im,0)
+        if method == 'nearest':
+            projPts = tf.expand_dims(projPts,0)
+            proj_rgb = unproj_tf_nearest(im, projPts, 1)
+        elif method == 'linear':
+            im = tf.cast(im, 'float32')
+            projPts = tf.expand_dims(projPts,0)
+            projPts = tf.reverse(projPts,[1])
+            proj_rgb = tf.cast(unproj_tf_linear(im, projPts, 1), 'uint8')
+            proj_rgb = tf.reshape(proj_rgb, (tf.shape(projPts)[1],3))
+            proj_rgb = tf.reverse(proj_rgb, [0])
+        else:
+            raise Exception("not a valid interpolation method")
 
-    if method == 'linear' or method == 'bilinear':
-        method = 'bilinear'
-    elif method == 'nearest' or method == 'out2d':
-        method = 'nearest'
-    else:
-        raise Exception("not a valid interpolation method")
-    
-    im = torch.as_tensor(im, device = device) # send uint8 image tensor to GPU
-    projPts = projPts.flip(1)
-
-    grid_y = projPts[ :, 0] / im.shape[0] * 2 - 1 # 1024 = H, normalized to [-1,1]
-    grid_x = projPts[ :, 1] / im.shape[1] * 2 - 1 # 1152 = W, normalized to [-1,1]
-
-    c = int(round(projPts.shape[0]**(1/3.))) # compute side length of 3D grid
-
-    grid_x = grid_x.reshape((1,c,c,c))
-    grid_y = grid_y.reshape((1,c,c,c))
-    grid_z = torch.zeros((1,c,c,c),
-                dtype = torch.float32,
-                device = device)
-
-    grid_xyz = torch.stack((grid_x, grid_y, grid_z), dim=4)
-
-    im = im.permute(2,0,1).unsqueeze(1).unsqueeze(0).float() # make 5D (B,C,X,Y,Z) batch, color, x, y, z
-
-    proj_rgb = torch.nn.functional.grid_sample(
-        im, # input 
-        grid_xyz, # also needs to be 5D
-        mode = method, # 'bilinear', 'nearest', 'bicubic'
-        padding_mode = 'zeros') # 'zeros', 'border', 'reflection') 
-
-    return proj_rgb
+        return proj_rgb
 
 # @tf.function # breaks if you make this a tf function
 def sample_grid_tf(im, projPts, device, method='linear'):
