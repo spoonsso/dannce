@@ -29,7 +29,7 @@ import scipy.io as sio
 from copy import deepcopy
 import shutil
 
-predict_mode = 'tf' # 'torch', 'tf', 'none'
+predict_mode = 'torch' # 'torch', 'tf', 'none'
 
 _N_VIEWS = 6
 
@@ -211,7 +211,7 @@ tifdirs = []
 # Generators
 if predict_mode is 'torch':
     import torch
-    device = 'cuda:' + gpuID
+    device = torch.device(('cuda:' + gpuID))
     valid_generator = DataGenerator_3Dconv_kmeans_torch(
         partition['valid_sampleIDs'], datadict, datadict_3d, cameras,
         partition['valid_sampleIDs'], com3d_dict, tifdirs, **valid_params)
@@ -326,10 +326,10 @@ def evaluate_ondemand(start_ind, end_ind, valid_gen, vids):
 
         ts = time.time()
         ims = valid_gen.__getitem__(i)
-        # print("Loading took {} seconds".format(time.time()-ts))
+        print("Loading took {} seconds".format(time.time()-ts))
         ts = time.time()
         pred = model.predict(ims[0])
-        # print("Prediction took {} seconds".format(time.time()-ts))
+        print("Prediction took {} seconds".format(time.time()-ts))
 
         ts = time.time()
         if CONFIG_PARAMS['EXPVAL']:
@@ -341,7 +341,8 @@ def evaluate_ondemand(start_ind, end_ind, valid_gen, vids):
                     'pred_max': pred_max,
                     'pred_coord': pred[j],
                     'sampleID': sampleID}
-            # print("Saving took {} sec.".format(time.time() - ts))
+
+            print("Saving took {} sec.".format(time.time() - ts))
             
         else:
             if predict_mode is 'torch':
@@ -397,7 +398,7 @@ def evaluate_ondemand(start_ind, end_ind, valid_gen, vids):
                         'logmax': pred_log,
                         'sampleID': sampleID}
 
-            # print("Saving took {} sec.".format(time.time() - ts))
+            print("Saving took {} sec.".format(time.time() - ts))
 
 max_eval_batch = CONFIG_PARAMS['maxbatch']
 if max_eval_batch == 'max':

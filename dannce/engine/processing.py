@@ -17,6 +17,7 @@ import yaml
 import shutil
 import time
 import tensorflow as tf
+import cv2
 
 def initialize_vids_predict(CONFIG_PARAMS, minopt, maxopt):
     """
@@ -318,34 +319,11 @@ def generate_readers(
             os.path.normpath(f).split(os.sep)[-1])
          for f in mp4files]
 
-    pixelformat = "yuv420p"
-    input_params = []
-    output_params = []
-
     for i in range(len(mp4files)):
         if pathonly:
             out[mp4files_scrub[i]] = os.path.join(viddir, mp4files[i])
         else:
-            out[mp4files_scrub[i]] = \
-                    imageio.get_reader(os.path.join(viddir, mp4files[i]), 
-                        pixelformat=pixelformat, 
-                        input_params=input_params, 
-                        output_params=output_params)
-            # NVdec (nvidia hardware decoding) is disabled on some FFmpeg packages, 
-            # causing delay on video reader generation. 
-            # Default X264 decoding (on CPU) performance and overhead is similar
-            # try:
-            #     out[mp4files_scrub[i]] = \
-            #         imageio.get_reader(os.path.join(viddir, mp4files[i]), 
-            #             pixelformat=pixelformat, 
-            #             input_params=["-hwaccel","nvdec", "-c:v","h264_cuvid", "-hwaccel_device", gpuID], 
-            #             output_params=output_params)
-            # except:
-            #     out[mp4files_scrub[i]] = \
-            #         imageio.get_reader(os.path.join(viddir, mp4files[i]), 
-            #             pixelformat=pixelformat, 
-            #             input_params=input_params, 
-            #             output_params=output_params)
+            out[mp4files_scrub[i]] = cv2.VideoCapture(os.path.join(viddir, mp4files[i]))
     return out
 
 
@@ -546,25 +524,26 @@ def plot_markers_3d(stack, nonan=True):
 
 def plot_markers_3d_tf(stack, nonan=True):
     """Return the 3d coordinates for each of the peaks in probability maps."""
-    n_mark = stack.shape[-1]
-    indices = tf.math.argmax(tf.reshape(stack, [-1,n_mark]), output_type='int32')
-    inds = tf.unravel_index(indices=indices, dims=stack.shape[:-1])
+    with tf.device(stack.device):
+        n_mark = stack.shape[-1]
+        indices = tf.math.argmax(tf.reshape(stack, [-1,n_mark]), output_type='int32')
+        inds = unravel_index(indices, stack.shape[:-1])
 
-    if ~tf.math.reduce_any(tf.math.is_nan(stack[0, 0, 0, :])) and (nonan or not nonan):
-        x = tf.squeeze(inds[1,:])
-        y = tf.squeeze(inds[0,:])
-        z = tf.squeeze(inds[2,:])
-    elif not nonan:
-        x = tf.Variable(tf.cast(tf.squeeze(inds[1,:]), 'float32'))
-        y = tf.Variable(tf.cast(tf.squeeze(inds[0,:]), 'float32'))
-        z = tf.Variable(tf.cast(tf.squeeze(inds[2,:]), 'float32'))
-        nans = tf.math.is_nan(stack[0, 0, 0, :])
-        for mark in range(0,n_mark):
-            if nans[mark]:
-                x[mark].assign(np.nan)
-                y[mark].assign(np.nan)
-                z[mark].assign(np.nan)
-    return x, y, z
+        if ~tf.math.reduce_any(tf.math.is_nan(stack[0, 0, 0, :])) and (nonan or not nonan):
+            x = inds[1]
+            y = inds[0]
+            z = inds[2]
+        elif not nonan:
+            x = tf.Variable(tf.cast(inds[1], 'float32'))
+            y = tf.Variable(tf.cast(inds[0], 'float32'))
+            z = tf.Variable(tf.cast(inds[3], 'float32'))
+            nans = tf.math.is_nan(stack[0, 0, 0, :])
+            for mark in range(0,n_mark):
+                if nans[mark]:
+                    x[mark].assign(np.nan)
+                    y[mark].assign(np.nan)
+                    z[mark].assign(np.nan)
+        return x, y, z
 
 def plot_markers_3d_torch(stack, nonan=True):
     """Return the 3d coordinates for each of the peaks in probability maps."""
@@ -586,31 +565,6 @@ def plot_markers_3d_torch(stack, nonan=True):
                 y[mark] = torch.nan
                 z[mark] = torch.nan
     return x,y,z
-
-def plot_markers_3d_torch_old(stack, nonan=True):
-    """Return the 3d coordinates for each of the peaks in probability maps."""
-    import torch
-
-    n_mark = stack.shape[-1]
-    x = []
-    y = []
-    z = []
-    for mark in range(0,n_mark):
-        index = stack[:, :, :, mark].argmax()
-        ind = unravel_index(index, stack[:, :, :, mark].shape)
-        if ~torch.isnan(stack[0, 0, 0, mark]) and nonan:
-            x.append(ind[1])
-            y.append(ind[0])
-            z.append(ind[2])
-        elif ~torch.isnan(stack[0, 0, 0, mark]) and not nonan:
-            x.append(ind[1])
-            y.append(ind[0])
-            z.append(ind[2])
-        elif not nonan:
-            x.append(torch.nan)
-            y.append(torch.nan)
-            z.append(torch.nan)
-    return x, y, z
 
 def unravel_index(index, shape):
     out = []
