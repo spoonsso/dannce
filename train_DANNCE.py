@@ -19,6 +19,8 @@ import dannce.engine.serve_data_DANNCE as serve_data
 import dannce.engine.processing as processing
 from dannce.engine.processing import savedata_tomat, savedata_expval
 from dannce.engine.generator_kmeans import DataGenerator_3Dconv_kmeans
+from dannce.engine.generator_kmeans import DataGenerator_3Dconv_kmeans_tf
+from dannce.engine.generator_kmeans import DataGenerator_3Dconv_kmeans_torch
 from dannce.engine.generator_kmeans import DataGenerator_3Dconv_frommem
 from dannce.engine import nets
 from dannce.engine import losses
@@ -133,14 +135,14 @@ for e in range(num_experiments):
                 comfn = [f for f in comfn if 'COM_undistorted.pickle' in f]
                 comfn = os.path.join('.', 'COM', 'predict_results', comfn[0])
 
-                datadict_, com3d_dict_ = serve_data.prepare_COM(
-                    comfn,
-                    datadict_,
-                    comthresh=CONFIG_PARAMS['comthresh'],
-                    weighted=CONFIG_PARAMS['weighted'],
-                    retriangulate=CONFIG_PARAMS['retriangulate'] if 'retriangulate' in CONFIG_PARAMS.keys() else True,
-                    camera_mats=cameras_,
-                    method=CONFIG_PARAMS['com_method'])
+            datadict_, com3d_dict_ = serve_data.prepare_COM(
+                comfn,
+                datadict_,
+                comthresh=CONFIG_PARAMS['comthresh'],
+                weighted=CONFIG_PARAMS['weighted'],
+                retriangulate=CONFIG_PARAMS['retriangulate'] if 'retriangulate' in CONFIG_PARAMS.keys() else True,
+                camera_mats=cameras_,
+                method=CONFIG_PARAMS['com_method'])
 
             # Need to cap this at the number of samples included in our
             # COM finding estimates
@@ -250,7 +252,7 @@ for e in range(num_experiments):
                                  ['CAMNAMES'][i].split('_')[1], addl),
                     maxopt=flist,  # Large enough to encompass all videos in directory.
                     extension=CONFIG_PARAMS['experiment'][e]['extension'],
-                    pathonly=not CONFIG_PARAMS['VID_PRELOAD'])
+                    pathonly=True)
 
             # Add e to key
             vids[CONFIG_PARAMS['experiment'][e]['CAMNAMES'][i]] = {}
@@ -304,7 +306,7 @@ valid_params = {
     'expval': CONFIG_PARAMS['EXPVAL'],
     'crop_im': False,
     'chunks': CONFIG_PARAMS['chunks'],
-    'preload': CONFIG_PARAMS['VID_PRELOAD']}
+    'preload': False}
 
 # Setup a generator that will read videos and labels
 tifdirs = []  # Training from single images not yet supported in this demo
@@ -344,7 +346,7 @@ else:
         partition['valid_sampleIDs'] = cPickle.load(f)
     partition['train_sampleIDs'] = [f for f in samples if f not in partition['valid_sampleIDs']]
 
-train_generator = DataGenerator_3Dconv_kmeans(partition['train_sampleIDs'],
+train_generator = DataGenerator_3Dconv_kmeans_torch(partition['train_sampleIDs'],
                                               datadict,
                                               datadict_3d,
                                               cameras,
@@ -352,7 +354,7 @@ train_generator = DataGenerator_3Dconv_kmeans(partition['train_sampleIDs'],
                                               com3d_dict,
                                               tifdirs,
                                               **valid_params)
-valid_generator = DataGenerator_3Dconv_kmeans(partition['valid_sampleIDs'],
+valid_generator = DataGenerator_3Dconv_kmeans_torch(partition['valid_sampleIDs'],
                                               datadict,
                                               datadict_3d,
                                               cameras,
