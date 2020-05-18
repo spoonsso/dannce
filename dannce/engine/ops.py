@@ -4,18 +4,12 @@ import tensorflow.keras.backend as K
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator
 
-# import tensorflow.keras.initializers as initializers
-# import tensorflow.keras.constraints as constraints
-# import tensorflow.keras.regularizers as regularizers
-
 import keras.initializers as initializers
 import keras.constraints as constraints
 import keras.regularizers as regularizers
 
 from keras.engine import Layer, InputSpec
-# from tensorflow.keras.layers import Layer, InputSpec
 from keras.utils.generic_utils import get_custom_objects
-# from tensorflow.keras.utils import get_custom_objects
 
 import cv2
 import time
@@ -59,7 +53,6 @@ def project_to2d_torch(pts, M, device):
     """
     import torch
 
-    # pts = torch.Tensor(pts.copy()).to(device)
     M = M.to(device=device)
     pts1 = torch.ones(pts.shape[0], 1, dtype=torch.float32, device = device)
 
@@ -78,6 +71,7 @@ def project_to2d_tf(projPts, M):
     convention, such that
     M = [R;t] * K, and pts2d = pts3d * M
     """
+    # projPts = tf.concat((pts,pts1),1)
 
     projPts = tf.matmul(projPts, M)
     projPts = projPts[:, :2] / projPts[:, 2:]
@@ -175,6 +169,8 @@ def sample_grid_torch(im, projPts, device, method='bilinear'):
         raise Exception("not a valid interpolation method")
     
     im = torch.as_tensor(im, device = device) # send uint8 image tensor to GPU
+    # im = im.flip(-1) # convert BGR to RGB
+    im = im.permute(2,0,1).unsqueeze(1).unsqueeze(0).float() # make 5D (B,C,X,Y,Z) batch, color, x, y, z
     projPts = projPts.flip(1)
 
     grid_y = projPts[ :, 0] / im.shape[0] * 2 - 1 # 1024 = H, normalized to [-1,1]
@@ -190,10 +186,8 @@ def sample_grid_torch(im, projPts, device, method='bilinear'):
 
     grid_xyz = torch.stack((grid_x, grid_y, grid_z), dim=4)
 
-    im = im.permute(2,0,1).unsqueeze(1).unsqueeze(0).float() # make 5D (B,C,X,Y,Z) batch, color, x, y, z
-
     proj_rgb = torch.nn.functional.grid_sample(
-        im, # input 
+        im, # 5D input 
         grid_xyz, # also needs to be 5D
         mode = method, # 'bilinear', 'nearest', 'bicubic'
         padding_mode = 'zeros') # 'zeros', 'border', 'reflection') 
