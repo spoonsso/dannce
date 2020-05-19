@@ -133,14 +133,14 @@ for e in range(num_experiments):
                 comfn = [f for f in comfn if 'COM_undistorted.pickle' in f]
                 comfn = os.path.join('.', 'COM', 'predict_results', comfn[0])
 
-                datadict_, com3d_dict_ = serve_data.prepare_COM(
-                    comfn,
-                    datadict_,
-                    comthresh=CONFIG_PARAMS['comthresh'],
-                    weighted=CONFIG_PARAMS['weighted'],
-                    retriangulate=CONFIG_PARAMS['retriangulate'] if 'retriangulate' in CONFIG_PARAMS.keys() else True,
-                    camera_mats=cameras_,
-                    method=CONFIG_PARAMS['com_method'])
+            datadict_, com3d_dict_ = serve_data.prepare_COM(
+                comfn,
+                datadict_,
+                comthresh=CONFIG_PARAMS['comthresh'],
+                weighted=CONFIG_PARAMS['weighted'],
+                retriangulate=CONFIG_PARAMS['retriangulate'] if 'retriangulate' in CONFIG_PARAMS.keys() else True,
+                camera_mats=cameras_,
+                method=CONFIG_PARAMS['com_method'])
 
             # Need to cap this at the number of samples included in our
             # COM finding estimates

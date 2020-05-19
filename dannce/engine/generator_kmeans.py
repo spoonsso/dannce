@@ -11,9 +11,6 @@ import time
 import tensorflow as tf
 from multiprocessing.dummy import Pool as ThreadPool
 
-# import multiprocessing as mp
-# from joblib import Parallel, delayed
-
 class DataGenerator(keras.utils.Sequence):
     """Generate data for Keras."""
 
@@ -23,7 +20,7 @@ class DataGenerator(keras.utils.Sequence):
         n_channels_out=1, out_scale=5, shuffle=True, camnames=[],
         crop_width=(0, 1024), crop_height=(20, 1300),
         samples_per_cluster=0, training=True,
-        vidreaders=None, chunks=3500):
+        vidreaders=None, chunks=3500, preload=True):
         """Initialize Generator."""
         self.dim_in = dim_in
         self.dim_out = dim_in
@@ -43,6 +40,7 @@ class DataGenerator(keras.utils.Sequence):
         self.samples_per_cluster = samples_per_cluster
         self.training = training
         self._N_VIDEO_FRAMES = chunks
+        self.preload = preload
         self.on_epoch_end()
 
         if self.vidreaders is not None:
@@ -50,6 +48,14 @@ class DataGenerator(keras.utils.Sequence):
                 vidreaders[camnames[0][0]].keys())[0].rsplit('.')[-1]
 
         assert len(self.list_IDs) == len(self.clusterIDs)
+
+        if not self.preload:
+            # then we keep a running video object so at least we don't open a new one every time
+            self.currvideo = {}
+            self.currvideo_name = {}
+            for cc in camnames[0]:
+                self.currvideo[cc] = None
+                self.currvideo_name[cc] = None
 
     def __len__(self):
         """Denote the number of batches per epoch."""
@@ -87,26 +93,31 @@ class DataGenerator(keras.utils.Sequence):
         This is currently implemented for handling only one camera as input
         """
 
-        pixelformat = "yuv420p"
-        input_params = ["-hwaccel", "nvdec", "-c:v", "h264_cuvid", 
-            "-hwaccel_device", self.gpuID]
-        output_params = []
-
         fname = str(
            self. _N_VIDEO_FRAMES * int(np.floor(ind / self._N_VIDEO_FRAMES))) + extension
         frame_num = int(ind % self._N_VIDEO_FRAMES)
         keyname = os.path.join(camname, fname)
         if preload:
-            return self.vidreaders[camname][keyname].get_data(frame_num).astype('uint8')
+            return self.vidreaders[camname][keyname].get_data(
+                frame_num).astype('uint8')
         else:
-            vid = imageio.get_reader(self.vidreaders[camname][keyname],
-                pixelformat=pixelformat,
-                input_params=input_params, 
-                output_params=output_params)
-            im = vid.get_data(frame_num).astype('uint8') # keep as uint8 to save bandwidth
-            # Without a sleep here, ffmpeg can hang on video close
-            # time.sleep(0.01)
-            vid.close()
+            thisvid_name = self.vidreaders[camname][keyname]
+            abname = thisvid_name.split('/')[-1]
+            if abname == self.currvideo_name[camname]:
+                vid = self.currvideo[camname]
+            else:
+                vid = imageio.get_reader(thisvid_name)
+                print("Loading new video: {} for {}".format(abname, camname))
+                self.currvideo_name[camname] = abname
+                # close current vid
+                # Without a sleep here, ffmpeg can hang on video close
+                time.sleep(0.25)
+                if self.currvideo[camname] is not None:
+                    self.currvideo[camname].close()
+                self.currvideo[camname] = vid
+
+            im = vid.get_data(frame_num).astype('uint8')
+
             return im
 
 
@@ -132,7 +143,7 @@ class DataGenerator_3Dconv_kmeans(DataGenerator):
             self, list_IDs, labels, clusterIDs, batch_size, dim_in,
             n_channels_in, n_channels_out, out_scale, shuffle,
             camnames, crop_width, crop_height,
-            samples_per_cluster, training, vidreaders, chunks)
+            samples_per_cluster, training, vidreaders, chunks, preload)
         self.vmin = vmin
         self.vmax = vmax
         self.nvox = nvox
@@ -145,7 +156,6 @@ class DataGenerator_3Dconv_kmeans(DataGenerator):
         self.channel_combo = channel_combo
         print(self.channel_combo)
         self.mode = mode
-        self.preload = preload
         self.immode = immode
         self.tifdirs = tifdirs
         self.com3d = com3d
@@ -162,23 +172,6 @@ class DataGenerator_3Dconv_kmeans(DataGenerator):
         # If saving npy as uint8 rather than training directly, dont normalize
         self.norm_im = norm_im
         self.gpuID = gpuID
-
-        if self.pregrid is not None:
-            # Then we need to save our world size for later use
-            # we expect pregride to be (coord_x,coord_y,coord_z)
-            self.worldsize = np.min(pregrid[0])
-
-        if self.stamp:
-            # To save time, "stamp" a 3d gaussian at each marker position
-            (x_coord_3d, y_coord_3d, z_coord_3d) = \
-                np.meshgrid(
-                    np.arange(self.worldsize, -self.worldsize, self.vsize),
-                    np.arange(self.worldsize, -self.worldsize, self.vsize),
-                    np.arange(self.worldsize, -self.worldsize, self.vsize))
-
-            self.stamp_ = np.exp(
-                -((y_coord_3d - 0)**2 + (x_coord_3d - 0)**2 +
-                  (z_coord_3d - 0)**2) / (2 * self.out_scale**2))
 
     def __getitem__(self, index):
         """Generate one batch of data."""
@@ -233,41 +226,6 @@ class DataGenerator_3Dconv_kmeans(DataGenerator):
             return X, y_3d, rots
         else:
             return X, y_3d
-
-    def fetch_grid(self, c):
-        """Return ROI from pregrid."""
-        c0 = int((c[0] - (self.worldsize)) / self.vsize)
-        c1 = int((c[1] - (self.worldsize)) / self.vsize)
-        c2 = int((c[2] - (self.worldsize)) / self.vsize)
-
-        x_coord_3d = self.pregrid[0][
-            c0 - self.nvox // 2:c0 + self.nvox // 2,
-            c0 - self.nvox // 2:c0 + self.nvox // 2,
-            c0 - self.nvox // 2:c0 + self.nvox // 2]
-        y_coord_3d = self.pregrid[1][
-            c1 - self.nvox // 2:c1 + self.nvox // 2,
-            c1 - self.nvox // 2:c1 + self.nvox // 2,
-            c1 - self.nvox // 2:c1 + self.nvox // 2]
-        z_coord_3d = self.pregrid[2][
-            c2 - self.nvox // 2:c2 + self.nvox // 2,
-            c2 - self.nvox // 2:c2 + self.nvox // 2,
-            c2 - self.nvox // 2:c2 + self.nvox // 2]
-
-        return x_coord_3d, y_coord_3d, z_coord_3d
-
-    def fetch_projgrid(self, c, e, cam):
-        """Return ROI from pre_projgrid."""
-        c0 = int((c[0] - (self.worldsize)) / self.vsize)
-        c1 = int((c[1] - (self.worldsize)) / self.vsize)
-        c2 = int((c[2] - (self.worldsize)) / self.vsize)
-
-        proj_grid = self.pre_projgrid[e][cam][
-            c1 - self.nvox // 2:c1 + self.nvox // 2,
-            c0 - self.nvox // 2:c0 + self.nvox // 2,
-            c2 - self.nvox // 2:c2 + self.nvox // 2].copy()
-        proj_grid = np.reshape(proj_grid, [-1, 3])
-
-        return proj_grid
 
     # TODO(this vs self): The this_* naming convention is hard to read.
     # Consider revising
@@ -572,7 +530,7 @@ class DataGenerator_3Dconv_kmeans_torch(DataGenerator):
             self, list_IDs, labels, clusterIDs, batch_size, dim_in,
             n_channels_in, n_channels_out, out_scale, shuffle,
             camnames, crop_width, crop_height,
-            samples_per_cluster, training, vidreaders, chunks)
+            samples_per_cluster, training, vidreaders, chunks, preload)
         self.vmin = vmin
         self.vmax = vmax
         self.nvox = nvox
@@ -586,7 +544,6 @@ class DataGenerator_3Dconv_kmeans_torch(DataGenerator):
         print(self.channel_combo)
         self.gpuID = gpuID
         self.mode = mode
-        self.preload = preload
         self.immode = immode
         self.tifdirs = tifdirs
         self.com3d = com3d
@@ -616,28 +573,9 @@ class DataGenerator_3Dconv_kmeans_torch(DataGenerator):
         config.gpu_options.per_process_gpu_memory_fraction = 0.45
         config.gpu_options.allow_growth = True
         self.session = tf.compat.v1.InteractiveSession(config=config, graph = tf.Graph())
-
-        if self.pregrid is not None:
-            # Then we need to save our world size for later use
-            # we expect pregride to be (coord_x,coord_y,coord_z)
-            self.worldsize = np.min(pregrid[0])
-
-        if self.stamp:
-            # To save time, "stamp" a 3d gaussian at each marker position
-            (x_coord_3d, y_coord_3d, z_coord_3d) = \
-                self.torch.meshgrid(
-                    self.torch.arange(self.worldsize, -self.worldsize, self.vsize),
-                    self.torch.arange(self.worldsize, -self.worldsize, self.vsize),
-                    self.torch.arange(self.worldsize, -self.worldsize, self.vsize))
-
-            self.stamp_ = np.exp(
-                -((y_coord_3d - 0)**2 + (x_coord_3d - 0)**2 +
-                  (z_coord_3d - 0)**2) / (2 * self.out_scale**2))
-
         for i, ID in enumerate(list_IDs):
             experimentID = int(ID.split('_')[0])
             for camname in self.camnames[experimentID]:
-
                 # M only needs to be computed once for each camera               
                 K = self.camera_params[experimentID][camname]['K']
                 R = self.camera_params[experimentID][camname]['R']
@@ -934,9 +872,13 @@ class DataGenerator_3Dconv_kmeans_torch(DataGenerator):
                 X = X.transpose(4,5).reshape((X.shape[0], X.shape[1], 
                     X.shape[2], X.shape[3],
                     X.shape[4] * X.shape[5])) 
+        else:
+            # Then leave the batch_size and num_cams combined
+            y_3d = y_3d.repeat(num_cams,1,1,1,1)
 
-        # Then leave the batch_size and num_cams combined
-        y_3d = y_3d.repeat(len(self.camnames[experimentID]),1,1,1,1)
+        # 3dprob is required for *training* MAX networks
+        if self.mode == '3dprob':
+            y_3d = y_3d.permute([0, 2, 3, 4, 1])
 
         if self.rotation:
             if self.expval:
@@ -1008,7 +950,7 @@ class DataGenerator_3Dconv_kmeans_tf(DataGenerator):
             self, list_IDs, labels, clusterIDs, batch_size, dim_in,
             n_channels_in, n_channels_out, out_scale, shuffle,
             camnames, crop_width, crop_height,
-            samples_per_cluster, training, vidreaders, chunks)
+            samples_per_cluster, training, vidreaders, chunks, preload)
         self.vmin = vmin
         self.vmax = vmax
         self.nvox = nvox
@@ -1022,7 +964,6 @@ class DataGenerator_3Dconv_kmeans_tf(DataGenerator):
         print(self.channel_combo)
         self.gpuID = gpuID
         self.mode = mode
-        self.preload = preload
         self.immode = immode
         self.tifdirs = tifdirs
         self.com3d = com3d
@@ -1136,41 +1077,6 @@ class DataGenerator_3Dconv_kmeans_tf(DataGenerator):
             return X, y_3d, rots
         else:
             return X, y_3d
-
-    def fetch_grid(self, c):
-        """Return ROI from pregrid."""
-        c0 = int((c[0] - (self.worldsize)) / self.vsize)
-        c1 = int((c[1] - (self.worldsize)) / self.vsize)
-        c2 = int((c[2] - (self.worldsize)) / self.vsize)
-
-        x_coord_3d = self.pregrid[0][
-            c0 - self.nvox // 2:c0 + self.nvox // 2,
-            c0 - self.nvox // 2:c0 + self.nvox // 2,
-            c0 - self.nvox // 2:c0 + self.nvox // 2]
-        y_coord_3d = self.pregrid[1][
-            c1 - self.nvox // 2:c1 + self.nvox // 2,
-            c1 - self.nvox // 2:c1 + self.nvox // 2,
-            c1 - self.nvox // 2:c1 + self.nvox // 2]
-        z_coord_3d = self.pregrid[2][
-            c2 - self.nvox // 2:c2 + self.nvox // 2,
-            c2 - self.nvox // 2:c2 + self.nvox // 2,
-            c2 - self.nvox // 2:c2 + self.nvox // 2]
-
-        return x_coord_3d, y_coord_3d, z_coord_3d
-
-    def fetch_projgrid(self, c, e, cam):
-        """Return ROI from pre_projgrid."""
-        c0 = int((c[0] - (self.worldsize)) / self.vsize)
-        c1 = int((c[1] - (self.worldsize)) / self.vsize)
-        c2 = int((c[2] - (self.worldsize)) / self.vsize)
-
-        proj_grid = self.pre_projgrid[e][cam][
-            c1 - self.nvox // 2:c1 + self.nvox // 2,
-            c0 - self.nvox // 2:c0 + self.nvox // 2,
-            c2 - self.nvox // 2:c2 + self.nvox // 2].copy()
-        proj_grid = np.reshape(proj_grid, [-1, 3])
-
-        return proj_grid
 
     def project_grid(self, X_grid, camname, ID, experimentID, device):
         ts = time.time()
@@ -1464,7 +1370,8 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
 
     def __init__(
         self, list_IDs, data, labels, batch_size, rotation=True, random=True,
-        chan_num=3, shuffle=True, expval=False, xgrid=None, var_reg=False, nvox=64):
+        chan_num=3, shuffle=True, expval=False, xgrid=None, var_reg=False, nvox=64,
+        cam3_train=False):
         """Initialize data generator."""
         self.list_IDs = list_IDs
         self.data = data
@@ -1479,6 +1386,7 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         if self.expval:
             self.xgrid = xgrid
         self.nvox = nvox
+        self.cam3_train=cam3_train
         self.on_epoch_end()
 
     def __len__(self):
@@ -1580,6 +1488,14 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
                 (X.shape[0], X.shape[1], X.shape[2], X.shape[3],
                     X.shape[4] * X.shape[5]),
                 order='F')
+
+
+        if self.cam3_train:
+            # If random camera shuffling is turned on, we can just take the first 3 cameras and get a nice
+            # random distribution of sets of 3
+            if not self.random:
+                warnings.warn("Set to generate data from a random subset of 3 cameras, but cameras are not being shuffled")
+            X = X[:, :, :, :, :9] #3 cameras * 3 RGB channels
 
         if self.expval:
             if self.var_reg:

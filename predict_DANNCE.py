@@ -205,7 +205,8 @@ valid_params = {
     'distort': CONFIG_PARAMS['DISTORT'],
     'expval': CONFIG_PARAMS['EXPVAL'],
     'crop_im': False,
-    'chunks': CONFIG_PARAMS['chunks']}
+    'chunks': CONFIG_PARAMS['chunks'],
+    'preload': False}
 
 # Datasets
 partition = {}
@@ -314,20 +315,20 @@ def evaluate_ondemand(start_ind, end_ind, valid_gen, vids):
                     tcoord=False)                
                 pass
 
-        if framecnt is not None:
-            # We can't keep all these videos open, so close the ones
-            # that are not needed
+        # if framecnt is not None:
+        #     # We can't keep all these videos open, so close the ones
+        #     # that are not needed
 
-            vids_, lastvid_, currvid_ = processing.sequential_vid(vids,
-                                                                  datadict,
-                                                                  partition,
-                                                                  CONFIG_PARAMS,
-                                                                  framecnt,
-                                                                  currvid_,
-                                                                  lastvid_,
-                                                                  i)
-            valid_gen.vidreaders = vids_
-            vids = vids_
+        #     vids_, lastvid_, currvid_ = processing.sequential_vid(vids,
+        #                                                           datadict,
+        #                                                           partition,
+        #                                                           CONFIG_PARAMS,
+        #                                                           framecnt,
+        #                                                           currvid_,
+        #                                                           lastvid_,
+        #                                                           i)
+        #     valid_gen.vidreaders = vids_
+        #     vids = vids_
 
         ts = time.time()
         ims = valid_gen.__getitem__(i)
