@@ -1,6 +1,6 @@
 # path to folder where DANNCE weights and logs will be saved
 RESULTSDIR: ./DANNCE/train_results/
-RESULTSDIR_PREDICT: ./DANNCE/predict_results_moreCOMaug/
+RESULTSDIR_PREDICT: ./DANNCE/predict_results/
 
 # How to crop the input images. The U-Net expects each dimension size to be a multiple of 32.
 CROP_HEIGHT: [0, 1024]
@@ -131,4 +131,8 @@ cthresh: 350
 CHANNEL_COMBO: 'None'
 
 # max. number of batches to evaluate during prediction. set to 'max' to evaluate over all data/video frames
-maxbatch: 10
+maxbatch: 1000
+
+retriangulate: False
+
+predict_mode: 'torch'

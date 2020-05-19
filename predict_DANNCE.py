@@ -29,10 +29,6 @@ import scipy.io as sio
 from copy import deepcopy
 import shutil
 
-predict_mode = 'tf' # 'torch', 'tf', 'none'
-
-_N_VIEWS = 6
-
 # Set up parameters
 PARENT_PARAMS = processing.read_config(sys.argv[1])
 PARENT_PARAMS = processing.make_paths_safe(PARENT_PARAMS)
@@ -57,37 +53,39 @@ print(RESULTSDIR)
 if not os.path.exists(RESULTSDIR):
     os.makedirs(RESULTSDIR)
 
+predict_mode = CONFIG_PARAMS['predict_mode']
+print("Using {} predict mode".format(predict_mode))
+
 # Copy the configs into the RESULTSDIR, for reproducibility
 processing.copy_config(RESULTSDIR, sys.argv[1],
                         PARENT_PARAMS['DANNCE_CONFIG'],
                         PARENT_PARAMS['COM_CONFIG'])
 
-# TODO(Devices): Is it necessary to set the device environment?
-# This could mess with people's setups.
+# Default to 6 views but a smaller number of views can be specified in the DANNCE config.
+# If the legnth of the camera files list is smaller than _N_VIEWS, relevant lists will be
+# duplicated in order to match _N_VIEWS, if possible.
+_N_VIEWS = int(CONFIG_PARAMS['_N_VIEWS'] if '_N_VIEWS' in CONFIG_PARAMS.keys() else 6)
+
+
 os.environ["CUDA_VISIBLE_DEVICES"] =  CONFIG_PARAMS['gpuID']
 gpuID = CONFIG_PARAMS['gpuID']
 
-# If len(CONFIG_PARAMS['experiment']['CAMNAMES']) divides evenly into 6, duplicate here
-dupes = ['CAMNAMES', 'datafile', 'calib_file']
-for d in dupes:
-    val = CONFIG_PARAMS['experiment'][d]
-    if _N_VIEWS % len(val) == 0:
-        num_reps = _N_VIEWS // len(val)
-        CONFIG_PARAMS['experiment'][d] = val * num_reps
-    else:
-        raise Exception("The length of the {} list must divide evenly into {}.".format(d, _N_VIEWS))
+# If len(CONFIG_PARAMS['experiment']['CAMNAMES']) divides evenly into 6, duplicate here,
+# Unless the network was "hard" trained to use less than 6 cameras
+if 'hard_train' in PARENT_PARAMS.keys() and PARENT_PARAMS['hard_train']:
+    print("Not duplicating camnames, datafiles, and calib files")
+else:
+    dupes = ['CAMNAMES', 'datafile', 'calib_file']
+    for d in dupes:
+        val = CONFIG_PARAMS['experiment'][d]
+        if _N_VIEWS % len(val) == 0:
+            num_reps = _N_VIEWS // len(val)
+            CONFIG_PARAMS['experiment'][d] = val * num_reps
+        else:
+            raise Exception("The length of the {} list must divide evenly into {}.".format(d, _N_VIEWS))
 
 samples_, datadict_, datadict_3d_, data_3d_, cameras_ = \
     serve_data.prepare_data(CONFIG_PARAMS['experiment'])
-
-# Load in the COM file at the default location, or use one in the config file if provided
-if 'COMfilename' in CONFIG_PARAMS.keys():
-    comfn = CONFIG_PARAMS['COMfilename']
-else:
-    comfn = os.path.join('.', 'COM', 'predict_results')
-    comfn = os.listdir(comfn)
-    comfn = [f for f in comfn if 'COM_undistorted.pickle' in f]
-    comfn = os.path.join('.', 'COM', 'predict_results', comfn[0])
 
 if 'allcams' in CONFIG_PARAMS.keys() and CONFIG_PARAMS['allcams']: # Make sure all cameras in debug fields are added, so that COM predictions
 # can be more stable
@@ -102,21 +100,30 @@ if 'allcams' in CONFIG_PARAMS.keys() and CONFIG_PARAMS['allcams']: # Make sure a
             dcameras_[CONFIG_PARAMS['dCAMNAMES'][i]]['RDistort'] = test['RDistort']
             dcameras_[CONFIG_PARAMS['dCAMNAMES'][i]]['TDistort'] = test['TDistort']
 
-datadict_, com3d_dict_ = serve_data.prepare_COM(
-    comfn,
-    datadict_,
-    comthresh=CONFIG_PARAMS['comthresh'],
-    weighted=CONFIG_PARAMS['weighted'],
-    retriangulate=CONFIG_PARAMS['retriangulate'] if 'retriangulate' in CONFIG_PARAMS.keys() else True,
-    camera_mats=dcameras_ if 'allcams' in CONFIG_PARAMS.keys() and CONFIG_PARAMS['allcams'] else cameras_,
-    method=CONFIG_PARAMS['com_method'],
-    allcams=CONFIG_PARAMS['allcams'] if 'allcams' in CONFIG_PARAMS.keys() and CONFIG_PARAMS['allcams'] else False)
 
 if 'COM3D_DICT' not in CONFIG_PARAMS.keys():
 
+    # Load in the COM file at the default location, or use one in the config file if provided
+    if 'COMfilename' in CONFIG_PARAMS.keys():
+        comfn = CONFIG_PARAMS['COMfilename']
+    else:
+        comfn = os.path.join('.', 'COM', 'predict_results')
+        comfn = os.listdir(comfn)
+        comfn = [f for f in comfn if 'COM_undistorted.pickle' in f]
+        comfn = os.path.join('.', 'COM', 'predict_results', comfn[0])
+
+    datadict_, com3d_dict_ = serve_data.prepare_COM(
+        comfn,
+        datadict_,
+        comthresh=CONFIG_PARAMS['comthresh'],
+        weighted=CONFIG_PARAMS['weighted'],
+        retriangulate=CONFIG_PARAMS['retriangulate'] if 'retriangulate' in CONFIG_PARAMS.keys() else True,
+        camera_mats=dcameras_ if 'allcams' in CONFIG_PARAMS.keys() and CONFIG_PARAMS['allcams'] else cameras_,
+        method=CONFIG_PARAMS['com_method'],
+        allcams=CONFIG_PARAMS['allcams'] if 'allcams' in CONFIG_PARAMS.keys() and CONFIG_PARAMS['allcams'] else False)
+
     # Need to cap this at the number of samples included in our
     # COM finding estimates
-
     tff = list(com3d_dict_.keys())
     samples_ = samples_[:len(tff)]
     data_3d_ = data_3d_[:len(tff)]
@@ -135,11 +142,9 @@ else:
     for (i, s) in enumerate(c3dsi):
         com3d_dict_[s] = c3d[i]
 
-    samples_ = c3dsi
-
     #verify all of these samples are in datadict_, which we require in order to get the frames IDs
     # for the videos
-    assert (set(samples_) & set(list(datadict_.keys()))) == set(samples_)
+    assert (set(c3dsi) & set(list(datadict_.keys()))) == set(list(datadict_.keys()))
 
 # Write 3D COM to file
 cfilename = os.path.join(RESULTSDIR,'COM3D_undistorted.mat')
@@ -209,13 +214,13 @@ partition['valid_sampleIDs'] = samples[valid_inds]
 tifdirs = []
 
 # Generators
-if predict_mode is 'torch':
+if predict_mode == 'torch':
     import torch
     device = 'cuda:' + gpuID
     valid_generator = DataGenerator_3Dconv_kmeans_torch(
         partition['valid_sampleIDs'], datadict, datadict_3d, cameras,
         partition['valid_sampleIDs'], com3d_dict, tifdirs, **valid_params)
-elif predict_mode is 'tf':
+elif predict_mode == 'tf':
     device = '/GPU:' + gpuID
     valid_generator = DataGenerator_3Dconv_kmeans_tf(
         partition['valid_sampleIDs'], datadict, datadict_3d, cameras,
@@ -344,7 +349,7 @@ def evaluate_ondemand(start_ind, end_ind, valid_gen, vids):
             # print("Saving took {} sec.".format(time.time() - ts))
             
         else:
-            if predict_mode is 'torch':
+            if predict_mode == 'torch':
                 for j in range(pred.shape[0]):
                     preds = torch.as_tensor(pred[j,:,:,:,:], dtype = torch.float32, device = device)
                     pred_max = preds.max(0).values.max(0).values.max(0).values
@@ -361,7 +366,7 @@ def evaluate_ondemand(start_ind, end_ind, valid_gen, vids):
                         'logmax': pred_log.cpu().numpy(),
                         'sampleID': sampleID}
 
-            elif predict_mode is 'tf':
+            elif predict_mode == 'tf':
                 # get coords for each map
                 with tf.device(device):
                     for j in range(pred.shape[0]):
