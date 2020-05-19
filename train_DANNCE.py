@@ -13,21 +13,25 @@ experiment config files  to support training over multiple animals.
 import sys
 import numpy as np
 import os
-
+import keras.backend as K
 from copy import deepcopy
 import dannce.engine.serve_data_DANNCE as serve_data
 import dannce.engine.processing as processing
+from dannce.engine.processing import savedata_tomat, savedata_expval
 from dannce.engine.generator_kmeans import DataGenerator_3Dconv_kmeans
+from dannce.engine.generator_kmeans import DataGenerator_3Dconv_kmeans_torch
+from dannce.engine.generator_kmeans import DataGenerator_3Dconv_kmeans_tf
 from dannce.engine.generator_kmeans import DataGenerator_3Dconv_frommem
 from dannce.engine import nets
 from dannce.engine import losses
 from dannce.engine import ops
 from six.moves import cPickle
-from tensorflow.keras.models import load_model
-from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.callbacks import ModelCheckpoint, CSVLogger, TensorBoard
+from keras.layers import Conv3D, Input
+from keras.models import Model, load_model
+from keras.optimizers import Adam
+from keras.callbacks import ModelCheckpoint, CSVLogger, TensorBoard
 import scipy.io as sio
-import tensorflow
+import keras
 
 # Set up parameters
 PARENT_PARAMS = processing.read_config(sys.argv[1])
@@ -50,7 +54,7 @@ for m in CONFIG_PARAMS['metric']:
     try:
         m_obj = getattr(losses, m)
     except AttributeError:
-        m_obj = getattr(tensorflow.keras.losses, m)
+        m_obj = getattr(keras.losses, m)
     metrics.append(m_obj)
 
 # set GPU ID
@@ -215,7 +219,7 @@ samples = np.array(samples)
 
 # Open videos for all experiments
 if 'VID_PRELOAD' not in CONFIG_PARAMS.keys():
-    CONFIG_PARAMS['VID_PRELOAD'] = True
+    CONFIG_PARAMS['VID_PRELOAD'] = False
 
 if not CONFIG_PARAMS['VID_PRELOAD']:
     print("Not preloading all videos")
@@ -248,14 +252,13 @@ for e in range(num_experiments):
                                  ['CAMNAMES'][i].split('_')[1], addl),
                     maxopt=flist,  # Large enough to encompass all videos in directory.
                     extension=CONFIG_PARAMS['experiment'][e]['extension'],
-                    pathonly=True)
+                    pathonly=True) #not CONFIG_PARAMS['VID_PRELOAD']
 
             # Add e to key
             vids[CONFIG_PARAMS['experiment'][e]['CAMNAMES'][i]] = {}
             for key in r:
-                vids[CONFIG_PARAMS['experiment'][e]['CAMNAMES'][i]][str(e) +
-                                                                    '_' + key]\
-                                                                    = r[key]
+                print(r[key])
+                vids[CONFIG_PARAMS['experiment'][e]['CAMNAMES'][i]][str(e) + '_' + key] = r[key]
 
 # Parameters
 if CONFIG_PARAMS['EXPVAL']:
@@ -302,7 +305,7 @@ valid_params = {
     'expval': CONFIG_PARAMS['EXPVAL'],
     'crop_im': False,
     'chunks': CONFIG_PARAMS['chunks'],
-    'preload': False}
+    'preload': False} # CONFIG_PARAMS['VID_PRELOAD']
 
 # Setup a generator that will read videos and labels
 tifdirs = []  # Training from single images not yet supported in this demo
@@ -342,7 +345,7 @@ else:
         partition['valid_sampleIDs'] = cPickle.load(f)
     partition['train_sampleIDs'] = [f for f in samples if f not in partition['valid_sampleIDs']]
 
-train_generator = DataGenerator_3Dconv_kmeans(partition['train_sampleIDs'],
+train_generator = DataGenerator_3Dconv_kmeans_tf(partition['train_sampleIDs'],
                                               datadict,
                                               datadict_3d,
                                               cameras,
@@ -415,9 +418,13 @@ for i in range(len(partition['train_sampleIDs'])):
     if CONFIG_PARAMS['EXPVAL']:
         X_train[i] = rr[0][0]
         X_train_grid[i] = rr[0][1]
+        # print('X_train_grid[i]')
     else:
         X_train[i] = rr[0]
     y_train[i] = rr[1]
+    # print(y_train[i])
+    # print(X_train[i])
+
 
 print("Loading validation data into memory")
 for i in range(len(partition['valid_sampleIDs'])):
