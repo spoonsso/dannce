@@ -182,7 +182,7 @@ def close_open_vids(
                 vikey = key.split(os.sep)[1]
                 if lastvid == vikey:
                     print("Closing video: {}".format(key))
-                    vids[cnames[n]][key].close()
+                    vids[cnames[n]][key].release()
         lastvid_ = lastvid
 
     # Open new vids for this interval
