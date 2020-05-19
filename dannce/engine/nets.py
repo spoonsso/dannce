@@ -699,7 +699,7 @@ def finetune_AVG(lossfunc, lr, input_dim, feature_num,
     # Add new output conv. layer
     new_conv = Conv3D(new_n_channels_out,
                       new_last_kern_size,
-                      activation='sigmoid',
+                      activation='linear',
                       padding='same')(old_out)
 
     grid_centers = Input((None, 3))
@@ -729,6 +729,8 @@ def finetune_MAX(lossfunc, lr, input_dim, feature_num,
                        batch_norm,
                        instance_norm,
                        include_top=False)
+
+    print(model.summary())
 
     # Load weights
     model.load_weights(weightspath, by_name=True)

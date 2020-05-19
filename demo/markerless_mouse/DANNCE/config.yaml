@@ -12,7 +12,7 @@ N_CHANNELS_IN: 3
 # If training from scratch, set to the desired number of output channels (i.e. keypoints)
 # If fine-tuning, this must match the previous number of output channels, and the new desired
 # number is set by NEW_N_CHANNELS_OUT
-N_CHANNELS_OUT: 22
+N_CHANNELS_OUT: 20
 
 # New number of network output channels.
 NEW_N_CHANNELS_OUT: 22
@@ -20,7 +20,7 @@ NEW_N_CHANNELS_OUT: 22
 NEW_LAST_KERNEL_SIZE: [3,3,3]
 
 # BATCH_SIZE
-BATCH_SIZE: 1
+BATCH_SIZE: 4
 
 # Number of parallel workers serving data to the model
 WORKERS: 4
@@ -32,7 +32,7 @@ MAX_QUEUE_SIZE: 128
 SIGMA: 10
 
 # DANNCE training option. Sets the number of epochs during training (default 1200)
-EPOCHS: 12000
+EPOCHS: 2
 
 # DANNCE training option. Sets the verbosity of training output
 VERBOSE: 1
@@ -51,8 +51,9 @@ lr: 1e-3
 net: finetune_MAX
 
 # By default, will load in the first hdf5 file at this location for fine-tuning. If training from scratch, set to None
-weights: ./DANNCE/weights/
+#weights: ./DANNCE/weights/
 #weights: None
+weights: /home/twd/Dropbox/DANNCE/demo/calibrd18_black6_mouseone_green/DANNCE/weights_MAX/
 
 # whether to use batch normalization or instance normalization. cannot both be true. If fine-tuning, this must be the same setting as used for the initial network
 batch_norm: False
@@ -75,7 +76,7 @@ metric: ['mse']
 #['euclidean_distance_3D','centered_euclidean_distance_3D']
 
 # How many samples from each animal do you want to (randomly) set aside for a validation metric?
-num_validation_per_exp: 9
+num_validation_per_exp: 4
 
 # Path to load in a specific set of validation sampleIDs
 #load_valid: 
@@ -119,7 +120,7 @@ EXPVAL: False
 comthresh: 0
 
 # If True, will weight the COM estimate in each camera by its confidence score
-weighted: false
+weighted: False
 
 # Method of combining 3D COMs across camera pairs. Options: 'median', 'mean'
 com_method: 'median'
