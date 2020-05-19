@@ -120,6 +120,40 @@ class DataGenerator(keras.utils.Sequence):
 
             return im
 
+    def random_rotate(self, X, y_3d, log=False):
+        """Rotate each sample by 0, 90, 180, or 270 degrees.
+        log indicates whether to return the rotation pattern (for saving) as well.
+
+        This method is shared for all types of generates and is thus inherited from the
+        baser DataGenerator class.
+
+        Individual rot180(), etc. functions are child class specirfic but can be called from the
+        parent
+        """
+        rots = np.random.choice(np.arange(4), X.shape[0])
+        for i in range(X.shape[0]):
+            if rots[i] == 0:
+                pass
+            elif rots[i] == 1:
+                # Rotate180
+                X[i] = self.rot180(X[i])
+                y_3d[i] = self.rot180(y_3d[i])
+            elif rots[i] == 2:
+                # Rotate90
+                X[i] = self.rot90(X[i])
+                y_3d[i] = self.rot90(y_3d[i])
+            elif rots[i] == 3:
+                # Rotate -90/270
+                X[i] = self.rot90(X[i])
+                X[i] = self.rot180(X[i])
+                y_3d[i] = self.rot90(y_3d[i])
+                y_3d[i] = self.rot180(y_3d[i])
+
+        if log:
+            return X, y_3d, rots
+        else:
+            return X, y_3d
+
 
 class DataGenerator_3Dconv_kmeans(DataGenerator):
     """Update generator class to resample from kmeans clusters after each epoch.
@@ -198,35 +232,6 @@ class DataGenerator_3Dconv_kmeans(DataGenerator):
         X = X[::-1, ::-1, :, :]
         return X
 
-    def random_rotate(self, X, y_3d, log=False):
-        """Rotate each sample by 0, 90, 180, or 270 degrees.
-
-        log indicates whether to return the rotation pattern (for saving) as well
-        """
-        rots = np.random.choice(np.arange(4), X.shape[0])
-        for i in range(X.shape[0]):
-            if rots[i] == 0:
-                pass
-            elif rots[i] == 1:
-                # Rotate180
-                X[i] = self.rot180(X[i])
-                y_3d[i] = self.rot180(y_3d[i])
-            elif rots[i] == 2:
-                # Rotate90
-                X[i] = self.rot90(X[i])
-                y_3d[i] = self.rot90(y_3d[i])
-            elif rots[i] == 3:
-                # Rotate -90/270
-                X[i] = self.rot90(X[i])
-                X[i] = self.rot180(X[i])
-                y_3d[i] = self.rot90(y_3d[i])
-                y_3d[i] = self.rot180(y_3d[i])
-
-        if log:
-            return X, y_3d, rots
-        else:
-            return X, y_3d
-
     # TODO(this vs self): The this_* naming convention is hard to read.
     # Consider revising
     # TODO(nesting): There is pretty deep locigal nesting in this function,
@@ -245,7 +250,6 @@ class DataGenerator_3Dconv_kmeans(DataGenerator):
             dtype='float32')
 
         if self.mode == '3dprob':
-            print('3dprob')
             y_3d = np.zeros(
                 (self.batch_size, self.n_channels_out, *self.dim_out_3d),
                 dtype='float32')
@@ -610,35 +614,6 @@ class DataGenerator_3Dconv_kmeans_torch(DataGenerator):
         """Rotate X by 180 degrees."""
         X = X.flip(0).flip(1)
         return X
-
-    def random_rotate(self, X, y_3d, log=False):
-        """Rotate each sample by 0, 90, 180, or 270 degrees.
-
-        log indicates whether to return the rotation pattern (for saving) as well
-        """
-        rots = np.random.choice(np.arange(4), X.shape[0])
-        for i in range(X.shape[0]):
-            if rots[i] == 0:
-                pass
-            elif rots[i] == 1:
-                # Rotate180
-                X[i] = self.rot180(X[i])
-                y_3d[i] = self.rot180(y_3d[i])
-            elif rots[i] == 2:
-                # Rotate90
-                X[i] = self.rot90(X[i])
-                y_3d[i] = self.rot90(y_3d[i])
-            elif rots[i] == 3:
-                # Rotate -90/270
-                X[i] = self.rot90(X[i])
-                X[i] = self.rot180(X[i])
-                y_3d[i] = self.rot90(y_3d[i])
-                y_3d[i] = self.rot180(y_3d[i])
-
-        if log:
-            return X, y_3d, rots
-        else:
-            return X, y_3d
 
     def fetch_grid(self, c):
         """Return ROI from pregrid."""
@@ -1050,34 +1025,6 @@ class DataGenerator_3Dconv_kmeans_tf(DataGenerator):
         X = X[::-1, ::-1, :, :]
         return X
 
-    def random_rotate(self, X, y_3d, log=False):
-        """Rotate each sample by 0, 90, 180, or 270 degrees.
-        log indicates whether to return the rotation pattern (for saving) as well
-        """
-        rots = np.random.choice(np.arange(4), X.shape[0])
-        for i in range(X.shape[0]):
-            if rots[i] == 0:
-                pass
-            elif rots[i] == 1:
-                # Rotate180
-                X[i] = self.rot180(X[i])
-                y_3d[i] = self.rot180(y_3d[i])
-            elif rots[i] == 2:
-                # Rotate90
-                X[i] = self.rot90(X[i])
-                y_3d[i] = self.rot90(y_3d[i])
-            elif rots[i] == 3:
-                # Rotate -90/270
-                X[i] = self.rot90(X[i])
-                X[i] = self.rot180(X[i])
-                y_3d[i] = self.rot90(y_3d[i])
-                y_3d[i] = self.rot180(y_3d[i])
-
-        if log:
-            return X, y_3d, rots
-        else:
-            return X, y_3d
-
     def project_grid(self, X_grid, camname, ID, experimentID, device):
         ts = time.time()
         with tf.device(device):
@@ -1488,7 +1435,6 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
                 (X.shape[0], X.shape[1], X.shape[2], X.shape[3],
                     X.shape[4] * X.shape[5]),
                 order='F')
-
 
         if self.cam3_train:
             # If random camera shuffling is turned on, we can just take the first 3 cameras and get a nice

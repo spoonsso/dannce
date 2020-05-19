@@ -54,6 +54,47 @@ def initialize_vids(CONFIG_PARAMS, datadict, pathonly=True):
 
     return vids
 
+def initialize_vids_train(CONFIG_PARAMS, datadict, e, vids, pathonly=True):
+    """
+    Initializes video path dictionaries for a training session. This is different
+        than a predict session because it operates over a single animal ("experiment")
+        oat a time
+    """
+    for i in range(len(CONFIG_PARAMS['experiment'][e]['CAMNAMES'])):
+        # Rather than opening all vids, only open what is needed based on the 
+        # maximum frame ID for this experiment and Camera
+        flist = []
+        for key in datadict.keys():
+            if int(key.split('_')[0]) == e:
+                flist.append(datadict[key]['frames']
+                             [CONFIG_PARAMS['experiment'][e]['CAMNAMES'][i]])
+
+        flist = max(flist)
+
+        if CONFIG_PARAMS['vid_dir_flag']:
+            addl = ''
+        else:
+            addl = os.listdir(os.path.join(
+                CONFIG_PARAMS['experiment'][e]['viddir'],
+                CONFIG_PARAMS['experiment'][e]['CAMNAMES'][i].split('_')[1]))[0]
+        r = \
+            generate_readers(
+                CONFIG_PARAMS['experiment'][e]['viddir'],
+                os.path.join(CONFIG_PARAMS['experiment'][e]
+                             ['CAMNAMES'][i].split('_')[1], addl),
+                maxopt=flist,  # Large enough to encompass all videos in directory.
+                extension=CONFIG_PARAMS['experiment'][e]['extension'],
+                pathonly=pathonly)
+
+        # Add e to key
+        vids[CONFIG_PARAMS['experiment'][e]['CAMNAMES'][i]] = {}
+        for key in r:
+            vids[CONFIG_PARAMS['experiment'][e]['CAMNAMES'][i]][str(e) +
+                                                                '_' + key]\
+                                                                = r[key]
+
+    return vids
+
 def copy_config(RESULTSDIR,main_config,dannce_config,com_config):
     """
     Copies config files into the results directory
