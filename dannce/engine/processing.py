@@ -18,10 +18,21 @@ import shutil
 import time
 import tensorflow as tf
 
-def initialize_vids_predict(CONFIG_PARAMS, minopt, maxopt):
+def initialize_vids(CONFIG_PARAMS, datadict, pathonly=True):
     """
     Modularizes video dict initialization
     """
+    flist = []
+
+    for i in range(len(CONFIG_PARAMS['experiment']['CAMNAMES'])):
+        # Rather than opening all vids, only open what is needed based on the 
+        # maximum frame ID for this experiment and Camera
+        for key in datadict.keys():
+            flist.append(datadict[key]['frames']
+                         [CONFIG_PARAMS['experiment']['CAMNAMES'][i]])
+
+    flist = max(flist)
+
     vids = {}
     if CONFIG_PARAMS['IMMODE'] == 'vid':
         for i in range(len(CONFIG_PARAMS['experiment']['CAMNAMES'])):
@@ -37,48 +48,11 @@ def initialize_vids_predict(CONFIG_PARAMS, minopt, maxopt):
                     CONFIG_PARAMS['experiment']['viddir'],
                     os.path.join(CONFIG_PARAMS['experiment']['CAMNAMES'][i], addl),
                     minopt=0,
-                    maxopt=10000000,
+                    maxopt=flist,
                     extension=CONFIG_PARAMS['experiment']['extension'],
-                    pathonly=True,
-                    gpuID = CONFIG_PARAMS['gpuID'])
+                    pathonly=pathonly)
 
     return vids
-    
-def sequential_vid(vids, datadict, partition, CONFIG_PARAMS, framecnt, currvid_, lastvid_, i, key='valid_sampleIDs'):
-    """
-    Modularizes ondemand video loading
-    """
-
-    currentframes = datadict[
-    partition[key][
-            i * CONFIG_PARAMS['BATCH_SIZE']]]['frames']
-    m = min(
-        [i * CONFIG_PARAMS['BATCH_SIZE'] + CONFIG_PARAMS['BATCH_SIZE'],
-         len(partition[key]) - 1]
-    )
-
-    curr_frames_max = \
-        datadict[partition[key][m]]['frames']
-    maxframes = max(list(curr_frames_max.values()))
-    currentframes = min(list(currentframes.values()))
-    lastvid = str(currentframes // framecnt * framecnt - framecnt) \
-        + CONFIG_PARAMS['experiment']['extension']
-    currvid = maxframes // framecnt * framecnt
-
-    vids_, lastvid_, currvid_ = close_open_vids(
-        lastvid, lastvid_,
-        currvid,
-        currvid_,
-        framecnt,
-        CONFIG_PARAMS['experiment']['CAMNAMES'],
-        vids,
-        CONFIG_PARAMS['vid_dir_flag'],
-        CONFIG_PARAMS['experiment']['viddir'],
-        currentframes,
-        maxframes,
-        CONFIG_PARAMS['gpuID'])
-
-    return vids_, lastvid_, currvid_
 
 def copy_config(RESULTSDIR,main_config,dannce_config,com_config):
     """
@@ -162,51 +136,6 @@ def inherit_config(child, parent, keys):
             child[key] = parent[key]
 
     return child
-
-def close_open_vids(
-    lastvid, lastvid_, currvid, currvid_, framecnt, cnames, vids,
-    vid_dir_flag, viddir, currentframes, maxframes, gpuID):
-    """Track which videos are required for each batch and open/close them.
-
-    When long recordings are split over many video files,
-    ffmpeg cannot spawn enough processes at one time.
-    Thus, we need to keep track of which videos are required
-    for each batch and open/close them as necessary.
-    """
-    ext = '.' + list(vids[cnames[0]].keys())[0].split('.')[-1]
-    # Only trigger closing if there is a "new" lastvid
-    if lastvid != lastvid_:
-        print('attempting to close video')
-        for n in range(len(cnames)):
-            for key in list(vids[cnames[n]].keys()):
-                vikey = key.split(os.sep)[1]
-                if lastvid == vikey:
-                    print("Closing video: {}".format(key))
-                    vids[cnames[n]][key].close()
-        lastvid_ = lastvid
-
-    # Open new vids for this interval
-    if currvid != currvid_:
-        currvid_ = currvid
-        for j in range(len(cnames)):
-            if vid_dir_flag:
-                addl = ''
-            else:
-                # TODO(undefined): camnames
-                addl = os.listdir(os.path.join(viddir, cnames[j]))[0]
-            nvids = \
-                generate_readers(
-                    viddir,
-                    os.path.join(cnames[j], addl),
-                    minopt=currentframes // framecnt * framecnt - framecnt,
-                    maxopt=maxframes,
-                    extension=ext,
-                    gpuID=gpuID)
-            # This is necessary so we don't overwrite videos we might still be using
-            for key in nvids:
-                vids[cnames[j]][key] = nvids[key] 
-    return vids, lastvid_, currvid_
-
 
 def batch_rgb2gray(imstack):
     """Convert to gray image-wise.
@@ -301,7 +230,7 @@ def batch_maximum(imstack):
 
 
 def generate_readers(
-    viddir, camname, minopt=0, maxopt=300000, pathonly=False, extension='.mp4', gpuID="0"):
+    viddir, camname, minopt=0, maxopt=300000, pathonly=False, extension='.mp4'):
     """Open all mp4 objects with imageio, and return them in a dictionary."""
     print('NOTE: Ignoring mp4 files numbered above {}'.format(maxopt))
     out = {}
@@ -332,46 +261,8 @@ def generate_readers(
                         pixelformat=pixelformat, 
                         input_params=input_params, 
                         output_params=output_params)
-            # NVdec (nvidia hardware decoding) is disabled on some FFmpeg packages, 
-            # causing delay on video reader generation. 
-            # Default X264 decoding (on CPU) performance and overhead is similar
-            # try:
-            #     out[mp4files_scrub[i]] = \
-            #         imageio.get_reader(os.path.join(viddir, mp4files[i]), 
-            #             pixelformat=pixelformat, 
-            #             input_params=["-hwaccel","nvdec", "-c:v","h264_cuvid", "-hwaccel_device", gpuID], 
-            #             output_params=output_params)
-            # except:
-            #     out[mp4files_scrub[i]] = \
-            #         imageio.get_reader(os.path.join(viddir, mp4files[i]), 
-            #             pixelformat=pixelformat, 
-            #             input_params=input_params, 
-            #             output_params=output_params)
+
     return out
-
-
-def generate_readers_wrap(CONFIG_PARAMS, vid_dir_flag=False):
-    """TODO(description).
-
-    This is a new version of generate_readers that calls the old version.
-    This higher level wrapper accounts for the use case
-    wherein the numbered subdirectories have not been removed from the
-    video folders
-    """
-    vids = {}
-    for i in range(len(CONFIG_PARAMS['CAMNAMES'])):
-        if vid_dir_flag:
-            addl = ''
-        else:
-            addl = os.listdir(os.path.join(
-                CONFIG_PARAMS['viddir'], CONFIG_PARAMS['CAMNAMES'][i]))[0]
-        vids[CONFIG_PARAMS['CAMNAMES'][i]] = \
-            generate_readers(
-                CONFIG_PARAMS['viddir'],
-                os.path.join(CONFIG_PARAMS['CAMNAMES'][i], addl),
-                maxopt=70000, extension='.mp4')
-    return vids
-
 
 def cropcom(im, com, size=512):
     """Crops single input image around the coordinates com."""
@@ -428,76 +319,6 @@ def read_config(filename):
     return CONFIG_PARAMS
 
 
-def collect_predictions_2D(model, valid_generator):
-    """Return prediction for each model of images generated with valid_generator.
-
-    Returns the locations of the peaks for each keypoint, as predicted by the
-    model for a set of input images, peak positions for the ground truth
-    are also returned
-    """
-    num_ims = valid_generator.__len__()
-
-    # Get first object, to be used to initialize other variables
-    # with the correct size
-    firstim = valid_generator.__getitem__(0)
-    num_views = len(valid_generator.camnames)
-    num_markers = valid_generator.n_channels_out
-    batch_size = valid_generator.batch_size
-
-    valid = np.zeros((batch_size * num_ims, num_views, num_markers, 2))
-    truth = np.zeros((batch_size * num_ims, num_views, num_markers, 2))
-    valid_peak = np.zeros((batch_size * num_ims, num_views, num_markers))
-
-    cnt = 0
-    for i in range(num_ims):
-        ims = valid_generator.__getitem__(i)
-        if i % 100 == 0:
-            print(i)
-        for j in range(batch_size):
-            im = ims[0][j * num_views:(j + 1) * num_views]
-            pred_single = model.predict(im)
-            truth_single = ims[1][j * num_views:(j + 1) * num_views]
-            for k in range(pred_single.shape[-1]):
-                valid[cnt, :, k, :] = batch_maximum(pred_single[:, :, :, k])
-                truth[cnt, :, k, :] = batch_maximum(truth_single[:, :, :, k])
-                valid_peak[cnt, :, k] = \
-                    np.max(np.max(pred_single[:, :, :, k], axis=1), axis=1)
-            cnt = cnt + 1
-    return valid, truth, valid_peak
-
-
-def err_vs_kept(err, pmax, bins=100):
-    """Plot mean dist error as a func of proportion of frames kept and thresh."""
-    thresh_range = np.linspace(0, 1, bins)
-    kept = np.zeros((bins,))
-    error = np.zeros((bins,))
-    for i in range(bins):
-        this_thresh = thresh_range[i]
-        inds = np.where(pmax > this_thresh)[0]
-        error[i] = np.mean(err[inds])
-        kept[i] = len(inds) / len(err)
-    return error, kept
-
-
-def err_vs_kept_percentile(err, pmax, bins=100, pct=50):
-    """Calculate distance error at a set percentile.
-
-    as a function of the proportion of frames kept, as the peak threshold varies
-    """
-    thresh_range = np.linspace(0, 1, bins)
-    kept = np.zeros((bins,))
-    error = np.zeros((bins,))
-    for i in range(bins):
-        this_thresh = thresh_range[i]
-        inds = np.where(pmax > this_thresh)[0]
-        if err[inds].size == 0:
-            error[i] = np.nan
-        else:
-            error[i] = np.percentile(err[inds], pct)
-        kept[i] = len(inds) / len(err)
-    return error, kept
-
-
 def plot_markers_2d(im, markers, newfig=True):
     """Plot markers in two dimensions."""
 
@@ -545,6 +366,7 @@ def plot_markers_3d(stack, nonan=True):
             z.append(np.nan)
     return x, y, z
 
+
 def plot_markers_3d_tf(stack, nonan=True):
     """Return the 3d coordinates for each of the peaks in probability maps."""
     with tf.device(stack.device):
@@ -568,6 +390,7 @@ def plot_markers_3d_tf(stack, nonan=True):
                     z[mark].assign(np.nan)
         return x, y, z
 
+
 def plot_markers_3d_torch(stack, nonan=True):
     """Return the 3d coordinates for each of the peaks in probability maps."""
     import torch
@@ -587,7 +410,8 @@ def plot_markers_3d_torch(stack, nonan=True):
                 x[mark] = torch.nan
                 y[mark] = torch.nan
                 z[mark] = torch.nan
-    return x,y,z
+    return x, y, z
+
 
 def unravel_index(index, shape):
     out = []
@@ -595,30 +419,6 @@ def unravel_index(index, shape):
         out.append(index % dim)
         index = index // dim
     return tuple(reversed(out))
-
-def write_unprojected_grids(imstack, fn):
-    """Write grids to tif files for visualization.
-
-    input--
-        imstack: shape (nvox, nvox, nvox, 9). Last index corresponds to 3
-        cameras w/ 3 channels (i.e. RGB)
-        fn: list of paths + filenames for each saved grid volume
-    """
-    imstack[:, :, :, :3] = norm_im(imstack[:, :, :, :3])
-    imstack[:, :, :, 3:6] = norm_im(imstack[:, :, :, 3:6])
-    imstack[:, :, :, 6:] = norm_im(imstack[:, :, :, 6:])
-
-    imageio.mimwrite(
-        fn[0],
-        [((imstack[:, :, i, :3]) * 255).astype('uint8') for i in range(128)])
-
-    imageio.mimwrite(
-        fn[1],
-        [((imstack[:, :, i, 3:6]) * 255).astype('uint8') for i in range(128)])
-
-    imageio.mimwrite(
-        fn[2],
-        [((imstack[:, :, i, 6:]) * 255).astype('uint8') for i in range(128)])
 
 
 def grid_channelwise_max(grid_):
@@ -654,82 +454,6 @@ def moment_3d(im, mesh, thresh=0):
         y.append(np.sum(mesh[1] * im_norm))
         z.append(np.sum(mesh[2] * im_norm))
     return x, y, z
-
-
-def animate_predictions(preds):
-    """Animate predictions."""
-    # As a global import, this produces seg faults
-    import matplotlib.pyplot as plt
-
-    truth_out = np.zeros((preds.shape[0], 20, 3))
-    pred_out = np.zeros((preds.shape[0], 20, 3))
-
-    fig, ((ax1, ax2, ax3), (ax4, ax5, ax6)) = plt.subplots(2, 3)
-    aa = ax1.imshow(np.max(np.mean(preds[0, :, :, :, :], axis=2), axis=2))
-    ax1.axis('off')
-    ax1.set_title('XY')
-    bb = ax2.imshow(
-        np.max(np.mean(preds[0, :, :, :, :], axis=0), axis=2)[:, ::-1].T)
-    ax2.axis('off')
-    ax2.set_title('XZ')
-    cc = ax3.imshow(
-        np.max(np.mean(preds[0, :, :, :, :], axis=1), axis=2)[:, ::-1].T)
-    ax3.axis('off')
-    ax3.set_title('YZ')
-
-    # plot just the peak values now
-    dd_1, = ax4.plot([0], [0], 'or', mfc='none')
-    dd_2, = ax4.plot([0], [0], 'ob', mfc='none')
-    ax4.set_facecolor('k')
-    ax4.set_xlim([0, 96])
-    ax4.set_ylim([0, 96])
-    ax4.axis('off')
-    ax4.set_title('XY')
-
-    ee_1, = ax5.plot([0], [0], 'or', mfc='none')
-    ee_2, = ax5.plot([0], [0], 'ob', mfc='none')
-    ax5.set_facecolor('k')
-    ax5.set_xlim([0, 96])
-    ax5.set_ylim([0, 96])
-    ax5.axis('off')
-    ax5.set_title('XZ')
-
-    ff_1, = ax6.plot([0], [0], 'or', mfc='none')
-    ff_2, = ax6.plot([0], [0], 'ob', mfc='none')
-    ax6.set_xlim([0, 96])
-    ax6.set_ylim([0, 96])
-    ax5.set_facecolor('black')
-    ax6.axis('off')
-    ax6.set_title('YZ')
-
-    for i in range(preds.shape[0]):
-        aa.set_data(np.max(np.mean(preds[i, :, :, :, :], axis=2), axis=2))
-        bb.set_data(np.max(np.mean(preds[i, :, :, :, :], axis=0), axis=2)[:, ::-1].T)
-        cc.set_data(np.max(np.mean(preds[i, :, :, :, :], axis=1), axis=2)[:, ::-1].T)
-
-        # Todo(undefined): ims
-        x, y, z = plot_markers_3d(ims[1][i, :, :, :, :], nonan=False)
-        dd_1.set_xdata(x)
-        dd_1.set_ydata(y)
-        ee_1.set_xdata(x)
-        ee_1.set_ydata(z)
-        ff_1.set_xdata(y)
-        ff_1.set_ydata(z)
-        truth_out[i, :, 0] = x
-        truth_out[i, :, 1] = y
-        truth_out[i, :, 2] = z
-        x, y, z = plot_markers_3d(preds[i, :, :, :, :])
-        dd_2.set_xdata(x)
-        dd_2.set_ydata(y)
-        ee_2.set_xdata(x)
-        ee_2.set_ydata(z)
-        ff_2.set_xdata(y)
-        ff_2.set_ydata(z)
-        pred_out[i, :, 0] = x
-        pred_out[i, :, 1] = y
-        pred_out[i, :, 2] = z
-        fig.canvas.draw()
-    return truth_out, pred_out
 
 
 def get_peak_inds(map_):
@@ -859,58 +583,3 @@ def spatial_entropy(map_):
     """Calculate the spatial entropy of the input."""
     map_ = map_ / np.sum(map_)
     return -1 * np.sum(map_ * np.log(map_))
-
-
-def align_data(datamat, rotate=True):
-    """Align mocap data.
-
-    Takes in a raw mocap data matrix and aligns the data via mean subtraction
-    of SpineM positions and x-y rotation relative to the orientation of
-    the SpineF->SpineM segment
-
-    inputs--
-        datmat: n-d numpy array of 20-point 3-D mocap data to be aligned.
-        The assumption here is that the
-            x-y-z coordinates for individual points have been linearized and
-            follow the standard order
-            set by the mocapstruct variables in Jesse's data repositories. So
-            the standard size is
-            (num_frames, 60)
-
-    outputs--
-        n-d numpy array, aligned data.
-    """
-    # SpineM is 5th row (index 4)
-    # SpineF is 4th row (index 3)
-    # Reshape so that each marker is a row
-    tens = np.reshape(datamat, (datamat.shape[0], 20, 3))
-
-    # Subtract Spine M mean
-    tens = tens - tens[:, 4, np.newaxis, :]
-
-    if rotate:
-        # get angle between SpineM and SpineF
-        ang = np.arctan2(
-            -(tens[:, 3, 1] - tens[:, 4, 1]), tens[:, 3, 0] - tens[:, 4, 0])
-
-        # Construct rotation matrix
-        global_rotmatrix = np.zeros((ang.shape[0], 2, 2))
-        global_rotmatrix[:, 0, 0] = np.cos(ang)
-        global_rotmatrix[:, 1, 0] = np.sin(ang)
-        global_rotmatrix[:, 0, 1] = -np.sin(ang)
-        global_rotmatrix[:, 1, 1] = np.cos(ang)
-
-        # Rotate x-y
-        rotated = np.zeros((tens.shape[0], 2, 20))
-        for i in range(rotated.shape[0]):
-            rotated[i] = global_rotmatrix[i] @ tens[i, :, :2].T
-
-        # Add z component back
-        rotated = np.concatenate(
-            (rotated, np.transpose(tens[:, :, 2, np.newaxis], [0, 2, 1])), axis=1)
-        rotated = np.transpose(rotated, [0, 2, 1])
-
-        return np.reshape(rotated, (rotated.shape[0], datamat.shape[1]))
-
-    else:
-        return np.reshape(tens, datamat.shape)

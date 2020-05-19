@@ -9,10 +9,8 @@ import time
 
 import tensorflow as tf
 import tensorflow.keras.losses as keras_losses
-from tensorflow.keras.layers import Conv3D, Input
-from tensorflow.keras.optimizers import Adam
 
-from tensorflow.keras.models import Model, load_model
+from tensorflow.keras.models import load_model
 import tensorflow.keras.backend as K
 
 from dannce.engine import losses
@@ -26,8 +24,6 @@ from dannce.engine.generator_kmeans import DataGenerator_3Dconv_kmeans_torch
 from dannce.engine.generator_kmeans import DataGenerator_3Dconv_kmeans_tf
 
 import scipy.io as sio
-from copy import deepcopy
-import shutil
 
 # Set up parameters
 PARENT_PARAMS = processing.read_config(sys.argv[1])
@@ -45,7 +41,6 @@ CONFIG_PARAMS['net'] = getattr(nets, CONFIG_PARAMS['net'])
 
 # While we can use experiment files for DANNCE training, 
 # for prediction we use the base data files present in the main config
-
 CONFIG_PARAMS['experiment'] = PARENT_PARAMS
 RESULTSDIR = CONFIG_PARAMS['RESULTSDIR_PREDICT']
 print(RESULTSDIR)
@@ -53,7 +48,9 @@ print(RESULTSDIR)
 if not os.path.exists(RESULTSDIR):
     os.makedirs(RESULTSDIR)
 
-predict_mode = CONFIG_PARAMS['predict_mode']
+# default to slow numpy backend if there is no rpedict_mode in config file. I.e. legacy support
+predict_mode = CONFIG_PARAMS['predict_mode'] if 'predict_mode' in CONFIG_PARAMS.keys() \
+                    else 'numpy'
 print("Using {} predict mode".format(predict_mode))
 
 # Copy the configs into the RESULTSDIR, for reproducibility
@@ -87,8 +84,12 @@ else:
 samples_, datadict_, datadict_3d_, data_3d_, cameras_ = \
     serve_data.prepare_data(CONFIG_PARAMS['experiment'])
 
-if 'allcams' in CONFIG_PARAMS.keys() and CONFIG_PARAMS['allcams']: # Make sure all cameras in debug fields are added, so that COM predictions
-# can be more stable
+if 'allcams' in CONFIG_PARAMS.keys() and CONFIG_PARAMS['allcams']:
+    # This code allows a COM estimate from e.g. 6 cameras to be used when running 
+    # DANNCE with 3 cameras
+    # Primarily used for debugging
+    # Make sure all cameras in debug fields are added, so that COM predictions
+    # can be more stable
     dcameras_ = {}
     for i in range(len(CONFIG_PARAMS['dCAMNAMES'])):
         test = sio.loadmat(
@@ -154,7 +155,6 @@ for i in range(len(samples_)):
     c3d[i] = com3d_dict_[samples_[i]]
 sio.savemat(cfilename, {'sampleID': samples_, 'com': c3d})
 
-# TODO(Comment): Unclear what this section is doing.
 # The library is configured to be able to train over multiple animals ("experiments")
 # at once. Because supporting code expects to see an experiment ID# prepended to
 # each of these data keys, we need to add a token experiment ID here.
@@ -171,10 +171,8 @@ camnames = {}
 camnames[0] = CONFIG_PARAMS['experiment']['CAMNAMES']
 samples = np.array(samples)
 
-vids = processing.initialize_vids_predict(CONFIG_PARAMS, minopt=0, maxopt=1)
-
-# Set framecnt according to the "chunks" config param
-framecnt = CONFIG_PARAMS['chunks']
+# Initialize video dictionary. paths to videos only.
+vids = processing.initialize_vids(CONFIG_PARAMS, datadict, pathonly=True)
 
 # Parameters
 valid_params = {
@@ -277,15 +275,14 @@ else:
 
 save_data = {}
 
-def evaluate_ondemand(start_ind, end_ind, valid_gen, vids):
+
+def evaluate_ondemand(start_ind, end_ind, valid_gen):
     """Evaluate experiment.
     :param start_ind: Starting frame
     :param end_ind: Ending frame
     :param valid_gen: Generator
     """
     end_time = time.time()
-    lastvid_ = '0' + CONFIG_PARAMS['experiment']['extension']
-    currvid_ = 0
     for i in range(start_ind, end_ind):
         print("Predicting on batch {}".format(i))
         if (i - start_ind) % 10 == 0 and i != start_ind:
@@ -312,30 +309,13 @@ def evaluate_ondemand(start_ind, end_ind, valid_gen, vids):
                     write=True,
                     data=save_data,
                     num_markers=nchn,
-                    tcoord=False)                
-                pass
-
-        # if framecnt is not None:
-        #     # We can't keep all these videos open, so close the ones
-        #     # that are not needed
-
-        #     vids_, lastvid_, currvid_ = processing.sequential_vid(vids,
-        #                                                           datadict,
-        #                                                           partition,
-        #                                                           CONFIG_PARAMS,
-        #                                                           framecnt,
-        #                                                           currvid_,
-        #                                                           lastvid_,
-        #                                                           i)
-        #     valid_gen.vidreaders = vids_
-        #     vids = vids_
+                    tcoord=False)
 
         ts = time.time()
         ims = valid_gen.__getitem__(i)
-        # print("Loading took {} seconds".format(time.time()-ts))
+
         ts = time.time()
         pred = model.predict(ims[0])
-        # print("Prediction took {} seconds".format(time.time()-ts))
 
         ts = time.time()
         if CONFIG_PARAMS['EXPVAL']:
@@ -347,8 +327,6 @@ def evaluate_ondemand(start_ind, end_ind, valid_gen, vids):
                     'pred_max': pred_max,
                     'pred_coord': pred[j],
                     'sampleID': sampleID}
-            # print("Saving took {} sec.".format(time.time() - ts))
-            
         else:
             if predict_mode == 'torch':
                 for j in range(pred.shape[0]):
@@ -403,7 +381,6 @@ def evaluate_ondemand(start_ind, end_ind, valid_gen, vids):
                         'logmax': pred_log,
                         'sampleID': sampleID}
 
-            # print("Saving took {} sec.".format(time.time() - ts))
 
 max_eval_batch = CONFIG_PARAMS['maxbatch']
 if max_eval_batch == 'max':
@@ -416,7 +393,7 @@ else:
 
 if CONFIG_PARAMS['EXPVAL']:
     get_output = K.function([model.layers[0].input, K.learning_phase()], [model.layers[-3].output])
-    evaluate_ondemand(0, max_eval_batch, valid_generator, vids)
+    evaluate_ondemand(0, max_eval_batch, valid_generator)
 
     p_n = savedata_expval(
         RESULTSDIR + 'save_data_AVG.mat',
@@ -426,7 +403,7 @@ if CONFIG_PARAMS['EXPVAL']:
         num_markers=nchn,
         pmax=True)
 else:
-    evaluate_ondemand(0, max_eval_batch, valid_generator, vids)
+    evaluate_ondemand(0, max_eval_batch, valid_generator)
 
     p_n = savedata_tomat(
         RESULTSDIR + 'save_data_MAX.mat',
