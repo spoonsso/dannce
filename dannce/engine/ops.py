@@ -7,18 +7,12 @@ from scipy.interpolate import RegularGridInterpolator
 import tensorflow.keras.initializers as initializers
 import tensorflow.keras.constraints as constraints
 import tensorflow.keras.regularizers as regularizers
-
-# import keras.initializers as initializers
-# import keras.constraints as constraints
-# import keras.regularizers as regularizers
-
-#from keras.engine import Layer, InputSpec
 from tensorflow.keras.layers import Layer, InputSpec
-#from keras.utils.generic_utils import get_custom_objects
 from tensorflow.keras.utils import get_custom_objects
 
 import cv2
 import time
+
 
 def camera_matrix(K, R, t):
     """Derive the camera matrix.
@@ -31,6 +25,7 @@ def camera_matrix(K, R, t):
     M = [R;t] * K
     """
     return np.concatenate((R, t), axis=0) @ K
+
 
 def project_to2d(pts, K, R, t):
     """Project 3d points to 2d.
@@ -47,6 +42,7 @@ def project_to2d(pts, K, R, t):
     projPts[:, :2] = projPts[:, :2] / projPts[:, 2:]
 
     return projPts
+
 
 def project_to2d_torch(pts, M, device):
     """Project 3d points to 2d.
@@ -68,7 +64,7 @@ def project_to2d_torch(pts, M, device):
 
     return projPts
 
-# @tf.function
+
 def project_to2d_tf(projPts, M):
     """Project 3d points to 2d.
 
@@ -83,6 +79,7 @@ def project_to2d_tf(projPts, M):
     projPts = projPts[:, :2] / projPts[:, 2:]
 
     return projPts
+
 
 def sample_grid(im, projPts, method='linear'):
     """Transfer 3d features to 2d by projecting down to 2d grid.
@@ -157,13 +154,14 @@ def sample_grid(im, projPts, method='linear'):
         raise Exception("not a valid interpolation method")
     return proj_r, proj_g, proj_b
 
+
 def sample_grid_torch_nearest(im, projPts, device, method='bilinear'):
     """Unproject features."""
     # im_x, im_y are the x and y coordinates of each projected 3D position.
     # These are concatenated here for every image in each batch,
     import torch
 
-    feats = torch.as_tensor(im, device = device) 
+    feats = torch.as_tensor(im, device=device)
     grid = projPts
     c = int(round(projPts.shape[0]**(1/3.)))
 
@@ -178,7 +176,8 @@ def sample_grid_torch_nearest(im, projPts, device, method='bilinear'):
 
     Ir = feats[im_yr, im_xr]
 
-    return Ir.reshape((c,c,c,-1)).permute(3,0,1,2).unsqueeze(0)
+    return Ir.reshape((c, c, c, -1)).permute(3, 0, 1, 2).unsqueeze(0)
+
 
 def sample_grid_torch_linear(im, projPts, device, method='bilinear'):
     """Unproject features."""
@@ -186,7 +185,7 @@ def sample_grid_torch_linear(im, projPts, device, method='bilinear'):
     # These are concatenated here for every image in each batch,
     import torch
 
-    feats = torch.as_tensor(im, device = device) 
+    feats = torch.as_tensor(im, device=device)
     grid = projPts
     c = int(round(projPts.shape[0]**(1/3.)))
 
@@ -238,7 +237,8 @@ def sample_grid_torch_linear(im, projPts, device, method='bilinear'):
     Ibilin = wa.unsqueeze(1) * Ia + wb.unsqueeze(1) * Ib + \
         wc.unsqueeze(1) * Ic + wd.unsqueeze(1) * Id
 
-    return Ibilin.reshape((c,c,c,-1)).permute(3,0,1,2).unsqueeze(0)
+    return Ibilin.reshape((c, c, c, -1)).permute(3, 0, 1, 2).unsqueeze(0)
+
 
 def sample_grid_torch(im, projPts, device, method='linear'):
     """Transfer 3d features to 2d by projecting down to 2d grid, using torch.
@@ -257,6 +257,7 @@ def sample_grid_torch(im, projPts, device, method='linear'):
 
     return proj_rgb
 
+
 def sample_grid_tf(im, projPts, device, method='linear'):
     """Transfer 3d features to 2d by projecting down to 2d grid.
 
@@ -283,7 +284,7 @@ def sample_grid_tf(im, projPts, device, method='linear'):
 
         return proj_rgb
 
-# @tf.function # breaks if you make this a tf function
+
 def sample_grid_tf(im, projPts, device, method='linear'):
     """Transfer 3d features to 2d by projecting down to 2d grid.
 
@@ -309,6 +310,7 @@ def sample_grid_tf(im, projPts, device, method='linear'):
             raise Exception("not a valid interpolation method")
 
         return proj_rgb
+
 
 @tf.function
 def unproj_tf_nearest(feats, grid, batch_size):
@@ -476,7 +478,7 @@ def unproj(feats, grid, batch_size):
     Ibilin = tf.transpose(Ibilin, [0, 1, 3, 2, 4, 5])
     return Ibilin
 
-def unDistortPoints(pts, 
+def unDistortPoints(pts,
                     intrinsicMatrix,
                     radialDistortion,
                     tangentDistortion,
@@ -494,11 +496,10 @@ def unDistortPoints(pts,
         dcoef = dcoef + [0]
 
     ts = time.time()
-    pts_u = cv2.undistortPoints(np.reshape(pts,(-1,1,2)).astype('float32'),
+    pts_u = cv2.undistortPoints(np.reshape(pts,(-1, 1, 2)).astype('float32'),
                                 intrinsicMatrix.T,
                                 np.array(dcoef),
                                 P=intrinsicMatrix.T)
-    # print('cv2.undistort took ' + str(time.time() - ts) + ' seconds total.')
 
     pts_u = np.reshape(pts_u, (-1,2))
 
@@ -549,109 +550,6 @@ def ravel_multi_index(I, J, shape):
     """
     r, c = shape
     return I * c + J
-
-
-def proj(feats, grid, batch_size, fw, fh):
-    """Convert 3d coordinate likelihood map to 2d.
-
-    :param fw: output 2D image width
-    :param fh: output 2D image height
-    """
-    # If this is operating on the final outptu 3d volume, this will be
-    # nR: batch size
-    # fx: nVox
-    # fy: nVox
-    # fz: nVox
-    # fdim: number of markers
-    nR, fx, fy, fz, fdim = K.int_shape(feats)
-
-    # nR2: batch_size*num_cams
-    # nV: nVox**3
-    # nD: should be 2, or 3 when appending depth (not current supported)
-    nR2, nV, nD = K.int_shape(grid)
-
-    # make sure all projected indices fit onto the feature map
-    im_x = tf.clip_by_value(grid[:, :, 0], 0, fw - 1)
-    im_y = tf.clip_by_value(grid[:, :, 1], 0, fh - 1)
-
-    # round all indices down?
-    im_x0 = tf.cast(tf.floor(im_x), 'int32')
-    # new array with rounded projected indices + 1
-
-    # TODO(variables_assigned_but_not_used): im_x1 and im_y1
-    im_x1 = im_x0 + 1
-    im_y0 = tf.cast(tf.floor(im_y), 'int32')
-    im_y1 = im_y0 + 1
-
-    # We need to gather over the grid now, not the 2D feature
-    #  map as in unprojection
-    grid_range = tf.range(fx)
-    grid_inds = tf.stack(tf.meshgrid(grid_range, grid_range, grid_range))
-    grid_inds = tf.reshape(grid_inds, [3, -1])
-
-    # nR should be just be batch_size here
-    # eg. [0,1,2,3,4,5] for 3 cams, batch_size=2
-    ind_grid = tf.range(0, nR)
-    ind_grid = tf.expand_dims(ind_grid, 1)
-    # nV is the number of voxels, so this tiling operation produces
-    # e.g. [0,0,0,0,0,0; 1,1,1,1,1,1]
-    im_ind = tf.tile(ind_grid, [1, nV])
-
-    def _get_gather_inds(x, y, z):
-        return tf.reshape(tf.stack([im_ind, y, x, z], axis=2), [-1, 4])
-
-    # Gather  values at every position in 3d grid
-    Ia = tf.gather_nd(
-        feats, _get_gather_inds(
-            grid_inds[0, :], grid_inds[1, :], grid_inds[2, :]))
-    # Ia should be a tensor of shape (batch_size*nVox*nVox*nVox, fdim)
-    # remember, im_x is shape (batch_size*num_cams, nvox*nvox*novx),
-    # i.e. the x landing coordinate of every grid center in each camera
-    # linearize the indices of each pixel coordinate
-    im_inds = tf.stack(tf.meshgrid(tf.range(fh), tf.range(fw)))
-    im_inds = tf.reshape(im_inds, [2, -1])
-    im_inds = ravel_multi_index(im_inds[0, :], im_inds[1, :], (fh, fw))
-    im_inds = im_inds[tf.newaxis, tf.newaxis, :]
-
-    # linearize the indices of each rounded projected coordinate
-    # this gives flattened array coordinates in a matrix of size
-    # (batch_size*num_cams,nvox**3)
-    proj_inds = ravel_multi_index(im_x0, im_y0)
-
-    # Use broadcasting and tf.equal to get a matrix of boolean masks
-    # the final size should be:
-    # (batch_size*num_cams,nVox**3,fw*fh)
-    # TODO(variables_assigned_but_not_used): eq
-    eq = tf.equal(im_inds, proj_inds[:, :, tf.newaxis])
-
-    # Now we need to use this to index Ia (the values on the 3D grid),
-    # and take the maximum to result in (batch_size*num_cams,fw*fh,fdim)
-    # the maximum will be taken over
-
-    # Calculate bilinear weights
-    # We've now sampled the feature maps at corners around the projected
-    # values. Here, the corners are weights by distance
-    # from the projected value
-
-    # TODO(undefined_values): Many of these values have not been defined:
-    # im_x1_f im_y1_f im_y0_f im_x0_f
-    wa = (im_x1_f - im_x) * (im_y1_f - im_y)
-    wb = (im_x1_f - im_x) * (im_y - im_y0_f)
-    wc = (im_x - im_x0_f) * (im_y1_f - im_y)
-    wd = (im_x - im_x0_f) * (im_y - im_y0_f)
-
-    # Why is this reshape necessary?
-    # TODO(undefined_values): Many of these values have not been defined:
-    # Ib Ic Id
-    wa, wb = tf.reshape(wa, [-1, 1]), tf.reshape(wb, [-1, 1])
-    wc, wd = tf.reshape(wc, [-1, 1]), tf.reshape(wd, [-1, 1])
-    Ibilin = tf.add_n([wa * Ia, wb * Ib, wc * Ic, wd * Id])
-    Ibilin = tf.reshape(
-        Ibilin,
-        [batch_size, nR // batch_size, int((nV + 1)**(1 / 3)),
-            int((nV + 1)**(1 / 3)), int((nV + 1)**(1 / 3)), fdim])
-    Ibilin = tf.transpose(Ibilin, [0, 1, 3, 2, 4, 5])
-    return Ibilin
 
 
 def collapse_dims(T):
@@ -968,6 +866,7 @@ def distortPoints(points, intrinsicMatrix, radialDistortion, tangentialDistortio
 
     return distortedPoints
 
+
 def distortPoints_torch(points, intrinsicMatrix, radialDistortion, tangentialDistortion, device):
     """Distort points according to camera parameters.
     Ported from Matlab 2018a
@@ -1024,6 +923,7 @@ def distortPoints_torch(points, intrinsicMatrix, radialDistortion, tangentialDis
     distortedPoints = torch.stack((distortedPointsX, distortedPointsY))
 
     return distortedPoints
+
 
 @tf.function
 def distortPoints_tf(points, intrinsicMatrix, radialDistortion, tangentialDistortion):
@@ -1089,8 +989,6 @@ def expected_value_3d(prob_map, grid_centers):
     """
     bs, h, w, d, channels = K.int_shape(prob_map)
 
-    nvox = K.int_shape(grid_centers)[1]
-
     prob_map = tf.reshape(prob_map, [-1, channels])
 
     grid_centers = tf.reshape(grid_centers, [-1, 3])
@@ -1132,8 +1030,7 @@ def var_3d(prob_map, grid_centers, markerlocs):
     markerlocs is (batch_size,3,channels)
     """
     bs, h, w, d, channels = K.int_shape(prob_map)
-    # TODO(unused): nvox
-    nvox = K.int_shape(grid_centers)[1]
+
     prob_map = tf.reshape(prob_map, [-1, channels])
 
     # we need the squared distance between all grid centers and

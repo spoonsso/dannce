@@ -131,7 +131,7 @@ cthresh: 350
 CHANNEL_COMBO: 'None'
 
 # max. number of batches to evaluate during prediction. set to 'max' to evaluate over all data/video frames
-maxbatch: 4000
+maxbatch: 100
 
 retriangulate: False
 
