@@ -1,1 +1,1 @@
-https://www.dropbox.com/s/s875u2ljwfl53gh/weights_multigpu_AVG.0-0.hdf5?dl=0
+https://www.dropbox.com/s/pkn5en6r08j82wf/weights_multigpu.27-4.06821_singleGPU.hdf5?dl=0

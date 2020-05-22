@@ -10,8 +10,13 @@ import time
 import tensorflow as tf
 import tensorflow.keras.losses as keras_losses
 
-from tensorflow.keras.models import load_model
+from tensorflow.keras.models import load_model, Model
 import tensorflow.keras.backend as K
+
+# import keras.losses as keras_losses
+
+# from keras.models import load_model
+# import keras.backend as K
 
 from dannce.engine import losses
 from dannce.engine import nets
@@ -273,6 +278,12 @@ else:
                                        'euclidean_distance_3D': losses.euclidean_distance_3D,
                                        'centered_euclidean_distance_3D': losses.centered_euclidean_distance_3D})
 
+# To speed up EXPVAL prediction, rather than doing two forward passes: one for the 3d coordinate
+# and one for the probability map, here we splice on a new output layer after
+# the softmax on the last convolutional layer
+if CONFIG_PARAMS['EXPVAL']:
+    model = Model(inputs=[model.layers[0].input, model.layers[-2].input],
+        outputs=[model.layers[-1].output, model.layers[-3].output])
 save_data = {}
 
 
@@ -316,10 +327,10 @@ def evaluate_ondemand(start_ind, end_ind, valid_gen):
 
         ts = time.time()
         pred = model.predict(ims[0])
-
         ts = time.time()
         if CONFIG_PARAMS['EXPVAL']:
-            probmap = get_output([ims[0][0], 0])[0] 
+            probmap = pred[1]
+            pred = pred[0]
             for j in range(pred.shape[0]):
                 pred_max = np.max(probmap[j], axis=(0,1,2))
                 sampleID = partition['valid_sampleIDs'][i * pred.shape[0] + j]
@@ -330,7 +341,7 @@ def evaluate_ondemand(start_ind, end_ind, valid_gen):
         else:
             if predict_mode == 'torch':
                 for j in range(pred.shape[0]):
-                    preds = torch.as_tensor(pred[j,:,:,:,:], dtype = torch.float32, device = device)
+                    preds = torch.as_tensor(pred[j], dtype = torch.float32, device = device)
                     pred_max = preds.max(0).values.max(0).values.max(0).values
                     pred_total = preds.sum((0,1,2))
                     xcoord, ycoord, zcoord = processing.plot_markers_3d_torch(preds)
@@ -349,7 +360,7 @@ def evaluate_ondemand(start_ind, end_ind, valid_gen):
                 # get coords for each map
                 with tf.device(device):
                     for j in range(pred.shape[0]):
-                        preds = tf.constant(pred[j,:,:,:,:], dtype = 'float32')
+                        preds = tf.constant(pred[j], dtype = 'float32')
                         pred_max = tf.math.reduce_max(tf.math.reduce_max(tf.math.reduce_max(preds)))
                         pred_total = tf.math.reduce_sum(tf.math.reduce_sum(tf.math.reduce_sum(preds)))
                         xcoord, ycoord, zcoord = processing.plot_markers_3d_tf(preds)
@@ -367,8 +378,8 @@ def evaluate_ondemand(start_ind, end_ind, valid_gen):
             else:
                 # get coords for each map
                 for j in range(pred.shape[0]):
-                    pred_max = np.max(pred[j,:,:,:,:], axis=(0,1,2))
-                    pred_total = np.sum(pred[j,:,:,:,:], axis=(0,1,2))
+                    pred_max = np.max(pred[j], axis=(0,1,2))
+                    pred_total = np.sum(pred[j], axis=(0,1,2))
                     xcoord, ycoord, zcoord = processing.plot_markers_3d(pred[j,:,:,:,:])
                     coord = np.stack([xcoord,ycoord,zcoord])
                     pred_log = np.log(pred_max) - np.log(pred_total)

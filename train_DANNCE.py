@@ -23,11 +23,17 @@ from dannce.engine import nets
 from dannce.engine import losses
 from dannce.engine import ops
 from six.moves import cPickle
-from tensorflow.keras.models import load_model
+# from keras.models import save_model, load_model
+# from keras.optimizers import Adam
+
+#from keras.callbacks import ModelCheckpoint, CSVLogger, TensorBoard
+from tensorflow.keras.models import save_model, load_model
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import ModelCheckpoint, CSVLogger, TensorBoard
+#from tensorflow.compat.v1.keras.callbacks import ModelCheckpoint, CSVLogger, TensorBoard
 import scipy.io as sio
 import tensorflow.keras as keras
+#import keras
 
 # Set up parameters
 PARENT_PARAMS = processing.read_config(sys.argv[1])
@@ -304,7 +310,7 @@ else:
         partition['valid_sampleIDs'] = cPickle.load(f)
     partition['train_sampleIDs'] = [f for f in samples if f not in partition['valid_sampleIDs']]
 
-train_generator = DataGenerator_3Dconv_kmeans_torch(partition['train_sampleIDs'],
+train_generator = DataGenerator_3Dconv_kmeans(partition['train_sampleIDs'],
                                               datadict,
                                               datadict_3d,
                                               cameras,
@@ -312,7 +318,7 @@ train_generator = DataGenerator_3Dconv_kmeans_torch(partition['train_sampleIDs']
                                               com3d_dict,
                                               tifdirs,
                                               **valid_params)
-valid_generator = DataGenerator_3Dconv_kmeans_torch(partition['valid_sampleIDs'],
+valid_generator = DataGenerator_3Dconv_kmeans(partition['valid_sampleIDs'],
                                               datadict,
                                               datadict_3d,
                                               cameras,
@@ -373,7 +379,7 @@ else:
 print("Loading training data into memory. This can take a while to seek through",
         "large sets of video. This process is much faster if the frame indices",
         "are sorted in ascending order in your label data file.")
-for i in range(len(partition['train_sampleIDs'])):
+for i in range(1):#len(partition['train_sampleIDs'])):
     print(i, end='\r')
     rr = train_generator.__getitem__(i)
     if CONFIG_PARAMS['EXPVAL']:
@@ -384,7 +390,7 @@ for i in range(len(partition['train_sampleIDs'])):
     y_train[i] = rr[1]
 
 print("Loading validation data into memory")
-for i in range(len(partition['valid_sampleIDs'])):
+for i in range(1):#len(partition['valid_sampleIDs'])):
     print(i, end='\r')
     rr = valid_generator.__getitem__(i)
     if CONFIG_PARAMS['EXPVAL']:
@@ -434,6 +440,7 @@ assert not (CONFIG_PARAMS['batch_norm'] == True) & (CONFIG_PARAMS['instance_norm
 # 2) Fine-tuning a network trained on a diff. dataset (transfer learning)
 # 3) Continuing to train 1) or 2) from a full model checkpoint (including optimizer state)
 
+print("NUM CAMERAS: {}".format(len(camnames[0])))
 
 if CONFIG_PARAMS['train_mode'] == 'new':
     model = CONFIG_PARAMS['net'](CONFIG_PARAMS['loss'],
@@ -504,22 +511,38 @@ tboard = TensorBoard(log_dir=RESULTSDIR + 'logs',
                      write_graph=False,
                      update_freq=100)
 
+# import pdb
+# pdb.set_trace()
+# print(model.summary())
+
 # Train model on dataset
 model.fit_generator(generator=train_generator,
                     steps_per_epoch=len(train_generator),
                     validation_data=valid_generator,
                     validation_steps=len(valid_generator),
                     use_multiprocessing=False,
-                    workers=CONFIG_PARAMS['WORKERS'],
+                    #workers=CONFIG_PARAMS['WORKERS'],
                     verbose=CONFIG_PARAMS['VERBOSE'],
                     epochs=CONFIG_PARAMS['EPOCHS'],
                     max_queue_size=CONFIG_PARAMS['MAX_QUEUE_SIZE'],
                     callbacks=[csvlog, model_checkpoint, tboard])
+
+# model.fit(x=train_generator,
+#                     steps_per_epoch=len(train_generator),
+#                     validation_data=valid_generator,
+#                     validation_steps=len(valid_generator),
+#                     #use_multiprocessing=False,
+#                     #workers=CONFIG_PARAMS['WORKERS'],
+#                     verbose=CONFIG_PARAMS['VERBOSE'],
+#                     epochs=CONFIG_PARAMS['EPOCHS'],
+#                     max_queue_size=CONFIG_PARAMS['MAX_QUEUE_SIZE'],
+#                     callbacks=[csvlog, model_checkpoint, tboard])
 
 print("Saving full model at end of training")
 sdir = os.path.join(CONFIG_PARAMS['RESULTSDIR'], 'fullmodel_weights')
 if not os.path.exists(sdir):
     os.makedirs(sdir)
 model.save(os.path.join(sdir, 'fullmodel_end.hdf5'))
+#save_model(model, os.path.join(sdir, 'fullmodel_end.hdf5'), save_format='h5')
 
 print("done!")

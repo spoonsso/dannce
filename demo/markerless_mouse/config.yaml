@@ -37,12 +37,6 @@ extension: '.mp4'
 # The number of frames in each video file. If only a single video file exists for each camera, set this to 1e10
 chunks: 3000
 
-# Required AWS identification for labeling
-WorkteamArn: "arn:aws:sagemaker:us-east-1:421905384047:workteam/private-crowd/TeamKyle"
-role-arn: "arn:aws:iam::421905384047:role/service-role/AmazonSageMaker-ExecutionRole-20190828T133264"
-PreHumanTaskLambdaArn: "arn:aws:lambda:us-east-1:421905384047:function:SageMaker"
-AnnotationConsolidationLambdaArn: "arn:aws:lambda:us-east-1:421905384047:function:SageMaker_out"
-
 # Path to the labeling task template file
 lbl_template: ./labeling/mouse.template
 
@@ -50,4 +44,4 @@ lbl_template: ./labeling/mouse.template
 COM_CONFIG: ./COM/config.yaml
 
 # Path to the DANNCE config file
-DANNCE_CONFIG: ./DANNCE/config.yaml
+DANNCE_CONFIG: ./DANNCE/config_AVG.yaml
