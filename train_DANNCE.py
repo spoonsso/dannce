@@ -487,38 +487,18 @@ tboard = TensorBoard(log_dir=RESULTSDIR + 'logs',
                      write_graph=False,
                      update_freq=100)
 
-# import pdb
-# pdb.set_trace()
-# print(model.summary())
-
-# Train model on dataset
-model.fit_generator(generator=train_generator,
-                    steps_per_epoch=len(train_generator),
-                    validation_data=valid_generator,
-                    validation_steps=len(valid_generator),
-                    use_multiprocessing=False,
-                    #workers=CONFIG_PARAMS['WORKERS'],
-                    verbose=CONFIG_PARAMS['VERBOSE'],
-                    epochs=CONFIG_PARAMS['EPOCHS'],
-                    max_queue_size=CONFIG_PARAMS['MAX_QUEUE_SIZE'],
-                    callbacks=[csvlog, model_checkpoint, tboard])
-
-# model.fit(x=train_generator,
-#                     steps_per_epoch=len(train_generator),
-#                     validation_data=valid_generator,
-#                     validation_steps=len(valid_generator),
-#                     #use_multiprocessing=False,
-#                     #workers=CONFIG_PARAMS['WORKERS'],
-#                     verbose=CONFIG_PARAMS['VERBOSE'],
-#                     epochs=CONFIG_PARAMS['EPOCHS'],
-#                     max_queue_size=CONFIG_PARAMS['MAX_QUEUE_SIZE'],
-#                     callbacks=[csvlog, model_checkpoint, tboard])
+model.fit(x=train_generator,
+          steps_per_epoch=len(train_generator),
+          validation_data=valid_generator,
+          validation_steps=len(valid_generator),
+          verbose=CONFIG_PARAMS['VERBOSE'],
+          epochs=CONFIG_PARAMS['EPOCHS'],
+          callbacks=[csvlog, model_checkpoint, tboard])
 
 print("Saving full model at end of training")
 sdir = os.path.join(CONFIG_PARAMS['RESULTSDIR'], 'fullmodel_weights')
 if not os.path.exists(sdir):
     os.makedirs(sdir)
 model.save(os.path.join(sdir, 'fullmodel_end.hdf5'))
-#save_model(model, os.path.join(sdir, 'fullmodel_end.hdf5'), save_format='h5')
 
 print("done!")
