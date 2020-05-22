@@ -190,32 +190,8 @@ if not os.path.exists(RESULTSDIR):
 # Additionally, to keep videos unique across experiments, need to add
 # experiment labels in other places. E.g. experiment 0 CameraE's "camname"
 # Becomes 0_CameraE.
-# TODO: Add this to serve_data.add_experiment() above
-cameras_ = {}
-datadict_ = {}
-for e in range(num_experiments):
-    # Create a unique camname for each camera in each experiment
-    cameras_[e] = {}
-    for key in cameras[e]:
-        cameras_[e][str(e) + '_' + key] = cameras[e][key]
-
-    camnames[e] = [str(e) + '_' + f for f in camnames[e]]
-
-    CONFIG_PARAMS['experiment'][e]['CAMNAMES'] = camnames[e]
-
-# Change the camnames in the data dictionaries as well
-for key in datadict.keys():
-    enum = key.split('_')[0]
-    datadict_[key] = {}
-    datadict_[key]['data'] = {}
-    datadict_[key]['frames'] = {}
-    for key_ in datadict[key]['data']:
-        datadict_[key]['data'][enum + '_' + key_] = datadict[key]['data'][key_]
-        datadict_[key]['frames'][enum + '_' + key_] =  \
-            datadict[key]['frames'][key_]
-
-datadict = datadict_
-cameras = cameras_
+cameras, datadict = serve_data.prepend_experiment(CONFIG_PARAMS, datadict,
+                                                  num_experiments, camnames, cameras)
 
 samples = np.array(samples)
 
