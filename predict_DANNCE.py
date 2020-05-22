@@ -177,7 +177,8 @@ camnames[0] = CONFIG_PARAMS['experiment']['CAMNAMES']
 samples = np.array(samples)
 
 # Initialize video dictionary. paths to videos only.
-vids = processing.initialize_vids(CONFIG_PARAMS, datadict, pathonly=True)
+if CONFIG_PARAMS['IMMODE'] == 'vid':
+    vids = processing.initialize_vids(CONFIG_PARAMS, datadict, pathonly=True)
 
 # Parameters
 valid_params = {
@@ -322,12 +323,9 @@ def evaluate_ondemand(start_ind, end_ind, valid_gen):
                     num_markers=nchn,
                     tcoord=False)
 
-        ts = time.time()
         ims = valid_gen.__getitem__(i)
-
-        ts = time.time()
         pred = model.predict(ims[0])
-        ts = time.time()
+        
         if CONFIG_PARAMS['EXPVAL']:
             probmap = pred[1]
             pred = pred[0]
@@ -402,10 +400,9 @@ if 'NEW_N_CHANNELS_OUT' in CONFIG_PARAMS.keys():
 else:
     nchn = CONFIG_PARAMS['N_CHANNELS_OUT']
 
-if CONFIG_PARAMS['EXPVAL']:
-    get_output = K.function([model.layers[0].input, K.learning_phase()], [model.layers[-3].output])
-    evaluate_ondemand(0, max_eval_batch, valid_generator)
+evaluate_ondemand(0, max_eval_batch, valid_generator)
 
+if CONFIG_PARAMS['EXPVAL']:
     p_n = savedata_expval(
         RESULTSDIR + 'save_data_AVG.mat',
         write=True,
@@ -414,8 +411,6 @@ if CONFIG_PARAMS['EXPVAL']:
         num_markers=nchn,
         pmax=True)
 else:
-    evaluate_ondemand(0, max_eval_batch, valid_generator)
-
     p_n = savedata_tomat(
         RESULTSDIR + 'save_data_MAX.mat',
         CONFIG_PARAMS['VMIN'],
