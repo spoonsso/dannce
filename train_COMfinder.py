@@ -13,10 +13,8 @@ from dannce.engine.generator_aux import DataGenerator_downsample
 from dannce.engine import nets
 from dannce.engine import losses
 from six.moves import cPickle
-from keras.layers import Conv3D, Input
-from keras.models import Model
-from keras.optimizers import Adam
-from keras.callbacks import ModelCheckpoint, CSVLogger, TensorBoard
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.callbacks import ModelCheckpoint, CSVLogger, TensorBoard
 from copy import deepcopy
 
 import matplotlib
@@ -42,11 +40,11 @@ cameras = {}
 camnames = {}
 
 if 'exp_path' not in CONFIG_PARAMS:
-  def_ep = os.path.join('.', 'COM')
-  exps = os.listdir(def_ep)
-  exps = [os.path.join(def_ep, f) for f in exps if '.yaml' in f and 'exp' in f]
+    def_ep = os.path.join('.', 'COM')
+    exps = os.listdir(def_ep)
+    exps = [os.path.join(def_ep, f) for f in exps if '.yaml' in f and 'exp' in f]
 else:
-  exps = CONFIG_PARAMS['exp_path']
+    exps = CONFIG_PARAMS['exp_path']
 num_experiments = len(exps)
 CONFIG_PARAMS['experiment'] = {}
 
@@ -92,31 +90,8 @@ if not os.path.exists(RESULTSDIR):
 # Additionally, to keep videos unique across experiments, need to add
 # experiment labels in other places. E.g. experiment 0 CameraE's "camname"
 # Becomes 0_CameraE.
-# TODO: Add this to serve_data.add_experiment() above
-cameras_ = {}
-datadict_ = {}
-for e in range(num_experiments):
-    # Create a unique camname for each camera in each experiment
-    cameras_[e] = {}
-    for key in cameras[e]:
-        cameras_[e][str(e) + '_' + key] = cameras[e][key]
-
-    camnames[e] = [str(e) + '_' + f for f in camnames[e]]
-
-    CONFIG_PARAMS['experiment'][e]['CAMNAMES'] = camnames[e]
-
-for key in datadict.keys():
-    enum = key.split('_')[0]
-    datadict_[key] = {}
-    datadict_[key]['data'] = {}
-    datadict_[key]['frames'] = {}
-    for key_ in datadict[key]['data']:
-        datadict_[key]['data'][enum + '_' + key_] = datadict[key]['data'][key_]
-        datadict_[key]['frames'][enum + '_' + key_] =  \
-            datadict[key]['frames'][key_]
-
-datadict = datadict_
-cameras = cameras_
+cameras, datadict = serve_data.prepend_experiment(CONFIG_PARAMS, datadict,
+                                                  num_experiments, camnames, cameras)
 
 samples = np.array(samples)
 
