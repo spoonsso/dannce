@@ -355,7 +355,7 @@ else:
 print("Loading training data into memory. This can take a while to seek through",
         "large sets of video. This process is much faster if the frame indices",
         "are sorted in ascending order in your label data file.")
-for i in range(1):#len(partition['train_sampleIDs'])):
+for i in range(len(partition['train_sampleIDs'])):
     print(i, end='\r')
     rr = train_generator.__getitem__(i)
     if CONFIG_PARAMS['EXPVAL']:
@@ -366,7 +366,7 @@ for i in range(1):#len(partition['train_sampleIDs'])):
     y_train[i] = rr[1]
 
 print("Loading validation data into memory")
-for i in range(1):#len(partition['valid_sampleIDs'])):
+for i in range(len(partition['valid_sampleIDs'])):
     print(i, end='\r')
     rr = valid_generator.__getitem__(i)
     if CONFIG_PARAMS['EXPVAL']:

@@ -34,23 +34,23 @@ def initialize_vids(CONFIG_PARAMS, datadict, pathonly=True):
     flist = max(flist)
 
     vids = {}
-    if CONFIG_PARAMS['IMMODE'] == 'vid':
-        for i in range(len(CONFIG_PARAMS['experiment']['CAMNAMES'])):
-            if CONFIG_PARAMS['vid_dir_flag']:
-                addl = ''
-            else:
-                addl = os.listdir(
-                    os.path.join(
-                        CONFIG_PARAMS['experiment']['viddir'],
-                        CONFIG_PARAMS['experiment']['CAMNAMES'][i]))[0]
-            vids[CONFIG_PARAMS['experiment']['CAMNAMES'][i]] = \
-                generate_readers(
+
+    for i in range(len(CONFIG_PARAMS['experiment']['CAMNAMES'])):
+        if CONFIG_PARAMS['vid_dir_flag']:
+            addl = ''
+        else:
+            addl = os.listdir(
+                os.path.join(
                     CONFIG_PARAMS['experiment']['viddir'],
-                    os.path.join(CONFIG_PARAMS['experiment']['CAMNAMES'][i], addl),
-                    minopt=0,
-                    maxopt=flist,
-                    extension=CONFIG_PARAMS['experiment']['extension'],
-                    pathonly=pathonly)
+                    CONFIG_PARAMS['experiment']['CAMNAMES'][i]))[0]
+        vids[CONFIG_PARAMS['experiment']['CAMNAMES'][i]] = \
+            generate_readers(
+                CONFIG_PARAMS['experiment']['viddir'],
+                os.path.join(CONFIG_PARAMS['experiment']['CAMNAMES'][i], addl),
+                minopt=0,
+                maxopt=flist,
+                extension=CONFIG_PARAMS['experiment']['extension'],
+                pathonly=pathonly)
 
     return vids
 

@@ -97,40 +97,15 @@ samples = np.array(samples)
 
 e = 0
 
-# Open videos for all experiments
+# Initialize video objects
 vids = {}
 for e in range(num_experiments):
+    if CONFIG_PARAMS['IMMODE'] == 'vid':
+        vids = processing.initialize_vids_train(CONFIG_PARAMS, datadict, e,
+                                                vids, pathonly=True)
 
-    # How many videos do we need to open?
-    # Find the largest sampleID for this experiment
-    esamp = [int(s.split('_')[-1]) for s in samples if int(s.split('_')[0])==e]
-    esamp = np.sort(esamp)[-1]
-    maxframes = datadict[str(e) + '_' + str(esamp)]['frames']
-    maxframes = min(list(maxframes.values()))
-
-    for i in range(len(CONFIG_PARAMS['experiment'][e]['CAMNAMES'])):
-        if CONFIG_PARAMS['vid_dir_flag']:
-            addl = ''
-        else:
-            addl = os.listdir(os.path.join(
-                CONFIG_PARAMS['experiment'][e]['viddir'],
-                CONFIG_PARAMS['experiment'][e]['CAMNAMES'][i].split('_')[1]))[0]
-        r = \
-            processing.generate_readers(
-                CONFIG_PARAMS['experiment'][e]['viddir'],
-                os.path.join(CONFIG_PARAMS['experiment'][e]
-                             ['CAMNAMES'][i].split('_')[1], addl),
-                maxopt=maxframes,
-                extension=CONFIG_PARAMS['experiment'][e]['extension'])
-
-        # Add e to key
-        vids[CONFIG_PARAMS['experiment'][e]['CAMNAMES'][i]] = {}
-        for key in r:
-            vids[CONFIG_PARAMS['experiment'][e]['CAMNAMES'][i]][str(e) +
-                                                                '_' + key]\
-                                                                = r[key]
-
-print("Using {} downsampling".format(CONFIG_PARAMS['dsmode'] if 'dsmode' in CONFIG_PARAMS.keys() else 'dsm'))
+print("Using {} downsampling".format(CONFIG_PARAMS['dsmode'] if 'dsmode' 
+      in CONFIG_PARAMS.keys() else 'dsm'))
 
 params = {'dim_in': (CONFIG_PARAMS['CROP_HEIGHT'][1]-CONFIG_PARAMS['CROP_HEIGHT'][0],
                      CONFIG_PARAMS['CROP_WIDTH'][1]-CONFIG_PARAMS['CROP_WIDTH'][0]),
@@ -144,7 +119,8 @@ params = {'dim_in': (CONFIG_PARAMS['CROP_HEIGHT'][1]-CONFIG_PARAMS['CROP_HEIGHT'
           'downsample': CONFIG_PARAMS['DOWNFAC'],
           'shuffle': False,
           'chunks': CONFIG_PARAMS['chunks'],
-          'dsmode': CONFIG_PARAMS['dsmode'] if 'dsmode' in CONFIG_PARAMS.keys() else 'dsm'}
+          'dsmode': CONFIG_PARAMS['dsmode'] if 'dsmode' in CONFIG_PARAMS.keys() else 'dsm',
+          'preload': False}
 
 valid_params = deepcopy(params)
 valid_params['shuffle'] = False
@@ -229,7 +205,8 @@ if 'lockfirst' in CONFIG_PARAMS.keys() and CONFIG_PARAMS['lockfirst']:
     for layer in model.layers[:2]:
         layer.trainable = False
     
-model.compile(optimizer=Adam(lr=float(CONFIG_PARAMS['lr'])), loss=CONFIG_PARAMS['loss'], metrics=['mse'])
+model.compile(optimizer=Adam(lr=float(CONFIG_PARAMS['lr'])),
+              loss=CONFIG_PARAMS['loss'], metrics=['mse'])
 
 # Create checkpoint and logging callbacks
 model_checkpoint = ModelCheckpoint(os.path.join(RESULTSDIR,

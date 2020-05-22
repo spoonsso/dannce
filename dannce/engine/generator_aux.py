@@ -1,12 +1,13 @@
 """Generator for 3d video images."""
 import numpy as np
-import keras
+import tensorflow.keras as keras
 import os
-from keras.applications.vgg19 import preprocess_input as pp_vgg19
+from tensorflow.keras.applications.vgg19 import preprocess_input as pp_vgg19
 import imageio
 from dannce.engine import processing as processing
 import scipy.io as sio
 import warnings
+import time
 _DEFAULT_CAM_NAMES = [
     'CameraR', 'CameraL', 'CameraU', 'CameraU2', 'CameraS', 'CameraE']
 _EXEP_MSG = "Desired Label channels and ground truth channels do not agree"
@@ -57,6 +58,17 @@ class DataGenerator_downsample(keras.utils.Sequence):
         self.chunks = int(chunks)
         self.multimode = multimode
 
+        self._N_VIDEO_FRAMES = self.chunks
+        
+        if not self.preload:
+            # then we keep a running video object so at least we don't open a new one every time
+            self.currvideo = {}
+            self.currvideo_name = {}
+            for cc in camnames[0]:
+                self.currvideo[cc] = None
+                self.currvideo_name[cc] = None
+
+
     def __len__(self):
         """Denote the number of batches per epoch."""
         return int(np.floor(len(self.list_IDs) / self.batch_size))
@@ -83,18 +95,31 @@ class DataGenerator_downsample(keras.utils.Sequence):
 
     def load_vid_frame(self, ind, camname, preload=True, extension='.mp4'):
         """Load the video frame from a single camera."""
-        fname = str(self.chunks * int(np.floor(ind / self.chunks))) + extension
-        frame_num = int(ind % self.chunks)
-
+        fname = str(
+           self. _N_VIDEO_FRAMES * int(np.floor(ind / self._N_VIDEO_FRAMES))) + extension
+        frame_num = int(ind % self._N_VIDEO_FRAMES)
         keyname = os.path.join(camname, fname)
-
         if preload:
             return self.vidreaders[camname][keyname].get_data(
                 frame_num).astype('float32')
         else:
-            vid = imageio.get_reader(self.vidreaders[camname][keyname])
+            thisvid_name = self.vidreaders[camname][keyname]
+            abname = thisvid_name.split('/')[-1]
+            if abname == self.currvideo_name[camname]:
+                vid = self.currvideo[camname]
+            else:
+                vid = imageio.get_reader(thisvid_name)
+                print("Loading new video: {} for {}".format(abname, camname))
+                self.currvideo_name[camname] = abname
+                # close current vid
+                # Without a sleep here, ffmpeg can hang on video close
+                time.sleep(0.25)
+                if self.currvideo[camname] is not None:
+                    self.currvideo[camname].close()
+                self.currvideo[camname] = vid
+
             im = vid.get_data(frame_num).astype('float32')
-            vid.close()
+
             return im
 
     def load_tif_frame(self, ind, camname):
