@@ -48,12 +48,11 @@ lr: 1e-3
 #predict_model: path_to_model_file
 
 # name of the network architecture (see nets.py) 'unet3d_big' (from scratch?)
-net: finetune_MAX
+net: finetune_AVG
 
 # By default, will load in the first hdf5 file at this location for fine-tuning. If training from scratch, set to None
-#weights: ./DANNCE/weights/
+weights: /home/twd/Dropbox/DANNCE/demo/markerless_rat/DANNCE/train_results/
 #weights: None
-weights: /home/twd/Dropbox/DANNCE/demo/calibrd18_black6_mouseone_green/DANNCE/weights_MAX/
 
 # whether to use batch normalization or instance normalization. cannot both be true. If fine-tuning, this must be the same setting as used for the initial network
 batch_norm: False
@@ -114,7 +113,7 @@ ROTATE: True
 DISTORT: True
 
 # If true, intializes an "AVG" version of the network (i.e. final spatial expected value output layer). If false, "MAX" version
-EXPVAL: False
+EXPVAL: True
 
 # COM finder output confidence scores less than this threshold will be discarded
 comthresh: 0
