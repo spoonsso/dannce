@@ -182,8 +182,7 @@ class DataGenerator_downsample(keras.utils.Sequence):
                 else:
                     raise Exception("Unsupported image format. Needs to be video files.")
 
-                (x_coord, y_coord) = np.meshgrid(
-                    np.arange(self.dim_out[1]), np.arange(self.dim_out[0]))
+
 
                 # For 2D, this_y should be size (2, 20)
                 if this_y.shape[1] != self.n_channels_out:
@@ -194,6 +193,8 @@ class DataGenerator_downsample(keras.utils.Sequence):
                 if self.labelmode == 'prob':
                     # Only do this if we actually need the labels --
                     # this is too slow otherwise
+                    (x_coord, y_coord) = np.meshgrid(
+                        np.arange(self.dim_out[1]), np.arange(self.dim_out[0]))
                     for j in range(self.n_channels_out):
                         # I tested a version of this with numpy broadcasting,
                         # and looping was ~100ms seconds faster for making

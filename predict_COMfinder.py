@@ -36,7 +36,6 @@ except AttributeError:
     params['loss'] = getattr(keras_losses, params['loss'])
 params['net'] = getattr(nets, params['net'])
 
-undistort = params['undistort']
 vid_dir_flag = params['vid_dir_flag']
 _N_VIDEO_FRAMES = params['chunks']
 
