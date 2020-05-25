@@ -16,6 +16,7 @@ from six.moves import cPickle
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import ModelCheckpoint, CSVLogger, TensorBoard
 from copy import deepcopy
+from tensorflow.random import set_seed
 
 import matplotlib
 matplotlib.use('Agg')
@@ -90,7 +91,7 @@ if not os.path.exists(RESULTSDIR):
 # Additionally, to keep videos unique across experiments, need to add
 # experiment labels in other places. E.g. experiment 0 CameraE's "camname"
 # Becomes 0_CameraE.
-cameras, datadict = serve_data.prepend_experiment(CONFIG_PARAMS, datadict,
+cameras, datadict, CONFIG_PARAMS = serve_data.prepend_experiment(CONFIG_PARAMS, datadict,
                                                   num_experiments, camnames, cameras)
 
 samples = np.array(samples)
@@ -100,8 +101,7 @@ e = 0
 # Initialize video objects
 vids = {}
 for e in range(num_experiments):
-    if CONFIG_PARAMS['IMMODE'] == 'vid':
-        vids = processing.initialize_vids_train(CONFIG_PARAMS, datadict, e,
+    vids = processing.initialize_vids_train(CONFIG_PARAMS, datadict, e,
                                                 vids, pathonly=True)
 
 print("Using {} downsampling".format(CONFIG_PARAMS['dsmode'] if 'dsmode' 
@@ -138,6 +138,7 @@ if 'load_valid' not in CONFIG_PARAMS.keys():
                  if int(samples[i].split('_')[0]) == e]
         valid_inds = valid_inds + list(np.random.choice(tinds,
                                                         (v,), replace=False))
+        valid_inds = np.sort(valid_inds)
 
     train_inds = [i for i in all_inds if i not in valid_inds]
     assert (set(valid_inds) & set(train_inds)) == set()
@@ -172,10 +173,6 @@ with open(RESULTSDIR + 'train_samples.pickle', 'wb') as f:
     cPickle.dump(partition['train'], f)
 
 labels = datadict
-
-# TODO: Remove?? Appears unused.
-labels_3d = datadict_3d
-
 
 # Build net
 print("Initializing Network...")
@@ -253,19 +250,6 @@ for i in range(len(partition['valid'])):
     ims = valid_generator.__getitem__(i)
     ims_valid[i*ncams:(i+1)*ncams] = ims[0]
     y_valid[i*ncams:(i+1)*ncams] = ims[1]
-
-# We don't need the videos any longer, so close them
-print('closing videos')
-for key in vids.keys():
-  for key_ in vids[key].keys():
-    vids[key][key_].close()
-
-# Now shuffle the training data and targets together
-# TODO: Remove double shuffle? model.fit() should also be shuffling
-inds = np.arange(ims_train.shape[0])
-np.random.shuffle(inds)
-ims_train = ims_train[inds]
-y_train = y_train[inds]
 
 if CONFIG_PARAMS['debug'] and not MULTI_MODE:
     # Plot all training images and save

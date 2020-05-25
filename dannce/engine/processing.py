@@ -58,7 +58,7 @@ def initialize_vids_train(CONFIG_PARAMS, datadict, e, vids, pathonly=True):
     """
     Initializes video path dictionaries for a training session. This is different
         than a predict session because it operates over a single animal ("experiment")
-        oat a time
+        at a time
     """
     for i in range(len(CONFIG_PARAMS['experiment'][e]['CAMNAMES'])):
         # Rather than opening all vids, only open what is needed based on the 
@@ -224,11 +224,12 @@ def tile2im(imstack, fac=2):
 
 def downsample_batch(imstack, fac=2, method='PIL'):
     """Downsample each image in a batch."""
-    out = np.zeros(
-        (imstack.shape[0], imstack.shape[1] // fac,
-            imstack.shape[2] // fac, imstack.shape[3]),
-        'float32')
+
     if method == 'PIL':
+        out = np.zeros(
+            (imstack.shape[0], imstack.shape[1] // fac,
+            imstack.shape[2] // fac, imstack.shape[3]),
+            'float32')
         if out.shape[-1] == 3:
             # this is just an RGB image, so no need to loop over channels with PIL
             for i in range(imstack.shape[0]):
@@ -243,15 +244,22 @@ def downsample_batch(imstack, fac=2, method='PIL'):
                             (out.shape[2], out.shape[1]), resample=PIL.Image.LANCZOS))
 
     elif method == 'dsm':
+        out = np.zeros(
+            (imstack.shape[0], imstack.shape[1] // fac,
+            imstack.shape[2] // fac, imstack.shape[3]), 'float32')
         for i in range(imstack.shape[0]):
             for j in range(imstack.shape[3]):
                 out[i, :, :, j] = dsm(imstack[i, :, :, j], (fac, fac))
 
     elif method == 'nn':
-        # do simple, faster nearest neighbors
-        for i in range(imstack.shape[0]):
-            for j in range(imstack.shape[3]):
-                out[i, :, :, j] = imstack[i, ::fac, ::fac, j]
+        # out = np.zeros(
+        #     (imstack.shape[0], imstack.shape[1] // fac,
+        #     imstack.shape[2] // fac, imstack.shape[3]), 'uint8')
+        # # do simple, faster nearest neighbors
+        # for i in range(imstack.shape[0]):
+        #     for j in range(imstack.shape[3]):
+        #         out[i, :, :, j] = imstack[i, ::fac, ::fac, j]
+        out = imstack[:, ::fac, ::fac]
     return out
 
 def batch_maximum(imstack):
