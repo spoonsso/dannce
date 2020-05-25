@@ -252,14 +252,11 @@ def downsample_batch(imstack, fac=2, method='PIL'):
                 out[i, :, :, j] = dsm(imstack[i, :, :, j], (fac, fac))
 
     elif method == 'nn':
-        # out = np.zeros(
-        #     (imstack.shape[0], imstack.shape[1] // fac,
-        #     imstack.shape[2] // fac, imstack.shape[3]), 'uint8')
-        # # do simple, faster nearest neighbors
-        # for i in range(imstack.shape[0]):
-        #     for j in range(imstack.shape[3]):
-        #         out[i, :, :, j] = imstack[i, ::fac, ::fac, j]
         out = imstack[:, ::fac, ::fac]
+
+    elif fac > 1:
+        raise Exception("Downfac > 1. Not a valid downsampling method")
+
     return out
 
 def batch_maximum(imstack):

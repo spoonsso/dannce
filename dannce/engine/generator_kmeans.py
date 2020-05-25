@@ -54,9 +54,10 @@ class DataGenerator(keras.utils.Sequence):
             # then we keep a running video object so at least we don't open a new one every time
             self.currvideo = {}
             self.currvideo_name = {}
-            for cc in camnames[0]:
-                self.currvideo[cc] = None
-                self.currvideo_name[cc] = None
+            for dd in camnames.keys():
+                for cc in camnames[dd]:
+                    self.currvideo[cc] = None
+                    self.currvideo_name[cc] = None
 
     def __len__(self):
         """Denote the number of batches per epoch."""

@@ -95,6 +95,7 @@ cameras, datadict, CONFIG_PARAMS = serve_data.prepend_experiment(CONFIG_PARAMS, 
                                                   num_experiments, camnames, cameras)
 
 samples = np.array(samples)
+print(samples)
 
 e = 0
 
@@ -138,7 +139,7 @@ if 'load_valid' not in CONFIG_PARAMS.keys():
                  if int(samples[i].split('_')[0]) == e]
         valid_inds = valid_inds + list(np.random.choice(tinds,
                                                         (v,), replace=False))
-        valid_inds = np.sort(valid_inds)
+        valid_inds = list(np.sort(valid_inds))
 
     train_inds = [i for i in all_inds if i not in valid_inds]
     assert (set(valid_inds) & set(train_inds)) == set()
