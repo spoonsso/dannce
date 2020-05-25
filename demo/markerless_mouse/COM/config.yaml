@@ -25,13 +25,13 @@ MAX_QUEUE_SIZE: 10
 SIGMA: 30
 
 # COM training option. Sets the number of epochs during training
-EPOCHS: 250
+EPOCHS: 3
 
 # DANNCE training option. Sets the verbosity of training output
 VERBOSE: 1
 
 # Degree of downsampling applied to image input. Default 1, other values untested.
-DOWNFAC: 2
+DOWNFAC: 4
 
 # DANNCE training option. Loss function to be used. Default MSE.
 loss: mask_nan_keep_loss
@@ -82,4 +82,4 @@ chunks: 3000
 max_num_samples: 1000
 
 # Downsampling mode, 'dsm' is downsample local mean. 'nn' is nearest neighbor and potentially faster
-DSMODE: nn
+dsmode: nn

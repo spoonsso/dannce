@@ -101,7 +101,7 @@ class DataGenerator_downsample(keras.utils.Sequence):
         keyname = os.path.join(camname, fname)
         if preload:
             return self.vidreaders[camname][keyname].get_data(
-                frame_num).astype('float32')
+                frame_num)
         else:
             thisvid_name = self.vidreaders[camname][keyname]
             abname = thisvid_name.split('/')[-1]
@@ -118,7 +118,7 @@ class DataGenerator_downsample(keras.utils.Sequence):
                     self.currvideo[camname].close()
                 self.currvideo[camname] = vid
 
-            im = vid.get_data(frame_num).astype('float32')
+            im = vid.get_data(frame_num)
 
             return im
 
@@ -137,7 +137,7 @@ class DataGenerator_downsample(keras.utils.Sequence):
         X = np.empty(
             (self.batch_size * len(self.camnames[0]),
                 *self.dim_in, self.n_channels_in),
-            dtype='float32')
+            dtype='uint8')
 
         # We'll need to transpose this later such that channels are last,
         # but initializaing the array this ways gives us
@@ -145,7 +145,7 @@ class DataGenerator_downsample(keras.utils.Sequence):
         y = np.empty(
             (self.batch_size * len(self.camnames[0]),
                 self.n_channels_out, *self.dim_out),
-            dtype='float32')
+            dtype='uint8')
 
         # Generate data
         cnt = 0
@@ -181,8 +181,6 @@ class DataGenerator_downsample(keras.utils.Sequence):
                     this_y[1, :] = this_y[1, :] - self.crop_height[0]
                 else:
                     raise Exception("Unsupported image format. Needs to be video files.")
-
-
 
                 # For 2D, this_y should be size (2, 20)
                 if this_y.shape[1] != self.n_channels_out:

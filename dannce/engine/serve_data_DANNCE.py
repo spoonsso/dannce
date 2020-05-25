@@ -377,4 +377,4 @@ def prepend_experiment(CONFIG_PARAMS, datadict, num_experiments, camnames, camer
             datadict_[key]['frames'][enum + '_' + key_] =  \
                 datadict[key]['frames'][key_]
 
-    return cameras_, datadict
+    return cameras_, datadict_, CONFIG_PARAMS

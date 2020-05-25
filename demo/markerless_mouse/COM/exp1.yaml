@@ -3,7 +3,7 @@
 datadir: ./labeling/
 
 # path to folder contraining video sub directories
-viddir: ./videos/
+viddir: /home/twd/Dropbox/autoencoder/Kyle/20190902_mouse1/videos/
 
 # names of data files. must match the order of CAMNAMES below.
 datafile: ['Camera1_dataApplyDistort_worker0','Camera2_dataApplyDistort_worker0','Camera3_dataApplyDistort_worker0','Camera4_dataApplyDistort_worker0','Camera5_dataApplyDistort_worker0','Camera6_dataApplyDistort_worker0']

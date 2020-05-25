@@ -128,7 +128,7 @@ for e in range(num_experiments):
     else: # then do traditional COM and sample alignment
         if 'COM3D_DICT' not in CONFIG_PARAMS.keys():
 
-                # Load in the COM file at the default location, or use one in the config file if provided
+            # Load in the COM file at the default location, or use one in the config file if provided
             if 'COMfilename' in CONFIG_PARAMS['experiment'][e]:
                 comfn = CONFIG_PARAMS['experiment'][e]['COMfilename']
             else:
@@ -190,7 +190,7 @@ if not os.path.exists(RESULTSDIR):
 # Additionally, to keep videos unique across experiments, need to add
 # experiment labels in other places. E.g. experiment 0 CameraE's "camname"
 # Becomes 0_CameraE.
-cameras, datadict = serve_data.prepend_experiment(CONFIG_PARAMS, datadict,
+cameras, datadict, CONFIG_PARAMS = serve_data.prepend_experiment(CONFIG_PARAMS, datadict,
                                                   num_experiments, camnames, cameras)
 
 samples = np.array(samples)

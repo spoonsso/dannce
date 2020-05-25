@@ -110,7 +110,6 @@ def evaluate_ondemand(start_ind, end_ind, valid_gen):
 
         pred_ = model.predict(valid_gen.__getitem__(i)[0])
 
-        print(i)
         pred_ = np.reshape(
             pred_,
             [-1, len(params['CAMNAMES']), pred_.shape[1], pred_.shape[2], pred_.shape[3]])
@@ -267,8 +266,11 @@ cPickle.dump(save_data, f)
 f.close()
 
 # Clean up checkpoints
-os.remove('allCOMs_distorted.mat')
-os.remove('save_data.pickle')
+files = os.listdir('.')
+if 'allCOMs_distorted.mat' in files:
+    os.remove('allCOMs_distorted.mat')
+if 'save_data.pickle' in files:
+    os.remove('save_data.pickle')
 
 # Also save a COM3D_undistorted.mat file.
 # We need to remove the eID in front of all the keys in datadict
