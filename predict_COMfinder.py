@@ -14,13 +14,12 @@ from dannce.engine import losses
 import dannce.engine.ops as ops
 from dannce.engine.generator_aux import DataGenerator_downsample
 import dannce.engine.serve_data_COM as serve_data
-import dannce.engine.serve_data_DANNCE as serve_data_DANNCE
 import os
 from six.moves import cPickle
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from scipy.signal import medfilt
+import time
 
 # Load in the params
 PARENT_PARAMS = processing.read_config(sys.argv[1])
@@ -112,7 +111,9 @@ def evaluate_COM_steps(start_ind, end_ind, steps):
                 vikey = os.path.split(key)[1]
                 if lastvid == vikey:
                     print("Closing video: {}".format(key))
+                    time.sleep(0.01)
                     vids[params['CAMNAMES'][n]][key].close()
+                    time.sleep(0.01)
 
         # Open new vids for this interval
         for j in range(len(params['CAMNAMES'])):
@@ -137,13 +138,15 @@ def evaluate_COM_steps(start_ind, end_ind, steps):
 
         pred_ = model.predict_generator(valid_generator, steps=e_ind-i, verbose=1)
 
-        print(i)
+        # print(i)
         pred_ = np.reshape(
             pred_,
             [-1, len(params['CAMNAMES']), pred_.shape[1], pred_.shape[2], pred_.shape[3]])
 
-        
-        for m in range(len(partition['valid'][i:e_ind])):
+        if 'COMdebug' in params.keys():
+            time.sleep(0.5)
+
+        for m in range(0,len(partition['valid'][i:e_ind])):
             # odd loop condition, but it's because at the end of samples,
             # predict_generator will continue to make predictions in a way I
             # don't grasp yet, but also in a way we should ignore
@@ -152,7 +155,7 @@ def evaluate_COM_steps(start_ind, end_ind, steps):
             # normal COM network, and also the COM index for a multi_mode COM network,
             # as in multimode the COM label is put at the end
             pred = pred_[m, :, :, :, -1]
-            sampleID_ = partition['valid'][i + m]
+            sampleID_ = partition['valid'][i+m]
             save_data[sampleID_] = {}
             save_data[sampleID_]['triangulation'] = {}
 
@@ -179,8 +182,8 @@ def evaluate_COM_steps(start_ind, end_ind, steps):
 
                     plt.figure(1)
                     plt.cla()
-                    im = valid_generator.__getitem__(i+m)
-                    plt.imshow(processing.norm_im(im[0][j]))
+                    im = valid_generator.__getitem__(m)
+                    plt.imshow(processing.norm_im(im[0][j][:,:,::-1]))
                     plt.plot((ind[0]-params['CROP_WIDTH'][0])/params['DOWNFAC'],
                              (ind[1]-params['CROP_HEIGHT'][0])/params['DOWNFAC'],'or')
                     plt.savefig(os.path.join(overlaydir,
@@ -271,7 +274,7 @@ valid_params = {
     'labelmode': 'coord',
     'chunks': params['chunks'],
     'shuffle': False,
-    'dsmode': params['dsmode'] if 'dsmode' in params.keys() else 'dsm'}
+    'dsmode': params['DSMODE'] if 'DSMODE' in params.keys() else 'nn'}
 
 partition = {}
 partition['valid'] = samples
@@ -290,55 +293,18 @@ else:
 # Close video objects
 for j in range(len(params['CAMNAMES'])):
     for key in vids[params['CAMNAMES'][j]]:
+        time.sleep(0.01)
         vids[params['CAMNAMES'][j]][key].close()
+        time.sleep(0.01)
 
 
 # Save undistorted 2D COMs and their 3D triangulations
-f = open(os.path.join(RESULTSDIR, 'COM_undistorted.pickle'), 'wb')
+f = open(RESULTSDIR + 'COM_undistorted.pickle', 'wb')
 cPickle.dump(save_data, f)
 f.close()
 
 # Clean up checkpoints
 os.remove('allCOMs_distorted.mat')
 os.remove('save_data.pickle')
-
-# Also save a COM3D_undistorted.mat file.
-# We need to remove the eID in front of all the keys in datadict
-# for prepare_COM to run properly
-datadict = {}
-for key in datadict_:
-    datadict[int(key.split('_')[-1])] = datadict_[key]
-
-_, com3d_dict = serve_data_DANNCE.prepare_COM(
-    os.path.join(RESULTSDIR, 'COM_undistorted.pickle'),
-    datadict,
-    comthresh=0,
-    weighted=False,
-    retriangulate=False,
-    camera_mats=cameras,
-    method='median',
-    allcams=False)
-
-cfilename = os.path.join(RESULTSDIR, 'COM3D_undistorted.mat')
-print("Saving 3D COM to {}".format(cfilename))
-samples_keys = list(com3d_dict.keys())
-
-c3d = np.zeros((len(samples_keys), 3))
-for i in range(len(samples_keys)):
-    c3d[i] = com3d_dict[samples_keys[i]]
-
-# optionally, smooth with median filter
-if 'MEDFILT_WINDOW' in params:
-    #Make window size odd if not odd
-    if params['MEDFILT_WINDOW'] % 2 == 0:
-        params['MEDFILT_WINDOW'] += 1
-        print("MEDFILT_WINDOW was not odd, changing to: {}".format(params['MEDFILT_WINDOW']))
-
-    c3d_med = medfilt(c3d, (params['MEDFILT_WINDOW'], 1))
-
-    sio.savemat(cfilename.split('.mat')[0] + '_medfilt.mat',
-                {'sampleID': samples_keys, 'com': c3d_med})
-
-sio.savemat(cfilename, {'sampleID': samples_keys, 'com': c3d})
 
 print('done!')
