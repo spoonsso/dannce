@@ -64,9 +64,10 @@ class DataGenerator_downsample(keras.utils.Sequence):
             # then we keep a running video object so at least we don't open a new one every time
             self.currvideo = {}
             self.currvideo_name = {}
-            for cc in camnames[0]:
-                self.currvideo[cc] = None
-                self.currvideo_name[cc] = None
+            for dd in camnames.keys():
+                for cc in camnames[dd]:
+                    self.currvideo[cc] = None
+                    self.currvideo_name[cc] = None
 
 
     def __len__(self):
@@ -141,11 +142,18 @@ class DataGenerator_downsample(keras.utils.Sequence):
 
         # We'll need to transpose this later such that channels are last,
         # but initializaing the array this ways gives us
-        # more flexibility in terms of user-defined array sizes
-        y = np.empty(
-            (self.batch_size * len(self.camnames[0]),
-                self.n_channels_out, *self.dim_out),
-            dtype='uint8')
+        # more flexibility in terms of user-defined array sizes\
+        if self.labelmode == 'prob':
+            y = np.empty(
+                (self.batch_size * len(self.camnames[0]),
+                    self.n_channels_out, *self.dim_out),
+                dtype='float32')
+        else:
+            # Just return the targets, without making a meshgrid later
+            y = np.empty(
+                (self.batch_size * len(self.camnames[0]),
+                    self.n_channels_out, len(self.dim_out)),
+                dtype='float32')
 
         # Generate data
         cnt = 0
@@ -204,12 +212,17 @@ class DataGenerator_downsample(keras.utils.Sequence):
                             -((y_coord - this_y[1, j])**2 +
                               (x_coord - this_y[0, j])**2) /
                             (2 * self.out_scale**2))
+                else:
+                    y[cnt] = this_y.T
 
                 cnt = cnt + 1
 
-        # After we downsample to probabiltiy distributions,
-        # we should rescale the maximum back to 1
-        y = np.transpose(y, [0, 2, 3, 1])
+        # Move channels last
+        if self.labelmode == 'prob':
+            y = np.transpose(y, [0, 2, 3, 1])
+        else:
+            #One less dimension when not training with probability map targets
+            y = np.transpose(y, [0, 2, 1])
 
         if self.downsample > 1:
             X = processing.downsample_batch(
