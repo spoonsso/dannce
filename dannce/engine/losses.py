@@ -1,14 +1,14 @@
 """Losses for tf models."""
-# from keras import backend as K
+from keras import backend as K
 import tensorflow as tf
-from tensorflow.keras import backend as K
+
 
 # TODO(nan_true): nan_true is where y_true is not nan. This is confusing
 def mask_nan_keep_loss(y_true, y_pred):
     """Mask out nan values in the calulation of MSE."""
     nan_true = K.cast(~tf.math.is_nan(y_true), 'float32')
     num_notnan = K.sum(K.flatten(nan_true))
-    y_pred = tf.math.multiply(y_pred, nan_true)
+    y_pred = tf.multiply(y_pred, nan_true)
 
     # We need to use tf.where to do this substitution, because when trying to
     # multiply with just the nan_true masks,
@@ -85,7 +85,7 @@ def K_nanmean(tensor):
 
     loss = K.sum(nonan)/num_notnan
 
-    return tf.where(~tf.math.is_inf(loss), loss, 0)
+    return tf.where(~tf.is_inf(loss), loss, 0)
 
 
 def euclidean_distance_3D(y_true, y_pred):

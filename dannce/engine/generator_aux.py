@@ -7,8 +7,10 @@ import imageio
 from dannce.engine import processing as processing
 import scipy.io as sio
 import warnings
+import time
+
 _DEFAULT_CAM_NAMES = [
-    'CameraR', 'CameraL', 'CameraU', 'CameraU2', 'CameraS', 'CameraE']
+    'Camera1', 'Camera2', 'Camera3', 'Camera4', 'Camera5', 'Camera6']
 _EXEP_MSG = "Desired Label channels and ground truth channels do not agree"
 
 
@@ -22,8 +24,8 @@ class DataGenerator_downsample(keras.utils.Sequence):
         out_scale=5, shuffle=True,
         camnames=_DEFAULT_CAM_NAMES,
         crop_width=(0, 1024), crop_height=(20, 1300),
-        downsample=1, immode='video',
-        labelmode='prob', preload=True, dsmode='dsm', chunks=3500,
+        downsample=4, immode='video',
+        labelmode='prob', preload=True, dsmode='nn', chunks=3500,
         multimode=False):
         """Initialize generator.
 
@@ -90,10 +92,10 @@ class DataGenerator_downsample(keras.utils.Sequence):
 
         if preload:
             return self.vidreaders[camname][keyname].get_data(
-                frame_num).astype('float32')
+                frame_num)
         else:
             vid = imageio.get_reader(self.vidreaders[camname][keyname])
-            im = vid.get_data(frame_num).astype('float32')
+            im = vid.get_data(frame_num)
             vid.close()
             return im
 
@@ -112,7 +114,7 @@ class DataGenerator_downsample(keras.utils.Sequence):
         X = np.empty(
             (self.batch_size * len(self.camnames[0]),
                 *self.dim_in, self.n_channels_in),
-            dtype='float32')
+            dtype='uint8')
 
         # We'll need to transpose this later such that channels are last,
         # but initializaing the array this ways gives us
@@ -196,7 +198,7 @@ class DataGenerator_downsample(keras.utils.Sequence):
                 y /= np.max(np.max(y, axis=1), axis=1)[
                     :, np.newaxis, np.newaxis, :]
 
-        return pp_vgg19(X), y
+        return pp_vgg19(X).copy(), y
 
     def save_for_dlc(self, imfolder, ext='.png', full_data=True, compress_level=9):
         """Generate data.
