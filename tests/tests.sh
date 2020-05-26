@@ -68,11 +68,16 @@ cd tests/configs
 # rm config_temp2.yaml
 # python ../../train_DANNCE.py config_mousetest.yaml
 
-echo "Testing DANNCE MAX prediction"
-awk '/EXPVAL/{gsub(/True/, "False")};{print}' config_DANNCEtest.yaml > config_temp2.yaml
-awk '/#predict_model/{gsub("#predict_model: path_to_model_file", "predict_model: ../../demo/markerless_mouse_1/DANNCE/train_results/weights.12000-0.00014.hdf5")};{print}' config_temp2.yaml > config_temp.yaml
-rm config_temp2.yaml
+# echo "Testing DANNCE MAX prediction"
+# awk '/EXPVAL/{gsub(/True/, "False")};{print}' config_DANNCEtest.yaml > config_temp2.yaml
+# awk '/#predict_model/{gsub("#predict_model: path_to_model_file", "predict_model: ../../demo/markerless_mouse_1/DANNCE/train_results/weights.12000-0.00014.hdf5")};{print}' config_temp2.yaml > config_temp.yaml
+# rm config_temp2.yaml
+# python ../../predict_DANNCE.py config_mousetest.yaml
+# python ../compare_predictions.py ../touchstones/save_data_MAX_torchnearest_newtfroutine.mat ./DANNCE/predict_results/save_data_MAX.mat 0.001
+
+echo "Testing DANNCE AVG prediction"
+awk '/#predict_model/{gsub("#predict_model: path_to_model_file", "predict_model: ../../demo/markerless_mouse_1/DANNCE/train_results/AVG/weights.1200-12.77642.hdf5")};{print}' config_DANNCEtest.yaml > config_temp.yaml
 python ../../predict_DANNCE.py config_mousetest.yaml
-python ../compare_predictions.py ../touchstones/save_data_MAX_torchnearest_newtfroutine.mat ./DANNCE/predict_results/save_data_MAX.mat 0.001
+#python ../compare_predictions.py ../touchstones/save_data_MAX_torchnearest_newtfroutine.mat ./DANNCE/predict_results/save_data_MAX.mat 0.001
 
 echo "PASSED WITHOUT ERROR"
