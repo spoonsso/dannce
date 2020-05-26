@@ -283,8 +283,11 @@ else:
 # and one for the probability map, here we splice on a new output layer after
 # the softmax on the last convolutional layer
 if CONFIG_PARAMS['EXPVAL']:
+    from tensorflow.keras.layers import GlobalMaxPooling3D
+    o2 = GlobalMaxPooling3D()(model.layers[-3].output)
     model = Model(inputs=[model.layers[0].input, model.layers[-2].input],
-        outputs=[model.layers[-1].output, model.layers[-3].output])
+        outputs=[model.layers[-1].output, o2])
+
 save_data = {}
 
 
@@ -330,7 +333,7 @@ def evaluate_ondemand(start_ind, end_ind, valid_gen):
             probmap = pred[1]
             pred = pred[0]
             for j in range(pred.shape[0]):
-                pred_max = np.max(probmap[j], axis=(0,1,2))
+                pred_max = probmap[j]
                 sampleID = partition['valid_sampleIDs'][i * pred.shape[0] + j]
                 save_data[i * pred.shape[0] + j] = {
                     'pred_max': pred_max,
