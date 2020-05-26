@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-#Set of tests to run with travis CI. Called when running built tests.
+#Set of tests to run.
 #
 #List of tests:
 #1) Train COMfinder on markerless mouse demo (two exp.yaml)
@@ -16,16 +16,16 @@ set -e
 # 	continued weights only setup.
 # 		Just make sure these run without error
 # 4) predict 1000 samples with predict_DANNCE.py Test the AVG and MAX nets and make sure
-# 	predictiosn are identical to dannce v0.1
+# 	predictions are identical to dannce v0.1
 
 
 # echo "Testing COMfinder training"
 cd tests/configs
-# python ../train_COMfinder.py config_mousetest.yaml
+# python ../../train_COMfinder.py config_mousetest.yaml
 
 # echo "Testing COMfinder prediction"
-# python ../predict_COMfinder.py config_mousetest.yaml
-# python compare_predictions.py ./touchstones/COM3D_undistorted_masternn.mat ./COM/predict_results/COM3D_undistorted.mat 0.1
+# python ../../predict_COMfinder.py config_mousetest.yaml
+# python ../compare_predictions.py ../touchstones/COM3D_undistorted_masternn.mat ./COM/predict_results/COM3D_undistorted.mat 0.001
 
 # echo "Testing DANNCE training, finetune_MAX"
 # awk '/net/{gsub(/finetune_AVG/, "finetune_MAX")};{print}' config_DANNCEtest.yaml > config_temp.yaml
@@ -55,34 +55,24 @@ cd tests/configs
 # rm config_temp3.yaml
 # python ../../train_DANNCE.py config_mousetest.yaml
 
-echo "Testing DANNCE training, AVG net continued"
-awk '/train_mode/{gsub(/finetune/, "continued")};{print}' config_DANNCEtest.yaml > config_temp2.yaml
-awk '/weights/{gsub("../../demo/markerless_mouse_1/DANNCE/weights/", "../../demo/markerless_mouse_1/DANNCE/train_results/AVG/")};{print}' config_temp2.yaml > config_temp.yaml
+# echo "Testing DANNCE training, AVG net continued"
+# awk '/train_mode/{gsub(/finetune/, "continued")};{print}' config_DANNCEtest.yaml > config_temp2.yaml
+# awk '/weights/{gsub("../../demo/markerless_mouse_1/DANNCE/weights/", "../../demo/markerless_mouse_1/DANNCE/train_results/AVG/")};{print}' config_temp2.yaml > config_temp.yaml
+# rm config_temp2.yaml
+# python ../../train_DANNCE.py config_mousetest.yaml
+
+# echo "Testing DANNCE training, MAX net continued"
+# awk '/train_mode/{gsub(/finetune/, "continued")};{print}' config_DANNCEtest.yaml > config_temp.yaml
+# awk '/EXPVAL/{gsub(/True/, "False")};{print}' config_temp.yaml > config_temp2.yaml
+# awk '/weights/{gsub("../../demo/markerless_mouse_1/DANNCE/weights/", "../../demo/markerless_mouse_1/DANNCE/train_results/")};{print}' config_temp2.yaml > config_temp.yaml
+# rm config_temp2.yaml
+# python ../../train_DANNCE.py config_mousetest.yaml
+
+echo "Testing DANNCE MAX prediction"
+awk '/EXPVAL/{gsub(/True/, "False")};{print}' config_DANNCEtest.yaml > config_temp2.yaml
+awk '/#predict_model/{gsub("#predict_model: path_to_model_file", "predict_model: ../../demo/markerless_mouse_1/DANNCE/train_results/weights.12000-0.00014.hdf5")};{print}' config_temp2.yaml > config_temp.yaml
 rm config_temp2.yaml
-python ../../train_DANNCE.py config_mousetest.yaml
-
-echo "Testing DANNCE training, MAX net continued"
-awk '/train_mode/{gsub(/finetune/, "continued")};{print}' config_DANNCEtest.yaml > config_temp.yaml
-awk '/EXPVAL/{gsub(/True/, "False")};{print}' config_temp.yaml > config_temp2.yaml
-awk '/weights/{gsub("../../demo/markerless_mouse_1/DANNCE/weights/", "../../demo/markerless_mouse_1/DANNCE/train_results/")};{print}' config_temp2.yaml > config_temp.yaml
-rm config_temp2.yaml
-python ../../train_DANNCE.py config_mousetest.yaml
-
-echo "Testing DANNCE training, MAX net, continued weights only"
-awk '/train_mode/{gsub(/finetune/, "continued_weights_only")};{print}' config_DANNCEtest.yaml > config_temp.yaml
-awk '/EXPVAL/{gsub(/True/, "False")};{print}' config_temp.yaml > config_temp2.yaml
-awk '/weights/{gsub("../../demo/markerless_mouse_1/DANNCE/weights/", "../../demo/markerless_mouse_1/DANNCE/train_results/")};{print}' config_temp2.yaml > config_temp.yaml
-awk '/net/{gsub(/finetune_AVG/, "unet3d_big")};{print}' config_temp.yaml > config_temp3.yaml
-awk '/N_CHANNELS_OUT/{gsub(/20/, "22")};{print}' config_temp3.yaml > config_temp.yaml
-rm config_temp2.yaml config_temp3.yaml
-python ../../train_DANNCE.py config_mousetest.yaml
-
-echo "Testing DANNCE training, AVG net, continued weights only"
-awk '/train_mode/{gsub(/finetune/, "continued_weights_only")};{print}' config_DANNCEtest.yaml > config_temp.yaml
-awk '/weights/{gsub("../../demo/markerless_mouse_1/DANNCE/weights/", "../../demo/markerless_mouse_1/DANNCE/train_results/AVG/")};{print}' config_temp.yaml > config_temp2.yaml
-awk '/net/{gsub(/finetune_AVG/, "unet3d_big_expectedvalue")};{print}' config_temp2.yaml > config_temp3.yaml
-awk '/N_CHANNELS_OUT/{gsub(/20/, "22")};{print}' config_temp3.yaml > config_temp.yaml
-rm config_temp2.yaml config_temp3.yaml
-python ../../train_DANNCE.py config_mousetest.yaml
+python ../../predict_DANNCE.py config_mousetest.yaml
+python ../compare_predictions.py ../touchstones/save_data_MAX_torchnearest_newtfroutine.mat ./DANNCE/predict_results/save_data_MAX.mat 0.001
 
 echo "PASSED WITHOUT ERROR"
