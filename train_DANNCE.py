@@ -79,12 +79,7 @@ com3d_dict = {}
 cameras = {}
 camnames = {}
 
-if 'exp_path' not in CONFIG_PARAMS:
-    def_ep = os.path.join('.', 'DANNCE')
-    exps = os.listdir(def_ep)
-    exps = [os.path.join(def_ep, f) for f in exps if '.yaml' in f and 'exp' in f]
-else:
-    exps = CONFIG_PARAMS['exp_path']
+exps = processing.grab_exp_file(CONFIG_PARAMS)
 
 num_experiments = len(exps)
 CONFIG_PARAMS['experiment'] = {}
@@ -109,7 +104,7 @@ for e in range(num_experiments):
         for d in dupes:
             val = CONFIG_PARAMS['experiment'][e][d]
             if _N_VIEWS % len(val) == 0:
-                num_reps = _N_VIEWS  // len(val)
+                num_reps = _N_VIEWS // len(val)
                 CONFIG_PARAMS['experiment'][e][d] = val * num_reps
             else:
                 raise Exception("The length of the {} list must divide evenly into {}.".format(d, _N_VIEWS))
@@ -126,16 +121,12 @@ for e in range(num_experiments):
         for key in com3d_dict_.keys():
             com3d_dict_[key] = np.nanmean(datadict_3d_[key],axis=1,keepdims=True) 
     else: # then do traditional COM and sample alignment
-        if 'COM3D_DICT' not in CONFIG_PARAMS.keys():
+        if 'COM3D_DICT' not in CONFIG_PARAMS['experiment'][e].keys():
+            if 'COMfilename' not in CONFIG_PARAMS['experiment'][e].keys():
+                raise Exception("The COMfilename or COM3D_DICT field must be populated in the",
+                 "yaml for experiment {}".format(e))
 
-            # Load in the COM file at the default location, or use one in the config file if provided
-            if 'COMfilename' in CONFIG_PARAMS['experiment'][e]:
-                comfn = CONFIG_PARAMS['experiment'][e]['COMfilename']
-            else:
-                comfn = os.path.join('.', 'COM', 'predict_results')
-                comfn = os.listdir(comfn)
-                comfn = [f for f in comfn if 'COM_undistorted.pickle' in f]
-                comfn = os.path.join('.', 'COM', 'predict_results', comfn[0])
+            comfn = CONFIG_PARAMS['experiment'][e]['COMfilename']
 
             datadict_, com3d_dict_ = serve_data.prepare_COM(
                 comfn,
@@ -159,8 +150,9 @@ for e in range(num_experiments):
             print(msg.format(pre - len(samples_)))
 
         else:
-            print("Loading 3D COM and samples from file: {}".format(CONFIG_PARAMS['COM3D_DICT']))
-            c3dfile = sio.loadmat(CONFIG_PARAMS['COM3D_DICT'])
+            print("Loading 3D COM and samples from file: {}".
+                format(CONFIG_PARAMS['experiment'][e]['COM3D_DICT']))
+            c3dfile = sio.loadmat(CONFIG_PARAMS['experiment'][e]['COM3D_DICT'])
             c3d = c3dfile['com']
             c3dsi = np.squeeze(c3dfile['sampleID'])
             com3d_dict_ = {}

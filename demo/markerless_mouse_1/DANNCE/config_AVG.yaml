@@ -45,10 +45,10 @@ lr: 1e-3
 
 # During prediction, will look for the last epoch weights saved to ./DANNCE/train_results/. To load in a different weights file, add the path here
 # Note that this must be a FULL MODEL file, not just weights.
-predict_model: /home/twd/Dropbox/DANNCE/demo/markerless_rat/DANNCE/train_results/weights_multigpu.27-4.06821_singleGPU.hdf5
+# predict_model: 
 
 # name of the network architecture (see nets.py) 'unet3d_big' (from scratch?)
-net: finetune_MAX
+net: finetune_AVG
 
 # By default, will load in the first hdf5 file at this location for fine-tuning. If training from scratch, set to None
 weights: ./DANNCE/weights/

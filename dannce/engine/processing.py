@@ -175,8 +175,24 @@ def inherit_config(child, parent, keys):
     for key in keys:
         if key not in child.keys():
             child[key] = parent[key]
+            print("{} not found in exp.yaml file, falling back to main config".format(key))
 
     return child
+
+def grab_exp_file(CONFIG_PARAMS):
+    """
+    Finds the paths to the training experiment yaml files.
+    """
+    if 'exp_path' not in CONFIG_PARAMS:
+        def_ep = os.path.join('.', 'DANNCE')
+        exps = os.listdir(def_ep)
+        exps = [os.path.join(def_ep, f) for f in exps if '.yaml' in f and 'exp' in f]
+    else:
+        exps = CONFIG_PARAMS['exp_path']
+
+    print("Using the following exp.yaml files: {}".format(exps))
+
+    return exps
 
 def batch_rgb2gray(imstack):
     """Convert to gray image-wise.

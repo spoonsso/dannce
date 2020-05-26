@@ -40,12 +40,8 @@ datadict_3d = {}
 cameras = {}
 camnames = {}
 
-if 'exp_path' not in CONFIG_PARAMS:
-    def_ep = os.path.join('.', 'COM')
-    exps = os.listdir(def_ep)
-    exps = [os.path.join(def_ep, f) for f in exps if '.yaml' in f and 'exp' in f]
-else:
-    exps = CONFIG_PARAMS['exp_path']
+exps = processing.grab_exp_file(CONFIG_PARAMS)
+
 num_experiments = len(exps)
 CONFIG_PARAMS['experiment'] = {}
 
