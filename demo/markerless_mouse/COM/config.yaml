@@ -79,10 +79,10 @@ chunks: 3000
 #COMdebug: Camera5
 
 # How many frames to you want to predict over? Set to 'max' for all video frames.
-max_num_samples: max
+max_num_samples: 50
 
 # For prediction, False means Matlab will do the undistort, True means python will do it (slower)
 undistort: False
 
 # Downsampling mode, 'dsm' is downsample local mean. 'nn' is nearest neighbor and potentially faster
-DSMODE: nn
+dsmode: nn

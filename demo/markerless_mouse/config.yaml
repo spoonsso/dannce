@@ -5,7 +5,7 @@ RESULTSDIR: ./
 datadir: ./data/
 
 # path to folder contraining video sub directories
-viddir: ./videos/
+viddir: /home/twd/Dropbox/autoencoder/Kyle/20190902_mouse1/videos/
 
 # names of data files. must match the order of CAMNAMES below
 datafile: ['Camera1_MatchedFrames', 'Camera2_MatchedFrames', 'Camera3_MatchedFrames', 'Camera4_MatchedFrames','Camera5_MatchedFrames','Camera6_MatchedFrames']
