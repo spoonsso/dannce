@@ -45,13 +45,13 @@ lr: 1e-3
 
 # During prediction, will look for the last epoch weights saved to ./DANNCE/train_results/. To load in a different weights file, add the path here
 # Note that this must be a FULL MODEL file, not just weights.
-#predict_model: path_to_model_file
+#predict_model:
 
 # name of the network architecture (see nets.py) 'unet3d_big' (from scratch?)
 net: finetune_MAX
 
 # By default, will load in the first hdf5 file at this location for fine-tuning. If training from scratch, set to None
-weights: ./DANNCE/weights/
+weights: ./DANNCE/weights/weights.rat.MAX/
 
 # whether to use batch normalization or instance normalization. cannot both be true. If fine-tuning, this must be the same setting as used for the initial network
 batch_norm: False
