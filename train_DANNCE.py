@@ -441,7 +441,8 @@ elif CONFIG_PARAMS['train_mode'] == 'continued':
                                        'euclidean_distance_3D': losses.euclidean_distance_3D,
                                        'centered_euclidean_distance_3D': losses.centered_euclidean_distance_3D})
 elif CONFIG_PARAMS['train_mode'] == 'continued_weights_only':
-  # Currently tested only for tiedfirstlayer_expectedvalue
+  # This does not work with models created in 'finetune' mode, but will work with models
+  # started from scratch ('new' train_mode)
     model = CONFIG_PARAMS['net'](CONFIG_PARAMS['loss'],
                                  float(CONFIG_PARAMS['lr']),
                                  CONFIG_PARAMS['N_CHANNELS_IN'] + CONFIG_PARAMS['DEPTH'],
