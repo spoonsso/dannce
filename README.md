@@ -42,23 +42,47 @@ Cameras tested:
 
 The following combinations of operating systems, python, tensorflow, cuda, and cudnn distributions have been used for development.
 
-|      OS      | python | tensorflow-gpu | cuda | cudnn |
-|:------------:|:------:|:----------:|:----:|:-----:|
-| Ubuntu 18.04 |  3.6.8 |   1.10.0   |  9.0 |  7.2  |
-| Ubuntu 16.04 |  3.6.x |   1.10.x   |  9.0 |  7.x  |
-|  Windows 10  |  3.6.8 |   1.10.0   |  9.0 |  7.6  |
-|  Windows 10  |  3.6.8 |    1.4.x   |  8.0 |  6.0  |
+|      OS      | python | tensorflow | cuda | cudnn | pytorch |
+|:------------:|:------:|:----------:|:----:|:-----:|:-------:|
+| Ubuntu 16.04 |  3.7.x |   2.2.0   |  10.1 |  7.6  |  1.5.0  |
+|  Windows 10  |  3.7.x |   2.2.0   |  10.1 |  7.6  |  1.5.0  |
 
-We recommend installing `DANNCE` within a conda environment using `python 3.6.x`. We also recommend installing tensorflow 1.9.0 or 1.10.0 for `DANNCE`, as we have extensively tested `DANNCE` with these builds. The following steps can be followed for installation:
+`DANNCE` requires a CUDA-enabled GPU and appropriate drivers. We have tested DANNCE on NVIDIA Titan V, Titan X Pascal, Titan RTX, and V100. On an NVIDIA Titan V, DANNCE can make predictions at ~10.5 samples per second when using 6 cameras. DANNCE is also embarrassingly parallel over multiple GPUs. 
 
-1. Install dependencies with the included setup script `python setup.py install`
+We recommend installing `DANNCE` in the following steps:
 
-2. Install required GPU drivers, along with CUDA v9.0 and cuDNN v7.2. For more information, see [here](https://docs.nvidia.com/deeplearning/sdk/cudnn-install/index.html). For Ubuntu 18.04, you can also use the bash script in this repository, `ubuntu18.04_cuda_9.0_cudnn_install_instructions.sh`.
+1. Set up a new conda environment with the following configuration: `conda create -n danncetemp python=3.7 cudatoolkit=10.1 cudnn`
 
-3. Install tensorflow 1.9.0 using `conda install tensorflow-gpu==1.9.0 or tensorflow 1.10.0 using `conda install tensorflow-gpu==1.10.0.
+2. Install dannce with the included setup script by running `python setup.py install` within the base dannce repo folder.
+
+You should be good to go!
+
+## Demo Quickstart
+To test your DANNCE installation and familiarize yourself with DANNCE file and configuration formatting, run DANNCE predictions over `markerless_mouse_1`. Because the videos and network weights files are too large to host on GitHub, use the links in `demo/markerless_mouse_1/DANNCE/train_results/link_to_weights.txt`, `demo/markerless_mouse_1/DANNCE/AVG/train_results/link_to_weights.txt`, `demo/markerless_mouse_1/videos/link_to_videos.txt` to download necessary files and place them in each associated location.
+
+Alternatively, on Linux you can run the following commands from the base dannce directory:
+`wget -O vids.zip https://www.dropbox.com/sh/wn1x8erb5k3n9vr/AADE_Ca-2farKhd38ZvsNi84a?dl=1`
+`unzip vids.zip -d vids`
+`mv vids/* demo/markerless_mouse_1/videos/`
+`rm -r vids vids.zip`
+`wget -O demo/markerless_mouse_1/DANNCE/train_results/AVG/weights.1200-12.77642.hdf5 https://www.dropbox.com/s/4b97fg5ciznllnt/weights.1200-12.77642.hdf5?dl=1`
+`wget -O demo/markerless_mouse_1/DANNCE/train_results/weights.12000-0.00014.hdf5 https://www.dropbox.com/s/wnjlfhylaxtecax/weights.12000-0.00014.hdf5?dl=1`
+
+Once the files are downloaded and in their correct places, run:
+
+`cd demo/markerless_mouse_1`
+`python ../../predict_DANNCE.py config.yaml`
+
+This demo will run the `AVG` version of DANNCE (more on `AVG` vs. `MAX1` below) over 1000 frames of mouse data and save the results to `demo/markerless_mouse_1/DANNCE/predict_results/save_data_AVG.mat`
 
 ## Formatting The Data
-During training and evaluation, DANNCE requires a set of videos across multiple views, a camera calibration parameters file, and a "matched frames" file that indexes the videos to ensure synchrony. DANNCE also supports data in the form of individual images and volumetric `.npy` files (used to accelerate training). For evaluation, the default data format is video.
+During training and evaluation, DANNCE requires a set of videos across multiple views, a camera calibration parameters file, and a "MatchedFrames" file that indexes the videos to ensure synchrony.
+
+We recommend setting up individual project folders for each video recording session, as in the dannce demos (`./demo`), although the dannce configuration files are flexible enough to support more custom file and directory organizations. The demo project folders also contain examples of all of the following formatting information.
+
+**configuration files**
+`DANNCE` uses 5 different types of configuration files
+-- 
 
 **video directories**.
 DANNCE requires a parent video directory with *n* sub-directories, one for each of *n* cameras. Within each subdirectory, videos must be named according the frame index of the first frame in the file. For example, for a three-camera system, the video directory must look like:
@@ -77,7 +101,7 @@ DANNCE requires a parent video directory with *n* sub-directories, one for each 
 
 |\_\_+--0.mp4
 
-DANNCE can also accommodate an additional level of subdirectories if `vid_dir_flag` is set to `False` during configuration.
+DANNCE can also accommodate an additional level of subdirectories if `vid_dir_flag` is set to `False` in the main configuration files.
 
 ./videos/
 
@@ -106,6 +130,17 @@ A properly formatted calibration file has the following fields, `['R','t','K','R
 
 **matched frames file**.
 To ensure that individual video frames are synchronized at each time point, DANNCE requires an array that associates each time point (in any unit) to an associated video frame in each camera. During dataset formatting, these indices are combined with any available training labels to form the core data representation. For making predictions with DANNCE, these training labels are ignored, although DANNCE still expects to find placeholder label arrays.
+
+**Matched Frames**.
+`DANNCE` requires a set of "MatchedFrames" files, one for each camera, which delineate frame synchrony across the different cameras over time. If you know your cameras are reliably synchronized at all times (e.g. via hardware triggering), these files can be generated with the aid 
+
+Use this script if you know your camera frames are triggered and reliably synchronized.
+
+If your cameras are not natively synchronized, but you can collect timestaps for each
+    frame, MatchedFrames files should be generated by `preprocess_data.M`, together
+    with a formatted `.mat` file listing the frameID for each camera and each timepoint.
+    See `/dannce/utils/example_matchedframs.mat` file for how these timestamp data
+    should be formatted.
 
 ## Predicting Keypoints With DANNCE
 
