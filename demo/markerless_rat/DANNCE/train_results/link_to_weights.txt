@@ -1,1 +1,0 @@
-https://www.dropbox.com/s/pkn5en6r08j82wf/weights_multigpu.27-4.06821_singleGPU.hdf5?dl=0
