@@ -80,4 +80,7 @@ awk '/#predict_model/{gsub("#predict_model: path_to_model_file", "predict_model:
 python ../../predict_DANNCE.py config_mousetest.yaml
 python ../compare_predictions.py ../touchstones/save_data_AVG_torch_nearest.mat ./DANNCE/predict_results/save_data_AVG.mat 0.001
 
+# Remove temporary folders containign weights, etc.
+rm -rf ./DANNCE/
+rm -rf ./COM/
 echo "PASSED WITHOUT ERROR"
