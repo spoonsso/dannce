@@ -42,23 +42,63 @@ Cameras tested:
 
 The following combinations of operating systems, python, tensorflow, cuda, and cudnn distributions have been used for development.
 
-|      OS      | python | tensorflow-gpu | cuda | cudnn |
-|:------------:|:------:|:----------:|:----:|:-----:|
-| Ubuntu 18.04 |  3.6.8 |   1.10.0   |  9.0 |  7.2  |
-| Ubuntu 16.04 |  3.6.x |   1.10.x   |  9.0 |  7.x  |
-|  Windows 10  |  3.6.8 |   1.10.0   |  9.0 |  7.6  |
-|  Windows 10  |  3.6.8 |    1.4.x   |  8.0 |  6.0  |
+|      OS      | python | tensorflow | cuda | cudnn | pytorch |
+|:------------:|:------:|:----------:|:----:|:-----:|:-------:|
+| Ubuntu 16.04 |  3.7.x |   2.2.0   |  10.1 |  7.6  |  1.5.0  |
+|  Windows 10  |  3.7.x |   2.2.0   |  10.1 |  7.6  |  1.5.0  |
 
-We recommend installing `DANNCE` within a conda environment using `python 3.6.x`. We also recommend installing tensorflow 1.9.0 or 1.10.0 for `DANNCE`, as we have extensively tested `DANNCE` with these builds. The following steps can be followed for installation:
+`DANNCE` requires a CUDA-enabled GPU and appropriate drivers. We have tested DANNCE on NVIDIA Titan V, Titan X Pascal, Titan RTX, and V100. On an NVIDIA Titan V, DANNCE can make predictions at ~10.5 samples per second when using 6 cameras. DANNCE is also embarrassingly parallel over multiple GPUs. 
 
-1. Install dependencies with the included setup script `python setup.py install`
+We recommend installing `DANNCE` in the following steps:
 
-2. Install required GPU drivers, along with CUDA v9.0 and cuDNN v7.2. For more information, see [here](https://docs.nvidia.com/deeplearning/sdk/cudnn-install/index.html). For Ubuntu 18.04, you can also use the bash script in this repository, `ubuntu18.04_cuda_9.0_cudnn_install_instructions.sh`.
+1. Set up a new conda environment with the following configuration: `conda create -n dannce python=3.7 cudatoolkit=10.1 cudnn`
 
-3. Install tensorflow 1.9.0 using `conda install tensorflow-gpu==1.9.0 or tensorflow 1.10.0 using `conda install tensorflow-gpu==1.10.0.
+2. Activate the new conda environment: `conda activate dannce`
+
+3. Install dannce with the included setup script by running `python setup.py install` within the base dannce repo folder.
+
+You should be good to go! These installation steps were tested with conda version 4.7.12, although we expect it to work for most conda installations.
+
+**A note on the pytorch requirment**
+Pytorch is not required, but 3D volume generation is significantly faster when using pytorch than with tensorflow or numpy. To use tensorflow only, without having to install the pytorch package, simply toggle the `predict_mode` field in the DANNCE configuration files to `tf`. To use numpy volume generation (slowest), change `predict_mode` to `None`.
+
+## Demo Quickstart
+To test your DANNCE installation and familiarize yourself with DANNCE file and configuration formatting, run DANNCE predictions over `markerless_mouse_1`. Because the videos and network weights files are too large to host on GitHub, use the links in `demo/markerless_mouse_1/DANNCE/train_results/link_to_weights.txt`, `demo/markerless_mouse_1/DANNCE/AVG/train_results/link_to_weights.txt`, `demo/markerless_mouse_1/videos/link_to_videos.txt` to download necessary files and place them in each associated location.
+
+Alternatively, on Linux you can run the following commands from the base dannce directory:
+
+For markerless_mouse_1:
+
+`wget -O vids.zip https://www.dropbox.com/sh/wn1x8erb5k3n9vr/AADE_Ca-2farKhd38ZvsNi84a?dl=1 ; unzip vids.zip -d vids ; mv vids/* demo/markerless_mouse_1/videos/ ; rm -r vids vids.zip ; wget -O demo/markerless_mouse_1/DANNCE/train_results/AVG/weights.1200-12.77642.hdf5 https://www.dropbox.com/s/4b97fg5ciznllnt/weights.1200-12.77642.hdf5?dl=1 ; wget -O demo/markerless_mouse_1/DANNCE/train_results/weights.12000-0.00014.hdf5 https://www.dropbox.com/s/wnjlfhylaxtecax/weights.12000-0.00014.hdf5?dl=1`
+
+For markerless_mouse_2:
+
+`wget -O vids2.zip https://www.dropbox.com/sh/tspmwo36gbj6b4x/AAA_sWJA6K1ksX8f6hBoZf7Ia?dl=1; unzip vids2.zip -d vids2 ; mv vids2/* demo/markerless_mouse_2/videos/ ; rm -r vids2 vids2.zip` 
+
+Once the files are downloaded and in their correct places, run:
+
+`cd demo/markerless_mouse_1`
+
+`python ../../predict_DANNCE.py config.yaml`
+
+This demo will run the `AVG` version of DANNCE over 1000 frames of mouse data and save the results to `demo/markerless_mouse_1/DANNCE/predict_results/save_data_AVG.mat`.
+
+The `AVG` version of DANNCE generally produces smoother and more precise 3D tracking because it converts the final 3D probability map for each landmark into a continuous 3D coordinate by taking the spatial average over this volume. However, the `AVG` network can sometimes be tricky to fine-tune. If you are having trouble getting the `AVG` network to converge to a satisfactory error level, consider trying the `MAX` version of the nerwork, which assigns each landmark the 3D coordinate of the voxel containing the maximum value over the final 3D probability map.  
 
 ## Formatting The Data
-During training and evaluation, DANNCE requires a set of videos across multiple views, a camera calibration parameters file, and a "matched frames" file that indexes the videos to ensure synchrony. DANNCE also supports data in the form of individual images and volumetric `.npy` files (used to accelerate training). For evaluation, the default data format is video.
+During training and evaluation, DANNCE requires a set of videos across multiple views, a camera calibration parameters file, and a "MatchedFrames" file that indexes the videos to ensure synchrony.
+
+We recommend setting up individual project folders for each video recording session, as in the dannce demos (`./demo`), although the dannce configuration files are flexible enough to support more custom file and directory organizations. The demo project folders also contain examples of all of the following formatting information.
+
+**configuration files**
+
+`DANNCE` uses 5 different types of configuration files
+
+- *main config*, e.g. `demo/markerless_mouse_1/config.yaml`. This file coordinates pathing to required files, including videos, camera calibrations, and synchronization files.
+- *COM config*, e.g. `demo/markerless_mouse_1/COM/config.yaml`. This file sets parameters for COMfinder training and prediction and sets output directories.
+- *DANNCE config*, e.g. `demo/markerless_mouse_1/DANNCE/config_AVG.yaml`. This file sets parameters for DANNCE training and prediction and sets output directories.
+- *COM experiment configs*, e.g. `demo/markerless_mouse_1/COM/exp1.yaml` and `demo/markerless_mouse_1/COM/exp2.yaml`. These files coordinate pathing to animal-specific files, including hand-labeled data, enabling COMfinder training over multiple animals.
+- *DANNCE experiment configs*, e.g. `demo/markerless_mouse_1/DANNCE/exp1.yaml` and `demo/markerless_mouse_1/DANNCE/exp2.yaml`. These files coordinate pathing to session-specific files, including hand-labeled data, enabling DANNCE training over multiple animals or recording sessions. In the default setup, `exp1.yaml` will refer to the files for the animal belonging to the base project folder (e.g. `markerless_mouse_1`), and `exp2.yaml`, while contained within the same folder as `exp1.yaml`, will refer to the files for the second animal (e.g. `markerless_mouse_2`, which is its own separate project folder). However, DANNCE's configuration is flexible enough to support your own custom file organization.
 
 **video directories**.
 DANNCE requires a parent video directory with *n* sub-directories, one for each of *n* cameras. Within each subdirectory, videos must be named according the frame index of the first frame in the file. For example, for a three-camera system, the video directory must look like:
@@ -77,7 +117,7 @@ DANNCE requires a parent video directory with *n* sub-directories, one for each 
 
 |\_\_+--0.mp4
 
-DANNCE can also accommodate an additional level of subdirectories if `vid_dir_flag` is set to `False` during configuration.
+DANNCE can also accommodate an additional level of subdirectories if `vid_dir_flag` is set to `False` in the main configuration files.
 
 ./videos/
 
@@ -100,58 +140,20 @@ DANNCE can also accommodate an additional level of subdirectories if `vid_dir_fl
 |\_\_\_\_\_+--0.mp4
 
 **camera calibration parameters**.
-DANNCE requires a .mat file for each camera containing the camera's rotation matrix, translation vector, intrinsic matrix, radial distortion, and tangential distortion. To convert from Jesse's calibration format to the required format, use `utils/convert_calibration.m`.
+DANNCE requires a .mat file for each camera containing the camera's rotation matrix, translation vector, intrinsic matrix, radial distortion, and tangential distortion. If you use out included calibration scripts, you can convert the output fules to the required format, use `utils/convert_calibration.m`.
 
 A properly formatted calibration file has the following fields, `['R','t','K','RDistort','TDistort']`.
 
-**matched frames file**.
-To ensure that individual video frames are synchronized at each time point, DANNCE requires an array that associates each time point (in any unit) to an associated video frame in each camera. During dataset formatting, these indices are combined with any available training labels to form the core data representation. For making predictions with DANNCE, these training labels are ignored, although DANNCE still expects to find placeholder label arrays.
+**synchronization files**.
+DANNCE requires a set of sync files, one for each camera, which define frame synchrony across the different cameras over time. If you know your cameras are reliably synchronized at all times (e.g. via hardware triggering), these files can be generated with the aid of `dannce/utils/makeSyncFiles.py`. Once your video directories are set up correctly, sync files can get generated by running `python dannce/utils/makeSyncFiles.py {path_to_videos} {acquisition_frame_rate} {number_tracked_landmarks}`, where {.} denotes variables you must replace with relevant values. See the `makeSyncFiles.py` docstring for more information.
 
-## Predicting Keypoints With DANNCE
-
-Making predictions with a trained DANNCE network requires 3 steps.
-
-#### 1) Format the data (see above)
-#### 2) Find the animal center of mass (COM) in each video frame
-You can use your favorite method to find an estimate of the animal COM in each frame. We trained a U-Net to do it. To find the COM with our U-Net, run `predict_COMfinder.py`. This will generate a COM file that is used by DANNCE.
-
-#### 3) Run the everything through DANNCE
-Given formatted data and a COM file, DANNCE can now predict keypoints from your video streams.
-To do this, run `predict_DANNCE.py`. See the python file for specific usage instructions. 
-
-We have configured DANNCE to work best with a specific organization of data directories: 
-
-./MyProject/
-
-+-- videos
-
-|\_\_+--Camera1
-
-|\_\_\_\_\_+--0.mp4
-
-|\_\_+--Camera2
-
-|\_\_\_\_\_+--0.mp4
-
-+-- data
-
-|\_\_+--Camera1_MatchedFrames.mat
-
-|\_\_+--Camera2_MatchedFrames.mat
-
-+-- calibration
-
-|\_\_+--Camera1_params.mat
-
-|\_\_+--Camera2_params.mat
-
-See the demos for more details. 
+If your cameras are not natively synchronized, but you can collect timestaps for each frame, sync files should be generated by `dannce/utils/preprocess_data.m`, which will generate sync files from a properly formatted `.mat` file listing the frameID for each camera at each timepoint. See `/dannce/utils/example_matchedframs.mat` file for how these timestamp data should be formatted before running `preprocess_data.m`.
 
 ## Hand-Labeling
-For fine-tuning DANNCE to work with your animal and system, we developed a labeling GUI, which can be found in a separate repo: https://github.com/diegoaldarondo/Label3D. The `Label3D` repository should be cloned with `DANNCE` automatically as a submodule when using `git clone --recursive https://github.com/spoonsso/DANNCE` When labeling is completed, the labels can be used to train DANNCE (see below).
+For fine-tuning DANNCE to work with your animal and system, we developed a labeling GUI, which can be found in a separate repo: https://github.com/diegoaldarondo/Label3D. The `Label3D` repository should be cloned with DANNCE automatically as a submodule when using `git clone --recursive https://github.com/spoonsso/dannce` When labeling is completed, the labels can be used to train DANNCE and the COMfinder network (see below) after converting the Label3D files to DANNCE format using `Label3D/wrappers/Label3DPostlabel_fromVideo.m` These label files must live in the directories referred to in the `datadir` and `datafile` fields of your `exp*.yaml` files.
 
-## Training The COMfinder U-Net
-DANNCE requires a reasonable estimate of the 3D position of the animal in each frame. We obtain this by triangulating the 2D COM of the animal in each frame. Our U-Net is brittle and typically requires some additional training data to get it working on new views, new environments, and new species. If working with hand-labeled data, your same data structures can be used to train the COMfinder network.
+## Training and Predicting with the COMfinder U-Net
+DANNCE requires a reasonable estimate of the 3D position of the animal in each frame. We obtain this by triangulating the 2D center of mass (COM) of the animal in each frame. You can use your favorite method to find an estimate of the animal COM in each frame, but we trained a 2D U-Net to do it. Our U-Net is brittle and typically requires some additional training data to get it working on new views, new environments, and new species. If working with hand-labeled data, your same data structures can be used to train both the COMfinder network and the DANNCE network.
 
 Given formatted data, a properly organized directory structure, and a config file (see demo folder), navigate to your project folder and run
 
@@ -159,7 +161,7 @@ Given formatted data, a properly organized directory structure, and a config fil
 
 After training, run `python $my_path_to_DANNCE/predict_COMfinder.py ./config.yaml`. To generate center of mass predictions.
 
-## Training DANNCE
+## Training and Predicting with DANNCE
 
 Once the COM is found, the main DANNCE network can be trained by running:
 

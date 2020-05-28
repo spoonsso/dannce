@@ -13,23 +13,22 @@ experiment config files  to support training over multiple animals.
 import sys
 import numpy as np
 import os
-import keras.backend as K
 from copy import deepcopy
 import dannce.engine.serve_data_DANNCE as serve_data
 import dannce.engine.processing as processing
-from dannce.engine.processing import savedata_tomat, savedata_expval
-from dannce.engine.generator_kmeans import DataGenerator_3Dconv_kmeans
-from dannce.engine.generator_kmeans import DataGenerator_3Dconv_frommem
+from dannce.engine.generator import DataGenerator_3Dconv
+from dannce.engine.generator import DataGenerator_3Dconv_frommem
 from dannce.engine import nets
 from dannce.engine import losses
 from dannce.engine import ops
 from six.moves import cPickle
-from keras.layers import Conv3D, Input
-from keras.models import Model, load_model
-from keras.optimizers import Adam
-from keras.callbacks import ModelCheckpoint, CSVLogger, TensorBoard
+
+from tensorflow.keras.models import load_model
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.callbacks import ModelCheckpoint, CSVLogger, TensorBoard
+
 import scipy.io as sio
-import keras
+import tensorflow.keras as keras
 
 # Set up parameters
 PARENT_PARAMS = processing.read_config(sys.argv[1])
@@ -66,6 +65,8 @@ if CONFIG_PARAMS['weights'] != 'None':
 
     CONFIG_PARAMS['weights'] = os.path.join(CONFIG_PARAMS['weights'],weights)
 
+    print("Fine-tuning from {}".format(CONFIG_PARAMS['weights']))
+
 samples = []
 datadict = {}
 datadict_3d = {}
@@ -73,12 +74,7 @@ com3d_dict = {}
 cameras = {}
 camnames = {}
 
-if 'exp_path' not in CONFIG_PARAMS:
-  def_ep = os.path.join('.', 'DANNCE')
-  exps = os.listdir(def_ep)
-  exps = [os.path.join(def_ep, f) for f in exps if '.yaml' in f and 'exp' in f]
-else:
-  exps = CONFIG_PARAMS['exp_path']
+exps = processing.grab_exp_file(CONFIG_PARAMS)
 
 num_experiments = len(exps)
 CONFIG_PARAMS['experiment'] = {}
@@ -103,15 +99,13 @@ for e in range(num_experiments):
         for d in dupes:
             val = CONFIG_PARAMS['experiment'][e][d]
             if _N_VIEWS % len(val) == 0:
-                num_reps = _N_VIEWS  // len(val)
+                num_reps = _N_VIEWS // len(val)
                 CONFIG_PARAMS['experiment'][e][d] = val * num_reps
             else:
                 raise Exception("The length of the {} list must divide evenly into {}.".format(d, _N_VIEWS))
 
     samples_, datadict_, datadict_3d_, data_3d_, cameras_ = \
         serve_data.prepare_data(CONFIG_PARAMS['experiment'][e])
-
-
     
     # New option: if there is "clean" data (full marker set), can take the
     # 3D COM from the labels
@@ -122,32 +116,28 @@ for e in range(num_experiments):
         for key in com3d_dict_.keys():
             com3d_dict_[key] = np.nanmean(datadict_3d_[key],axis=1,keepdims=True) 
     else: # then do traditional COM and sample alignment
-        if 'COM3D_DICT' not in CONFIG_PARAMS.keys():
+        if 'COM3D_DICT' not in CONFIG_PARAMS['experiment'][e].keys():
+            if 'COMfilename' not in CONFIG_PARAMS['experiment'][e].keys():
+                raise Exception("The COMfilename or COM3D_DICT field must be populated in the",
+                 "yaml for experiment {}".format(e))
 
-                # Load in the COM file at the default location, or use one in the config file if provided
-            if 'COMfilename' in CONFIG_PARAMS['experiment'][e]:
-                comfn = CONFIG_PARAMS['experiment'][e]['COMfilename']
-            else:
-                comfn = os.path.join('.', 'COM', 'predict_results')
-                comfn = os.listdir(comfn)
-                comfn = [f for f in comfn if 'COM_undistorted.pickle' in f]
-                comfn = os.path.join('.', 'COM', 'predict_results', comfn[0])
+            comfn = CONFIG_PARAMS['experiment'][e]['COMfilename']
 
-                datadict_, com3d_dict_ = serve_data.prepare_COM(
-                    comfn,
-                    datadict_,
-                    comthresh=CONFIG_PARAMS['comthresh'],
-                    weighted=CONFIG_PARAMS['weighted'],
-                    retriangulate=CONFIG_PARAMS['retriangulate'] if 'retriangulate' in CONFIG_PARAMS.keys() else True,
-                    camera_mats=cameras_,
-                    method=CONFIG_PARAMS['com_method'])
+            datadict_, com3d_dict_ = serve_data.prepare_COM(
+                comfn,
+                datadict_,
+                comthresh=CONFIG_PARAMS['comthresh'],
+                weighted=CONFIG_PARAMS['weighted'],
+                retriangulate=CONFIG_PARAMS['retriangulate'] if 'retriangulate' in CONFIG_PARAMS.keys() else True,
+                camera_mats=cameras_,
+                method=CONFIG_PARAMS['com_method'])
 
             # Need to cap this at the number of samples included in our
             # COM finding estimates
 
-            tf = list(com3d_dict_.keys())
-            samples_ = samples_[:len(tf)]
-            data_3d_ = data_3d_[:len(tf)]
+            tff = list(com3d_dict_.keys())
+            samples_ = samples_[:len(tff)]
+            data_3d_ = data_3d_[:len(tff)]
             pre = len(samples_)
             samples_, data_3d_ = \
                 serve_data.remove_samples_com(samples_, data_3d_, com3d_dict_, rmc=True, cthresh=CONFIG_PARAMS['cthresh'])
@@ -155,8 +145,9 @@ for e in range(num_experiments):
             print(msg.format(pre - len(samples_)))
 
         else:
-            print("Loading 3D COM and samples from file: {}".format(CONFIG_PARAMS['COM3D_DICT']))
-            c3dfile = sio.loadmat(CONFIG_PARAMS['COM3D_DICT'])
+            print("Loading 3D COM and samples from file: {}".
+                format(CONFIG_PARAMS['experiment'][e]['COM3D_DICT']))
+            c3dfile = sio.loadmat(CONFIG_PARAMS['experiment'][e]['COM3D_DICT'])
             c3d = c3dfile['com']
             c3dsi = np.squeeze(c3dfile['sampleID'])
             com3d_dict_ = {}
@@ -186,78 +177,17 @@ if not os.path.exists(RESULTSDIR):
 # Additionally, to keep videos unique across experiments, need to add
 # experiment labels in other places. E.g. experiment 0 CameraE's "camname"
 # Becomes 0_CameraE.
-# TODO: Add this to serve_data.add_experiment() above
-cameras_ = {}
-datadict_ = {}
-for e in range(num_experiments):
-    # Create a unique camname for each camera in each experiment
-    cameras_[e] = {}
-    for key in cameras[e]:
-        cameras_[e][str(e) + '_' + key] = cameras[e][key]
-
-    camnames[e] = [str(e) + '_' + f for f in camnames[e]]
-
-    CONFIG_PARAMS['experiment'][e]['CAMNAMES'] = camnames[e]
-
-# Change the camnames in the data dictionaries as well
-for key in datadict.keys():
-    enum = key.split('_')[0]
-    datadict_[key] = {}
-    datadict_[key]['data'] = {}
-    datadict_[key]['frames'] = {}
-    for key_ in datadict[key]['data']:
-        datadict_[key]['data'][enum + '_' + key_] = datadict[key]['data'][key_]
-        datadict_[key]['frames'][enum + '_' + key_] =  \
-            datadict[key]['frames'][key_]
-
-datadict = datadict_
-cameras = cameras_
+cameras, datadict, CONFIG_PARAMS = serve_data.prepend_experiment(CONFIG_PARAMS, datadict,
+                                                  num_experiments, camnames, cameras)
 
 samples = np.array(samples)
 
-# Open videos for all experiments
-if 'VID_PRELOAD' not in CONFIG_PARAMS.keys():
-    CONFIG_PARAMS['VID_PRELOAD'] = True
-
-if not CONFIG_PARAMS['VID_PRELOAD']:
-    print("Not preloading all videos")
-
+# Initialize video objects
 vids = {}
 for e in range(num_experiments):
     if CONFIG_PARAMS['IMMODE'] == 'vid':
-
-        for i in range(len(CONFIG_PARAMS['experiment'][e]['CAMNAMES'])):
-            # Rather than opening all vids, only open what is needed based on the 
-            # maximum frame ID for this experiment and Camera
-            flist = []
-            for key in datadict.keys():
-                if int(key.split('_')[0]) == e:
-                    flist.append(datadict[key]['frames']
-                                 [CONFIG_PARAMS['experiment'][e]['CAMNAMES'][i]])
-
-            flist = max(flist)
-
-            if CONFIG_PARAMS['vid_dir_flag']:
-                addl = ''
-            else:
-                addl = os.listdir(os.path.join(
-                    CONFIG_PARAMS['experiment'][e]['viddir'],
-                    CONFIG_PARAMS['experiment'][e]['CAMNAMES'][i].split('_')[1]))[0]
-            r = \
-                processing.generate_readers(
-                    CONFIG_PARAMS['experiment'][e]['viddir'],
-                    os.path.join(CONFIG_PARAMS['experiment'][e]
-                                 ['CAMNAMES'][i].split('_')[1], addl),
-                    maxopt=flist,  # Large enough to encompass all videos in directory.
-                    extension=CONFIG_PARAMS['experiment'][e]['extension'],
-                    pathonly=not CONFIG_PARAMS['VID_PRELOAD'])
-
-            # Add e to key
-            vids[CONFIG_PARAMS['experiment'][e]['CAMNAMES'][i]] = {}
-            for key in r:
-                vids[CONFIG_PARAMS['experiment'][e]['CAMNAMES'][i]][str(e) +
-                                                                    '_' + key]\
-                                                                    = r[key]
+        vids = processing.initialize_vids_train(CONFIG_PARAMS, datadict, e,
+                                                vids, pathonly=True)
 
 # Parameters
 if CONFIG_PARAMS['EXPVAL']:
@@ -269,7 +199,6 @@ gridsize = (CONFIG_PARAMS['NVOX'], CONFIG_PARAMS['NVOX'], CONFIG_PARAMS['NVOX'])
 
 # When this true, the data generator will shuffle the cameras and then select the first 3,
 # to feed to a native 3 camera model
-
 if 'cam3_train' in CONFIG_PARAMS.keys() and CONFIG_PARAMS['cam3_train']:
     cam3_train = True
 else:
@@ -293,18 +222,14 @@ valid_params = {
     'mode': outmode,
     'camnames': camnames,
     'immode': CONFIG_PARAMS['IMMODE'],
-    'training': False,  # This means we are not sampling from K-Means clusters
     'shuffle': False,  # We will shuffle later
     'rotation': False,  # We will rotate later if desired
-    'pregrid': None,
-    'pre_projgrid': None,
-    'stamp': False,
     'vidreaders': vids,
     'distort': CONFIG_PARAMS['DISTORT'],
     'expval': CONFIG_PARAMS['EXPVAL'],
     'crop_im': False,
     'chunks': CONFIG_PARAMS['chunks'],
-    'preload': CONFIG_PARAMS['VID_PRELOAD']}
+    'preload': False}
 
 # Setup a generator that will read videos and labels
 tifdirs = []  # Training from single images not yet supported in this demo
@@ -344,7 +269,7 @@ else:
         partition['valid_sampleIDs'] = cPickle.load(f)
     partition['train_sampleIDs'] = [f for f in samples if f not in partition['valid_sampleIDs']]
 
-train_generator = DataGenerator_3Dconv_kmeans(partition['train_sampleIDs'],
+train_generator = DataGenerator_3Dconv(partition['train_sampleIDs'],
                                               datadict,
                                               datadict_3d,
                                               cameras,
@@ -352,7 +277,7 @@ train_generator = DataGenerator_3Dconv_kmeans(partition['train_sampleIDs'],
                                               com3d_dict,
                                               tifdirs,
                                               **valid_params)
-valid_generator = DataGenerator_3Dconv_kmeans(partition['valid_sampleIDs'],
+valid_generator = DataGenerator_3Dconv(partition['valid_sampleIDs'],
                                               datadict,
                                               datadict_3d,
                                               cameras,
@@ -410,7 +335,9 @@ else:
                        dtype='float32')
 
 
-print("Loading training data into memory")
+print("Loading training data into memory. This can take a while to seek through",
+        "large sets of video. This process is much faster if the frame indices",
+        "are sorted in ascending order in your label data file.")
 for i in range(len(partition['train_sampleIDs'])):
     print(i, end='\r')
     rr = train_generator.__getitem__(i)
@@ -437,45 +364,6 @@ if CONFIG_PARAMS['CHANNEL_COMBO'] == 'random':
     randflag = True
 else:
     randflag = False
-
-if len(sys.argv) == 3:
-    lmodel = sys.argv[2]
-    # Then we evaluate over X_train and save, after loading in target model
-    if CONFIG_PARAMS['train_mode'] == 'continued_weights_only':
-        model = CONFIG_PARAMS['net'](CONFIG_PARAMS['loss'],
-                               float(CONFIG_PARAMS['lr']),
-                               CONFIG_PARAMS['N_CHANNELS_IN'] + CONFIG_PARAMS['DEPTH'],
-                               CONFIG_PARAMS['N_CHANNELS_OUT'],
-                               len(camnames[0]),
-                               batch_norm=CONFIG_PARAMS['batch_norm'],
-                               instance_norm=CONFIG_PARAMS['instance_norm'],
-                               include_top=True,
-                               gridsize=gridsize)
-        model.load_weights(lmodel)
-    else:
-        model = load_model(lmodel,
-                           custom_objects={'ops': ops,
-                                       'slice_input': nets.slice_input,
-                                       'mask_nan_keep_loss': losses.mask_nan_keep_loss,
-                                       'euclidean_distance_3D': losses.euclidean_distance_3D,
-                                       'centered_euclidean_distance_3D': losses.centered_euclidean_distance_3D})
-    if CONFIG_PARAMS['EXPVAL']:
-        pred = model.predict([X_train, X_train_grid], batch_size=1)
-
-    else:
-        pred = model.predict(X_train, batch_size=1)
-        # Now we need to argmax the predictions and convert back to mm
-        # pred_out = np.zeros((pred.shape[0],))
-        # coordx, coordy, coordz = processing.plot_markers_3d(pred[j])
-        # coord = np.stack((coordx, coordy, coordz))
-
-    # To avoid errors, make sure there are no duplicate os seps
-    lmodel = lmodel.replace(os.sep+os.sep, os.sep)
-
-    ssfile = 'trainind_predictions_' + lmodel.split(os.sep)[-2] + lmodel.split(os.sep)[-1].split('.hdf5')[0]
-    sio.savemat(ssfile,
-                    {'pred': pred})
-    sys.exit()
 
 train_generator = \
     DataGenerator_3Dconv_frommem(np.arange(len(partition['train_sampleIDs'])),
@@ -511,6 +399,7 @@ assert not (CONFIG_PARAMS['batch_norm'] == True) & (CONFIG_PARAMS['instance_norm
 # 2) Fine-tuning a network trained on a diff. dataset (transfer learning)
 # 3) Continuing to train 1) or 2) from a full model checkpoint (including optimizer state)
 
+print("NUM CAMERAS: {}".format(len(camnames[0])))
 
 if CONFIG_PARAMS['train_mode'] == 'new':
     model = CONFIG_PARAMS['net'](CONFIG_PARAMS['loss'],
@@ -543,7 +432,8 @@ elif CONFIG_PARAMS['train_mode'] == 'continued':
                                        'euclidean_distance_3D': losses.euclidean_distance_3D,
                                        'centered_euclidean_distance_3D': losses.centered_euclidean_distance_3D})
 elif CONFIG_PARAMS['train_mode'] == 'continued_weights_only':
-  # Currently tested only for tiedfirstlayer_expectedvalue
+  # This does not work with models created in 'finetune' mode, but will work with models
+  # started from scratch ('new' train_mode)
     model = CONFIG_PARAMS['net'](CONFIG_PARAMS['loss'],
                                  float(CONFIG_PARAMS['lr']),
                                  CONFIG_PARAMS['N_CHANNELS_IN'] + CONFIG_PARAMS['DEPTH'],
@@ -563,9 +453,6 @@ model.compile(optimizer=Adam(lr=float(CONFIG_PARAMS['lr'])),
 
 print("COMPLETE\n")
 
-
-
-
 # Create checkpoint and logging callbacks
 if CONFIG_PARAMS['num_validation_per_exp'] > 0:
     kkey = 'weights.{epoch:02d}-{val_loss:.5f}.hdf5'
@@ -584,17 +471,13 @@ tboard = TensorBoard(log_dir=RESULTSDIR + 'logs',
                      write_graph=False,
                      update_freq=100)
 
-# Train model on dataset
-model.fit_generator(generator=train_generator,
-                    steps_per_epoch=len(train_generator),
-                    validation_data=valid_generator,
-                    validation_steps=len(valid_generator),
-                    use_multiprocessing=False,
-                    workers=CONFIG_PARAMS['WORKERS'],
-                    verbose=CONFIG_PARAMS['VERBOSE'],
-                    epochs=CONFIG_PARAMS['EPOCHS'],
-                    max_queue_size=CONFIG_PARAMS['MAX_QUEUE_SIZE'],
-                    callbacks=[csvlog, model_checkpoint, tboard])
+model.fit(x=train_generator,
+          steps_per_epoch=len(train_generator),
+          validation_data=valid_generator,
+          validation_steps=len(valid_generator),
+          verbose=CONFIG_PARAMS['VERBOSE'],
+          epochs=CONFIG_PARAMS['EPOCHS'],
+          callbacks=[csvlog, model_checkpoint, tboard])
 
 print("Saving full model at end of training")
 sdir = os.path.join(CONFIG_PARAMS['RESULTSDIR'], 'fullmodel_weights')

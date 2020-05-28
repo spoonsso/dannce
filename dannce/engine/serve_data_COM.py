@@ -1,7 +1,6 @@
 """Define routines for reading/structuring input data for COM."""
 import numpy as np
 import scipy.io as sio
-from dannce.engine import processing as processing
 from dannce.engine import ops as ops
 import os
 from six.moves import cPickle
@@ -9,7 +8,7 @@ _DEFAULT_CAM_NAMES = [
     'CameraR', 'CameraL', 'CameraE', 'CameraU', 'CameraS', 'CameraU2']
 
 
-def prepare_data(CONFIG_PARAMS, vid_dir_flag=True, minopt=0, maxopt=70000, multimode=False):
+def prepare_data(CONFIG_PARAMS, multimode=False):
     """Assemble necessary data structures given a set of config params.
 
     Given a set of config params, assemble necessary data structures and
@@ -88,22 +87,7 @@ def prepare_data(CONFIG_PARAMS, vid_dir_flag=True, minopt=0, maxopt=70000, multi
         camera_mats[CONFIG_PARAMS['CAMNAMES'][i]] = ops.camera_matrix(
             test['K'], test['r'], test['t'])
 
-    # Generate video reader objects
-    vids = {}
-
-    for i in range(len(CONFIG_PARAMS['CAMNAMES'])):
-        if vid_dir_flag:
-            addl = ''
-        else:
-            addl = os.listdir(
-                os.path.join(CONFIG_PARAMS['viddir'], CONFIG_PARAMS['CAMNAMES'][i]))[0]
-
-        vids[CONFIG_PARAMS['CAMNAMES'][i]] = processing.generate_readers(
-            CONFIG_PARAMS['viddir'],
-            os.path.join(CONFIG_PARAMS['CAMNAMES'][i], addl),
-            minopt=minopt,
-            maxopt=maxopt)
-    return samples, datadict, datadict_3d, cameras, camera_mats, vids
+    return samples, datadict, datadict_3d, cameras, camera_mats
 
 
 def COM_to_mat(

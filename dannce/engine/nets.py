@@ -1,19 +1,18 @@
 """Define networks for dannce."""
-import tensorflow as tf
-from keras.models import Model
-from keras.layers import Input, concatenate, Conv2D, MaxPooling2D, Conv2DTranspose, Conv3D, Lambda, MaxPooling3D, Conv3DTranspose, Dense
-from keras.layers import Conv1D, MaxPooling1D, UpSampling1D, Add
-from keras.layers.core import Activation, Permute, Reshape
-from keras.optimizers import Adam
-from keras.layers.normalization import BatchNormalization
-from keras import backend as K
-from keras.applications.vgg19 import VGG19
-from keras.utils import multi_gpu_model
-from keras import regularizers
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import Input, concatenate, Conv2D, MaxPooling2D
+from tensorflow.keras.layers import Conv2DTranspose, Conv3D, Lambda
+from tensorflow.keras.layers import MaxPooling3D, Conv3DTranspose
+from tensorflow.keras.layers import Add
+from tensorflow.keras.layers import Activation
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.layers import BatchNormalization
+from tensorflow.keras import backend as K
+from tensorflow.keras.utils import multi_gpu_model
+from tensorflow.keras import regularizers
 from dannce.engine import ops as ops
 import numpy as np
-import gc
-
+import h5py
 
 def unet2d_fullbn(
     lossfunc, lr, input_dim, feature_num, metric='mse',
@@ -675,7 +674,7 @@ def finetune_AVG(lossfunc, lr, input_dim, feature_num,
 
     pre = model.get_weights()
     # Load weights
-    model.load_weights(weightspath, by_name=True)
+    model = renameLayers(model, weightspath)
 
     post = model.get_weights()
 
@@ -713,6 +712,53 @@ def finetune_AVG(lossfunc, lr, input_dim, feature_num,
 
     return model
 
+
+def load_attributes_from_hdf5_group(group, name):
+    """Loads attributes of the specified name from the HDF5 group.
+    This method deals with an inherent problem
+    of HDF5 file which is not able to store
+    data larger than HDF5_OBJECT_HEADER_LIMIT bytes.
+    Arguments:
+      group: A pointer to a HDF5 group.
+      name: A name of the attributes to load.
+    Returns:
+      data: Attributes data.
+
+    From the TF/keras hdf5_format.py
+    """
+    if name not in group.attrs:
+        group = group['model_weights']
+    data = [n.decode('utf8') for n in group.attrs[name]]
+
+    return data
+
+def renameLayers(model, weightspath):
+    """
+    Rename layers in the model if we detect differences from the layer names in
+        the weights file.
+    """
+    with h5py.File(weightspath, 'r') as f:
+        lnames = load_attributes_from_hdf5_group(f, 'layer_names')
+
+    tf2_names = []
+    for (i, layer) in enumerate(model.layers):
+        tf2_names.append(layer.name)
+        if layer.name != lnames[i]:
+            print("Correcting mismatch in layer name, model: {}, weights: {}".
+                  format(layer.name, lnames[i]))
+            layer._name = lnames[i]
+
+    model.load_weights(weightspath, by_name=True)
+
+    # We need to change the model layer names back to the TF2 version otherwise the model
+    # won't save
+    # If no layer names were changed, this won't do anything.
+    for (i, layer) in enumerate(model.layers):
+        layer._name = tf2_names[i]
+
+    return model
+
+
 def finetune_MAX(lossfunc, lr, input_dim, feature_num,
                  num_cams, new_last_kern_size, new_n_channels_out,
                  weightspath, num_layers_locked=2,
@@ -731,8 +777,11 @@ def finetune_MAX(lossfunc, lr, input_dim, feature_num,
                        instance_norm,
                        include_top=False)
 
-    # Load weights
-    model.load_weights(weightspath, by_name=True)
+    # If a model was created with TF1, it will not load by name into a TF2
+    # model because TF2 changing the naming convention.
+    # here, we call a function to change the names of the layers in the model
+    # to match what's contained in the weights file
+    model = renameLayers(model, weightspath)
 
     # Lock desired number of layers
     for layer in model.layers[:num_layers_locked]:
