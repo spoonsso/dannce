@@ -35,7 +35,7 @@ fps = float(sys.argv[2])
 num_landmarks = int(sys.argv[3])
 
 outpath = os.path.dirname(vidpath.rstrip(os.sep))
-outpath = os.path.join(outpath, 'data')
+outpath = os.path.join(outpath, 'sync')
 
 if not os.path.exists(outpath):
     os.makedirs(outpath)

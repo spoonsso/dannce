@@ -45,7 +45,7 @@ lr: 1e-3
 
 # During prediction, will look for the last epoch weights saved to ./DANNCE/train_results/. To load in a different weights file, add the path here
 # Note that this must be a FULL MODEL file, not just weights.
-# predict_model: 
+predict_model: ./DANNCE/train_results/AVG/weights.12000-0.00014.hdf5
 
 # name of the network architecture (see nets.py) 'unet3d_big' (from scratch?)
 net: finetune_AVG
@@ -130,7 +130,7 @@ cthresh: 350
 CHANNEL_COMBO: 'None'
 
 # max. number of batches to evaluate during prediction. set to 'max' to evaluate over all data/video frames
-maxbatch: 100
+maxbatch: 250
 
 retriangulate: False
 
