@@ -78,7 +78,9 @@ Once the files are downloaded and in their correct places, run:
 
 `python ../../predict_DANNCE.py config.yaml`
 
-This demo will run the `AVG` version of DANNCE (more on `AVG` vs. `MAX1` below) over 1000 frames of mouse data and save the results to `demo/markerless_mouse_1/DANNCE/predict_results/save_data_AVG.mat`
+This demo will run the `AVG` version of DANNCE over 1000 frames of mouse data and save the results to `demo/markerless_mouse_1/DANNCE/predict_results/save_data_AVG.mat`.
+
+The `AVG` version of DANNCE generally produces smoother and more precise 3D tracking because it converts the final 3D probability map for each landmark into a continuous 3D coordinate by taking the spatial average over this volume. However, the `AVG` network can sometimes be tricky to fine-tune. If you are having trouble getting the `AVG` network to converge to a satisfactory error level, consider trying the `MAX` version of the nerwork, which assigns each landmark the 3D coordinate of the voxel containing the maximum value over the final 3D probability map.  
 
 ## Formatting The Data
 During training and evaluation, DANNCE requires a set of videos across multiple views, a camera calibration parameters file, and a "MatchedFrames" file that indexes the videos to ensure synchrony.

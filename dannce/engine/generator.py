@@ -2,7 +2,6 @@
 import os
 import numpy as np
 from tensorflow import keras
-#import keras
 from dannce.engine import processing as processing
 from dannce.engine import ops as ops
 import imageio
@@ -20,7 +19,7 @@ class DataGenerator(keras.utils.Sequence):
         dim_in=(32, 32, 32), n_channels_in=1,
         n_channels_out=1, out_scale=5, shuffle=True, camnames=[],
         crop_width=(0, 1024), crop_height=(20, 1300),
-        samples_per_cluster=0, training=True,
+        samples_per_cluster=0,
         vidreaders=None, chunks=3500, preload=True):
         """Initialize Generator."""
         self.dim_in = dim_in
@@ -39,7 +38,6 @@ class DataGenerator(keras.utils.Sequence):
         self.crop_height = crop_height
         self.clusterIDs = clusterIDs
         self.samples_per_cluster = samples_per_cluster
-        self.training = training
         self._N_VIDEO_FRAMES = chunks
         self.preload = preload
         self.on_epoch_end()
@@ -61,30 +59,11 @@ class DataGenerator(keras.utils.Sequence):
 
     def __len__(self):
         """Denote the number of batches per epoch."""
-        if self.training:
-            return self.samples_per_cluster * len(
-                np.unique(self.clusterIDs)) // self.batch_size
-        else:
-            return int(np.floor(len(self.list_IDs) / self.batch_size))
+        return int(np.floor(len(self.list_IDs) / self.batch_size))
 
     def on_epoch_end(self):
         """Update indexes after each epoch."""
-        if self.training:
-            print('Regnerating samples from clusters...')
-            self.indexes = []
-
-            uClusterID = np.unique(self.clusterIDs)
-            for i in range(len(uClusterID)):
-                clusterID = uClusterID[i]
-                inds = np.where(self.clusterIDs == clusterID)[0]
-
-                # draw randomly from the cluster
-                inds_ = np.random.choice(inds, size=(self.samples_per_cluster,))
-
-                self.indexes = self.indexes + list(inds_)
-            self.indexes = np.array(self.indexes)
-        else:
-            self.indexes = np.arange(len(self.list_IDs))
+        self.indexes = np.arange(len(self.list_IDs))
 
         if self.shuffle:
             np.random.shuffle(self.indexes)
@@ -157,7 +136,7 @@ class DataGenerator(keras.utils.Sequence):
             return X, y_3d
 
 
-class DataGenerator_3Dconv_kmeans(DataGenerator):
+class DataGenerator_3Dconv(DataGenerator):
     """Update generator class to resample from kmeans clusters after each epoch.
 
     Also handles data across multiple experiments
@@ -170,16 +149,15 @@ class DataGenerator_3Dconv_kmeans(DataGenerator):
         camnames=[], crop_width=(0, 1024), crop_height=(20, 1300),
         vmin=-100, vmax=100, nvox=32, gpuID = '0',
         interp='linear', depth=False, channel_combo=None, mode='3dprob',
-        preload=True, samples_per_cluster=0, immode='tif', training=True,
-        rotation=False, pregrid=None, pre_projgrid=None, stamp=False,
-        vidreaders=None, distort=False, expval=False, multicam=True,
+        preload=True, samples_per_cluster=0, immode='tif',
+        rotation=False, vidreaders=None, distort=True, expval=False, multicam=True,
         var_reg=False, COM_aug=None, crop_im=True, norm_im=True, chunks=3500):
         """Initialize data generator."""
         DataGenerator.__init__(
             self, list_IDs, labels, clusterIDs, batch_size, dim_in,
             n_channels_in, n_channels_out, out_scale, shuffle,
             camnames, crop_width, crop_height,
-            samples_per_cluster, training, vidreaders, chunks, preload)
+            samples_per_cluster, vidreaders, chunks, preload)
         self.vmin = vmin
         self.vmax = vmax
         self.nvox = nvox
@@ -196,9 +174,6 @@ class DataGenerator_3Dconv_kmeans(DataGenerator):
         self.tifdirs = tifdirs
         self.com3d = com3d
         self.rotation = rotation
-        self.pregrid = pregrid
-        self.pre_projgrid = pre_projgrid
-        self.stamp = stamp
         self.distort = distort
         self.expval = expval
         self.multicam = multicam
@@ -282,46 +257,30 @@ class DataGenerator_3Dconv_kmeans(DataGenerator):
                 this_COM_3d = this_COM_3d + self.COM_aug * 2 * np.random.rand(
                     len(this_COM_3d)) - self.COM_aug
 
-            # Actually we need to create and project the grid here,
-            # relative to the reference point (SpineM).
-            if self.pregrid is None:
-                xgrid = np.arange(
-                    self.vmin + this_COM_3d[0] + self.vsize / 2,
-                    this_COM_3d[0] + self.vmax, self.vsize)
-                ygrid = np.arange(
-                    self.vmin + this_COM_3d[1] + self.vsize / 2,
-                    this_COM_3d[1] + self.vmax, self.vsize)
-                zgrid = np.arange(
-                    self.vmin + this_COM_3d[2] + self.vsize / 2,
-                    this_COM_3d[2] + self.vmax, self.vsize)
-                (x_coord_3d, y_coord_3d, z_coord_3d) = \
-                    np.meshgrid(xgrid, ygrid, zgrid)
-            else:
-                (x_coord_3d, y_coord_3d, z_coord_3d) = \
-                    self.fetch_grid(this_COM_3d)
+            # Create and project the grid here,
+            xgrid = np.arange(
+                self.vmin + this_COM_3d[0] + self.vsize / 2,
+                this_COM_3d[0] + self.vmax, self.vsize)
+            ygrid = np.arange(
+                self.vmin + this_COM_3d[1] + self.vsize / 2,
+                this_COM_3d[1] + self.vmax, self.vsize)
+            zgrid = np.arange(
+                self.vmin + this_COM_3d[2] + self.vsize / 2,
+                this_COM_3d[2] + self.vmax, self.vsize)
+            (x_coord_3d, y_coord_3d, z_coord_3d) = \
+                np.meshgrid(xgrid, ygrid, zgrid)
 
             if self.mode == '3dprob':
                 for j in range(self.n_channels_out):
-                    if self.stamp:
-                        # these are coordinates of each marker relative to COM
-                        c = this_y_3d[:, j] - this_COM_3d
-                        c0 = int((c[0] - (self.worldsize)) / self.vsize)
-                        c1 = int((c[1] - (self.worldsize)) / self.vsize)
-                        c2 = int((c[2] - (self.worldsize)) / self.vsize)
-                        y_3d[i, j] = self.stamp_[
-                            c1 - self.nvox // 2:c1 + self.nvox // 2,
-                            c0 + self.nvox // 2:c0 - self.nvox // 2:-1,
-                            c2 + self.nvox // 2:c2 - self.nvox // 2:-1]
-                    else:
-                        y_3d[i, j] = np.exp(
-                            -((y_coord_3d - this_y_3d[1, j])**2 +
-                              (x_coord_3d - this_y_3d[0, j])**2 +
-                              (z_coord_3d - this_y_3d[2, j])**2) /
-                            (2 * self.out_scale**2))
-                        # When the voxel grid is coarse, we will likely miss
-                        # the peak of the probability distribution, as it
-                        # will lie somewhere in the middle of a large voxel.
-                        # So here we renormalize to [~, 1]
+                    y_3d[i, j] = np.exp(
+                        -((y_coord_3d - this_y_3d[1, j])**2 +
+                          (x_coord_3d - this_y_3d[0, j])**2 +
+                          (z_coord_3d - this_y_3d[2, j])**2) /
+                        (2 * self.out_scale**2))
+                    # When the voxel grid is coarse, we will likely miss
+                    # the peak of the probability distribution, as it
+                    # will lie somewhere in the middle of a large voxel.
+                    # So here we renormalize to [~, 1]
 
             if self.mode == 'coordinates':
                 if this_y_3d.shape == y_3d[i].shape:
@@ -389,19 +348,15 @@ class DataGenerator_3Dconv_kmeans(DataGenerator):
                 # Project de novo or load in approximate (faster)
                 # TODO(break up): This is hard to read, consider breaking up
                 ts = time.time()
-                if self.pre_projgrid is None:
-                    proj_grid = ops.project_to2d(
-                        np.stack(
-                            (x_coord_3d.ravel(),
-                             y_coord_3d.ravel(),
-                             z_coord_3d.ravel()),
-                            axis=1),
-                        self.camera_params[experimentID][camname]['K'],
-                        self.camera_params[experimentID][camname]['R'],
-                        self.camera_params[experimentID][camname]['t'])
-                else:
-                    proj_grid = \
-                        self.fetch_projgrid(this_COM_3d, experimentID, camname)
+                proj_grid = ops.project_to2d(
+                    np.stack(
+                        (x_coord_3d.ravel(),
+                         y_coord_3d.ravel(),
+                         z_coord_3d.ravel()),
+                        axis=1),
+                    self.camera_params[experimentID][camname]['K'],
+                    self.camera_params[experimentID][camname]['R'],
+                    self.camera_params[experimentID][camname]['t'])
 
                 if self.depth:
                     d = proj_grid[:, 2]
@@ -515,7 +470,7 @@ class DataGenerator_3Dconv_kmeans(DataGenerator):
                 return X, [y_3d, rotate_log]
 
 
-class DataGenerator_3Dconv_kmeans_torch(DataGenerator):
+class DataGenerator_3Dconv_torch(DataGenerator):
     """Update generator class to resample from kmeans clusters after each epoch.
     Also handles data across multiple experiments
     """
@@ -527,16 +482,15 @@ class DataGenerator_3Dconv_kmeans_torch(DataGenerator):
         camnames=[], crop_width=(0, 1024), crop_height=(20, 1300),
         vmin=-100, vmax=100, nvox=32, gpuID='0',
         interp='linear', depth=False, channel_combo=None, mode='3dprob',
-        preload=True, samples_per_cluster=0, immode='tif', training=True,
-        rotation=False, pregrid=None, pre_projgrid=None, stamp=False,
-        vidreaders=None, distort=False, expval=False, multicam=True,
+        preload=True, samples_per_cluster=0, immode='tif',
+        rotation=False, vidreaders=None, distort=True, expval=False, multicam=True,
         var_reg=False, COM_aug=None, crop_im=True, norm_im=True, chunks=3500):
         """Initialize data generator."""
         DataGenerator.__init__(
             self, list_IDs, labels, clusterIDs, batch_size, dim_in,
             n_channels_in, n_channels_out, out_scale, shuffle,
             camnames, crop_width, crop_height,
-            samples_per_cluster, training, vidreaders, chunks, preload)
+            samples_per_cluster, vidreaders, chunks, preload)
         self.vmin = vmin
         self.vmax = vmax
         self.nvox = nvox
@@ -554,9 +508,6 @@ class DataGenerator_3Dconv_kmeans_torch(DataGenerator):
         self.tifdirs = tifdirs
         self.com3d = com3d
         self.rotation = rotation
-        self.pregrid = pregrid
-        self.pre_projgrid = pre_projgrid
-        self.stamp = stamp
         self.distort = distort
         self.expval = expval
         self.multicam = multicam
@@ -617,44 +568,6 @@ class DataGenerator_3Dconv_kmeans_torch(DataGenerator):
         X = X.flip(0).flip(1)
         return X
 
-    def fetch_grid(self, c):
-        """Return ROI from pregrid."""
-        c0 = int((c[0] - (self.worldsize)) / self.vsize)
-        c1 = int((c[1] - (self.worldsize)) / self.vsize)
-        c2 = int((c[2] - (self.worldsize)) / self.vsize)
-
-        x_coord_3d = self.pregrid[0][
-            c0 - self.nvox // 2:c0 + self.nvox // 2,
-            c0 - self.nvox // 2:c0 + self.nvox // 2,
-            c0 - self.nvox // 2:c0 + self.nvox // 2]
-        y_coord_3d = self.pregrid[1][
-            c1 - self.nvox // 2:c1 + self.nvox // 2,
-            c1 - self.nvox // 2:c1 + self.nvox // 2,
-            c1 - self.nvox // 2:c1 + self.nvox // 2]
-        z_coord_3d = self.pregrid[2][
-            c2 - self.nvox // 2:c2 + self.nvox // 2,
-            c2 - self.nvox // 2:c2 + self.nvox // 2,
-            c2 - self.nvox // 2:c2 + self.nvox // 2]
-
-        return x_coord_3d, y_coord_3d, z_coord_3d
-
-    def fetch_projgrid(self, c, e, cam):
-        """Return ROI from pre_projgrid."""
-        c0 = int((c[0] - (self.worldsize)) / self.vsize)
-        c1 = int((c[1] - (self.worldsize)) / self.vsize)
-        c2 = int((c[2] - (self.worldsize)) / self.vsize)
-
-        proj_grid = self.pre_projgrid[e][cam][
-            c1 - self.nvox // 2:c1 + self.nvox // 2,
-            c0 - self.nvox // 2:c0 + self.nvox // 2,
-            c2 - self.nvox // 2:c2 + self.nvox // 2].copy()
-        proj_grid = np.reshape(proj_grid, [-1, 3])
-        proj_grid = self.torch.as_tensor(proj_grid, 
-            dtype = self.torch.float32, 
-            device = self.device)
-
-        return proj_grid
-
     def project_grid(self, X_grid, camname, ID, experimentID):
         ts = time.time()
         # Need this copy so that this_y does not change
@@ -693,16 +606,14 @@ class DataGenerator_3Dconv_kmeans_torch(DataGenerator):
         # print('Frame loading took {} sec.'.format(time.time() - ts))
 
         ts = time.time()
-        # Project de novo or load in approximate (faster)
-        if self.pre_projgrid is None:
-            proj_grid = ops.project_to2d_torch(
-                X_grid,
-                self.camera_params[experimentID][camname]['M'],
-                self.device)
+        proj_grid = ops.project_to2d_torch(
+            X_grid,
+            self.camera_params[experimentID][camname]['M'],
+            self.device)
         # print('Project2d took {} sec.'.format(time.time() - ts))
 
         ts = time.time()
-        if self.distort: # distort = True
+        if self.distort:
             proj_grid = ops.distortPoints_torch(
                 proj_grid[:, :2],
                 self.camera_params[experimentID][camname]['K'],
@@ -779,29 +690,25 @@ class DataGenerator_3Dconv_kmeans_torch(DataGenerator):
                 dtype = self.torch.float32, 
                 device = self.device)
 
-            # Actually we need to create and project the grid here,
-            # relative to the reference point (SpineM).
-            if self.pregrid is None:
-                xgrid = self.torch.arange(
-                    self.vmin + this_COM_3d[0] + self.vsize / 2,
-                    this_COM_3d[0] + self.vmax, self.vsize,
-                    dtype = self.torch.float32,
-                    device = self.device)
-                ygrid = self.torch.arange(
-                    self.vmin + this_COM_3d[1] + self.vsize / 2,
-                    this_COM_3d[1] + self.vmax, self.vsize,
-                    dtype = self.torch.float32,
-                    device = self.device)
-                zgrid = self.torch.arange(
-                    self.vmin + this_COM_3d[2] + self.vsize / 2,
-                    this_COM_3d[2] + self.vmax, self.vsize,
-                    dtype = self.torch.float32,
-                    device = self.device)
-                (x_coord_3d, y_coord_3d, z_coord_3d) = \
-                    self.torch.meshgrid(xgrid, ygrid, zgrid)
-            else:
-                (x_coord_3d, y_coord_3d, z_coord_3d) = \
-                    self.fetch_grid(this_COM_3d)
+            # Create and project the grid here,
+
+            xgrid = self.torch.arange(
+                self.vmin + this_COM_3d[0] + self.vsize / 2,
+                this_COM_3d[0] + self.vmax, self.vsize,
+                dtype = self.torch.float32,
+                device = self.device)
+            ygrid = self.torch.arange(
+                self.vmin + this_COM_3d[1] + self.vsize / 2,
+                this_COM_3d[1] + self.vmax, self.vsize,
+                dtype = self.torch.float32,
+                device = self.device)
+            zgrid = self.torch.arange(
+                self.vmin + this_COM_3d[2] + self.vsize / 2,
+                this_COM_3d[2] + self.vmax, self.vsize,
+                dtype = self.torch.float32,
+                device = self.device)
+            (x_coord_3d, y_coord_3d, z_coord_3d) = \
+                self.torch.meshgrid(xgrid, ygrid, zgrid)
 
             if self.mode == 'coordinates':
                 if this_y_3d.shape == y_3d[i].shape:
@@ -903,7 +810,7 @@ class DataGenerator_3Dconv_kmeans_torch(DataGenerator):
                 return X, [y_3d, rotate_log]
 
 
-class DataGenerator_3Dconv_kmeans_tf(DataGenerator):
+class DataGenerator_3Dconv_tf(DataGenerator):
     """Updated generator class to resample from kmeans clusters after each epoch.
     Uses tensorflow operations to accelerate generation of projection grid
     **Compatible with TF 2.0 and newer. Not compatible with 1.14 and previous versions.
@@ -917,9 +824,8 @@ class DataGenerator_3Dconv_kmeans_tf(DataGenerator):
         camnames=[], crop_width=(0, 1024), crop_height=(20, 1300),
         vmin=-100, vmax=100, nvox=32, gpuID='0',
         interp='linear', depth=False, channel_combo=None, mode='3dprob',
-        preload=True, samples_per_cluster=0, immode='tif', training=True,
-        rotation=False, pregrid=None, pre_projgrid=None, stamp=False,
-        vidreaders=None, distort=False, expval=False, multicam=True,
+        preload=True, samples_per_cluster=0, immode='tif',
+        rotation=False, vidreaders=None, distort=True, expval=False, multicam=True,
         var_reg=False, COM_aug=None, crop_im=True, norm_im=True, chunks=3500):
 
         """Initialize data generator."""
@@ -927,7 +833,7 @@ class DataGenerator_3Dconv_kmeans_tf(DataGenerator):
             self, list_IDs, labels, clusterIDs, batch_size, dim_in,
             n_channels_in, n_channels_out, out_scale, shuffle,
             camnames, crop_width, crop_height,
-            samples_per_cluster, training, vidreaders, chunks, preload)
+            samples_per_cluster, vidreaders, chunks, preload)
         self.vmin = vmin
         self.vmax = vmax
         self.nvox = nvox
@@ -945,9 +851,6 @@ class DataGenerator_3Dconv_kmeans_tf(DataGenerator):
         self.tifdirs = tifdirs
         self.com3d = com3d
         self.rotation = rotation
-        self.pregrid = pregrid
-        self.pre_projgrid = pre_projgrid
-        self.stamp = stamp
         self.distort = distort
         self.expval = expval
         self.multicam = multicam
@@ -964,28 +867,11 @@ class DataGenerator_3Dconv_kmeans_tf(DataGenerator):
             config=self.config)
 
         self.device = ('/GPU:' + self.gpuID)
-        # self.device = ('/CPU:0')
 
         self.threadpool = ThreadPool(len(self.camnames[0]))
 
         with tf.device(self.device):
             ts = time.time()
-            if self.pregrid is not None:
-                # Then we need to save our world size for later use
-                # we expect pregride to be (coord_x,coord_y,coord_z)
-                self.worldsize = np.min(pregrid[0])
-
-            if self.stamp:
-                # To save time, "stamp" a 3d gaussian at each marker position
-                (x_coord_3d, y_coord_3d, z_coord_3d) = \
-                    np.meshgrid(
-                        np.arange(self.worldsize, -self.worldsize, self.vsize),
-                        np.arange(self.worldsize, -self.worldsize, self.vsize),
-                        np.arange(self.worldsize, -self.worldsize, self.vsize))
-
-                self.stamp_ = np.exp(
-                    -((y_coord_3d - 0)**2 + (x_coord_3d - 0)**2 +
-                      (z_coord_3d - 0)**2) / (2 * self.out_scale**2))
 
             for i, ID in enumerate(list_IDs):
                 experimentID = int(ID.split('_')[0])
@@ -1064,15 +950,14 @@ class DataGenerator_3Dconv_kmeans_tf(DataGenerator):
                     thisim = processing.cropcom(
                         thisim, com, size=self.dim_in[0])
 
-            # Project de novo or load in approximate (faster)
-            if self.pre_projgrid is None: # pre_projgrid = None
-                ts = time.time()
-                X_grid = tf.convert_to_tensor(X_grid)
-                pts1 = tf.ones((X_grid.shape[0], 1), dtype='float32')
-                projPts = tf.concat((X_grid, pts1), 1)
-                M = tf.convert_to_tensor(self.camera_params[experimentID][camname]['M'], dtype = 'float32')
-                proj_grid = ops.project_to2d_tf(projPts, M)
-                # print("2D Project took {} sec.".format(time.time() - ts))
+            # Project de novo
+            ts = time.time()
+            X_grid = tf.convert_to_tensor(X_grid)
+            pts1 = tf.ones((X_grid.shape[0], 1), dtype='float32')
+            projPts = tf.concat((X_grid, pts1), 1)
+            M = tf.convert_to_tensor(self.camera_params[experimentID][camname]['M'], dtype = 'float32')
+            proj_grid = ops.project_to2d_tf(projPts, M)
+            # print("2D Project took {} sec.".format(time.time() - ts))
 
             if self.distort:
                 ts = time.time()
@@ -1143,26 +1028,20 @@ class DataGenerator_3Dconv_kmeans_tf(DataGenerator):
             this_COM_3d = self.com3d[ID]
 
             with tf.device(self.device):
-                # Actually we need to create and project the grid here,
-                # relative to the reference point (SpineM).
-                if self.pregrid is None:
-                    xgrid = tf.range(
-                        self.vmin + this_COM_3d[0] + self.vsize / 2,
-                        this_COM_3d[0] + self.vmax, self.vsize,
-                        dtype = 'float32')
-                    ygrid = tf.range(
-                        self.vmin + this_COM_3d[1] + self.vsize / 2,
-                        this_COM_3d[1] + self.vmax, self.vsize,
-                        dtype = 'float32')
-                    zgrid = tf.range(
-                        self.vmin + this_COM_3d[2] + self.vsize / 2,
-                        this_COM_3d[2] + self.vmax, self.vsize,
-                        dtype = 'float32')
-                    (x_coord_3d, y_coord_3d, z_coord_3d) = \
-                        tf.meshgrid(xgrid, ygrid, zgrid)                    
-                else:
-                    (x_coord_3d, y_coord_3d, z_coord_3d) = \
-                        self.fetch_grid(this_COM_3d)
+                xgrid = tf.range(
+                    self.vmin + this_COM_3d[0] + self.vsize / 2,
+                    this_COM_3d[0] + self.vmax, self.vsize,
+                    dtype = 'float32')
+                ygrid = tf.range(
+                    self.vmin + this_COM_3d[1] + self.vsize / 2,
+                    this_COM_3d[1] + self.vmax, self.vsize,
+                    dtype = 'float32')
+                zgrid = tf.range(
+                    self.vmin + this_COM_3d[2] + self.vsize / 2,
+                    this_COM_3d[2] + self.vmax, self.vsize,
+                    dtype = 'float32')
+                (x_coord_3d, y_coord_3d, z_coord_3d) = \
+                    tf.meshgrid(xgrid, ygrid, zgrid)                    
 
                 if self.mode == 'coordinates':
                     if this_y_3d.shape == y_3d.shape:

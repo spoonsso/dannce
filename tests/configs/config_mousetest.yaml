@@ -5,7 +5,7 @@ datadir: ../../demo/markerless_mouse_1/sync/
 viddir: /home/twd/Dropbox/autoencoder/Kyle/20190902_mouse1/videos/
 
 # names of data files. must match the order of CAMNAMES below
-datafile: ['Camera1_MatchedFrames', 'Camera2_MatchedFrames', 'Camera3_MatchedFrames', 'Camera4_MatchedFrames','Camera5_MatchedFrames','Camera6_MatchedFrames']
+datafile: ['Camera1_sync', 'Camera2_sync', 'Camera3_sync', 'Camera4_sync','Camera5_sync','Camera6_sync']
 
 # Names for each of the camera subdirectories in the video folder. Order should match the datafiles above.
 CAMNAMES: ['Camera1', 'Camera2', 'Camera3', 'Camera4', 'Camera5', 'Camera6']

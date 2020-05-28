@@ -16,24 +16,19 @@ import os
 from copy import deepcopy
 import dannce.engine.serve_data_DANNCE as serve_data
 import dannce.engine.processing as processing
-from dannce.engine.generator_kmeans import DataGenerator_3Dconv_kmeans
-from dannce.engine.generator_kmeans import DataGenerator_3Dconv_kmeans_torch
-from dannce.engine.generator_kmeans import DataGenerator_3Dconv_frommem
+from dannce.engine.generator import DataGenerator_3Dconv
+from dannce.engine.generator import DataGenerator_3Dconv_frommem
 from dannce.engine import nets
 from dannce.engine import losses
 from dannce.engine import ops
 from six.moves import cPickle
-# from keras.models import save_model, load_model
-# from keras.optimizers import Adam
 
-#from keras.callbacks import ModelCheckpoint, CSVLogger, TensorBoard
-from tensorflow.keras.models import save_model, load_model
+from tensorflow.keras.models import load_model
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import ModelCheckpoint, CSVLogger, TensorBoard
-#from tensorflow.compat.v1.keras.callbacks import ModelCheckpoint, CSVLogger, TensorBoard
+
 import scipy.io as sio
 import tensorflow.keras as keras
-#import keras
 
 # Set up parameters
 PARENT_PARAMS = processing.read_config(sys.argv[1])
@@ -227,12 +222,8 @@ valid_params = {
     'mode': outmode,
     'camnames': camnames,
     'immode': CONFIG_PARAMS['IMMODE'],
-    'training': False,  # This means we are not sampling from K-Means clusters
     'shuffle': False,  # We will shuffle later
     'rotation': False,  # We will rotate later if desired
-    'pregrid': None,
-    'pre_projgrid': None,
-    'stamp': False,
     'vidreaders': vids,
     'distort': CONFIG_PARAMS['DISTORT'],
     'expval': CONFIG_PARAMS['EXPVAL'],
@@ -278,7 +269,7 @@ else:
         partition['valid_sampleIDs'] = cPickle.load(f)
     partition['train_sampleIDs'] = [f for f in samples if f not in partition['valid_sampleIDs']]
 
-train_generator = DataGenerator_3Dconv_kmeans(partition['train_sampleIDs'],
+train_generator = DataGenerator_3Dconv(partition['train_sampleIDs'],
                                               datadict,
                                               datadict_3d,
                                               cameras,
@@ -286,7 +277,7 @@ train_generator = DataGenerator_3Dconv_kmeans(partition['train_sampleIDs'],
                                               com3d_dict,
                                               tifdirs,
                                               **valid_params)
-valid_generator = DataGenerator_3Dconv_kmeans(partition['valid_sampleIDs'],
+valid_generator = DataGenerator_3Dconv(partition['valid_sampleIDs'],
                                               datadict,
                                               datadict_3d,
                                               cameras,
