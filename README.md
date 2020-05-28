@@ -62,7 +62,7 @@ To test your DANNCE installation and familiarize yourself with DANNCE file and c
 
 Alternatively, on Linux you can run the following commands from the base dannce directory:
 
-`wget -O vids.zip https://www.dropbox.com/sh/wn1x8erb5k3n9vr/AADE_Ca-2farKhd38ZvsNi84a?dl=1 & unzip vids.zip -d vids & mv vids/* demo/markerless_mouse_1/videos/ & rm -r vids vids.zip & wget -O demo/markerless_mouse_1/DANNCE/train_results/AVG/weights.1200-12.77642.hdf5 https://www.dropbox.com/s/4b97fg5ciznllnt/weights.1200-12.77642.hdf5?dl=1 & wget -O demo/markerless_mouse_1/DANNCE/train_results/weights.12000-0.00014.hdf5 https://www.dropbox.com/s/wnjlfhylaxtecax/weights.12000-0.00014.hdf5?dl=1`
+`wget -O vids.zip https://www.dropbox.com/sh/wn1x8erb5k3n9vr/AADE_Ca-2farKhd38ZvsNi84a?dl=1 & unzip vids.zip -d vids ; mv vids/* demo/markerless_mouse_1/videos/ ; rm -r vids vids.zip ; wget -O demo/markerless_mouse_1/DANNCE/train_results/AVG/weights.1200-12.77642.hdf5 https://www.dropbox.com/s/4b97fg5ciznllnt/weights.1200-12.77642.hdf5?dl=1 ; wget -O demo/markerless_mouse_1/DANNCE/train_results/weights.12000-0.00014.hdf5 https://www.dropbox.com/s/wnjlfhylaxtecax/weights.12000-0.00014.hdf5?dl=1`
 
 Once the files are downloaded and in their correct places, run:
 
