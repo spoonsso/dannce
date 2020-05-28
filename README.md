@@ -73,7 +73,7 @@ For markerless_mouse_1:
 
 For markerless_mouse_2:
 
-`wget -O vids2.zip https://www.dropbox.com/sh/fw9xkq8nsy49p0k/AAC6XTbAtCfvibL0C7KrxvYaa?dl=1; unzip vids2.zip -d vids2 ; mv vids2/* demo/markerless_mouse_2/videos/ ; rm -r vids2 vids2.zip` 
+`wget -O vids2.zip https://www.dropbox.com/sh/tspmwo36gbj6b4x/AAA_sWJA6K1ksX8f6hBoZf7Ia?dl=1; unzip vids2.zip -d vids2 ; mv vids2/* demo/markerless_mouse_2/videos/ ; rm -r vids2 vids2.zip` 
 
 Once the files are downloaded and in their correct places, run:
 
