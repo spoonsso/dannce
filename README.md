@@ -57,7 +57,10 @@ We recommend installing `DANNCE` in the following steps:
 
 3. Install dannce with the included setup script by running `python setup.py install` within the base dannce repo folder.
 
-You should be good to go!
+You should be good to go! These installation steps were tested with conda version 4.7.12, although we expect it to work for most conda installations.
+
+**A note on the pytorch requirment**
+Pytorch is not required, but 3D volume generation is significantly faster when using pytorch than with tensorflow or numpy. To use tensorflow only, without having to install the pytorch package, simply toggle the `predict_mode` field in the DANNCE configuration files to `tf`. To use numpy volume generation (slowest), change `predict_mode` to `None`.
 
 ## Demo Quickstart
 To test your DANNCE installation and familiarize yourself with DANNCE file and configuration formatting, run DANNCE predictions over `markerless_mouse_1`. Because the videos and network weights files are too large to host on GitHub, use the links in `demo/markerless_mouse_1/DANNCE/train_results/link_to_weights.txt`, `demo/markerless_mouse_1/DANNCE/AVG/train_results/link_to_weights.txt`, `demo/markerless_mouse_1/videos/link_to_videos.txt` to download necessary files and place them in each associated location.
