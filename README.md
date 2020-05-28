@@ -61,16 +61,13 @@ You should be good to go!
 To test your DANNCE installation and familiarize yourself with DANNCE file and configuration formatting, run DANNCE predictions over `markerless_mouse_1`. Because the videos and network weights files are too large to host on GitHub, use the links in `demo/markerless_mouse_1/DANNCE/train_results/link_to_weights.txt`, `demo/markerless_mouse_1/DANNCE/AVG/train_results/link_to_weights.txt`, `demo/markerless_mouse_1/videos/link_to_videos.txt` to download necessary files and place them in each associated location.
 
 Alternatively, on Linux you can run the following commands from the base dannce directory:
-`wget -O vids.zip https://www.dropbox.com/sh/wn1x8erb5k3n9vr/AADE_Ca-2farKhd38ZvsNi84a?dl=1`
-`unzip vids.zip -d vids`
-`mv vids/* demo/markerless_mouse_1/videos/`
-`rm -r vids vids.zip`
-`wget -O demo/markerless_mouse_1/DANNCE/train_results/AVG/weights.1200-12.77642.hdf5 https://www.dropbox.com/s/4b97fg5ciznllnt/weights.1200-12.77642.hdf5?dl=1`
-`wget -O demo/markerless_mouse_1/DANNCE/train_results/weights.12000-0.00014.hdf5 https://www.dropbox.com/s/wnjlfhylaxtecax/weights.12000-0.00014.hdf5?dl=1`
+
+`wget -O vids.zip https://www.dropbox.com/sh/wn1x8erb5k3n9vr/AADE_Ca-2farKhd38ZvsNi84a?dl=1 & unzip vids.zip -d vids ; mv vids/* demo/markerless_mouse_1/videos/ ; rm -r vids vids.zip ; wget -O demo/markerless_mouse_1/DANNCE/train_results/AVG/weights.1200-12.77642.hdf5 https://www.dropbox.com/s/4b97fg5ciznllnt/weights.1200-12.77642.hdf5?dl=1 ; wget -O demo/markerless_mouse_1/DANNCE/train_results/weights.12000-0.00014.hdf5 https://www.dropbox.com/s/wnjlfhylaxtecax/weights.12000-0.00014.hdf5?dl=1`
 
 Once the files are downloaded and in their correct places, run:
 
 `cd demo/markerless_mouse_1`
+
 `python ../../predict_DANNCE.py config.yaml`
 
 This demo will run the `AVG` version of DANNCE (more on `AVG` vs. `MAX1` below) over 1000 frames of mouse data and save the results to `demo/markerless_mouse_1/DANNCE/predict_results/save_data_AVG.mat`
@@ -81,8 +78,14 @@ During training and evaluation, DANNCE requires a set of videos across multiple 
 We recommend setting up individual project folders for each video recording session, as in the dannce demos (`./demo`), although the dannce configuration files are flexible enough to support more custom file and directory organizations. The demo project folders also contain examples of all of the following formatting information.
 
 **configuration files**
+
 `DANNCE` uses 5 different types of configuration files
--- 
+
+- *main config*, e.g. `demo/markerless_mouse_1/config.yaml`. This file coordinates pathing to required files, including videos, camera calibrations, and synchronization files.
+- *COM config*, e.g. `demo/markerless_mouse_1/COM/config.yaml`. This file sets parameters for COMfinder training and prediction and sets output directories.
+- *DANNCE config*, e.g. `demo/markerless_mouse_1/DANNCE/config_AVG.yaml`. This file sets parameters for DANNCE training and prediction and sets output directories.
+- *COM experiment configs*, e.g. `demo/markerless_mouse_1/COM/exp1.yaml` and `demo/markerless_mouse_1/COM/exp2.yaml`. These files coordinate pathing to animal-specific files, including hand-labeled data, enabling COMfinder training over multiple animals.
+- *DANNCE experiment configs*, e.g. `demo/markerless_mouse_1/DANNCE/exp1.yaml` and `demo/markerless_mouse_1/DANNCE/exp2.yaml`. These files coordinate pathing to animal-specific files, including hand-labeled data, enabling DANNCE training over multiple animals.
 
 **video directories**.
 DANNCE requires a parent video directory with *n* sub-directories, one for each of *n* cameras. Within each subdirectory, videos must be named according the frame index of the first frame in the file. For example, for a three-camera system, the video directory must look like:
