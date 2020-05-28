@@ -2,25 +2,27 @@
 
 Usage: python predict_DANNCE.py settings_config
 """
+import os
 import sys
 import numpy as np
-import os
 import time
-import keras.backend as K
+
+import tensorflow as tf
+import tensorflow.keras.losses as keras_losses
+
+from tensorflow.keras.models import load_model, Model
+import tensorflow.keras.backend as K
 from dannce.engine import losses
 from dannce.engine import nets
-import keras.losses
 import dannce.engine.serve_data_DANNCE as serve_data
 import dannce.engine.processing as processing
 import dannce.engine.ops as ops
 from dannce.engine.processing import savedata_tomat, savedata_expval
-from dannce.engine.generator_kmeans import DataGenerator_3Dconv_kmeans
-from keras.layers import Conv3D, Input
-from keras.models import Model, load_model
-from keras.optimizers import Adam
+from dannce.engine.generator import DataGenerator_3Dconv
+from dannce.engine.generator import DataGenerator_3Dconv_torch
+from dannce.engine.generator import DataGenerator_3Dconv_tf
+
 import scipy.io as sio
-from copy import deepcopy
-import shutil
 
 # Set up parameters
 PARENT_PARAMS = processing.read_config(sys.argv[1])
@@ -28,22 +30,16 @@ PARENT_PARAMS = processing.make_paths_safe(PARENT_PARAMS)
 CONFIG_PARAMS = processing.read_config(PARENT_PARAMS['DANNCE_CONFIG'])
 CONFIG_PARAMS = processing.make_paths_safe(CONFIG_PARAMS)
 
-# Default to 6 views but a smaller number of views can be specified in the DANNCE config.
-# If the legnth of the camera files list is smaller than _N_VIEWS, relevant lists will be
-# duplicated in order to match _N_VIEWS, if possible.
-_N_VIEWS = int(CONFIG_PARAMS['_N_VIEWS'] if '_N_VIEWS' in CONFIG_PARAMS.keys() else 6)
-
 # Load the appropriate loss function and network
 try:
     CONFIG_PARAMS['loss'] = getattr(losses, CONFIG_PARAMS['loss'])
 except AttributeError:
-    CONFIG_PARAMS['loss'] = getattr(keras.losses, CONFIG_PARAMS['loss'])
+    CONFIG_PARAMS['loss'] = getattr(keras_losses, CONFIG_PARAMS['loss'])
 netname = CONFIG_PARAMS['net']
 CONFIG_PARAMS['net'] = getattr(nets, CONFIG_PARAMS['net'])
 
 # While we can use experiment files for DANNCE training, 
 # for prediction we use the base data files present in the main config
-
 CONFIG_PARAMS['experiment'] = PARENT_PARAMS
 RESULTSDIR = CONFIG_PARAMS['RESULTSDIR_PREDICT']
 print(RESULTSDIR)
@@ -51,14 +47,24 @@ print(RESULTSDIR)
 if not os.path.exists(RESULTSDIR):
     os.makedirs(RESULTSDIR)
 
+# default to slow numpy backend if there is no rpedict_mode in config file. I.e. legacy support
+predict_mode = CONFIG_PARAMS['predict_mode'] if 'predict_mode' in CONFIG_PARAMS.keys() \
+                    else 'numpy'
+print("Using {} predict mode".format(predict_mode))
+
 # Copy the configs into the RESULTSDIR, for reproducibility
 processing.copy_config(RESULTSDIR, sys.argv[1],
                         PARENT_PARAMS['DANNCE_CONFIG'],
                         PARENT_PARAMS['COM_CONFIG'])
 
-# TODO(Devices): Is it necessary to set the device environment?
-# This could mess with people's setups.
+# Default to 6 views but a smaller number of views can be specified in the DANNCE config.
+# If the legnth of the camera files list is smaller than _N_VIEWS, relevant lists will be
+# duplicated in order to match _N_VIEWS, if possible.
+_N_VIEWS = int(CONFIG_PARAMS['_N_VIEWS'] if '_N_VIEWS' in CONFIG_PARAMS.keys() else 6)
+
+
 os.environ["CUDA_VISIBLE_DEVICES"] =  CONFIG_PARAMS['gpuID']
+gpuID = CONFIG_PARAMS['gpuID']
 
 # If len(CONFIG_PARAMS['experiment']['CAMNAMES']) divides evenly into 6, duplicate here,
 # Unless the network was "hard" trained to use less than 6 cameras
@@ -77,9 +83,12 @@ else:
 samples_, datadict_, datadict_3d_, data_3d_, cameras_ = \
     serve_data.prepare_data(CONFIG_PARAMS['experiment'])
 
-
-if 'allcams' in CONFIG_PARAMS.keys() and CONFIG_PARAMS['allcams']: # Make sure all cameras in debug fields are added, so that COM predictions
-# can be more stable
+if 'allcams' in CONFIG_PARAMS.keys() and CONFIG_PARAMS['allcams']:
+    # This code allows a COM estimate from e.g. 6 cameras to be used when running 
+    # DANNCE with 3 cameras
+    # Primarily used for debugging
+    # Make sure all cameras in debug fields are added, so that COM predictions
+    # can be more stable
     dcameras_ = {}
     for i in range(len(CONFIG_PARAMS['dCAMNAMES'])):
         test = sio.loadmat(
@@ -90,6 +99,7 @@ if 'allcams' in CONFIG_PARAMS.keys() and CONFIG_PARAMS['allcams']: # Make sure a
             # Added Distortion params on Dec. 19 2018
             dcameras_[CONFIG_PARAMS['dCAMNAMES'][i]]['RDistort'] = test['RDistort']
             dcameras_[CONFIG_PARAMS['dCAMNAMES'][i]]['TDistort'] = test['TDistort']
+
 
 if 'COM3D_DICT' not in CONFIG_PARAMS.keys():
 
@@ -103,21 +113,20 @@ if 'COM3D_DICT' not in CONFIG_PARAMS.keys():
         comfn = os.path.join('.', 'COM', 'predict_results', comfn[0])
 
     datadict_, com3d_dict_ = serve_data.prepare_COM(
-    comfn,
-    datadict_,
-    comthresh=CONFIG_PARAMS['comthresh'],
-    weighted=CONFIG_PARAMS['weighted'],
-    retriangulate=CONFIG_PARAMS['retriangulate'] if 'retriangulate' in CONFIG_PARAMS.keys() else True,
-    camera_mats=dcameras_ if 'allcams' in CONFIG_PARAMS.keys() and CONFIG_PARAMS['allcams'] else cameras_,
-    method=CONFIG_PARAMS['com_method'],
-    allcams=CONFIG_PARAMS['allcams'] if 'allcams' in CONFIG_PARAMS.keys() and CONFIG_PARAMS['allcams'] else False)
+        comfn,
+        datadict_,
+        comthresh=CONFIG_PARAMS['comthresh'],
+        weighted=CONFIG_PARAMS['weighted'],
+        retriangulate=CONFIG_PARAMS['retriangulate'] if 'retriangulate' in CONFIG_PARAMS.keys() else True,
+        camera_mats=dcameras_ if 'allcams' in CONFIG_PARAMS.keys() and CONFIG_PARAMS['allcams'] else cameras_,
+        method=CONFIG_PARAMS['com_method'],
+        allcams=CONFIG_PARAMS['allcams'] if 'allcams' in CONFIG_PARAMS.keys() and CONFIG_PARAMS['allcams'] else False)
 
     # Need to cap this at the number of samples included in our
     # COM finding estimates
-
-    tf = list(com3d_dict_.keys())
-    samples_ = samples_[:len(tf)]
-    data_3d_ = data_3d_[:len(tf)]
+    tff = list(com3d_dict_.keys())
+    samples_ = samples_[:len(tff)]
+    data_3d_ = data_3d_[:len(tff)]
     pre = len(samples_)
     samples_, data_3d_ = \
         serve_data.remove_samples_com(samples_, data_3d_, com3d_dict_, rmc=True, cthresh=CONFIG_PARAMS['cthresh'])
@@ -133,11 +142,8 @@ else:
     for (i, s) in enumerate(c3dsi):
         com3d_dict_[s] = c3d[i]
 
-    #samples_ = c3dsi
-
     #verify all of these samples are in datadict_, which we require in order to get the frames IDs
     # for the videos
-    #assert (set(samples_) & set(list(datadict_.keys()))) == set(samples_)
     assert (set(c3dsi) & set(list(datadict_.keys()))) == set(list(datadict_.keys()))
 
 # Write 3D COM to file
@@ -148,7 +154,6 @@ for i in range(len(samples_)):
     c3d[i] = com3d_dict_[samples_[i]]
 sio.savemat(cfilename, {'sampleID': samples_, 'com': c3d})
 
-# TODO(Comment): Unclear what this section is doing.
 # The library is configured to be able to train over multiple animals ("experiments")
 # at once. Because supporting code expects to see an experiment ID# prepended to
 # each of these data keys, we need to add a token experiment ID here.
@@ -165,10 +170,9 @@ camnames = {}
 camnames[0] = CONFIG_PARAMS['experiment']['CAMNAMES']
 samples = np.array(samples)
 
-vids = processing.initialize_vids_predict(CONFIG_PARAMS, minopt=0, maxopt=1)
-
-# Set framecnt according to the "chunks" config param
-framecnt = CONFIG_PARAMS['chunks']
+# Initialize video dictionary. paths to videos only.
+if CONFIG_PARAMS['IMMODE'] == 'vid':
+    vids = processing.initialize_vids(CONFIG_PARAMS, datadict, pathonly=True)
 
 # Parameters
 valid_params = {
@@ -189,17 +193,14 @@ valid_params = {
     'mode': 'coordinates',
     'camnames': camnames,
     'immode': CONFIG_PARAMS['IMMODE'],
-    'training': False,
     'shuffle': False,
     'rotation': False,
-    'pregrid': None,
-    'pre_projgrid': None,
-    'stamp': False,
     'vidreaders': vids,
     'distort': CONFIG_PARAMS['DISTORT'],
     'expval': CONFIG_PARAMS['EXPVAL'],
     'crop_im': False,
-    'chunks': CONFIG_PARAMS['chunks']}
+    'chunks': CONFIG_PARAMS['chunks'],
+    'preload': False}
 
 # Datasets
 partition = {}
@@ -208,9 +209,22 @@ partition['valid_sampleIDs'] = samples[valid_inds]
 tifdirs = []
 
 # Generators
-valid_generator = DataGenerator_3Dconv_kmeans(
-    partition['valid_sampleIDs'], datadict, datadict_3d, cameras,
-    partition['valid_sampleIDs'], com3d_dict, tifdirs, **valid_params)
+if predict_mode == 'torch':
+    import torch
+    device = 'cuda:' + gpuID
+    valid_generator = DataGenerator_3Dconv_torch(
+        partition['valid_sampleIDs'], datadict, datadict_3d, cameras,
+        partition['valid_sampleIDs'], com3d_dict, tifdirs, **valid_params)
+elif predict_mode == 'tf':
+    device = '/GPU:' + gpuID
+    valid_generator = DataGenerator_3Dconv_tf(
+        partition['valid_sampleIDs'], datadict, datadict_3d, cameras,
+        partition['valid_sampleIDs'], com3d_dict, tifdirs, **valid_params)
+else:
+    valid_generator = DataGenerator_3Dconv(
+        partition['valid_sampleIDs'], datadict, datadict_3d, cameras,
+        partition['valid_sampleIDs'], com3d_dict, tifdirs, **valid_params)
+
 
 # Build net
 print("Initializing Network...")
@@ -255,24 +269,30 @@ else:
                                        'euclidean_distance_3D': losses.euclidean_distance_3D,
                                        'centered_euclidean_distance_3D': losses.centered_euclidean_distance_3D})
 
+# To speed up EXPVAL prediction, rather than doing two forward passes: one for the 3d coordinate
+# and one for the probability map, here we splice on a new output layer after
+# the softmax on the last convolutional layer
+if CONFIG_PARAMS['EXPVAL']:
+    from tensorflow.keras.layers import GlobalMaxPooling3D
+    o2 = GlobalMaxPooling3D()(model.layers[-3].output)
+    model = Model(inputs=[model.layers[0].input, model.layers[-2].input],
+        outputs=[model.layers[-1].output, o2])
+
 save_data = {}
 
 
-def evaluate_ondemand(start_ind, end_ind, valid_gen, vids):
+def evaluate_ondemand(start_ind, end_ind, valid_gen):
     """Evaluate experiment.
-
     :param start_ind: Starting frame
     :param end_ind: Ending frame
     :param valid_gen: Generator
     """
     end_time = time.time()
-    lastvid_ = '0' + CONFIG_PARAMS['experiment']['extension']
-    currvid_ = 0
     for i in range(start_ind, end_ind):
         print("Predicting on batch {}".format(i))
-        if (i - start_ind) % 100 == 0 and i != start_ind:
+        if (i - start_ind) % 10 == 0 and i != start_ind:
             print(i)
-            print("100 batches took {} seconds".format(time.time() - end_time))
+            print("10 batches took {} seconds".format(time.time() - end_time))
             end_time = time.time()
 
         if (i - start_ind) % 1000 == 0 and i != start_ind:
@@ -294,55 +314,75 @@ def evaluate_ondemand(start_ind, end_ind, valid_gen, vids):
                     write=True,
                     data=save_data,
                     num_markers=nchn,
-                    tcoord=False)                
-                pass
-
-        if framecnt is not None:
-            # We can't keep all these videos open, so close the ones
-            # that are not needed
-
-            vids_, lastvid_, currvid_ = processing.sequential_vid(vids,
-                                                                  datadict,
-                                                                  partition,
-                                                                  CONFIG_PARAMS,
-                                                                  framecnt,
-                                                                  currvid_,
-                                                                  lastvid_,
-                                                                  i)
-            valid_gen.vidreaders = vids_
-            vids = vids_
-
+                    tcoord=False)
 
         ims = valid_gen.__getitem__(i)
         pred = model.predict(ims[0])
-
+        
         if CONFIG_PARAMS['EXPVAL']:
-            probmap = get_output([ims[0][0], 0])[0]
+            probmap = pred[1]
+            pred = pred[0]
             for j in range(pred.shape[0]):
-                pred_max = np.max(np.max(np.max(
-                    probmap[j], axis=0), axis=0), axis=0)
+                pred_max = probmap[j]
                 sampleID = partition['valid_sampleIDs'][i * pred.shape[0] + j]
                 save_data[i * pred.shape[0] + j] = {
                     'pred_max': pred_max,
                     'pred_coord': pred[j],
                     'sampleID': sampleID}
         else:
-            # get coords for each map
-            for j in range(pred.shape[0]):
-                pred_max = np.max(np.max(np.max(
-                    pred[j, :, :, :, :], axis=0), axis=0), axis=0)
-                pred_total = np.sum(np.sum(np.sum(
-                    pred[j, :, :, :, :], axis=0), axis=0), axis=0)
-                coordx, coordy, coordz = processing.plot_markers_3d(pred[j])
-                coord = np.stack((coordx, coordy, coordz))
-                sampleID = partition['valid_sampleIDs'][i * pred.shape[0] + j]
+            if predict_mode == 'torch':
+                for j in range(pred.shape[0]):
+                    preds = torch.as_tensor(pred[j], dtype = torch.float32, device = device)
+                    pred_max = preds.max(0).values.max(0).values.max(0).values
+                    pred_total = preds.sum((0,1,2))
+                    xcoord, ycoord, zcoord = processing.plot_markers_3d_torch(preds)
+                    coord = torch.stack([xcoord,ycoord,zcoord])
+                    pred_log = pred_max.log() - pred_total.log()
+                    sampleID = partition['valid_sampleIDs'][i*pred.shape[0] + j]
 
-                save_data[i * pred.shape[0] + j] = {
-                    'pred_max': pred_max,
-                    'pred_coord': coord,
-                    'true_coord_nogrid': ims[1][j],
-                    'logmax': np.log(pred_max) - np.log(pred_total),
-                    'sampleID': sampleID}
+                    save_data[i*pred.shape[0] + j] = {
+                        'pred_max': pred_max.cpu().numpy(),
+                        'pred_coord': coord.cpu().numpy(),
+                        'true_coord_nogrid': ims[1][j],
+                        'logmax': pred_log.cpu().numpy(),
+                        'sampleID': sampleID}
+
+            elif predict_mode == 'tf':
+                # get coords for each map
+                with tf.device(device):
+                    for j in range(pred.shape[0]):
+                        preds = tf.constant(pred[j], dtype = 'float32')
+                        pred_max = tf.math.reduce_max(tf.math.reduce_max(tf.math.reduce_max(preds)))
+                        pred_total = tf.math.reduce_sum(tf.math.reduce_sum(tf.math.reduce_sum(preds)))
+                        xcoord, ycoord, zcoord = processing.plot_markers_3d_tf(preds)
+                        coord = tf.stack([xcoord,ycoord,zcoord], axis=0)
+                        pred_log = tf.math.log(pred_max) - tf.math.log(pred_total)
+                        sampleID = partition['valid_sampleIDs'][i*pred.shape[0] + j]
+
+                        save_data[i*pred.shape[0] + j] = {
+                            'pred_max': pred_max.numpy(),
+                            'pred_coord': coord.numpy(),
+                            'true_coord_nogrid': ims[1][j],
+                            'logmax': pred_log.numpy(),
+                            'sampleID': sampleID}
+
+            else:
+                # get coords for each map
+                for j in range(pred.shape[0]):
+                    pred_max = np.max(pred[j], axis=(0,1,2))
+                    pred_total = np.sum(pred[j], axis=(0,1,2))
+                    xcoord, ycoord, zcoord = processing.plot_markers_3d(pred[j,:,:,:,:])
+                    coord = np.stack([xcoord,ycoord,zcoord])
+                    pred_log = np.log(pred_max) - np.log(pred_total)
+                    sampleID = partition['valid_sampleIDs'][i*pred.shape[0] + j]
+
+                    save_data[i*pred.shape[0] + j] = {
+                        'pred_max': pred_max,
+                        'pred_coord': coord,
+                        'true_coord_nogrid': ims[1][j],
+                        'logmax': pred_log,
+                        'sampleID': sampleID}
+
 
 max_eval_batch = CONFIG_PARAMS['maxbatch']
 if max_eval_batch == 'max':
@@ -353,11 +393,9 @@ if 'NEW_N_CHANNELS_OUT' in CONFIG_PARAMS.keys():
 else:
     nchn = CONFIG_PARAMS['N_CHANNELS_OUT']
 
-if CONFIG_PARAMS['EXPVAL']:
-    get_output = K.function(
-        [model.layers[0].input, K.learning_phase()], [model.layers[-3].output])
-    evaluate_ondemand(0, max_eval_batch, valid_generator, vids)
+evaluate_ondemand(0, max_eval_batch, valid_generator)
 
+if CONFIG_PARAMS['EXPVAL']:
     p_n = savedata_expval(
         RESULTSDIR + 'save_data_AVG.mat',
         write=True,
@@ -366,18 +404,14 @@ if CONFIG_PARAMS['EXPVAL']:
         num_markers=nchn,
         pmax=True)
 else:
-        evaluate_ondemand(0, max_eval_batch, valid_generator, vids)
-
-        p_n = savedata_tomat(
-            RESULTSDIR + 'save_data_MAX.mat',
-            CONFIG_PARAMS['VMIN'],
-            CONFIG_PARAMS['VMAX'],
-            CONFIG_PARAMS['NVOX'],
-            write=True,
-            data=save_data,
-            num_markers=nchn,
-            tcoord=False)
-
-
+    p_n = savedata_tomat(
+        RESULTSDIR + 'save_data_MAX.mat',
+        CONFIG_PARAMS['VMIN'],
+        CONFIG_PARAMS['VMAX'],
+        CONFIG_PARAMS['NVOX'],
+        write=True,
+        data=save_data,
+        num_markers=nchn,
+        tcoord=False)
 
 print("done!")

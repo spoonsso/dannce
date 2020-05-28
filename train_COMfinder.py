@@ -13,11 +13,10 @@ from dannce.engine.generator_aux import DataGenerator_downsample
 from dannce.engine import nets
 from dannce.engine import losses
 from six.moves import cPickle
-from keras.layers import Conv3D, Input
-from keras.models import Model
-from keras.optimizers import Adam
-from keras.callbacks import ModelCheckpoint, CSVLogger, TensorBoard
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.callbacks import ModelCheckpoint, CSVLogger, TensorBoard
 from copy import deepcopy
+from tensorflow.random import set_seed
 
 import matplotlib
 matplotlib.use('Agg')
@@ -41,12 +40,8 @@ datadict_3d = {}
 cameras = {}
 camnames = {}
 
-if 'exp_path' not in CONFIG_PARAMS:
-  def_ep = os.path.join('.', 'COM')
-  exps = os.listdir(def_ep)
-  exps = [os.path.join(def_ep, f) for f in exps if '.yaml' in f and 'exp' in f]
-else:
-  exps = CONFIG_PARAMS['exp_path']
+exps = processing.grab_exp_file(CONFIG_PARAMS)
+
 num_experiments = len(exps)
 CONFIG_PARAMS['experiment'] = {}
 
@@ -92,70 +87,22 @@ if not os.path.exists(RESULTSDIR):
 # Additionally, to keep videos unique across experiments, need to add
 # experiment labels in other places. E.g. experiment 0 CameraE's "camname"
 # Becomes 0_CameraE.
-# TODO: Add this to serve_data.add_experiment() above
-cameras_ = {}
-datadict_ = {}
-for e in range(num_experiments):
-    # Create a unique camname for each camera in each experiment
-    cameras_[e] = {}
-    for key in cameras[e]:
-        cameras_[e][str(e) + '_' + key] = cameras[e][key]
-
-    camnames[e] = [str(e) + '_' + f for f in camnames[e]]
-
-    CONFIG_PARAMS['experiment'][e]['CAMNAMES'] = camnames[e]
-
-for key in datadict.keys():
-    enum = key.split('_')[0]
-    datadict_[key] = {}
-    datadict_[key]['data'] = {}
-    datadict_[key]['frames'] = {}
-    for key_ in datadict[key]['data']:
-        datadict_[key]['data'][enum + '_' + key_] = datadict[key]['data'][key_]
-        datadict_[key]['frames'][enum + '_' + key_] =  \
-            datadict[key]['frames'][key_]
-
-datadict = datadict_
-cameras = cameras_
+cameras, datadict, CONFIG_PARAMS = serve_data.prepend_experiment(CONFIG_PARAMS, datadict,
+                                                  num_experiments, camnames, cameras)
 
 samples = np.array(samples)
+print(samples)
 
 e = 0
 
-# Open videos for all experiments
+# Initialize video objects
 vids = {}
 for e in range(num_experiments):
+    vids = processing.initialize_vids_train(CONFIG_PARAMS, datadict, e,
+                                                vids, pathonly=True)
 
-    # How many videos do we need to open?
-    # Find the largest sampleID for this experiment
-    esamp = [int(s.split('_')[-1]) for s in samples if int(s.split('_')[0])==e]
-    esamp = np.sort(esamp)[-1]
-    maxframes = datadict[str(e) + '_' + str(esamp)]['frames']
-    maxframes = min(list(maxframes.values()))
-
-    for i in range(len(CONFIG_PARAMS['experiment'][e]['CAMNAMES'])):
-        if CONFIG_PARAMS['vid_dir_flag']:
-            addl = ''
-        else:
-            addl = os.listdir(os.path.join(
-                CONFIG_PARAMS['experiment'][e]['viddir'],
-                CONFIG_PARAMS['experiment'][e]['CAMNAMES'][i].split('_')[1]))[0]
-        r = \
-            processing.generate_readers(
-                CONFIG_PARAMS['experiment'][e]['viddir'],
-                os.path.join(CONFIG_PARAMS['experiment'][e]
-                             ['CAMNAMES'][i].split('_')[1], addl),
-                maxopt=maxframes,
-                extension=CONFIG_PARAMS['experiment'][e]['extension'])
-
-        # Add e to key
-        vids[CONFIG_PARAMS['experiment'][e]['CAMNAMES'][i]] = {}
-        for key in r:
-            vids[CONFIG_PARAMS['experiment'][e]['CAMNAMES'][i]][str(e) +
-                                                                '_' + key]\
-                                                                = r[key]
-
-print("Using {} downsampling".format(CONFIG_PARAMS['dsmode'] if 'dsmode' in CONFIG_PARAMS.keys() else 'dsm'))
+print("Using {} downsampling".format(CONFIG_PARAMS['dsmode'] if 'dsmode' 
+      in CONFIG_PARAMS.keys() else 'dsm'))
 
 params = {'dim_in': (CONFIG_PARAMS['CROP_HEIGHT'][1]-CONFIG_PARAMS['CROP_HEIGHT'][0],
                      CONFIG_PARAMS['CROP_WIDTH'][1]-CONFIG_PARAMS['CROP_WIDTH'][0]),
@@ -169,7 +116,8 @@ params = {'dim_in': (CONFIG_PARAMS['CROP_HEIGHT'][1]-CONFIG_PARAMS['CROP_HEIGHT'
           'downsample': CONFIG_PARAMS['DOWNFAC'],
           'shuffle': False,
           'chunks': CONFIG_PARAMS['chunks'],
-          'dsmode': CONFIG_PARAMS['dsmode'] if 'dsmode' in CONFIG_PARAMS.keys() else 'dsm'}
+          'dsmode': CONFIG_PARAMS['dsmode'] if 'dsmode' in CONFIG_PARAMS.keys() else 'dsm',
+          'preload': False}
 
 valid_params = deepcopy(params)
 valid_params['shuffle'] = False
@@ -187,6 +135,7 @@ if 'load_valid' not in CONFIG_PARAMS.keys():
                  if int(samples[i].split('_')[0]) == e]
         valid_inds = valid_inds + list(np.random.choice(tinds,
                                                         (v,), replace=False))
+        valid_inds = list(np.sort(valid_inds))
 
     train_inds = [i for i in all_inds if i not in valid_inds]
     assert (set(valid_inds) & set(train_inds)) == set()
@@ -222,10 +171,6 @@ with open(RESULTSDIR + 'train_samples.pickle', 'wb') as f:
 
 labels = datadict
 
-# TODO: Remove?? Appears unused.
-labels_3d = datadict_3d
-
-
 # Build net
 print("Initializing Network...")
 
@@ -254,7 +199,8 @@ if 'lockfirst' in CONFIG_PARAMS.keys() and CONFIG_PARAMS['lockfirst']:
     for layer in model.layers[:2]:
         layer.trainable = False
     
-model.compile(optimizer=Adam(lr=float(CONFIG_PARAMS['lr'])), loss=CONFIG_PARAMS['loss'], metrics=['mse'])
+model.compile(optimizer=Adam(lr=float(CONFIG_PARAMS['lr'])),
+              loss=CONFIG_PARAMS['loss'], metrics=['mse'])
 
 # Create checkpoint and logging callbacks
 model_checkpoint = ModelCheckpoint(os.path.join(RESULTSDIR,
@@ -301,19 +247,6 @@ for i in range(len(partition['valid'])):
     ims = valid_generator.__getitem__(i)
     ims_valid[i*ncams:(i+1)*ncams] = ims[0]
     y_valid[i*ncams:(i+1)*ncams] = ims[1]
-
-# We don't need the videos any longer, so close them
-print('closing videos')
-for key in vids.keys():
-  for key_ in vids[key].keys():
-    vids[key][key_].close()
-
-# Now shuffle the training data and targets together
-# TODO: Remove double shuffle? model.fit() should also be shuffling
-inds = np.arange(ims_train.shape[0])
-np.random.shuffle(inds)
-ims_train = ims_train[inds]
-y_train = y_train[inds]
 
 if CONFIG_PARAMS['debug'] and not MULTI_MODE:
     # Plot all training images and save
