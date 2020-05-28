@@ -1,8 +1,6 @@
 """Losses for tf models."""
-# from keras import backend as K
 import tensorflow as tf
 from tensorflow.keras import backend as K
-#from keras import backend as K
 
 # TODO(nan_true): nan_true is where y_true is not nan. This is confusing
 def mask_nan_keep_loss(y_true, y_pred):
@@ -35,8 +33,6 @@ def multiview_consistency(y_true,y_pred):
     multiview_loss = K.mean(K.flatten(y_pred_diff)**2)
 
     return msk_loss + alpha*multiview_loss
-    #return alpha*multiview_loss
-    #return msk_loss
 
 def metric_dist_max(y_true, y_pred):
     """Get distance between the (row, col) indices of each maximum.

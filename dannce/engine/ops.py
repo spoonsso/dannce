@@ -11,13 +11,6 @@ import tensorflow.keras.regularizers as regularizers
 from tensorflow.keras.layers import Layer, InputSpec
 from tensorflow.keras.utils import get_custom_objects
 
-# import keras.backend as K
-# import keras.initializers as initializers
-# import keras.constraints as constraints
-# import keras.regularizers as regularizers
-# from keras.layers import Layer, InputSpec
-# from keras.utils import get_custom_objects
-
 import cv2
 import time
 

@@ -1,7 +1,6 @@
 """Define routines for reading/structuring input data for COM."""
 import numpy as np
 import scipy.io as sio
-from dannce.engine import processing as processing
 from dannce.engine import ops as ops
 import os
 from six.moves import cPickle

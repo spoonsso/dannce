@@ -12,21 +12,15 @@ import tensorflow.keras.losses as keras_losses
 
 from tensorflow.keras.models import load_model, Model
 import tensorflow.keras.backend as K
-
-# import keras.losses as keras_losses
-
-# from keras.models import load_model
-# import keras.backend as K
-
 from dannce.engine import losses
 from dannce.engine import nets
 import dannce.engine.serve_data_DANNCE as serve_data
 import dannce.engine.processing as processing
 import dannce.engine.ops as ops
 from dannce.engine.processing import savedata_tomat, savedata_expval
-from dannce.engine.generator_kmeans import DataGenerator_3Dconv_kmeans
-from dannce.engine.generator_kmeans import DataGenerator_3Dconv_kmeans_torch
-from dannce.engine.generator_kmeans import DataGenerator_3Dconv_kmeans_tf
+from dannce.engine.generator import DataGenerator_3Dconv
+from dannce.engine.generator import DataGenerator_3Dconv_torch
+from dannce.engine.generator import DataGenerator_3Dconv_tf
 
 import scipy.io as sio
 
@@ -199,12 +193,8 @@ valid_params = {
     'mode': 'coordinates',
     'camnames': camnames,
     'immode': CONFIG_PARAMS['IMMODE'],
-    'training': False,
     'shuffle': False,
     'rotation': False,
-    'pregrid': None,
-    'pre_projgrid': None,
-    'stamp': False,
     'vidreaders': vids,
     'distort': CONFIG_PARAMS['DISTORT'],
     'expval': CONFIG_PARAMS['EXPVAL'],
@@ -222,16 +212,16 @@ tifdirs = []
 if predict_mode == 'torch':
     import torch
     device = 'cuda:' + gpuID
-    valid_generator = DataGenerator_3Dconv_kmeans_torch(
+    valid_generator = DataGenerator_3Dconv_torch(
         partition['valid_sampleIDs'], datadict, datadict_3d, cameras,
         partition['valid_sampleIDs'], com3d_dict, tifdirs, **valid_params)
 elif predict_mode == 'tf':
     device = '/GPU:' + gpuID
-    valid_generator = DataGenerator_3Dconv_kmeans_tf(
+    valid_generator = DataGenerator_3Dconv_tf(
         partition['valid_sampleIDs'], datadict, datadict_3d, cameras,
         partition['valid_sampleIDs'], com3d_dict, tifdirs, **valid_params)
 else:
-    valid_generator = DataGenerator_3Dconv_kmeans(
+    valid_generator = DataGenerator_3Dconv(
         partition['valid_sampleIDs'], datadict, datadict_3d, cameras,
         partition['valid_sampleIDs'], com3d_dict, tifdirs, **valid_params)
 
