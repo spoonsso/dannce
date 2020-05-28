@@ -1,9 +1,9 @@
 
 # path to folder containing formatted data files 
-datadir: ./labeling/
+datadir: ../markerless_mouse_2/labeling/
 
 # path to folder contraining video sub directories
-viddir: ./videos/
+viddir: ../markerless_mouse_2/videos/
 
 # names of data files. must match the order of CAMNAMES below. We need 6 views total as input, so if the number of files here divides evenly into 6, will duplicate automatically
 datafile: ['Camera1_dataApplyDistort_worker0','Camera2_dataApplyDistort_worker0','Camera3_dataApplyDistort_worker0','Camera4_dataApplyDistort_worker0','Camera5_dataApplyDistort_worker0','Camera6_dataApplyDistort_worker0']
@@ -15,11 +15,13 @@ datafile: ['Camera1_dataApplyDistort_worker0','Camera2_dataApplyDistort_worker0'
 #CAMNAMES: ['Camera1', 'Camera2', 'Camera3','Camera4','Camera5', 'Camera6']
 
 # path to folder with DANNCE formated camera calibration parameters
-#CALIBDIR: ./calibration/
+CALIBDIR: ../markerless_mouse_2/calibration/
 
 # names of each camera calibration file. Order should match CAMNAMES and datafiles above. See duplication notes above.
 # By default, will inherit from main config 
-#calib_file: ['hires_cam2_params.mat','hires_cam3_params.mat','hires_cam1_params.mat']
+calib_file: ['kyle_cam1_params.mat','kyle_cam2_params.mat','kyle_cam3_params.mat','kyle_cam4_params.mat', 'kyle_cam5_params.mat', 'kyle_cam6_params.mat']
 
 # Video extension. By default, will inherit from main config
 # extension: .mp4
+
+COMfilename: ../markerless_mouse_2/COM/predict_results/COM_undistorted.pickle

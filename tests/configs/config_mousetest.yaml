@@ -1,5 +1,5 @@
 # path to folder containing formatted data files 
-datadir: ../../demo/markerless_mouse_1/data/
+datadir: ../../demo/markerless_mouse_1/sync/
 
 # path to folder contraining video sub directories
 viddir: /home/twd/Dropbox/autoencoder/Kyle/20190902_mouse1/videos/
