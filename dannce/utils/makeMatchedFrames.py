@@ -35,13 +35,13 @@ fps = float(sys.argv[2])
 num_landmarks = int(sys.argv[3])
 
 outpath = os.path.dirname(vidpath.rstrip(os.sep))
-outpath = os.path.join(outpath,'data')
+outpath = os.path.join(outpath, 'data')
 
 if not os.path.exists(outpath):
     os.makedirs(outpath)
     print("making new folder, {}".format(outpath))
 
-print("Writing MatchedFrames files to {}...".format(outpath))
+print("Writing Sync files to {}...".format(outpath))
 
 dirs = os.listdir(vidpath)
 dirs = [d for d in dirs if os.path.isdir(os.path.join(vidpath, d))]
@@ -91,7 +91,7 @@ data_3d = np.zeros((framecount[0], 3*num_landmarks))
 
 checkf = os.listdir(outpath)
 for cname in camnames:
-    fname = cname + '_MatchedFrames.mat'
+    fname = cname + '_sync.mat'
     outfile = os.path.join(outpath, fname)
     if fname in checkf:
         ans = ''
