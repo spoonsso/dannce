@@ -26,7 +26,7 @@ BATCH_SIZE: 4
 WORKERS: 4
 
 # Max. number of batches in multi-processing queue
-MAX_QUEUE_SIZE: 128
+MAX_QUEUE_SIZE: 20
 
 # DANNCE training option. Sets the size of the 3D Guassians (in mm) used as labels for the MAX models
 SIGMA: 10
