@@ -1,6 +1,6 @@
 
 # path to folder containing formatted data files 
-datadir: ../tests/testlabels/mouse2/
+datadir: ../testlabels/mouse2/
 
 # path to folder contraining video sub directories
 viddir: ../../demo/markerless_mouse_2/videos/
