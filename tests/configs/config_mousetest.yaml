@@ -2,7 +2,7 @@
 datadir: ../../demo/markerless_mouse_1/sync/
 
 # path to folder contraining video sub directories
-viddir: /home/twd/Dropbox/autoencoder/Kyle/20190902_mouse1/videos/
+viddir: ../../demo/markerless_mouse_1/videos/
 
 # names of data files. must match the order of CAMNAMES below
 datafile: ['Camera1_sync', 'Camera2_sync', 'Camera3_sync', 'Camera4_sync','Camera5_sync','Camera6_sync']
