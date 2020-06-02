@@ -4,7 +4,8 @@ from skimage.color import rgb2gray
 from skimage.transform import downscale_local_mean as dsm
 import imageio
 import os
-import ast
+from scipy.signal import medfilt
+import dannce.engine.serve_data_DANNCE as serve_data_DANNCE
 import PIL
 from six.moves import cPickle
 import scipy.io as sio
@@ -142,30 +143,58 @@ def trim_COM_pickle(
         cPickle.dump(sd, f)
     return sd
 
-def save_COM_checkpoint(save_data, camnames):
-    """Saves a COM dict to mat file
+def save_COM_checkpoint(save_data,
+                        RESULTSDIR,
+                        datadict_,
+                        cameras,
+                        params):
+    """
+    Saves COM pickle and matfiles
 
     """
+    # Save undistorted 2D COMs and their 3D triangulations
+    f = open(os.path.join(RESULTSDIR, 'COM_undistorted.pickle'), 'wb')
+    cPickle.dump(save_data, f)
+    f.close()
 
-    n = len(list(save_data.keys()))
-    num_cams = len(camnames)
-    allCOMs = np.zeros((num_cams, n, 2))
-    for (i, key) in enumerate(save_data.keys()):
-        for c in range(num_cams):
-            allCOMs[c, i] = save_data[key][camnames[c]]['COM']
+    # Also save a COM3D_undistorted.mat file.
+    # We need to remove the eID in front of all the keys in datadict
+    # for prepare_COM to run properly
+    datadict_save = {}
+    for key in datadict_:
+        datadict_save[int(key.split('_')[-1])] = datadict_[key]
 
-    # Save Coms to a mat file
-    comfile = 'allCOMs_distorted.mat'
-    sio.savemat(comfile, {'allCOMs': allCOMs})
+    _, com3d_dict = serve_data_DANNCE.prepare_COM(
+        os.path.join(RESULTSDIR, 'COM_undistorted.pickle'),
+        datadict_save,
+        comthresh=0,
+        weighted=False,
+        retriangulate=False,
+        camera_mats=cameras,
+        method='median',
+        allcams=False)
 
-    # Also save save_data
+    cfilename = os.path.join(RESULTSDIR, 'COM3D_undistorted.mat')
+    print("Saving 3D COM to {}".format(cfilename))
+    samples_keys = list(com3d_dict.keys())
 
-    sdfile = 'save_data.pickle'
+    c3d = np.zeros((len(samples_keys), 3))
+    for i in range(len(samples_keys)):
+        c3d[i] = com3d_dict[samples_keys[i]]
 
-    with open(sdfile, 'wb') as f:
-        cPickle.dump(save_data,f)
+    # optionally, smooth with median filter
+    if 'MEDFILT_WINDOW' in params:
+        #Make window size odd if not odd
+        if params['MEDFILT_WINDOW'] % 2 == 0:
+            params['MEDFILT_WINDOW'] += 1
+            print("MEDFILT_WINDOW was not odd, changing to: {}".format(params['MEDFILT_WINDOW']))
 
-    return comfile
+        c3d_med = medfilt(c3d, (params['MEDFILT_WINDOW'], 1))
+
+        sio.savemat(cfilename.split('.mat')[0] + '_medfilt.mat',
+                    {'sampleID': samples_keys, 'com': c3d_med})
+
+    sio.savemat(cfilename, {'sampleID': samples_keys, 'com': c3d})
 
 def inherit_config(child, parent, keys):
     """

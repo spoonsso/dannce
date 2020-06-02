@@ -91,7 +91,6 @@ cameras, datadict, CONFIG_PARAMS = serve_data.prepend_experiment(CONFIG_PARAMS, 
                                                   num_experiments, camnames, cameras)
 
 samples = np.array(samples)
-print(samples)
 
 e = 0
 
