@@ -3,7 +3,7 @@
 datadir: ../testlabels/mouse1/
 
 # path to folder contraining video sub directories
-viddir: /home/twd/Dropbox/autoencoder/Kyle/20190902_mouse1/videos/
+viddir: ../../demo/markerless_mouse_1/videos/
 
 # names of data files. must match the order of CAMNAMES below.
 datafile: ['Camera1_10','Camera2_10','Camera3_10','Camera4_10','Camera5_10','Camera6_10']
@@ -22,4 +22,4 @@ CALIBDIR: ../../demo/markerless_mouse_1/calibration/
 # Video extension. By default, will inherit from main config
 # extension: .mp4
 
-COMfilename: ../../demo/markerless_mouse_2/COM/predict_results/COM_undistorted.pickle
+COMfilename: ../../demo/markerless_mouse_1/COM/predict_results/COM_undistorted.pickle
