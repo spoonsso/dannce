@@ -208,14 +208,17 @@ def inherit_config(child, parent, keys):
 
     return child
 
-def grab_exp_file(CONFIG_PARAMS):
+def grab_exp_file(CONFIG_PARAMS, defaultdir='DANNCE'):
     """
     Finds the paths to the training experiment yaml files.
     """
     if 'exp_path' not in CONFIG_PARAMS:
-        def_ep = os.path.join('.', 'DANNCE')
+        def_ep = os.path.join('.', defaultdir)
         exps = os.listdir(def_ep)
         exps = [os.path.join(def_ep, f) for f in exps if '.yaml' in f and 'exp' in f]
+
+        if len(exps) == 0:
+            raise Exception("Did not find any exp*.yaml files in {}".format(def_ep))
     else:
         exps = CONFIG_PARAMS['exp_path']
 
