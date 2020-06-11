@@ -40,7 +40,7 @@ datadict_3d = {}
 cameras = {}
 camnames = {}
 
-exps = processing.grab_exp_file(CONFIG_PARAMS)
+exps = processing.grab_exp_file(CONFIG_PARAMS, defaultdir='COM')
 
 num_experiments = len(exps)
 CONFIG_PARAMS['experiment'] = {}
