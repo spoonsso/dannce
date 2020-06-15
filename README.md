@@ -9,10 +9,7 @@ DANNCE (3-Dimensional Aligned Neural Network for Computational Ethology) is a co
 ## Example Results
 
 #### Mouse
-![Image](./common/KyleMouse_longfast.gif)
-
-#### Mouse (slowmo)
-![Image](./common/KyleMouse_shortslow.gif)
+![Image](./common/fig3.gif)
 
 #### Rat
 ![Image](./common/rat_JDM52.gif)
@@ -88,7 +85,7 @@ The `AVG` version of DANNCE generally produces smoother and more precise 3D trac
 
 
 ## Camera Calibration
-To use DANNCE, acquisition cameras must be synchronized and calibrated. Ideally, the acquired data will also be compressed. Synchronization is best done with a frametime trigger and a supplementary readout of frame times. Calibration is the process of determining the distortion introduced into an image from the camera lens (camera intrinsics) and the position and orientation of cameras relative to one another in space (camera extrinsics). When acquiring our data, we typically calibrated cameras in a two-step process. We first used a checkerboard to find the camera intrinsics. We then used an 'L-frame' to determine the camera extrinsics. The L-frame is a calibrated grid of four or more points that are labeled in each camera. A checkerboard can also be used for both procedures. We have included two examples of calibration using MATLAB (in `Calibration/`). 
+To use DANNCE, acquisition cameras must calibrated. Ideally, the acquired data will also be compressed. Synchronization is best done with a frametime trigger and a supplementary readout of frame times. Calibration is the process of determining the distortion introduced into an image from the camera lens (camera intrinsics) and the position and orientation of cameras relative to one another in space (camera extrinsics). When acquiring our data, we typically calibrated cameras in a two-step process. We first used a checkerboard to find the camera intrinsics. We then used an 'L-frame' to determine the camera extrinsics. The L-frame is a calibrated grid of four or more points that are labeled in each camera. A checkerboard can also be used for both procedures. We have included two examples of calibration using MATLAB (in `Calibration/`).
 
 Some tips:
 1. Try to sample the whole volume of the arena with the checkerboard to fully map the distortion of the lenses.
@@ -97,7 +94,7 @@ Some tips:
 
 It is often helpful to compress videos as they are acquired to reduce diskspace needed for streaming long recordings from multiple cameras. This can be done using ffmpeg or x264, and we have included two example scripts in `Compression/`. One, `campy.py`, was written by Kyle Severson and runs ffmpeg compression on a GPU for streaming multiple Basler cameras. A second, CameraCapture was originally written by Raj Poddar and uses x264 on the CPU to stream older Point Grey/FLIR cameras (eg Grasshopper, Flea3). We have included both a compiled version of the program and the original F-Sharp code that can be edited in Visual Studio. 
 
-Mirrors. Mirrors are a handy way to create new views, but there are some important details when using them with DANNCE. The easiest way to get it all to work with the dannce pipeline is to create multiple videos from the video with mirrors, with all but one sub-field of view (FOV) blacked out in each video. This plays well with the center-of-mass finding network, which currently expects to find only one animal in a given frame.
+*Mirrors.* Mirrors are a handy way to create new views, but there are some important details when using them with DANNCE. The easiest way to get it all to work with the dannce pipeline is to create multiple videos from the video with mirrors, with all but one sub-field of view (FOV) blacked out in each video. This plays well with the center-of-mass finding network, which currently expects to find only one animal in a given frame.
 
 When calibrating the mirror setup, we have used one intrinsic parameter calibration over the entire FOV of the camera, typically by moving the experimental setup away from the camera (moving the camera could cause changes in the intrinsics). We used these intrinsic parameters for all sub-FOVs. We also used the one set of distortion parameters to undistort the entire FOV. After you have these the parameters, you take images of the calibration target with the mirrors in place and calibrate the extrinsics for each sub-FOV independently and go from there.
 
