@@ -1,0 +1,6 @@
+# path to folder where DANNCE weights and logs will be saved
+RESULTSDIR: ../../demo/markerless_mouse_1/DANNCE/train_results/
+RESULTSDIR_PREDICT: ../../demo/markerless_mouse_1/DANNCE/predict_results/
+
+# Path to a list of experiment config files. By Default, train_COMfinder.py will look for exp*.yaml files in the same directory as this file
+exp_path: ['../../demo/markerless_mouse_1/exp.yaml', '../../demo/markerless_mouse_2/exp.yaml']

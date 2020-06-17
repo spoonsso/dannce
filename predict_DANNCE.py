@@ -25,87 +25,98 @@ from dannce.engine.generator import DataGenerator_3Dconv_tf
 import scipy.io as sio
 
 # Set up parameters
-PARENT_PARAMS = processing.read_config(sys.argv[1])
-PARENT_PARAMS = processing.make_paths_safe(PARENT_PARAMS)
-CONFIG_PARAMS = processing.read_config(PARENT_PARAMS['DANNCE_CONFIG'])
-CONFIG_PARAMS = processing.make_paths_safe(CONFIG_PARAMS)
+base_params = processing.read_config(sys.argv[1])
+base_params = processing.make_paths_safe(base_params)
+dannce_params = processing.read_config(base_params['DANNCE_CONFIG'])
+dannce_params = processing.make_paths_safe(dannce_params)
+dannce_params = processing.inherit_config(dannce_params, base_params, list(base_params.keys()))
 
 # Load the appropriate loss function and network
 try:
-    CONFIG_PARAMS['loss'] = getattr(losses, CONFIG_PARAMS['loss'])
+    dannce_params['loss'] = getattr(losses, dannce_params['loss'])
 except AttributeError:
-    CONFIG_PARAMS['loss'] = getattr(keras_losses, CONFIG_PARAMS['loss'])
-netname = CONFIG_PARAMS['net']
-CONFIG_PARAMS['net'] = getattr(nets, CONFIG_PARAMS['net'])
+    dannce_params['loss'] = getattr(keras_losses, dannce_params['loss'])
+netname = dannce_params['net']
+dannce_params['net'] = getattr(nets, dannce_params['net'])
 
 # While we can use experiment files for DANNCE training, 
 # for prediction we use the base data files present in the main config
-CONFIG_PARAMS['experiment'] = PARENT_PARAMS
-RESULTSDIR = CONFIG_PARAMS['RESULTSDIR_PREDICT']
+exp_file = processing.grab_predict_exp_file()
+exp = processing.read_config(exp_file)
+exp = processing.inherit_config(exp, dannce_params, list(dannce_params.keys()))
+for k in ['COM3D_DICT','COMfilename', 'datadir', 'viddir', 'CALIBDIR']:
+    if k in exp:
+        exp[k] = os.path.join(exp['base_exp_folder'], exp[k])
+exp['datadir'] = dannce_params['datadir']
+exp['datafile'] = dannce_params['datafile']
+dannce_params = exp
+dannce_params['experiment'] = exp
+
+
+RESULTSDIR = dannce_params['RESULTSDIR_PREDICT']
 print(RESULTSDIR)
 
 if not os.path.exists(RESULTSDIR):
     os.makedirs(RESULTSDIR)
 
 # default to slow numpy backend if there is no rpedict_mode in config file. I.e. legacy support
-predict_mode = CONFIG_PARAMS['predict_mode'] if 'predict_mode' in CONFIG_PARAMS.keys() \
+predict_mode = dannce_params['predict_mode'] if 'predict_mode' in dannce_params.keys() \
                     else 'numpy'
 print("Using {} predict mode".format(predict_mode))
 
 # Copy the configs into the RESULTSDIR, for reproducibility
 processing.copy_config(RESULTSDIR, sys.argv[1],
-                        PARENT_PARAMS['DANNCE_CONFIG'],
-                        PARENT_PARAMS['COM_CONFIG'])
+                        base_params['DANNCE_CONFIG'],
+                        base_params['COM_CONFIG'])
 
 # Default to 6 views but a smaller number of views can be specified in the DANNCE config.
 # If the legnth of the camera files list is smaller than _N_VIEWS, relevant lists will be
 # duplicated in order to match _N_VIEWS, if possible.
-_N_VIEWS = int(CONFIG_PARAMS['_N_VIEWS'] if '_N_VIEWS' in CONFIG_PARAMS.keys() else 6)
+_N_VIEWS = int(dannce_params['_N_VIEWS'] if '_N_VIEWS' in dannce_params.keys() else 6)
 
 
-os.environ["CUDA_VISIBLE_DEVICES"] =  CONFIG_PARAMS['gpuID']
-gpuID = CONFIG_PARAMS['gpuID']
+os.environ["CUDA_VISIBLE_DEVICES"] =  dannce_params['gpuID']
+gpuID = dannce_params['gpuID']
 
-# If len(CONFIG_PARAMS['experiment']['CAMNAMES']) divides evenly into 6, duplicate here,
+# If len(dannce_params['experiment']['CAMNAMES']) divides evenly into 6, duplicate here,
 # Unless the network was "hard" trained to use less than 6 cameras
-if 'hard_train' in PARENT_PARAMS.keys() and PARENT_PARAMS['hard_train']:
+if 'hard_train' in base_params.keys() and base_params['hard_train']:
     print("Not duplicating camnames, datafiles, and calib files")
 else:
     dupes = ['CAMNAMES', 'datafile', 'calib_file']
     for d in dupes:
-        val = CONFIG_PARAMS['experiment'][d]
+        val = dannce_params['experiment'][d]
         if _N_VIEWS % len(val) == 0:
             num_reps = _N_VIEWS // len(val)
-            CONFIG_PARAMS['experiment'][d] = val * num_reps
+            dannce_params['experiment'][d] = val * num_reps
         else:
             raise Exception("The length of the {} list must divide evenly into {}.".format(d, _N_VIEWS))
 
 samples_, datadict_, datadict_3d_, data_3d_, cameras_ = \
-    serve_data.prepare_data(CONFIG_PARAMS['experiment'])
-
-if 'allcams' in CONFIG_PARAMS.keys() and CONFIG_PARAMS['allcams']:
+    serve_data.prepare_data(dannce_params['experiment'])
+if 'allcams' in dannce_params.keys() and dannce_params['allcams']:
     # This code allows a COM estimate from e.g. 6 cameras to be used when running 
     # DANNCE with 3 cameras
     # Primarily used for debugging
     # Make sure all cameras in debug fields are added, so that COM predictions
     # can be more stable
     dcameras_ = {}
-    for i in range(len(CONFIG_PARAMS['dCAMNAMES'])):
+    for i in range(len(dannce_params['dCAMNAMES'])):
         test = sio.loadmat(
-            os.path.join(CONFIG_PARAMS['dCALIBDIR'], CONFIG_PARAMS['dcalib_file'][i]))
-        dcameras_[CONFIG_PARAMS['dCAMNAMES'][i]] = {
+            os.path.join(dannce_params['dCALIBDIR'], dannce_params['dcalib_file'][i]))
+        dcameras_[dannce_params['dCAMNAMES'][i]] = {
             'K': test['K'], 'R': test['r'], 't': test['t']}
         if 'RDistort' in list(test.keys()):
             # Added Distortion params on Dec. 19 2018
-            dcameras_[CONFIG_PARAMS['dCAMNAMES'][i]]['RDistort'] = test['RDistort']
-            dcameras_[CONFIG_PARAMS['dCAMNAMES'][i]]['TDistort'] = test['TDistort']
+            dcameras_[dannce_params['dCAMNAMES'][i]]['RDistort'] = test['RDistort']
+            dcameras_[dannce_params['dCAMNAMES'][i]]['TDistort'] = test['TDistort']
 
 
-if 'COM3D_DICT' not in CONFIG_PARAMS.keys():
+if 'COM3D_DICT' not in dannce_params.keys():
 
     # Load in the COM file at the default location, or use one in the config file if provided
-    if 'COMfilename' in CONFIG_PARAMS.keys():
-        comfn = CONFIG_PARAMS['COMfilename']
+    if 'COMfilename' in dannce_params.keys():
+        comfn = dannce_params['COMfilename']
     else:
         comfn = os.path.join('.', 'COM', 'predict_results')
         comfn = os.listdir(comfn)
@@ -115,12 +126,12 @@ if 'COM3D_DICT' not in CONFIG_PARAMS.keys():
     datadict_, com3d_dict_ = serve_data.prepare_COM(
         comfn,
         datadict_,
-        comthresh=CONFIG_PARAMS['comthresh'],
-        weighted=CONFIG_PARAMS['weighted'],
-        retriangulate=CONFIG_PARAMS['retriangulate'] if 'retriangulate' in CONFIG_PARAMS.keys() else True,
-        camera_mats=dcameras_ if 'allcams' in CONFIG_PARAMS.keys() and CONFIG_PARAMS['allcams'] else cameras_,
-        method=CONFIG_PARAMS['com_method'],
-        allcams=CONFIG_PARAMS['allcams'] if 'allcams' in CONFIG_PARAMS.keys() and CONFIG_PARAMS['allcams'] else False)
+        comthresh=dannce_params['comthresh'],
+        weighted=dannce_params['weighted'],
+        retriangulate=dannce_params['retriangulate'] if 'retriangulate' in dannce_params.keys() else True,
+        camera_mats=dcameras_ if 'allcams' in dannce_params.keys() and dannce_params['allcams'] else cameras_,
+        method=dannce_params['com_method'],
+        allcams=dannce_params['allcams'] if 'allcams' in dannce_params.keys() and dannce_params['allcams'] else False)
 
     # Need to cap this at the number of samples included in our
     # COM finding estimates
@@ -129,13 +140,14 @@ if 'COM3D_DICT' not in CONFIG_PARAMS.keys():
     data_3d_ = data_3d_[:len(tff)]
     pre = len(samples_)
     samples_, data_3d_ = \
-        serve_data.remove_samples_com(samples_, data_3d_, com3d_dict_, rmc=True, cthresh=CONFIG_PARAMS['cthresh'])
+        serve_data.remove_samples_com(samples_, data_3d_, com3d_dict_, rmc=True, cthresh=dannce_params['cthresh'])
     msg = "Detected {} bad COMs and removed the associated frames from the dataset"
     print(msg.format(pre - len(samples_)))
 
 else:
-    print("Loading 3D COM and samples from file: {}".format(CONFIG_PARAMS['COM3D_DICT']))
-    c3dfile = sio.loadmat(CONFIG_PARAMS['COM3D_DICT'])
+
+    print("Loading 3D COM and samples from file: {}".format(exp['COM3D_DICT']))
+    c3dfile = sio.loadmat(exp['COM3D_DICT'])
     c3d = c3dfile['com']
     c3dsi = np.squeeze(c3dfile['sampleID'])
     com3d_dict_ = {}
@@ -167,39 +179,38 @@ samples, datadict, datadict_3d, com3d_dict = serve_data.add_experiment(
 cameras = {}
 cameras[0] = cameras_
 camnames = {}
-camnames[0] = CONFIG_PARAMS['experiment']['CAMNAMES']
+camnames[0] = dannce_params['experiment']['CAMNAMES']
 samples = np.array(samples)
-
 # Initialize video dictionary. paths to videos only.
-if CONFIG_PARAMS['IMMODE'] == 'vid':
-    vids = processing.initialize_vids(CONFIG_PARAMS, datadict, pathonly=True)
+if dannce_params['IMMODE'] == 'vid':
+    vids = processing.initialize_vids(dannce_params, datadict, pathonly=True)
 
 # Parameters
 valid_params = {
-    'dim_in': (CONFIG_PARAMS['CROP_HEIGHT'][1]-CONFIG_PARAMS['CROP_HEIGHT'][0],
-               CONFIG_PARAMS['CROP_WIDTH'][1]-CONFIG_PARAMS['CROP_WIDTH'][0]),
-    'n_channels_in': CONFIG_PARAMS['N_CHANNELS_IN'],
-    'batch_size': CONFIG_PARAMS['BATCH_SIZE'],
-    'n_channels_out': CONFIG_PARAMS['N_CHANNELS_OUT'],
-    'out_scale': CONFIG_PARAMS['SIGMA'],
-    'crop_width': CONFIG_PARAMS['CROP_WIDTH'],
-    'crop_height': CONFIG_PARAMS['CROP_HEIGHT'],
-    'vmin': CONFIG_PARAMS['VMIN'],
-    'vmax': CONFIG_PARAMS['VMAX'],
-    'nvox': CONFIG_PARAMS['NVOX'],
-    'interp': CONFIG_PARAMS['INTERP'],
-    'depth': CONFIG_PARAMS['DEPTH'],
-    'channel_combo': CONFIG_PARAMS['CHANNEL_COMBO'],
+    'dim_in': (dannce_params['CROP_HEIGHT'][1]-dannce_params['CROP_HEIGHT'][0],
+               dannce_params['CROP_WIDTH'][1]-dannce_params['CROP_WIDTH'][0]),
+    'n_channels_in': dannce_params['N_CHANNELS_IN'],
+    'batch_size': dannce_params['BATCH_SIZE'],
+    'n_channels_out': dannce_params['N_CHANNELS_OUT'],
+    'out_scale': dannce_params['SIGMA'],
+    'crop_width': dannce_params['CROP_WIDTH'],
+    'crop_height': dannce_params['CROP_HEIGHT'],
+    'vmin': dannce_params['VMIN'],
+    'vmax': dannce_params['VMAX'],
+    'nvox': dannce_params['NVOX'],
+    'interp': dannce_params['INTERP'],
+    'depth': dannce_params['DEPTH'],
+    'channel_combo': dannce_params['CHANNEL_COMBO'],
     'mode': 'coordinates',
     'camnames': camnames,
-    'immode': CONFIG_PARAMS['IMMODE'],
+    'immode': dannce_params['IMMODE'],
     'shuffle': False,
     'rotation': False,
     'vidreaders': vids,
-    'distort': CONFIG_PARAMS['DISTORT'],
-    'expval': CONFIG_PARAMS['EXPVAL'],
+    'distort': dannce_params['DISTORT'],
+    'expval': dannce_params['EXPVAL'],
     'crop_im': False,
-    'chunks': CONFIG_PARAMS['chunks'],
+    'chunks': dannce_params['chunks'],
     'preload': False}
 
 # Datasets
@@ -233,10 +244,10 @@ print("Initializing Network...")
 # As a precaution, we import all possible custom objects that could be used
 # by a model and thus need declarations
 
-if 'predict_model' in CONFIG_PARAMS.keys():
-    mdl_file = CONFIG_PARAMS['predict_model']
+if 'predict_model' in dannce_params.keys():
+    mdl_file = dannce_params['predict_model']
 else:
-    wdir = CONFIG_PARAMS['RESULTSDIR']
+    wdir = dannce_params['RESULTSDIR']
     weights = os.listdir(wdir)
     weights = [f for f in weights if '.hdf5' in f]
     weights = sorted(weights,
@@ -247,17 +258,17 @@ else:
     print("Loading model from " + mdl_file)
 
 if netname == 'unet3d_big_tiedfirstlayer_expectedvalue' or \
-     'FROM_WEIGHTS' in CONFIG_PARAMS.keys():
+     'FROM_WEIGHTS' in dannce_params.keys():
     # This network is too "custom" to be loaded in as a full model, until I
     # figure out how to unroll the first tied weights layer
-    gridsize = (CONFIG_PARAMS['NVOX'], CONFIG_PARAMS['NVOX'], CONFIG_PARAMS['NVOX'])
-    model = CONFIG_PARAMS['net'](CONFIG_PARAMS['loss'],
-                                 float(CONFIG_PARAMS['lr']),
-                                 CONFIG_PARAMS['N_CHANNELS_IN'] + CONFIG_PARAMS['DEPTH'],
-                                 CONFIG_PARAMS['N_CHANNELS_OUT'],
+    gridsize = (dannce_params['NVOX'], dannce_params['NVOX'], dannce_params['NVOX'])
+    model = dannce_params['net'](dannce_params['loss'],
+                                 float(dannce_params['lr']),
+                                 dannce_params['N_CHANNELS_IN'] + dannce_params['DEPTH'],
+                                 dannce_params['N_CHANNELS_OUT'],
                                  len(camnames[0]),
-                                 batch_norm=CONFIG_PARAMS['batch_norm'],
-                                 instance_norm=CONFIG_PARAMS['instance_norm'],
+                                 batch_norm=dannce_params['batch_norm'],
+                                 instance_norm=dannce_params['instance_norm'],
                                  include_top=True,
                                  gridsize=gridsize)
     model.load_weights(mdl_file)
@@ -272,7 +283,7 @@ else:
 # To speed up EXPVAL prediction, rather than doing two forward passes: one for the 3d coordinate
 # and one for the probability map, here we splice on a new output layer after
 # the softmax on the last convolutional layer
-if CONFIG_PARAMS['EXPVAL']:
+if dannce_params['EXPVAL']:
     from tensorflow.keras.layers import GlobalMaxPooling3D
     o2 = GlobalMaxPooling3D()(model.layers[-3].output)
     model = Model(inputs=[model.layers[0].input, model.layers[-2].input],
@@ -289,7 +300,7 @@ def evaluate_ondemand(start_ind, end_ind, valid_gen):
     """
     end_time = time.time()
     for i in range(start_ind, end_ind):
-        print("Predicting on batch {}".format(i))
+        print("Predicting on batch {}".format(i), flush=True)
         if (i - start_ind) % 10 == 0 and i != start_ind:
             print(i)
             print("10 batches took {} seconds".format(time.time() - end_time))
@@ -297,7 +308,7 @@ def evaluate_ondemand(start_ind, end_ind, valid_gen):
 
         if (i - start_ind) % 1000 == 0 and i != start_ind:
             print('Saving checkpoint at {}th batch'.format(i))
-            if CONFIG_PARAMS['EXPVAL']:
+            if dannce_params['EXPVAL']:
                 p_n = savedata_expval(
                     RESULTSDIR + 'save_data_AVG.mat',
                     write=True,
@@ -308,9 +319,9 @@ def evaluate_ondemand(start_ind, end_ind, valid_gen):
             else:
                 p_n = savedata_tomat(
                     RESULTSDIR + 'save_data_MAX.mat',
-                    CONFIG_PARAMS['VMIN'],
-                    CONFIG_PARAMS['VMAX'],
-                    CONFIG_PARAMS['NVOX'],
+                    dannce_params['VMIN'],
+                    dannce_params['VMAX'],
+                    dannce_params['NVOX'],
                     write=True,
                     data=save_data,
                     num_markers=nchn,
@@ -319,7 +330,7 @@ def evaluate_ondemand(start_ind, end_ind, valid_gen):
         ims = valid_gen.__getitem__(i)
         pred = model.predict(ims[0])
         
-        if CONFIG_PARAMS['EXPVAL']:
+        if dannce_params['EXPVAL']:
             probmap = pred[1]
             pred = pred[0]
             for j in range(pred.shape[0]):
@@ -384,18 +395,19 @@ def evaluate_ondemand(start_ind, end_ind, valid_gen):
                         'sampleID': sampleID}
 
 
-max_eval_batch = CONFIG_PARAMS['maxbatch']
+max_eval_batch = dannce_params['maxbatch']
+print(max_eval_batch)
 if max_eval_batch == 'max':
     max_eval_batch = len(valid_generator)
 
-if 'NEW_N_CHANNELS_OUT' in CONFIG_PARAMS.keys():
-    nchn = CONFIG_PARAMS['NEW_N_CHANNELS_OUT']
+if 'NEW_N_CHANNELS_OUT' in dannce_params.keys():
+    nchn = dannce_params['NEW_N_CHANNELS_OUT']
 else:
-    nchn = CONFIG_PARAMS['N_CHANNELS_OUT']
+    nchn = dannce_params['N_CHANNELS_OUT']
 
 evaluate_ondemand(0, max_eval_batch, valid_generator)
 
-if CONFIG_PARAMS['EXPVAL']:
+if dannce_params['EXPVAL']:
     p_n = savedata_expval(
         RESULTSDIR + 'save_data_AVG.mat',
         write=True,
@@ -406,9 +418,9 @@ if CONFIG_PARAMS['EXPVAL']:
 else:
     p_n = savedata_tomat(
         RESULTSDIR + 'save_data_MAX.mat',
-        CONFIG_PARAMS['VMIN'],
-        CONFIG_PARAMS['VMAX'],
-        CONFIG_PARAMS['NVOX'],
+        dannce_params['VMIN'],
+        dannce_params['VMAX'],
+        dannce_params['NVOX'],
         write=True,
         data=save_data,
         num_markers=nchn,
