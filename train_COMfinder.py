@@ -23,16 +23,18 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 # Set up parameters
-PARENT_PARAMS = processing.read_config(sys.argv[1])
-PARENT_PARAMS = processing.make_paths_safe(PARENT_PARAMS)
+base_params = processing.read_config(sys.argv[1])
+base_params = processing.make_paths_safe(base_params)
 
-CONFIG_PARAMS = processing.read_config(PARENT_PARAMS['COM_CONFIG'])
-CONFIG_PARAMS = processing.make_paths_safe(CONFIG_PARAMS)
+com_params = processing.read_config(base_params['COM_CONFIG'])
+com_params = processing.make_paths_safe(com_params)
+com_params = processing.inherit_config(com_params, base_params, list(base_params.keys()))
 
-CONFIG_PARAMS['loss'] = getattr(losses, CONFIG_PARAMS['loss'])
-CONFIG_PARAMS['net'] = getattr(nets, CONFIG_PARAMS['net'])
 
-os.environ["CUDA_VISIBLE_DEVICES"] = CONFIG_PARAMS['gpuID']
+com_params['loss'] = getattr(losses, com_params['loss'])
+com_params['net'] = getattr(nets, com_params['net'])
+
+os.environ["CUDA_VISIBLE_DEVICES"] = com_params['gpuID']
 
 samples = []
 datadict = {}
@@ -40,31 +42,30 @@ datadict_3d = {}
 cameras = {}
 camnames = {}
 
-exps = processing.grab_exp_file(CONFIG_PARAMS, defaultdir='COM')
-
+exps = processing.grab_exp_file(com_params)
 num_experiments = len(exps)
-CONFIG_PARAMS['experiment'] = {}
+com_params['experiment'] = {}
+MULTI_MODE = com_params['N_CHANNELS_OUT'] > 1
+com_params['N_CHANNELS_OUT'] = com_params['N_CHANNELS_OUT'] + int(MULTI_MODE)
+for e, exp_file in enumerate(exps):
+    exp = processing.read_config(exp_file)
+    exp = processing.make_paths_safe(exp)
 
-# If CONFIG_PARAMS['N_CHANNELS_OUT'] is greater than one, we enter a mode in
-# which we predict all available labels + the COM
-MULTI_MODE = CONFIG_PARAMS['N_CHANNELS_OUT'] > 1
-CONFIG_PARAMS['N_CHANNELS_OUT'] = CONFIG_PARAMS['N_CHANNELS_OUT'] + int(MULTI_MODE)
-
-for e in range(num_experiments):
-    CONFIG_PARAMS['experiment'][e] = processing.read_config(exps[e])
-    CONFIG_PARAMS['experiment'][e] = processing.make_paths_safe(CONFIG_PARAMS['experiment'][e])
-
-    CONFIG_PARAMS['experiment'][e] = \
-        processing.inherit_config(CONFIG_PARAMS['experiment'][e],
-                                  PARENT_PARAMS,
-                                  ['CAMNAMES',
-                                   'CALIBDIR',
-                                   'calib_file',
-                                   'extension',
-                                   'datafile'])
-
+    exp = \
+    processing.inherit_config(exp,
+                              base_params,
+                              ['CAMNAMES',
+                               'CALIBDIR',
+                               'calib_file',
+                               'extension',
+                               'datafile'])
+    
+    for k in ['datadir', 'viddir', 'CALIBDIR']:
+      exp[k] = os.path.join(exp['base_exp_folder'], exp[k])
+    exp['datafile'] = exp['com_datafile']
+    com_params['experiment'][e] = exp
     samples_, datadict_, datadict_3d_, data_3d_, cameras_ = \
-        serve_data.prepare_data(CONFIG_PARAMS['experiment'][e], 
+        serve_data.prepare_data(com_params['experiment'][e], 
                                 nanflag=False, 
                                 com_flag= not MULTI_MODE,
                                 multimode = MULTI_MODE)
@@ -76,9 +77,9 @@ for e in range(num_experiments):
         e, samples, datadict, datadict_3d, {},
         samples_, datadict_, datadict_3d_, {})
     cameras[e] = cameras_
-    camnames[e] = CONFIG_PARAMS['experiment'][e]['CAMNAMES']
+    camnames[e] = com_params['experiment'][e]['CAMNAMES']
 
-RESULTSDIR = CONFIG_PARAMS['RESULTSDIR']
+RESULTSDIR = com_params['RESULTSDIR']
 print(RESULTSDIR)
 
 if not os.path.exists(RESULTSDIR):
@@ -87,7 +88,7 @@ if not os.path.exists(RESULTSDIR):
 # Additionally, to keep videos unique across experiments, need to add
 # experiment labels in other places. E.g. experiment 0 CameraE's "camname"
 # Becomes 0_CameraE.
-cameras, datadict, CONFIG_PARAMS = serve_data.prepend_experiment(CONFIG_PARAMS, datadict,
+cameras, datadict, com_params = serve_data.prepend_experiment(com_params, datadict,
                                                   num_experiments, camnames, cameras)
 
 samples = np.array(samples)
@@ -97,37 +98,37 @@ e = 0
 # Initialize video objects
 vids = {}
 for e in range(num_experiments):
-    vids = processing.initialize_vids_train(CONFIG_PARAMS, datadict, e,
+    vids = processing.initialize_vids_train(com_params, datadict, e,
                                                 vids, pathonly=True)
 
-print("Using {} downsampling".format(CONFIG_PARAMS['dsmode'] if 'dsmode' 
-      in CONFIG_PARAMS.keys() else 'dsm'))
+print("Using {} downsampling".format(com_params['dsmode'] if 'dsmode' 
+      in com_params.keys() else 'dsm'))
 
-params = {'dim_in': (CONFIG_PARAMS['CROP_HEIGHT'][1]-CONFIG_PARAMS['CROP_HEIGHT'][0],
-                     CONFIG_PARAMS['CROP_WIDTH'][1]-CONFIG_PARAMS['CROP_WIDTH'][0]),
-          'n_channels_in': CONFIG_PARAMS['N_CHANNELS_IN'],
+params = {'dim_in': (com_params['CROP_HEIGHT'][1]-com_params['CROP_HEIGHT'][0],
+                     com_params['CROP_WIDTH'][1]-com_params['CROP_WIDTH'][0]),
+          'n_channels_in': com_params['N_CHANNELS_IN'],
           'batch_size': 1,
-          'n_channels_out': CONFIG_PARAMS['N_CHANNELS_OUT'],
-          'out_scale': CONFIG_PARAMS['SIGMA'],
+          'n_channels_out': com_params['N_CHANNELS_OUT'],
+          'out_scale': com_params['SIGMA'],
           'camnames': camnames,
-          'crop_width': CONFIG_PARAMS['CROP_WIDTH'],
-          'crop_height': CONFIG_PARAMS['CROP_HEIGHT'],
-          'downsample': CONFIG_PARAMS['DOWNFAC'],
+          'crop_width': com_params['CROP_WIDTH'],
+          'crop_height': com_params['CROP_HEIGHT'],
+          'downsample': com_params['DOWNFAC'],
           'shuffle': False,
-          'chunks': CONFIG_PARAMS['chunks'],
-          'dsmode': CONFIG_PARAMS['dsmode'] if 'dsmode' in CONFIG_PARAMS.keys() else 'dsm',
+          'chunks': com_params['chunks'],
+          'dsmode': com_params['dsmode'] if 'dsmode' in com_params.keys() else 'dsm',
           'preload': False}
 
 valid_params = deepcopy(params)
 valid_params['shuffle'] = False
 
 partition = {}
-if 'load_valid' not in CONFIG_PARAMS.keys():
+if 'load_valid' not in com_params.keys():
 
     all_inds = np.arange(len(samples))
 
     # extract random inds from each set for validation
-    v = CONFIG_PARAMS['num_validation_per_exp']
+    v = com_params['num_validation_per_exp']
     valid_inds = []
     for e in range(num_experiments):
         tinds = [i for i in range(len(samples))
@@ -143,14 +144,14 @@ if 'load_valid' not in CONFIG_PARAMS.keys():
     partition['valid'] = samples[valid_inds]
 else:
     # Load validation samples from elsewhere
-    with open(os.path.join(CONFIG_PARAMS['load_valid'], 'val_samples.pickle'),
+    with open(os.path.join(com_params['load_valid'], 'val_samples.pickle'),
               'rb') as f:
         partition['valid'] = cPickle.load(f)
     partition['train'] = [f for f in samples if f not in partition['valid']]
 
 # Optionally, we can subselect a number of random train indices
-if 'num_train_per_exp' in CONFIG_PARAMS.keys():
-    nt = CONFIG_PARAMS['num_train_per_exp']
+if 'num_train_per_exp' in com_params.keys():
+    nt = com_params['num_train_per_exp']
     subtrain = []
     for e in range(num_experiments):
         tinds = np.array([i for i in partition['train']
@@ -174,32 +175,32 @@ labels = datadict
 print("Initializing Network...")
 
 # with tf.device("/gpu:0"):
-model = CONFIG_PARAMS['net'](CONFIG_PARAMS['loss'], float(CONFIG_PARAMS['lr']),
-                             CONFIG_PARAMS['N_CHANNELS_IN'],
-                             CONFIG_PARAMS['N_CHANNELS_OUT'],
-                             CONFIG_PARAMS['metric'], multigpu=False)
+model = com_params['net'](com_params['loss'], float(com_params['lr']),
+                             com_params['N_CHANNELS_IN'],
+                             com_params['N_CHANNELS_OUT'],
+                             com_params['metric'], multigpu=False)
 print("COMPLETE\n")
 
-if CONFIG_PARAMS['weights'] is not None:
-    weights = os.listdir(CONFIG_PARAMS['weights'])
+if com_params['weights'] is not None:
+    weights = os.listdir(com_params['weights'])
     weights = [f for f in weights if '.hdf5' in f]
     weights = weights[0]
 
     try:
-        model.load_weights(os.path.join(CONFIG_PARAMS['weights'],weights))
+        model.load_weights(os.path.join(com_params['weights'],weights))
     except:
         print("Note: model weights could not be loaded due to a mismatch in dimensions.\
                Assuming that this is a fine-tune with a different number of outputs and removing \
               the top of the net accordingly")
         model.layers[-1].name = 'top_conv'
-        model.load_weights(os.path.join(CONFIG_PARAMS['weights'],weights), by_name=True)
+        model.load_weights(os.path.join(com_params['weights'],weights), by_name=True)
 
-if 'lockfirst' in CONFIG_PARAMS.keys() and CONFIG_PARAMS['lockfirst']:
+if 'lockfirst' in com_params.keys() and com_params['lockfirst']:
     for layer in model.layers[:2]:
         layer.trainable = False
     
-model.compile(optimizer=Adam(lr=float(CONFIG_PARAMS['lr'])),
-              loss=CONFIG_PARAMS['loss'], metrics=['mse'])
+model.compile(optimizer=Adam(lr=float(com_params['lr'])),
+              loss=com_params['loss'], metrics=['mse'])
 
 # Create checkpoint and logging callbacks
 model_checkpoint = ModelCheckpoint(os.path.join(RESULTSDIR,
@@ -214,19 +215,19 @@ tboard = TensorBoard(log_dir=RESULTSDIR + 'logs',
 
 # Initialize data structures
 ncams = len(camnames[0])
-dh = (CONFIG_PARAMS['CROP_HEIGHT'][1]-CONFIG_PARAMS['CROP_HEIGHT'][0]) \
-        // CONFIG_PARAMS['DOWNFAC']
-dw = (CONFIG_PARAMS['CROP_WIDTH'][1]-CONFIG_PARAMS['CROP_WIDTH'][0]) \
-        // CONFIG_PARAMS['DOWNFAC']
+dh = (com_params['CROP_HEIGHT'][1]-com_params['CROP_HEIGHT'][0]) \
+        // com_params['DOWNFAC']
+dw = (com_params['CROP_WIDTH'][1]-com_params['CROP_WIDTH'][0]) \
+        // com_params['DOWNFAC']
 ims_train = np.zeros((ncams*len(partition['train']),
                      dh, dw, 3), dtype='float32')
 y_train = np.zeros((ncams*len(partition['train']),
-                    dh, dw, CONFIG_PARAMS['N_CHANNELS_OUT']),
+                    dh, dw, com_params['N_CHANNELS_OUT']),
                    dtype='float32')
 ims_valid = np.zeros((ncams*len(partition['valid']),
                       dh, dw, 3), dtype='float32')
 y_valid = np.zeros((ncams*len(partition['valid']),
-                    dh, dw, CONFIG_PARAMS['N_CHANNELS_OUT']),
+                    dh, dw, com_params['N_CHANNELS_OUT']),
                    dtype='float32')
 
 # When there are a lot of videos 
@@ -247,10 +248,10 @@ for i in range(len(partition['valid'])):
     ims_valid[i*ncams:(i+1)*ncams] = ims[0]
     y_valid[i*ncams:(i+1)*ncams] = ims[1]
 
-if CONFIG_PARAMS['debug'] and not MULTI_MODE:
+if com_params['debug'] and not MULTI_MODE:
     # Plot all training images and save
     # create new directory for images if necessary
-    debugdir = os.path.join(CONFIG_PARAMS['RESULTSDIR'], 'debug_im_out')
+    debugdir = os.path.join(com_params['RESULTSDIR'], 'debug_im_out')
     print("Saving debug images to: " + debugdir)
     if not os.path.exists(debugdir):
         os.makedirs(debugdir)
@@ -267,20 +268,20 @@ if CONFIG_PARAMS['debug'] and not MULTI_MODE:
         imname = str(i) + '.png'
         plt.savefig(os.path.join(debugdir, imname),
                     bbox_inches='tight', pad_inches=0)
-elif CONFIG_PARAMS['debug'] and MULTI_MODE:
+elif com_params['debug'] and MULTI_MODE:
     print("Note: Cannot output debug information in COM multi-mode")
 
 model.fit(ims_train,
           y_train,
           validation_data=(ims_valid, y_valid),
-          batch_size=CONFIG_PARAMS['BATCH_SIZE']*ncams,
-          epochs=CONFIG_PARAMS['EPOCHS'],
+          batch_size=com_params['BATCH_SIZE']*ncams,
+          epochs=com_params['EPOCHS'],
           callbacks=[csvlog, model_checkpoint, tboard],
           shuffle=True)
 
-if CONFIG_PARAMS['debug'] and not MULTI_MODE:
+if com_params['debug'] and not MULTI_MODE:
     # Plot predictions on validation frames
-    debugdir = os.path.join(CONFIG_PARAMS['RESULTSDIR'], 'debug_im_out_valid')
+    debugdir = os.path.join(com_params['RESULTSDIR'], 'debug_im_out_valid')
     print("Saving debug images to: " + debugdir)
     if not os.path.exists(debugdir):
         os.makedirs(debugdir)
@@ -297,11 +298,11 @@ if CONFIG_PARAMS['debug'] and not MULTI_MODE:
         imname = str(i) + '.png'
         plt.savefig(os.path.join(debugdir, imname),
                     bbox_inches='tight', pad_inches=0)
-elif CONFIG_PARAMS['debug'] and MULTI_MODE:
+elif com_params['debug'] and MULTI_MODE:
     print("Note: Cannot output debug information in COM multi-mode")
 
 print("Saving full model at end of training")
-sdir = os.path.join(CONFIG_PARAMS['RESULTSDIR'], 'fullmodel_weights')
+sdir = os.path.join(com_params['RESULTSDIR'], 'fullmodel_weights')
 if not os.path.exists(sdir):
     os.makedirs(sdir)
 model.save(os.path.join(sdir, 'fullmodel_end.hdf5'))
