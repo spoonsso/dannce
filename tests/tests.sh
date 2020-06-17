@@ -18,14 +18,14 @@ set -e
 # 4) predict 1000 samples with predict_DANNCE.py Test the AVG and MAX nets and make sure
 # 	predictions are identical to dannce v0.1
 
+cd tests/configs
 
 echo "Testing COMfinder training"
-cd tests/configs
-python ../../train_COMfinder.py config_mousetest.yaml
+python ../../train_COMfinder.py config_com_mousetest.yaml
 
 echo "Testing COMfinder prediction"
-python ../../predict_COMfinder.py config_mousetest.yaml
-python ../compare_predictions.py ../touchstones/COM3D_undistorted_masternn.mat ./COM/predict_results/COM3D_undistorted.mat 0.001
+python ../../predict_COMfinder.py config_com_mousetest.yaml
+python ../compare_predictions.py ../touchstones/COM3D_undistorted_masternn.mat ../../demo/markerless_mouse_1/COM/predict_test/COM3D_undistorted.mat 0.001
 
 echo "Testing DANNCE training, finetune_MAX"
 awk '/net/{gsub(/finetune_AVG/, "finetune_MAX")};{print}' config_DANNCEtest.yaml > config_temp.yaml
@@ -69,18 +69,19 @@ rm config_temp2.yaml
 python ../../train_DANNCE.py config_mousetest.yaml
 
 echo "Testing DANNCE MAX prediction"
-awk '/EXPVAL/{gsub(/True/, "False")};{print}' config_DANNCEtest.yaml > config_temp2.yaml
-awk '/#predict_model/{gsub("#predict_model: path_to_model_file", "predict_model: ../../demo/markerless_mouse_1/DANNCE/train_results/weights.12000-0.00014.hdf5")};{print}' config_temp2.yaml > config_temp.yaml
+awk '/EXPVAL/{gsub(/True/, "False")};{print}' config_mousetest.yaml > config_temp2.yaml
+awk '/#predict_model/{gsub("#predict_model: path_to_model_file", "predict_model: ../../demo/markerless_mouse_1/DANNCE/train_results/weights.12000-0.00014.hdf5")};{print}' config_temp2.yaml > base_config_temp.yaml
 rm config_temp2.yaml
-python ../../predict_DANNCE.py config_mousetest.yaml
-python ../compare_predictions.py ../touchstones/save_data_MAX_torchnearest_newtfroutine.mat ./DANNCE/predict_results/save_data_MAX.mat 0.001
+cp config_DANNCEtest.yaml config_temp.yaml
+python ../../predict_DANNCE.py base_config_temp.yaml
+python ../compare_predictions.py ../touchstones/save_data_MAX_torchnearest_newtfroutine.mat ../../demo/markerless_mouse_1/DANNCE/predict_results/save_data_MAX.mat 0.001
 
 echo "Testing DANNCE AVG prediction"
-awk '/#predict_model/{gsub("#predict_model: path_to_model_file", "predict_model: ../../demo/markerless_mouse_1/DANNCE/train_results/AVG/weights.1200-12.77642.hdf5")};{print}' config_DANNCEtest.yaml > config_temp.yaml
-python ../../predict_DANNCE.py config_mousetest.yaml
-python ../compare_predictions.py ../touchstones/save_data_AVG_torch_nearest.mat ./DANNCE/predict_results/save_data_AVG.mat 0.001
+awk '/#predict_model/{gsub("#predict_model: path_to_model_file", "predict_model: ../../demo/markerless_mouse_1/DANNCE/train_results/AVG/weights.1200-12.77642.hdf5")};{print}' config_mousetest.yaml > base_config_temp.yaml
+python ../../predict_DANNCE.py base_config_temp.yaml
+python ../compare_predictions.py ../touchstones/save_data_AVG_torch_nearest.mat ../../demo/markerless_mouse_1/DANNCE/predict_results/save_data_AVG.mat 0.001
 
 # Remove temporary folders containign weights, etc.
-rm -rf ./DANNCE/
-rm -rf ./COM/
+# rm -rf ./DANNCE/
+# rm -rf ./COM/
 echo "PASSED WITHOUT ERROR"
