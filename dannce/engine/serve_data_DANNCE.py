@@ -21,6 +21,7 @@ def prepare_data(CONFIG_PARAMS, com_flag=True, nanflag=True, multimode=False):
     """
     data = sio.loadmat(
         os.path.join(CONFIG_PARAMS['datadir'], CONFIG_PARAMS['datafile'][0]))
+    print('datadirfile:' ,os.path.join(CONFIG_PARAMS['datadir'], CONFIG_PARAMS['datafile'][0]))
     samples = np.squeeze(data['data_sampleID'])
 
     if data['data_sampleID'].shape == (1, 1):

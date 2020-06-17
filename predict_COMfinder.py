@@ -24,6 +24,8 @@ PARENT_PARAMS = processing.make_paths_safe(PARENT_PARAMS)
 
 params = processing.read_config(PARENT_PARAMS['COM_CONFIG'])
 params = processing.make_paths_safe(params)
+params = processing.inherit_config(params, PARENT_PARAMS, list(PARENT_PARAMS.keys()))
+
 
 # Load the appropriate loss function and network
 try:
@@ -44,20 +46,17 @@ params['N_CHANNELS_OUT'] = params['N_CHANNELS_OUT'] + int(MULTI_MODE)
 
 # Inherit required parameters from main config file
 
-params = \
-    processing.inherit_config(params,
-                              PARENT_PARAMS,
-                              ['CAMNAMES',
-                               'CALIBDIR',
-                               'calib_file',
-                               'extension',
-                               'datafile',
-                               'datadir',
-                               'viddir'])
-
 # Also add parent params under the 'experiment' key for compatibility
 # with DANNCE's video loading function
-params['experiment'] = PARENT_PARAMS
+exp_file = processing.grab_predict_exp_file()
+exp = processing.read_config(exp_file)
+exp = processing.inherit_config(exp, params, list(params.keys()))
+for k in ['datadir', 'viddir', 'CALIBDIR']:
+    exp[k] = os.path.join(exp['base_exp_folder'], exp[k])
+exp['datadir'] = params['datadir']
+exp['datafile'] = params['datafile']
+params = exp
+params['experiment'] = exp
 
 # Build net
 print("Initializing Network...")
@@ -93,7 +92,7 @@ def evaluate_ondemand(start_ind, end_ind, valid_gen):
     end_time = time.time()
     sample_save = 100
     for i in range(start_ind, end_ind):
-        print("Predicting on sample {}".format(i))
+        print("Predicting on sample {}".format(i), flush=True)
         if (i - start_ind) % sample_save == 0 and i != start_ind:
             print(i)
             print("{} samples took {} seconds".format(sample_save,

@@ -1,0 +1,101 @@
+# path to folder containing formatted data files 
+datadir: ../../demo/markerless_mouse_2/sync/
+
+# path to folder contraining video sub directories
+viddir: ../../demo/markerless_mouse_1/videos/
+
+# names of data files. must match the order of CAMNAMES below
+datafile: ['Camera1_sync', 'Camera2_sync', 'Camera3_sync', 'Camera4_sync','Camera5_sync','Camera6_sync']
+
+# Names for each of the camera subdirectories in the video folder. Order should match the datafiles above.
+CAMNAMES: ['Camera1', 'Camera2', 'Camera3', 'Camera4', 'Camera5', 'Camera6']
+CALIBDIR: ../../demo/markerless_mouse_1/calibration/
+calib_file: ['kyle_cam1_params.mat','kyle_cam2_params.mat','kyle_cam3_params.mat','kyle_cam4_params.mat', 'kyle_cam5_params.mat', 'kyle_cam6_params.mat']
+
+# If true, each camera's video directory contains only the video files. If false, each camera's video directory contains an additional subdirectory, which then contains the video files
+vid_dir_flag: True
+
+# Video file extension
+extension: '.mp4'
+
+# The number of frames in each video file. If only a single video file exists for each camera, set this to 1e10
+chunks: 3000
+
+# Path to the COM config file.
+COM_CONFIG: config_COMtest.yaml
+
+# Path to the DANNCE config file
+DANNCE_CONFIG: config_temp.yaml
+
+# How to crop the input images. The U-Net expects each dimension size to be a multiple of 32.
+CROP_HEIGHT: [0, 1024]
+CROP_WIDTH: [0, 1152]
+
+# Number of channels for each input image (e.g. RGB == 3)
+N_CHANNELS_IN: 3
+
+# Number of network output channels.
+N_CHANNELS_OUT: 1
+
+# BATCH_SIZE*len(CAMNAMES) should be <= 6 for most COM training applications
+BATCH_SIZE: 2
+
+# Number of parallel workers serving data to the model
+WORKERS: 2
+
+# Max. number of batches in multi-processing queue
+MAX_QUEUE_SIZE: 10
+
+# COM training option. Sets the size of the 3D Guassians (in pixels) used as labels for the MAX models
+SIGMA: 30
+
+# COM training option. Sets the number of epochs during training
+EPOCHS: 3
+
+# DANNCE training option. Sets the verbosity of training output
+VERBOSE: 1
+
+# Degree of downsampling applied to image input. Default 1, other values untested.
+DOWNFAC: 2
+
+# DANNCE training option. Loss function to be used. Default MSE.
+loss: mask_nan_keep_loss
+
+# DANNCE training option. Learning rate for the Adam optimizer. Default 1e-3.
+lr: 5e-5
+
+# By default, will load in the first hdf5 file at this location for fine-tuning. If training from scratch, set to None
+weights: ../../demo/markerless_mouse_1/COM/weights/
+
+# name of the network architecture (see nets.py)
+net: unet2d_fullbn
+
+# If true, each camera's video directory contains only the video files. If false, each camera's video directory contains an additional subdirectory, which then contains the video files
+vid_dir_flag: True
+
+# DANNCE training. Metric to be monitored in addition to loss
+metric: mse
+
+# Set the video extension
+extension: .mp4
+
+# How many samples from each animal do you want to (randomly) set aside for a validation metric?
+num_validation_per_exp: 9
+
+# If true, saves plots of the training labels overlaid on images
+debug: False
+
+# When using a system with multiple GPUs, we should just target one of them
+gpuID: "0"
+
+# Number of frames in each video file
+chunks: 3000
+
+# If present, write the confidence map output and image/COM overlays to disk during prediction
+#COMdebug: Camera5
+
+# How many frames to you want to predict over? Set to 'max' for all video frames.
+max_num_samples: 1000
+
+# Downsampling mode, 'dsm' is downsample local mean. 'nn' is nearest neighbor and potentially faster
+dsmode: nn

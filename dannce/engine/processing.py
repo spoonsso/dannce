@@ -208,23 +208,33 @@ def inherit_config(child, parent, keys):
 
     return child
 
-def grab_exp_file(CONFIG_PARAMS, defaultdir='DANNCE'):
+def grab_exp_file(CONFIG_PARAMS, defaultdir=''):
     """
     Finds the paths to the training experiment yaml files.
     """
     if 'exp_path' not in CONFIG_PARAMS:
-        def_ep = os.path.join('.', defaultdir)
-        exps = os.listdir(def_ep)
-        exps = [os.path.join(def_ep, f) for f in exps if '.yaml' in f and 'exp' in f]
-
-        if len(exps) == 0:
-            raise Exception("Did not find any exp*.yaml files in {}".format(def_ep))
+        raise Exception('exp_path must be defined in DANNCE_CONFIG.')
     else:
         exps = CONFIG_PARAMS['exp_path']
-
     print("Using the following exp.yaml files: {}".format(exps))
 
     return exps
+
+def grab_predict_exp_file(defaultdir=''):
+    """
+    Finds the paths to the training experiment yaml files.
+    """
+    def_ep = os.path.join('.', defaultdir)
+    exps = os.listdir(def_ep)
+    exps = [os.path.join(def_ep, f) for f in exps if 'exp.yaml' == f]
+
+    if len(exps) == 0:
+        raise Exception("Did not find any exp.yaml file in {}".format(def_ep))
+    if len(exps) > 1:
+        raise Exception("Multiple files named exp.yaml in {}".format(def_ep))
+    print("Using the following exp.yaml files: {}".format(exps))
+    return exps[0]
+
 
 def batch_rgb2gray(imstack):
     """Convert to gray image-wise.
