@@ -1,0 +1,22 @@
+### COM ###
+# path to folder where COM weights and logs will be saved
+com_train_dir: ../../demo/markerless_mouse_1/COM/train_test/
+com_predict_dir: ../../demo/markerless_mouse_1/COM/predict_test/
+
+# During prediction, will look for the last epoch weights saved to ./COM/train_results/. To load in a different weights file, add the path here
+predict_weights: ../../demo/markerless_mouse_1/COM/train_results/weights.250-0.00036.hdf5
+
+# Path to a list of experiment config files. By Default, train_COMfinder.py will look for exp*.yaml files in the same directory as this file
+com_exp_path: ['../../demo/markerless_mouse_1/exp.yaml', '../../demo/markerless_mouse_2/exp.yaml']
+
+
+
+### Dannce ###
+# path to folder where DANNCE weights and logs will be saved
+dannce_train_dir: ../../demo/markerless_mouse_1/DANNCE/train_test/
+dannce_predict_dir: ../../demo/markerless_mouse_1/DANNCE/train_test/
+
+# predict_model
+
+# Path to a list of experiment config files. By Default, train_COMfinder.py will look for exp*.yaml files in the same directory as this file
+dannce_exp_path: ['../../demo/markerless_mouse_1/exp.yaml', '../../demo/markerless_mouse_2/exp.yaml']
