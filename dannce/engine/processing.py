@@ -11,7 +11,8 @@ from six.moves import cPickle
 import scipy.io as sio
 
 import matplotlib
-matplotlib.use('Agg')
+
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 import yaml
@@ -19,41 +20,46 @@ import shutil
 import time
 import tensorflow as tf
 
+
 def initialize_vids(CONFIG_PARAMS, datadict, pathonly=True):
     """
     Modularizes video dict initialization
     """
     flist = []
 
-    for i in range(len(CONFIG_PARAMS['experiment']['CAMNAMES'])):
-        # Rather than opening all vids, only open what is needed based on the 
+    for i in range(len(CONFIG_PARAMS["experiment"]["CAMNAMES"])):
+        # Rather than opening all vids, only open what is needed based on the
         # maximum frame ID for this experiment and Camera
         for key in datadict.keys():
-            flist.append(datadict[key]['frames']
-                         [CONFIG_PARAMS['experiment']['CAMNAMES'][i]])
+            flist.append(
+                datadict[key]["frames"][CONFIG_PARAMS["experiment"]["CAMNAMES"][i]]
+            )
 
     flist = max(flist)
 
     vids = {}
 
-    for i in range(len(CONFIG_PARAMS['experiment']['CAMNAMES'])):
-        if CONFIG_PARAMS['vid_dir_flag']:
-            addl = ''
+    for i in range(len(CONFIG_PARAMS["experiment"]["CAMNAMES"])):
+        if CONFIG_PARAMS["vid_dir_flag"]:
+            addl = ""
         else:
             addl = os.listdir(
                 os.path.join(
-                    CONFIG_PARAMS['experiment']['viddir'],
-                    CONFIG_PARAMS['experiment']['CAMNAMES'][i]))[0]
-        vids[CONFIG_PARAMS['experiment']['CAMNAMES'][i]] = \
-            generate_readers(
-                CONFIG_PARAMS['experiment']['viddir'],
-                os.path.join(CONFIG_PARAMS['experiment']['CAMNAMES'][i], addl),
-                minopt=0,
-                maxopt=flist,
-                extension=CONFIG_PARAMS['experiment']['extension'],
-                pathonly=pathonly)
+                    CONFIG_PARAMS["experiment"]["viddir"],
+                    CONFIG_PARAMS["experiment"]["CAMNAMES"][i],
+                )
+            )[0]
+        vids[CONFIG_PARAMS["experiment"]["CAMNAMES"][i]] = generate_readers(
+            CONFIG_PARAMS["experiment"]["viddir"],
+            os.path.join(CONFIG_PARAMS["experiment"]["CAMNAMES"][i], addl),
+            minopt=0,
+            maxopt=flist,
+            extension=CONFIG_PARAMS["experiment"]["extension"],
+            pathonly=pathonly,
+        )
 
     return vids
+
 
 def initialize_vids_train(CONFIG_PARAMS, datadict, e, vids, pathonly=True):
     """
@@ -61,77 +67,86 @@ def initialize_vids_train(CONFIG_PARAMS, datadict, e, vids, pathonly=True):
         than a predict session because it operates over a single animal ("experiment")
         at a time
     """
-    for i in range(len(CONFIG_PARAMS['experiment'][e]['CAMNAMES'])):
-        # Rather than opening all vids, only open what is needed based on the 
+    for i in range(len(CONFIG_PARAMS["experiment"][e]["CAMNAMES"])):
+        # Rather than opening all vids, only open what is needed based on the
         # maximum frame ID for this experiment and Camera
         flist = []
         for key in datadict.keys():
-            if int(key.split('_')[0]) == e:
-                flist.append(datadict[key]['frames']
-                             [CONFIG_PARAMS['experiment'][e]['CAMNAMES'][i]])
+            if int(key.split("_")[0]) == e:
+                flist.append(
+                    datadict[key]["frames"][
+                        CONFIG_PARAMS["experiment"][e]["CAMNAMES"][i]
+                    ]
+                )
 
         flist = max(flist)
 
-        if CONFIG_PARAMS['vid_dir_flag']:
-            addl = ''
+        if CONFIG_PARAMS["vid_dir_flag"]:
+            addl = ""
         else:
-            addl = os.listdir(os.path.join(
-                CONFIG_PARAMS['experiment'][e]['viddir'],
-                CONFIG_PARAMS['experiment'][e]['CAMNAMES'][i].split('_')[1]))[0]
-        r = \
-            generate_readers(
-                CONFIG_PARAMS['experiment'][e]['viddir'],
-                os.path.join(CONFIG_PARAMS['experiment'][e]
-                             ['CAMNAMES'][i].split('_')[1], addl),
-                maxopt=flist,  # Large enough to encompass all videos in directory.
-                extension=CONFIG_PARAMS['experiment'][e]['extension'],
-                pathonly=pathonly)
+            addl = os.listdir(
+                os.path.join(
+                    CONFIG_PARAMS["experiment"][e]["viddir"],
+                    CONFIG_PARAMS["experiment"][e]["CAMNAMES"][i].split("_")[1],
+                )
+            )[0]
+        r = generate_readers(
+            CONFIG_PARAMS["experiment"][e]["viddir"],
+            os.path.join(
+                CONFIG_PARAMS["experiment"][e]["CAMNAMES"][i].split("_")[1], addl
+            ),
+            maxopt=flist,  # Large enough to encompass all videos in directory.
+            extension=CONFIG_PARAMS["experiment"][e]["extension"],
+            pathonly=pathonly,
+        )
 
         # Add e to key
-        vids[CONFIG_PARAMS['experiment'][e]['CAMNAMES'][i]] = {}
+        vids[CONFIG_PARAMS["experiment"][e]["CAMNAMES"][i]] = {}
         for key in r:
-            vids[CONFIG_PARAMS['experiment'][e]['CAMNAMES'][i]][str(e) +
-                                                                '_' + key]\
-                                                                = r[key]
+            vids[CONFIG_PARAMS["experiment"][e]["CAMNAMES"][i]][str(e) + "_" + key] = r[
+                key
+            ]
 
     return vids
 
-def copy_config(RESULTSDIR,main_config,dannce_config,com_config):
+
+def copy_config(RESULTSDIR, main_config, dannce_config, com_config):
     """
     Copies config files into the results directory
     """
-    mconfig = os.path.join(RESULTSDIR, 
-                           'copy_main_config_' +
-                           main_config.split(os.sep)[-1])
-    dconfig = os.path.join(RESULTSDIR, 
-                           'copy_dannce_config_' +
-                           dannce_config.split(os.sep)[-1])
-    cconfig = os.path.join(RESULTSDIR, 
-                           'copy_com_config_' +
-                           com_config.split(os.sep)[-1])
+    mconfig = os.path.join(
+        RESULTSDIR, "copy_main_config_" + main_config.split(os.sep)[-1]
+    )
+    dconfig = os.path.join(
+        RESULTSDIR, "copy_dannce_config_" + dannce_config.split(os.sep)[-1]
+    )
+    cconfig = os.path.join(
+        RESULTSDIR, "copy_com_config_" + com_config.split(os.sep)[-1]
+    )
 
     shutil.copyfile(main_config, mconfig)
     shutil.copyfile(dannce_config, dconfig)
     shutil.copyfile(com_config, cconfig)
 
+
 def make_paths_safe(params):
-	"""Given a parameter dictionary, loops through the keys and replaces any \\ or / with os.sep
+    """Given a parameter dictionary, loops through the keys and replaces any \\ or / with os.sep
 	to promote OS agnosticism
 	"""
-	for key in params.keys():
-		if isinstance(params[key], str):
-			params[key] = params[key].replace('/', os.sep)
-			params[key] = params[key].replace('\\', os.sep)
+    for key in params.keys():
+        if isinstance(params[key], str):
+            params[key] = params[key].replace("/", os.sep)
+            params[key] = params[key].replace("\\", os.sep)
 
-	return params
+    return params
 
-def trim_COM_pickle(
-    fpath, start_sample, end_sample, opath=None):
+
+def trim_COM_pickle(fpath, start_sample, end_sample, opath=None):
     """Trim dictionary entries to the range [start_sample, end_sample].
 
     spath is the output path for saving the trimmed COM dictionary, if desired
     """
-    with open(fpath, 'rb') as f:
+    with open(fpath, "rb") as f:
         save_data = cPickle.load(f)
     sd = {}
 
@@ -139,21 +154,18 @@ def trim_COM_pickle(
         if key >= start_sample and key <= end_sample:
             sd[key] = save_data[key]
 
-    with open(opath, 'wb') as f:
+    with open(opath, "wb") as f:
         cPickle.dump(sd, f)
     return sd
 
-def save_COM_checkpoint(save_data,
-                        RESULTSDIR,
-                        datadict_,
-                        cameras,
-                        params):
+
+def save_COM_checkpoint(save_data, RESULTSDIR, datadict_, cameras, params):
     """
     Saves COM pickle and matfiles
 
     """
     # Save undistorted 2D COMs and their 3D triangulations
-    f = open(os.path.join(RESULTSDIR, 'COM_undistorted.pickle'), 'wb')
+    f = open(os.path.join(RESULTSDIR, "COM_undistorted.pickle"), "wb")
     cPickle.dump(save_data, f)
     f.close()
 
@@ -162,19 +174,20 @@ def save_COM_checkpoint(save_data,
     # for prepare_COM to run properly
     datadict_save = {}
     for key in datadict_:
-        datadict_save[int(key.split('_')[-1])] = datadict_[key]
+        datadict_save[int(key.split("_")[-1])] = datadict_[key]
 
     _, com3d_dict = serve_data_DANNCE.prepare_COM(
-        os.path.join(RESULTSDIR, 'COM_undistorted.pickle'),
+        os.path.join(RESULTSDIR, "COM_undistorted.pickle"),
         datadict_save,
         comthresh=0,
         weighted=False,
         retriangulate=False,
         camera_mats=cameras,
-        method='median',
-        allcams=False)
+        method="median",
+        allcams=False,
+    )
 
-    cfilename = os.path.join(RESULTSDIR, 'COM3D_undistorted.mat')
+    cfilename = os.path.join(RESULTSDIR, "COM3D_undistorted.mat")
     print("Saving 3D COM to {}".format(cfilename))
     samples_keys = list(com3d_dict.keys())
 
@@ -183,18 +196,25 @@ def save_COM_checkpoint(save_data,
         c3d[i] = com3d_dict[samples_keys[i]]
 
     # optionally, smooth with median filter
-    if 'MEDFILT_WINDOW' in params:
-        #Make window size odd if not odd
-        if params['MEDFILT_WINDOW'] % 2 == 0:
-            params['MEDFILT_WINDOW'] += 1
-            print("MEDFILT_WINDOW was not odd, changing to: {}".format(params['MEDFILT_WINDOW']))
+    if "MEDFILT_WINDOW" in params:
+        # Make window size odd if not odd
+        if params["MEDFILT_WINDOW"] % 2 == 0:
+            params["MEDFILT_WINDOW"] += 1
+            print(
+                "MEDFILT_WINDOW was not odd, changing to: {}".format(
+                    params["MEDFILT_WINDOW"]
+                )
+            )
 
-        c3d_med = medfilt(c3d, (params['MEDFILT_WINDOW'], 1))
+        c3d_med = medfilt(c3d, (params["MEDFILT_WINDOW"], 1))
 
-        sio.savemat(cfilename.split('.mat')[0] + '_medfilt.mat',
-                    {'sampleID': samples_keys, 'com': c3d_med})
+        sio.savemat(
+            cfilename.split(".mat")[0] + "_medfilt.mat",
+            {"sampleID": samples_keys, "com": c3d_med},
+        )
 
-    sio.savemat(cfilename, {'sampleID': samples_keys, 'com': c3d})
+    sio.savemat(cfilename, {"sampleID": samples_keys, "com": c3d})
+
 
 def inherit_config(child, parent, keys):
     """
@@ -204,29 +224,33 @@ def inherit_config(child, parent, keys):
     for key in keys:
         if key not in child.keys():
             child[key] = parent[key]
-            print("{} not found in exp.yaml file, falling back to main config".format(key))
+            print(
+                "{} not found in exp.yaml file, falling back to main config".format(key)
+            )
 
     return child
 
-def grab_exp_file(CONFIG_PARAMS, defaultdir=''):
+
+def grab_exp_file(CONFIG_PARAMS, defaultdir=""):
     """
     Finds the paths to the training experiment yaml files.
     """
-    if 'exp_path' not in CONFIG_PARAMS:
-        raise Exception('exp_path must be defined in DANNCE_CONFIG.')
+    if "exp_path" not in CONFIG_PARAMS:
+        raise Exception("exp_path must be defined in DANNCE_CONFIG.")
     else:
-        exps = CONFIG_PARAMS['exp_path']
+        exps = CONFIG_PARAMS["exp_path"]
     print("Using the following exp.yaml files: {}".format(exps))
 
     return exps
 
-def grab_predict_exp_file(defaultdir=''):
+
+def grab_predict_exp_file(defaultdir=""):
     """
     Finds the paths to the training experiment yaml files.
     """
-    def_ep = os.path.join('.', defaultdir)
+    def_ep = os.path.join(".", defaultdir)
     exps = os.listdir(def_ep)
-    exps = [os.path.join(def_ep, f) for f in exps if 'exp.yaml' == f]
+    exps = [os.path.join(def_ep, f) for f in exps if "exp.yaml" == f]
 
     if len(exps) == 0:
         raise Exception("Did not find any exp.yaml file in {}".format(def_ep))
@@ -241,10 +265,9 @@ def batch_rgb2gray(imstack):
 
     batch dimension is first.
     """
-    grayim = np.zeros(
-        (imstack.shape[0], imstack.shape[1], imstack.shape[2]), 'float32')
+    grayim = np.zeros((imstack.shape[0], imstack.shape[1], imstack.shape[2]), "float32")
     for i in range(grayim.shape[0]):
-        grayim[i] = rgb2gray(imstack[i].astype('uint8'))
+        grayim[i] = rgb2gray(imstack[i].astype("uint8"))
     return grayim
 
 
@@ -253,12 +276,13 @@ def return_tile(imstack, fac=2):
     height = imstack.shape[1] // fac
     width = imstack.shape[2] // fac
     out = np.zeros(
-        (imstack.shape[0] * fac * fac, height, width, imstack.shape[3]), 'float32')
+        (imstack.shape[0] * fac * fac, height, width, imstack.shape[3]), "float32"
+    )
     cnt = 0
     for i in range(imstack.shape[0]):
         for j in np.arange(0, imstack.shape[1], height):
             for k in np.arange(0, imstack.shape[2], width):
-                out[cnt, :, :, :] = imstack[i, j:j + height, k:k + width, :]
+                out[cnt, :, :, :] = imstack[i, j : j + height, k : k + width, :]
                 cnt = cnt + 1
     return out
 
@@ -268,54 +292,70 @@ def tile2im(imstack, fac=2):
     height = imstack.shape[1]
     width = imstack.shape[2]
     out = np.zeros(
-        (imstack.shape[0] // (fac * fac), height * fac,
-            width * fac, imstack.shape[3]),
-        'float32')
+        (imstack.shape[0] // (fac * fac), height * fac, width * fac, imstack.shape[3]),
+        "float32",
+    )
     cnt = 0
     for i in range(out.shape[0]):
         for j in np.arange(0, out.shape[1], height):
             for k in np.arange(0, out.shape[2], width):
-                out[i, j:j + height, k:k + width, :] = imstack[cnt]
+                out[i, j : j + height, k : k + width, :] = imstack[cnt]
                 cnt += 1
     return out
 
 
-def downsample_batch(imstack, fac=2, method='PIL'):
+def downsample_batch(imstack, fac=2, method="PIL"):
     """Downsample each image in a batch."""
 
-    if method == 'PIL':
+    if method == "PIL":
         out = np.zeros(
-            (imstack.shape[0], imstack.shape[1] // fac,
-            imstack.shape[2] // fac, imstack.shape[3]),
-            'float32')
+            (
+                imstack.shape[0],
+                imstack.shape[1] // fac,
+                imstack.shape[2] // fac,
+                imstack.shape[3],
+            ),
+            "float32",
+        )
         if out.shape[-1] == 3:
             # this is just an RGB image, so no need to loop over channels with PIL
             for i in range(imstack.shape[0]):
                 out[i] = np.array(
-                    PIL.Image.fromarray(imstack[i].astype('uint8')).resize(
-                        (out.shape[2], out.shape[1]), resample=PIL.Image.LANCZOS))
+                    PIL.Image.fromarray(imstack[i].astype("uint8")).resize(
+                        (out.shape[2], out.shape[1]), resample=PIL.Image.LANCZOS
+                    )
+                )
         else:
             for i in range(imstack.shape[0]):
                 for j in range(imstack.shape[3]):
                     out[i, :, :, j] = np.array(
                         PIL.Image.fromarray(imstack[i, :, :, j]).resize(
-                            (out.shape[2], out.shape[1]), resample=PIL.Image.LANCZOS))
+                            (out.shape[2], out.shape[1]), resample=PIL.Image.LANCZOS
+                        )
+                    )
 
-    elif method == 'dsm':
+    elif method == "dsm":
         out = np.zeros(
-            (imstack.shape[0], imstack.shape[1] // fac,
-            imstack.shape[2] // fac, imstack.shape[3]), 'float32')
+            (
+                imstack.shape[0],
+                imstack.shape[1] // fac,
+                imstack.shape[2] // fac,
+                imstack.shape[3],
+            ),
+            "float32",
+        )
         for i in range(imstack.shape[0]):
             for j in range(imstack.shape[3]):
                 out[i, :, :, j] = dsm(imstack[i, :, :, j], (fac, fac))
 
-    elif method == 'nn':
+    elif method == "nn":
         out = imstack[:, ::fac, ::fac]
 
     elif fac > 1:
         raise Exception("Downfac > 1. Not a valid downsampling method")
 
     return out
+
 
 def batch_maximum(imstack):
     """Find the location of the maximum for each image in a batch."""
@@ -327,30 +367,35 @@ def batch_maximum(imstack):
         else:
             ind = np.unravel_index(
                 np.argmax(np.squeeze(imstack[i]), axis=None),
-                np.squeeze(imstack[i]).shape)
+                np.squeeze(imstack[i]).shape,
+            )
             maxpos[i, 0] = ind[1]
             maxpos[i, 1] = ind[0]
     return maxpos
 
 
 def generate_readers(
-    viddir, camname, minopt=0, maxopt=300000, pathonly=False, extension='.mp4'):
+    viddir, camname, minopt=0, maxopt=300000, pathonly=False, extension=".mp4"
+):
     """Open all mp4 objects with imageio, and return them in a dictionary."""
-    print('NOTE: Ignoring mp4 files numbered above {}'.format(maxopt))
+    print("NOTE: Ignoring mp4 files numbered above {}".format(maxopt))
     out = {}
-    mp4files = \
-        [os.path.join(camname, f) for f in os.listdir(os.path.join(viddir, camname))
-         if extension in f and int(
-            f.rsplit(extension)[0]) <= maxopt and int(
-            f.rsplit(extension)[0]) >= minopt]
+    mp4files = [
+        os.path.join(camname, f)
+        for f in os.listdir(os.path.join(viddir, camname))
+        if extension in f
+        and int(f.rsplit(extension)[0]) <= maxopt
+        and int(f.rsplit(extension)[0]) >= minopt
+    ]
 
     # This is a trick (that should work) for getting rid of
     # awkward sub-directory folder names when they are being used
-    mp4files_scrub = \
-        [os.path.join(
-            os.path.normpath(f).split(os.sep)[0],
-            os.path.normpath(f).split(os.sep)[-1])
-         for f in mp4files]
+    mp4files_scrub = [
+        os.path.join(
+            os.path.normpath(f).split(os.sep)[0], os.path.normpath(f).split(os.sep)[-1]
+        )
+        for f in mp4files
+    ]
 
     pixelformat = "yuv420p"
     input_params = []
@@ -360,13 +405,15 @@ def generate_readers(
         if pathonly:
             out[mp4files_scrub[i]] = os.path.join(viddir, mp4files[i])
         else:
-            out[mp4files_scrub[i]] = \
-                    imageio.get_reader(os.path.join(viddir, mp4files[i]), 
-                        pixelformat=pixelformat, 
-                        input_params=input_params, 
-                        output_params=output_params)
+            out[mp4files_scrub[i]] = imageio.get_reader(
+                os.path.join(viddir, mp4files[i]),
+                pixelformat=pixelformat,
+                input_params=input_params,
+                output_params=output_params,
+            )
 
     return out
+
 
 def cropcom(im, com, size=512):
     """Crops single input image around the coordinates com."""
@@ -375,41 +422,42 @@ def cropcom(im, com, size=512):
     minlim_c = int(np.round(com[0])) - size // 2
     maxlim_c = int(np.round(com[0])) + size // 2
 
-    out = im[np.max([minlim_r, 0]):maxlim_r, np.max([minlim_c, 0]):maxlim_c, :]
+    out = im[np.max([minlim_r, 0]) : maxlim_r, np.max([minlim_c, 0]) : maxlim_c, :]
 
     dim = out.shape[2]
 
     # pad with zeros if region ended up outside the bounds of the original image
     if minlim_r < 0:
         out = np.concatenate(
-            (np.zeros((abs(minlim_r), out.shape[1], dim)), out),
-            axis=0)
+            (np.zeros((abs(minlim_r), out.shape[1], dim)), out), axis=0
+        )
     if maxlim_r > im.shape[0]:
         out = np.concatenate(
-            (out, np.zeros((maxlim_r - im.shape[0], out.shape[1], dim))),
-            axis=0)
+            (out, np.zeros((maxlim_r - im.shape[0], out.shape[1], dim))), axis=0
+        )
     if minlim_c < 0:
         out = np.concatenate(
-            (np.zeros((out.shape[0], abs(minlim_c), dim)), out),
-            axis=1)
+            (np.zeros((out.shape[0], abs(minlim_c), dim)), out), axis=1
+        )
     if maxlim_c > im.shape[1]:
         out = np.concatenate(
-            (out, np.zeros((out.shape[0], maxlim_c - im.shape[1], dim))),
-            axis=1)
+            (out, np.zeros((out.shape[0], maxlim_c - im.shape[1], dim))), axis=1
+        )
 
     return out
 
-def write_config(resultsdir, configdict, message, filename='modelconfig.cfg'):
+
+def write_config(resultsdir, configdict, message, filename="modelconfig.cfg"):
     """Write a dictionary of k-v pairs to file.
 
     A much more customizable configuration writer. Accepts a dictionary of
     key-value pairs and just writes them all to file,
     together with a custom message
     """
-    f = open(resultsdir + filename, 'w')
+    f = open(resultsdir + filename, "w")
     for key in configdict:
-        f.write('{}: {}\n'.format(key, configdict[key]))
-    f.write('message:' + message)
+        f.write("{}: {}\n".format(key, configdict[key]))
+    f.write("message:" + message)
 
 
 def read_config(filename):
@@ -432,14 +480,15 @@ def plot_markers_2d(im, markers, newfig=True):
 
     for mark in range(markers.shape[-1]):
         ind = np.unravel_index(
-            np.argmax(markers[:, :, mark], axis=None), markers[:, :, mark].shape)
-        plt.plot(ind[1], ind[0], '.r')
+            np.argmax(markers[:, :, mark], axis=None), markers[:, :, mark].shape
+        )
+        plt.plot(ind[1], ind[0], ".r")
 
 
 def preprocess_3d(im_stack):
     """Easy inception-v3 style image normalization across a set of images."""
     im_stack /= 127.5
-    im_stack -= 1.
+    im_stack -= 1.0
     return im_stack
 
 
@@ -455,7 +504,8 @@ def plot_markers_3d(stack, nonan=True):
     z = []
     for mark in range(stack.shape[-1]):
         ind = np.unravel_index(
-            np.argmax(stack[:, :, :, mark], axis=None), stack[:, :, :, mark].shape)
+            np.argmax(stack[:, :, :, mark], axis=None), stack[:, :, :, mark].shape
+        )
         if ~np.isnan(stack[0, 0, 0, mark]) and nonan:
             x.append(ind[1])
             y.append(ind[0])
@@ -475,19 +525,21 @@ def plot_markers_3d_tf(stack, nonan=True):
     """Return the 3d coordinates for each of the peaks in probability maps."""
     with tf.device(stack.device):
         n_mark = stack.shape[-1]
-        indices = tf.math.argmax(tf.reshape(stack, [-1,n_mark]), output_type='int32')
+        indices = tf.math.argmax(tf.reshape(stack, [-1, n_mark]), output_type="int32")
         inds = unravel_index(indices, stack.shape[:-1])
 
-        if ~tf.math.reduce_any(tf.math.is_nan(stack[0, 0, 0, :])) and (nonan or not nonan):
+        if ~tf.math.reduce_any(tf.math.is_nan(stack[0, 0, 0, :])) and (
+            nonan or not nonan
+        ):
             x = inds[1]
             y = inds[0]
             z = inds[2]
         elif not nonan:
-            x = tf.Variable(tf.cast(inds[1], 'float32'))
-            y = tf.Variable(tf.cast(inds[0], 'float32'))
-            z = tf.Variable(tf.cast(inds[3], 'float32'))
+            x = tf.Variable(tf.cast(inds[1], "float32"))
+            y = tf.Variable(tf.cast(inds[0], "float32"))
+            z = tf.Variable(tf.cast(inds[3], "float32"))
             nans = tf.math.is_nan(stack[0, 0, 0, :])
-            for mark in range(0,n_mark):
+            for mark in range(0, n_mark):
                 if nans[mark]:
                     x[mark].assign(np.nan)
                     y[mark].assign(np.nan)
@@ -498,8 +550,9 @@ def plot_markers_3d_tf(stack, nonan=True):
 def plot_markers_3d_torch(stack, nonan=True):
     """Return the 3d coordinates for each of the peaks in probability maps."""
     import torch
+
     n_mark = stack.shape[-1]
-    index = stack.flatten(0,2).argmax(dim=0).to(torch.int32)
+    index = stack.flatten(0, 2).argmax(dim=0).to(torch.int32)
     inds = unravel_index(index, stack.shape[:-1])
     if ~torch.any(torch.isnan(stack[0, 0, 0, :])) and (nonan or not nonan):
         x = inds[1]
@@ -509,8 +562,8 @@ def plot_markers_3d_torch(stack, nonan=True):
         x = inds[1]
         y = inds[0]
         z = inds[2]
-        for mark in range(0,n_mark):
-            if torch.isnan(stack[:,:,:,mark]):
+        for mark in range(0, n_mark):
+            if torch.isnan(stack[:, :, :, mark]):
                 x[mark] = torch.nan
                 y[mark] = torch.nan
                 z[mark] = torch.nan
@@ -551,9 +604,9 @@ def moment_3d(im, mesh, thresh=0):
     z = []
     for mark in range(im.shape[3]):
         # get normalized probabilities
-        im_norm = \
-            (im[:, :, :, mark] * (im[:, :, :, mark] >= thresh)) / np.sum(
-                im[:, :, :, mark] * (im[:, :, :, mark] >= thresh))
+        im_norm = (im[:, :, :, mark] * (im[:, :, :, mark] >= thresh)) / np.sum(
+            im[:, :, :, mark] * (im[:, :, :, mark] >= thresh)
+        )
         x.append(np.sum(mesh[0] * im_norm))
         y.append(np.sum(mesh[1] * im_norm))
         z.append(np.sum(mesh[2] * im_norm))
@@ -577,10 +630,11 @@ def get_marker_peaks_2d(stack):
 
 
 def savedata_expval(
-    fname, write=True, data=None, num_markers=20, tcoord=True, pmax=False):
+    fname, write=True, data=None, num_markers=20, tcoord=True, pmax=False
+):
     """Save the expected values."""
     if data is None:
-        f = open(fname, 'rb')
+        f = open(fname, "rb")
         data = cPickle.load(f)
         f.close()
 
@@ -590,28 +644,38 @@ def savedata_expval(
     p_max = np.zeros((len(list(data.keys())), num_markers))
 
     for (i, key) in enumerate(data.keys()):
-        d_coords[i] = data[key]['pred_coord']
+        d_coords[i] = data[key]["pred_coord"]
         if tcoord:
-            t_coords[i] = np.reshape(data[key]['true_coord_nogrid'], (3, num_markers))
+            t_coords[i] = np.reshape(data[key]["true_coord_nogrid"], (3, num_markers))
         if pmax:
-            p_max[i] = data[key]['pred_max']
-        sID[i] = data[key]['sampleID']
+            p_max[i] = data[key]["pred_max"]
+        sID[i] = data[key]["sampleID"]
 
     if write and data is None:
         sio.savemat(
-            fname.split('.pickle')[0] + '.mat',
-            {'pred': d_coords, 'data': t_coords, 'p_max': p_max, 'sampleID': sID})
+            fname.split(".pickle")[0] + ".mat",
+            {"pred": d_coords, "data": t_coords, "p_max": p_max, "sampleID": sID},
+        )
     elif write and data is not None:
         sio.savemat(
-            fname,
-            {'pred': d_coords, 'data': t_coords, 'p_max': p_max, 'sampleID': sID})
+            fname, {"pred": d_coords, "data": t_coords, "p_max": p_max, "sampleID": sID}
+        )
 
     return d_coords, t_coords, p_max, sID
 
 
 def savedata_tomat(
-    fname, vmin, vmax, nvox, write=True, data=None, num_markers=20,
-    tcoord=True, tcoord_scale=True, addCOM=None):
+    fname,
+    vmin,
+    vmax,
+    nvox,
+    write=True,
+    data=None,
+    num_markers=20,
+    tcoord=True,
+    tcoord_scale=True,
+    addCOM=None,
+):
     """Save pickled data to a mat file.
 
     From a save_data structure saved to a *.pickle file, save a matfile
@@ -619,7 +683,7 @@ def savedata_tomat(
     Also return pred_out_world and other variables for plotting within jupyter
     """
     if data is None:
-        f = open(fname, 'rb')
+        f = open(fname, "rb")
         data = cPickle.load(f)
         f.close()
 
@@ -629,12 +693,12 @@ def savedata_tomat(
     log_p_max = np.zeros((list(data.keys())[-1] + 1, num_markers))
     sID = np.zeros((list(data.keys())[-1] + 1,))
     for (i, key) in enumerate(data.keys()):
-        d_coords[i] = data[key]['pred_coord']
+        d_coords[i] = data[key]["pred_coord"]
         if tcoord:
-            t_coords[i] = np.reshape(data[key]['true_coord_nogrid'], (3, num_markers))
-        p_max[i] = data[key]['pred_max']
-        log_p_max[i] = data[key]['logmax']
-        sID[i] = data[key]['sampleID']
+            t_coords[i] = np.reshape(data[key]["true_coord_nogrid"], (3, num_markers))
+        p_max[i] = data[key]["pred_max"]
+        log_p_max[i] = data[key]["logmax"]
+        sID[i] = data[key]["sampleID"]
 
     vsize = (vmax - vmin) / nvox
     # First, need to move coordinates over to centers of voxels
@@ -651,14 +715,26 @@ def savedata_tomat(
 
     if write and data is None:
         sio.savemat(
-            fname.split('.pickle')[0] + '.mat',
-            {'pred': pred_out_world, 'data': t_coords,
-             'p_max': p_max, 'sampleID': sID, 'log_pmax': log_p_max})
+            fname.split(".pickle")[0] + ".mat",
+            {
+                "pred": pred_out_world,
+                "data": t_coords,
+                "p_max": p_max,
+                "sampleID": sID,
+                "log_pmax": log_p_max,
+            },
+        )
     elif write and data is not None:
         sio.savemat(
             fname,
-            {'pred': pred_out_world, 'data': t_coords,
-             'p_max': p_max, 'sampleID': sID, 'log_pmax': log_p_max})
+            {
+                "pred": pred_out_world,
+                "data": t_coords,
+                "p_max": p_max,
+                "sampleID": sID,
+                "log_pmax": log_p_max,
+            },
+        )
     return pred_out_world, t_coords, p_max, log_p_max, sID
 
 
@@ -680,7 +756,7 @@ def spatial_var(map_):
     map_ = map_ / np.sum(map_)
     x, y = np.meshgrid(np.arange(map_.shape[1]), np.arange(map_.shape[0]))
 
-    return np.sum(map_ * ((x - expx)**2 + (y - expy)**2))
+    return np.sum(map_ * ((x - expx) ** 2 + (y - expy) ** 2))
 
 
 def spatial_entropy(map_):
