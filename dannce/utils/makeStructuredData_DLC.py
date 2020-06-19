@@ -21,35 +21,35 @@ from itertools import combinations
 # Set up parameters
 PARENT_PARAMS = processing.read_config(sys.argv[1])
 PARENT_PARAMS = processing.make_paths_safe(PARENT_PARAMS)
-CONFIG_PARAMS = processing.read_config(PARENT_PARAMS['DANNCE_CONFIG'])
+CONFIG_PARAMS = processing.read_config(PARENT_PARAMS["DANNCE_CONFIG"])
 CONFIG_PARAMS = processing.make_paths_safe(CONFIG_PARAMS)
 
-CONFIG_PARAMS['experiment'] = PARENT_PARAMS
-RESULTSDIR = CONFIG_PARAMS['RESULTSDIR_PREDICT']
+CONFIG_PARAMS["experiment"] = PARENT_PARAMS
+RESULTSDIR = CONFIG_PARAMS["RESULTSDIR_PREDICT"]
 print("Reading results from: " + RESULTSDIR)
 
 
 dfiles = os.listdir(RESULTSDIR)
-sfile = [f for f in dfiles if 'save_data' in f]
+sfile = [f for f in dfiles if "save_data" in f]
 sfile = sfile[0]
 
-pred = sio.loadmat(os.path.join(RESULTSDIR,sfile))
+pred = sio.loadmat(os.path.join(RESULTSDIR, sfile))
 
-pred['sampleID'] = np.squeeze(pred['sampleID'])
+pred["sampleID"] = np.squeeze(pred["sampleID"])
 
 # config file needs to have an extra DLC_PATH field
-dlc = sio.loadmat(CONFIG_PARAMS['DLC_PATH'])
+dlc = sio.loadmat(CONFIG_PARAMS["DLC_PATH"])
 
-# take the median to get the final dlc predictions, 
-#also transpose to match dannce pred shape
-pred_dlc = np.median(dlc['data_3d'], axis=-1)
+# take the median to get the final dlc predictions,
+# also transpose to match dannce pred shape
+pred_dlc = np.median(dlc["data_3d"], axis=-1)
 pred_dlc = np.transpose(pred_dlc, [0, 2, 1])
 
-cnames = PARENT_PARAMS['CAMNAMES']
+cnames = PARENT_PARAMS["CAMNAMES"]
 
 # if bool_3cams is True, get 3-cams here
 if len(sys.argv) > 2 and sys.argv[2]:
-    d3d_dlc = np.transpose(dlc['data_3d'], [0, 2, 1, 3])
+    d3d_dlc = np.transpose(dlc["data_3d"], [0, 2, 1, 3])
     r = list(combinations(np.arange(6), 3))
 
     cname_3cam = {}
@@ -66,7 +66,7 @@ if len(sys.argv) > 2 and sys.argv[2]:
             if pairs[i] in thesepairs:
                 tp[:, :, :, cnt] = d3d_dlc[:, :, :, i]
                 cnt = cnt + 1
-                
+
         paired_dlc[:, :, :, j] = np.median(tp, axis=-1)
 
         cname_3cam[j] = [cnames[tri[0]], cnames[tri[1]], cnames[tri[2]]]
@@ -80,22 +80,21 @@ We want the following to be saved:
 
 """
 
-fullpath = os.path.realpath('./')
-name = os.path.split(os.path.realpath('./'))[-1]
-date = os.path.split(os.path.realpath('../'))[-1]
+fullpath = os.path.realpath("./")
+name = os.path.split(os.path.realpath("./"))[-1]
+date = os.path.split(os.path.realpath("../"))[-1]
 
 
-
-with open(PARENT_PARAMS['lbl_template'], 'r') as f:
+with open(PARENT_PARAMS["lbl_template"], "r") as f:
     for line in f:
-        if 'labels' in line:
+        if "labels" in line:
             line = line.strip()
             line = line[8:-1]
             markernames = ast.literal_eval(line)
 
 # In Matlab, we cannot keep parentheses in the marker names
-markernames = [m.replace('(', '_') for m in markernames]
-markernames = [m.replace(')', '_') for m in markernames]
+markernames = [m.replace("(", "_") for m in markernames]
+markernames = [m.replace(")", "_") for m in markernames]
 
 cameras = {}
 
@@ -109,14 +108,14 @@ cameras = {}
 
 # df = np.zeros((len(pred['sampleID']), 1))
 # pred_locked = np.zeros((df.shape[0], pred_dlc.shape[1], pred_dlc.shape[2]))
-# # To get proper matched frames for dlc, we need to chain sampleID/frame 
+# # To get proper matched frames for dlc, we need to chain sampleID/frame
 # # indices from multiple files
 # #
 # # The matched frames files contain the alignment between sampleID and frames
 # # The dannce pred file has the sampleIDs we want to use
 # # The pred_dlc frame indices go 0:pred_dlc.shape[0]
 # #
-# # So we walk thru the dannce pred sampleIDs (we need to track these because 
+# # So we walk thru the dannce pred sampleIDs (we need to track these because
 # # some could be discarded due to COM error thresholding), find its matchign frame in the matched frames,
 # # then associate the pred_dlc prediction with that frame
 # frames_dlc = np.arange(pred_dlc.shape[0])
@@ -131,7 +130,9 @@ cameras = {}
 #         raise Exception("Could not find sampleID in pred sampleIDs")
 
 # Make sure we onyl take sampleIDs that are also in the DANNCE predictions
-dlc['sampleID'], indies, _ = np.intersect1d(dlc['sampleID'], pred['sampleID'], return_indices=True)
+dlc["sampleID"], indies, _ = np.intersect1d(
+    dlc["sampleID"], pred["sampleID"], return_indices=True
+)
 
 # Assemble prediction struct
 predictions = {}
@@ -141,58 +142,66 @@ for m in range(len(markernames)):
 for i in range(len(cnames)):
     cameras[cnames[i]] = {}
 
-    # Load in this camera's matched frames file to align the sampleID 
+    # Load in this camera's matched frames file to align the sampleID
     # with that particular cameras' frame #
-    mframes = sio.loadmat(os.path.join(PARENT_PARAMS['datadir'],
-                          PARENT_PARAMS['datafile'][i]))
+    mframes = sio.loadmat(
+        os.path.join(PARENT_PARAMS["datadir"], PARENT_PARAMS["datafile"][i])
+    )
 
-    mframes['data_sampleID'] = np.squeeze(mframes['data_sampleID'])
-    mframes['data_frame'] = np.squeeze(mframes['data_frame'])
+    mframes["data_sampleID"] = np.squeeze(mframes["data_sampleID"])
+    mframes["data_frame"] = np.squeeze(mframes["data_frame"])
 
-    _, inds, _ = np.intersect1d(mframes['data_sampleID'], dlc['sampleID'], return_indices=True)
+    _, inds, _ = np.intersect1d(
+        mframes["data_sampleID"], dlc["sampleID"], return_indices=True
+    )
 
-    assert len(inds) == len(dlc['sampleID'])
+    assert len(inds) == len(dlc["sampleID"])
 
-    df = mframes['data_frame'][inds]
+    df = mframes["data_frame"][inds]
 
-    cameras[cnames[i]]['frame'] = df
+    cameras[cnames[i]]["frame"] = df
 
-    camparams = sio.loadmat(os.path.join(PARENT_PARAMS['CALIBDIR'],
-                            PARENT_PARAMS['calib_file'][i]))
+    camparams = sio.loadmat(
+        os.path.join(PARENT_PARAMS["CALIBDIR"], PARENT_PARAMS["calib_file"][i])
+    )
 
-    cameras[cnames[i]]['IntrinsicMatrix'] = camparams['K']
-    cameras[cnames[i]]['rotationMatrix'] = camparams['r']
-    cameras[cnames[i]]['translationVector'] = camparams['t']
-    cameras[cnames[i]]['TangentialDistortion'] = camparams['TDistort']
-    cameras[cnames[i]]['RadialDistortion'] = camparams['RDistort']
+    cameras[cnames[i]]["IntrinsicMatrix"] = camparams["K"]
+    cameras[cnames[i]]["rotationMatrix"] = camparams["r"]
+    cameras[cnames[i]]["translationVector"] = camparams["t"]
+    cameras[cnames[i]]["TangentialDistortion"] = camparams["TDistort"]
+    cameras[cnames[i]]["RadialDistortion"] = camparams["RDistort"]
 
-    cameras[cnames[i]]['video_directory'] = \
-        os.path.realpath(os.path.join(PARENT_PARAMS['viddir'],
-                                      cnames[i]))
+    cameras[cnames[i]]["video_directory"] = os.path.realpath(
+        os.path.join(PARENT_PARAMS["viddir"], cnames[i])
+    )
 
-if 'DLC_OUT_DIR' in CONFIG_PARAMS.keys():
+if "DLC_OUT_DIR" in CONFIG_PARAMS.keys():
     # Then use a different RESULTSDIR for saving
-    RESULTSDIR = CONFIG_PARAMS['DLC_OUT_DIR']
+    RESULTSDIR = CONFIG_PARAMS["DLC_OUT_DIR"]
     if not os.path.exists(RESULTSDIR):
         os.makedirs(RESULTSDIR)
 
-predictions['sampleID'] = dlc['sampleID']
+predictions["sampleID"] = dlc["sampleID"]
 # save everything as matlab struct
-pfile = os.path.join(RESULTSDIR, 'predictions_dlc_6cam.mat')
-sio.savemat(pfile,
-            {'fullpath': fullpath,
-             'name': name,
-             'session': date,
-             'predictions': predictions,
-             'cameras': cameras,
-             'netname': 'DLC',
-             'p_max': np.zeros_like(dlc['sampleID'])*np.nan,
-             'dlcpath': CONFIG_PARAMS['DLC_PATH']})
+pfile = os.path.join(RESULTSDIR, "predictions_dlc_6cam.mat")
+sio.savemat(
+    pfile,
+    {
+        "fullpath": fullpath,
+        "name": name,
+        "session": date,
+        "predictions": predictions,
+        "cameras": cameras,
+        "netname": "DLC",
+        "p_max": np.zeros_like(dlc["sampleID"]) * np.nan,
+        "dlcpath": CONFIG_PARAMS["DLC_PATH"],
+    },
+)
 
 print("Saved predictions to " + pfile)
 
 if len(sys.argv) > 2 and sys.argv[2]:
-    #Save individual 3cams
+    # Save individual 3cams
 
     for j in range(paired_dlc.shape[-1]):
         predictions = {}
@@ -202,19 +211,20 @@ if len(sys.argv) > 2 and sys.argv[2]:
         for cc in cname_3cam[j]:
             cameras_[cc] = cameras[cc]
 
-        pfile = os.path.join(RESULTSDIR, 'predictions_dlc_3cam_{}.mat'.format(j))
+        pfile = os.path.join(RESULTSDIR, "predictions_dlc_3cam_{}.mat".format(j))
 
-        sio.savemat(pfile,
-                    {'fullpath': fullpath,
-                     'name': name,
-                     'session': date,
-                     'predictions': predictions,
-                     'cameras': cameras_,
-                     'netname': 'DLC',
-                     'p_max': np.zeros_like(dlc['sampleID'])*np.nan,
-                     'dlcpath': CONFIG_PARAMS['DLC_PATH']})
+        sio.savemat(
+            pfile,
+            {
+                "fullpath": fullpath,
+                "name": name,
+                "session": date,
+                "predictions": predictions,
+                "cameras": cameras_,
+                "netname": "DLC",
+                "p_max": np.zeros_like(dlc["sampleID"]) * np.nan,
+                "dlcpath": CONFIG_PARAMS["DLC_PATH"],
+            },
+        )
 
         print("Saved predictions to " + pfile)
-
-
-

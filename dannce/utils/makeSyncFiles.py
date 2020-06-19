@@ -28,14 +28,14 @@ import scipy.io as sio
 import os
 import sys
 
-_VALID_EXT = ['mp4', 'avi']
+_VALID_EXT = ["mp4", "avi"]
 
 vidpath = sys.argv[1]
 fps = float(sys.argv[2])
 num_landmarks = int(sys.argv[3])
 
 outpath = os.path.dirname(vidpath.rstrip(os.sep))
-outpath = os.path.join(outpath, 'sync')
+outpath = os.path.join(outpath, "sync")
 
 if not os.path.exists(outpath):
     os.makedirs(outpath)
@@ -53,9 +53,10 @@ dirs = [os.path.join(vidpath, d) for d in dirs]
 
 def get_vid_paths(dir_):
     vids = os.listdir(dir_)
-    vids = [vd for vd in vids if vd.split('.')[-1] in _VALID_EXT]
+    vids = [vd for vd in vids if vd.split(".")[-1] in _VALID_EXT]
     vids = [os.path.join(dir_, vd) for vd in vids]
     return vids
+
 
 camnames = []
 framecount = []
@@ -78,35 +79,40 @@ for d in dirs:
 
     print("Found {} frames for {}".format(cnt, cname))
 
-if np.sum(framecount)//len(framecount) != framecount[0]:
+if np.sum(framecount) // len(framecount) != framecount[0]:
     raise Exception("Your videos are not the same length")
 
 
-fp = 1000./fps #frame period in ms
+fp = 1000.0 / fps  # frame period in ms
 
-data_frame = np.arange(framecount[0]).astype('float64')
-data_sampleID = data_frame*fp+1
-data_2d = np.zeros((framecount[0], 2*num_landmarks))
-data_3d = np.zeros((framecount[0], 3*num_landmarks))
+data_frame = np.arange(framecount[0]).astype("float64")
+data_sampleID = data_frame * fp + 1
+data_2d = np.zeros((framecount[0], 2 * num_landmarks))
+data_3d = np.zeros((framecount[0], 3 * num_landmarks))
 
 checkf = os.listdir(outpath)
 for cname in camnames:
-    fname = cname + '_sync.mat'
+    fname = cname + "_sync.mat"
     outfile = os.path.join(outpath, fname)
     if fname in checkf:
-        ans = ''
-        while ans != 'y' and ans != 'n':
+        ans = ""
+        while ans != "y" and ans != "n":
             print(fname + " already exists. Overwrite (y/n)?")
             ans = input().lower()
 
-        if ans == 'n':
+        if ans == "n":
             print("Ok, skipping.")
             continue
 
     print("Writing " + outfile)
-    sio.savemat(outfile, {'data_frame': data_frame[:, np.newaxis],
-                          'data_sampleID': data_sampleID[:, np.newaxis],
-                          'data_2d': data_2d,
-                          'data_3d': data_3d})
+    sio.savemat(
+        outfile,
+        {
+            "data_frame": data_frame[:, np.newaxis],
+            "data_sampleID": data_sampleID[:, np.newaxis],
+            "data_2d": data_2d,
+            "data_3d": data_3d,
+        },
+    )
 
 print("done!")

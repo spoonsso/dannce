@@ -25,14 +25,22 @@ demo/markerless_mouse_1/DANNCE/train_results/AVG/weights.1200-12.77642.hdf5
 demo/markerless_mouse_1/DANNCE/train_results/logs/*
 demo/markerless_mouse_1/DANNCE/train_test/logs/*
 demo/markerless_mouse_1/DANNCE/train_results/weights*
+demo/markerless_mouse_1/DANNCE/train_results/*.pickle
+demo/markerless_mouse_1/DANNCE/train_results/*.csv
+demo/markerless_mouse_1/DANNCE/train_results/logs/
+demo/markerless_mouse_1/DANNCE/predict_results/
 demo/markerless_mouse_1/DANNCE/train_results/AVG/weights*
+demo/markerless_mouse_1/DANNCE/predict_test/
 
 demo/markerless_mouse_1/COM/train_test/
-demo/markerless_mouse_1/COM/predict_test/
-demo/markerless_mouse_1/COM/train_results/logs/*
 demo/markerless_mouse_1/COM/train_test/logs/*
+demo/markerless_mouse_1/COM/train_results/logs/*
 demo/markerless_mouse_1/DANNCE/train_test/
-demo/markerless_mouse_1/DANNCE/predict_test/
+demo/markerless_mouse_1/COM/predict_test/
+demo/markerless_mouse_1/COM/train_results/weights*
+demo/markerless_mouse_1/COM/train_results/*.pickle
+demo/markerless_mouse_1/COM/train_results/*.csv
+demo/markerless_mouse_1/COM/train_results/logs
 
 demo/markerless_mouse_1/videos/
 demo/markerless_mouse_2/videos/
