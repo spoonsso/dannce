@@ -21,11 +21,7 @@ extension: '.mp4'
 # The number of frames in each video file. If only a single video file exists for each camera, set this to 1e10
 chunks: 3000
 
-# Path to the COM config file.
-COM_CONFIG: config_COMtest.yaml
-
-# Path to the DANNCE config file
-DANNCE_CONFIG: config_temp.yaml
+io_config: io.yaml
 
 # How to crop the input images. The U-Net expects each dimension size to be a multiple of 32.
 CROP_HEIGHT: [0, 1024]

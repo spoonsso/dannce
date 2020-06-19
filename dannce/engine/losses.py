@@ -5,7 +5,7 @@ from tensorflow.keras import backend as K
 # TODO(nan_true): nan_true is where y_true is not nan. This is confusing
 def mask_nan_keep_loss(y_true, y_pred):
     """Mask out nan values in the calulation of MSE."""
-    nan_true = K.cast(~tf.math.is_nan(y_true), 'float32')
+    nan_true = K.cast(~tf.math.is_nan(y_true), "float32")
     num_notnan = K.sum(K.flatten(nan_true))
     y_pred = tf.math.multiply(y_pred, nan_true)
 
@@ -13,16 +13,18 @@ def mask_nan_keep_loss(y_true, y_pred):
     # multiply with just the nan_true masks,
     # NaN*0 = NaN, so NaNs are not removed
     y_true = K.cast(
-        tf.where(~tf.math.is_nan(y_true), y_true, tf.zeros_like(y_true)), 'float32')
-    loss = K.sum((K.flatten(y_pred) - K.flatten(y_true))**2) / num_notnan
+        tf.where(~tf.math.is_nan(y_true), y_true, tf.zeros_like(y_true)), "float32"
+    )
+    loss = K.sum((K.flatten(y_pred) - K.flatten(y_true)) ** 2) / num_notnan
     return tf.where(~tf.math.is_nan(loss), loss, 0)
 
-def multiview_consistency(y_true,y_pred):
+
+def multiview_consistency(y_true, y_pred):
     """
     In a semi-supervised strategy, we have a normal mask_nan mse loss for where there are labels,
     but also a loss that checks whether the output using different combinations of views is the same
     """
-    alpha = 1#0.0001 # The weight on the multiview loss, which we hard-code for now..
+    alpha = 1  # 0.0001 # The weight on the multiview loss, which we hard-code for now..
 
     msk_loss = mask_nan_keep_loss(y_true[-1], y_pred[-1])
 
@@ -30,9 +32,10 @@ def multiview_consistency(y_true,y_pred):
     # For a 3-cam system, there are only 3 different possible pairs, so we discard the last, which is the complete set
     y_pred_ = y_pred[:-1]
     y_pred_diff = y_pred_[1:] - y_pred_[:-1]
-    multiview_loss = K.mean(K.flatten(y_pred_diff)**2)
+    multiview_loss = K.mean(K.flatten(y_pred_diff) ** 2)
 
-    return msk_loss + alpha*multiview_loss
+    return msk_loss + alpha * multiview_loss
+
 
 def metric_dist_max(y_true, y_pred):
     """Get distance between the (row, col) indices of each maximum.
@@ -54,8 +57,9 @@ def metric_dist_max(y_true, y_pred):
     row_indices_pred = indices % K.int_shape(y_pred)[1]
 
     dist = K.sqrt(
-        K.pow(col_indices_pred - col_indices_true, 2) +
-        K.pow(row_indices_pred - row_indices_true, 2))
+        K.pow(col_indices_pred - col_indices_true, 2)
+        + K.pow(row_indices_pred - row_indices_true, 2)
+    )
     return K.mean(dist)
 
 
@@ -73,14 +77,14 @@ def K_nanmean(tensor):
     """
     Returns the nanmean of the input tensor. If tensor is all NaN, returns 0
     """
-    notnan = K.cast(~tf.math.is_nan(tensor), 'float32')
+    notnan = K.cast(~tf.math.is_nan(tensor), "float32")
     num_notnan = K.sum(K.flatten(notnan))
 
-    nonan = K.cast(tf.where(~tf.math.is_nan(tensor),
-                            tensor,
-                            tf.zeros_like(tensor)), 'float32')
+    nonan = K.cast(
+        tf.where(~tf.math.is_nan(tensor), tensor, tf.zeros_like(tensor)), "float32"
+    )
 
-    loss = K.sum(nonan)/num_notnan
+    loss = K.sum(nonan) / num_notnan
 
     return tf.where(~tf.math.is_inf(loss), loss, 0)
 
