@@ -17,7 +17,7 @@ _N_VIEWS = 6
 # Set up parameters
 PARENT_PARAMS = processing.read_config(sys.argv[1])
 PARENT_PARAMS = processing.make_paths_safe(PARENT_PARAMS)
-CONFIG_PARAMS = processing.read_config(PARENT_PARAMS['DANNCE_CONFIG'])
+CONFIG_PARAMS = processing.read_config(PARENT_PARAMS["DANNCE_CONFIG"])
 CONFIG_PARAMS = processing.make_paths_safe(CONFIG_PARAMS)
 
 com_thresh = float(sys.argv[2])
@@ -25,27 +25,28 @@ com_thresh = float(sys.argv[2])
 if len(sys.argv) > 3:
     max_num_samples = int(sys.argv[3])
 
-# While we can use experiment files for DANNCE training, 
+# While we can use experiment files for DANNCE training,
 # for prediction we use the base data files present in the main config
 
-CONFIG_PARAMS['experiment'] = PARENT_PARAMS
-RESULTSDIR = './COM/bootstrapdata/'
+CONFIG_PARAMS["experiment"] = PARENT_PARAMS
+RESULTSDIR = "./COM/bootstrapdata/"
 print("Writing projected median, com3d to: " + RESULTSDIR)
 
 if not os.path.exists(RESULTSDIR):
     os.makedirs(RESULTSDIR)
 
-samples_, datadict_, datadict_3d_, data_3d_, cameras_ = \
-    serve_data.prepare_data(CONFIG_PARAMS['experiment'])
+samples_, datadict_, datadict_3d_, data_3d_, cameras_ = serve_data.prepare_data(
+    CONFIG_PARAMS["experiment"]
+)
 
 # Load in the COM file at the default location, or use one in the config file if provided
-if 'COMfilename' in CONFIG_PARAMS.keys():
-    comfn = CONFIG_PARAMS['COMfilename']
+if "COMfilename" in CONFIG_PARAMS.keys():
+    comfn = CONFIG_PARAMS["COMfilename"]
 else:
-    comfn = os.path.join('.', 'COM', 'predict_results')
+    comfn = os.path.join(".", "COM", "predict_results")
     comfn = os.listdir(comfn)
-    comfn = [f for f in comfn if 'COM_undistorted.pickle' in f]
-    comfn = os.path.join('.', 'COM', 'predict_results', comfn[0])
+    comfn = [f for f in comfn if "COM_undistorted.pickle" in f]
+    comfn = os.path.join(".", "COM", "predict_results", comfn[0])
 
 datadict_, com3d_dict_ = serve_data.prepare_COM(
     comfn,
@@ -54,27 +55,29 @@ datadict_, com3d_dict_ = serve_data.prepare_COM(
     weighted=False,
     retriangulate=True,
     camera_mats=cameras_,
-    method='median')
+    method="median",
+)
 
 # Need to cap this at the number of samples included in our
 # COM finding estimates
 tf = list(com3d_dict_.keys())
-samples_ = samples_[:len(tf)]
-data_3d_ = data_3d_[:len(tf)]
+samples_ = samples_[: len(tf)]
+data_3d_ = data_3d_[: len(tf)]
 if len(sys.argv) > 3:
     samples_ = samples_[:max_num_samples]
 
     data_3d_ = data_3d_[:max_num_samples]
 pre = len(samples_)
-samples_, data_3d_ = \
-    serve_data.remove_samples_com(samples_, data_3d_, com3d_dict_, rmc=True, cthresh=CONFIG_PARAMS['cthresh'])
+samples_, data_3d_ = serve_data.remove_samples_com(
+    samples_, data_3d_, com3d_dict_, rmc=True, cthresh=CONFIG_PARAMS["cthresh"]
+)
 msg = "Detected {} bad COMs and removed the associated frames from the dataset"
 print(msg.format(pre - len(samples_)))
 
-# OK, now it's just a matter of projecting the 3D COMs down and then 
+# OK, now it's just a matter of projecting the 3D COMs down and then
 # saving everything in the proper format w/ proper shape
-for i in range(len(PARENT_PARAMS['CAMNAMES'])):
-    tcam_name = PARENT_PARAMS['CAMNAMES'][i]
+for i in range(len(PARENT_PARAMS["CAMNAMES"])):
+    tcam_name = PARENT_PARAMS["CAMNAMES"][i]
     tcam = cameras_[tcam_name]
 
     data_3d = np.zeros((len(samples_), 3))
@@ -86,31 +89,27 @@ for i in range(len(PARENT_PARAMS['CAMNAMES'])):
         s = samples_[k]
         t3d = com3d_dict_[s]
         # Project down for this camera
-        t2d = ops.project_to2d(t3d[:, np.newaxis].T,
-                               tcam['K'],
-                               tcam['R'],
-                               tcam['t'])
+        t2d = ops.project_to2d(t3d[:, np.newaxis].T, tcam["K"], tcam["R"], tcam["t"])
 
         t2d = t2d[:, :2]
 
         # And distort
-        t2d = ops.distortPoints(t2d,
-                                tcam['K'],
-                                np.squeeze(tcam['RDistort']),
-                                np.squeeze(tcam['TDistort']))
+        t2d = ops.distortPoints(
+            t2d, tcam["K"], np.squeeze(tcam["RDistort"]), np.squeeze(tcam["TDistort"])
+        )
 
         # Just duplicate this and save to data_3d
         data_3d[k] = t3d
         data_2d[k] = np.squeeze(t2d)
         data_sampleID[k] = s
-        data_frame[k] = datadict_[s]['frames'][tcam_name]
+        data_frame[k] = datadict_[s]["frames"][tcam_name]
 
     # make sure data_2d and data_3d match expected diemnsionality for future use
-    data_3d = np.tile(data_3d, (1, CONFIG_PARAMS['N_CHANNELS_OUT']))
-    data_2d = np.tile(data_2d, (1, CONFIG_PARAMS['N_CHANNELS_OUT']))
+    data_3d = np.tile(data_3d, (1, CONFIG_PARAMS["N_CHANNELS_OUT"]))
+    data_2d = np.tile(data_2d, (1, CONFIG_PARAMS["N_CHANNELS_OUT"]))
 
     # Save for this camera
-    fname = os.path.join(RESULTSDIR, tcam_name + '_bootstrapDATA.mat')
+    fname = os.path.join(RESULTSDIR, tcam_name + "_bootstrapDATA.mat")
 
     print("Saving: " + fname)
 
@@ -120,9 +119,14 @@ for i in range(len(PARENT_PARAMS['CAMNAMES'])):
     #     data_sampleID = data_sampleID[:max_num_samples]
     #     data_frame = data_frame[:max_num_samples]
 
-    sio.savemat(fname, {'data_2d': data_2d,
-                        'data_3d': data_3d,
-                        'data_sampleID': data_sampleID,
-                        'data_frame': data_frame})
+    sio.savemat(
+        fname,
+        {
+            "data_2d": data_2d,
+            "data_3d": data_3d,
+            "data_sampleID": data_sampleID,
+            "data_frame": data_frame,
+        },
+    )
 
 print("done!")
