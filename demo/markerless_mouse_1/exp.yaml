@@ -1,4 +1,4 @@
-base_exp_folder: ../../demo/markerless_mouse_1
+base_exp_folder: ./markerless_mouse_1
 
 # COM3D_DICT: COM/predict_results/COM3D_undistorted.mat
 COMfilename: COM/predict_results/COM_undistorted.pickle
