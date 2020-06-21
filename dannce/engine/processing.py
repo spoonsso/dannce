@@ -174,7 +174,7 @@ def save_COM_checkpoint(save_data, RESULTSDIR, datadict_, cameras, params):
     # for prepare_COM to run properly
     datadict_save = {}
     for key in datadict_:
-        datadict_save[int(key.split("_")[-1])] = datadict_[key]
+        datadict_save[int(float(key.split("_")[-1]))] = datadict_[key]
 
     _, com3d_dict = serve_data_DANNCE.prepare_COM(
         os.path.join(RESULTSDIR, "COM_undistorted.pickle"),
@@ -258,6 +258,22 @@ def grab_predict_exp_file(defaultdir=""):
         raise Exception("Multiple files named exp.yaml in {}".format(def_ep))
     print("Using the following exp.yaml files: {}".format(exps))
     return exps[0]
+
+
+def grab_predict_label3d_file(defaultdir=""):
+    """
+    Finds the paths to the training experiment yaml files.
+    """
+    def_ep = os.path.join(".", defaultdir)
+    label3d_files = os.listdir(def_ep)
+    label3d_files = [
+        os.path.join(def_ep, f) for f in label3d_files if "dannce.mat" in f
+    ]
+
+    if len(label3d_files) == 0:
+        raise Exception("Did not find any *dannce.mat file in {}".format(def_ep))
+    print("Using the following *dannce.mat files: {}".format(label3d_files[0]))
+    return label3d_files[0]
 
 
 def batch_rgb2gray(imstack):
