@@ -34,7 +34,9 @@ demo/markerless_mouse_1/DANNCE/predict_test/
 
 demo/markerless_mouse_1/COM/train_test/
 demo/markerless_mouse_1/COM/train_test/logs/*
-demo/markerless_mouse_1/COM/train_results/logs/*
+demo/markerless_mouse_1/COM/train_test/*.pickle
+demo/markerless_mouse_1/COM/train_test/*.csv
+demo/markerless_mouse_1/COM/train_test/weights*
 demo/markerless_mouse_1/DANNCE/train_test/
 demo/markerless_mouse_1/COM/predict_test/
 demo/markerless_mouse_1/COM/train_results/weights*

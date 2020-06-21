@@ -6,8 +6,8 @@ com_predict_dir: ../../demo/markerless_mouse_1/COM/predict_test/
 # During prediction, will look for the last epoch weights saved to ./COM/train_results/. To load in a different weights file, add the path here
 predict_weights: ../../demo/markerless_mouse_1/COM/train_results/weights.250-0.00036.hdf5
 
-# Path to a list of experiment config files. By Default, train_COMfinder.py will look for exp*.yaml files in the same directory as this file
-com_exp_path: ['../../demo/markerless_mouse_1/exp.yaml', '../../demo/markerless_mouse_2/exp.yaml']
+# List of paths to Label3D output files. By default, the first file in the list will be used for prediction. 
+com_label3d_files: ['../../demo/markerless_mouse_1/com_dannce.mat', '../../demo/markerless_mouse_2/com_dannce.mat']
 
 
 
@@ -19,4 +19,7 @@ dannce_predict_dir: ../../demo/markerless_mouse_1/DANNCE/train_test/
 # predict_model
 
 # Path to a list of experiment config files. By Default, train_COMfinder.py will look for exp*.yaml files in the same directory as this file
-dannce_exp_path: ['../../demo/markerless_mouse_1/exp.yaml', '../../demo/markerless_mouse_2/exp.yaml']
+label3d_files: ['../../demo/markerless_mouse_1/label3d_dannce.mat', '../../demo/markerless_mouse_2/label3d_dannce.mat']
+
+COMfilename: COM/predict_results/COM_undistorted.pickle
+# COM3D_DICT: COM/predict_results/COM3D_undistorted.mat

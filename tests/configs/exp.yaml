@@ -4,14 +4,8 @@ COMfilename: COM/predict_results/COM_undistorted.pickle
 # COM3D_DICT: COM/predict_results/COM3D_undistorted.mat
 
 # names of data files. must match the order of CAMNAMES below.
-datafile: ['Camera1_10','Camera2_10','Camera3_10','Camera4_10','Camera5_10','Camera6_10']
-com_datafile: ['Camera1_dataApplyDistort_worker0','Camera2_dataApplyDistort_worker0','Camera3_dataApplyDistort_worker0','Camera4_dataApplyDistort_worker0','Camera5_dataApplyDistort_worker0','Camera6_dataApplyDistort_worker0']
-
-# path to folder containing formatted data files
-datadir: labeling/
+label3d_file: ['Label3D_dannce.mat']
+com_label3d_file: ['com_dannce.mat']
 
 # path to folder contraining video sub directories
 viddir: videos/
-
-# path to folder with DANNCE formated camera calibration parameters
-CALIBDIR: calibration/

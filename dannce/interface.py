@@ -62,19 +62,12 @@ def com_predict(base_config_path):
     MULTI_MODE = params["N_CHANNELS_OUT"] > 1
     params["N_CHANNELS_OUT"] = params["N_CHANNELS_OUT"] + int(MULTI_MODE)
 
-    # Inherit required parameters from main config file
+    # Grab the input file for prediction
+    params["label3d_file"] = processing.grab_predict_label3d_file()
 
     # Also add parent params under the 'experiment' key for compatibility
     # with DANNCE's video loading function
-    exp_file = processing.grab_predict_exp_file()
-    exp = processing.read_config(exp_file)
-    exp = processing.inherit_config(exp, params, list(params.keys()))
-    for k in ["datadir", "viddir", "CALIBDIR"]:
-        exp[k] = os.path.join(exp["base_exp_folder"], exp[k])
-    exp["datadir"] = params["datadir"]
-    exp["datafile"] = params["datafile"]
-    params = exp
-    params["experiment"] = exp
+    params["experiment"] = params
 
     # Build net
     print("Initializing Network...")
@@ -251,7 +244,7 @@ def com_predict(base_config_path):
         print("Writing " + params["COMdebug"] + "COM-image overlays to " + overlaydir)
 
     samples, datadict, datadict_3d, cameras, camera_mats = serve_data_COM.prepare_data(
-        params, multimode=MULTI_MODE
+        params, multimode=MULTI_MODE, prediction=True
     )
 
     # Zero any negative frames
@@ -339,23 +332,20 @@ def com_train(base_config_path):
     cameras = {}
     camnames = {}
 
-    exps = params["com_exp_path"]
-    num_experiments = len(exps)
+    label3d_files = params["com_label3d_files"]
+    print(label3d_files, flush=True)
+    num_experiments = len(label3d_files)
     params["experiment"] = {}
     MULTI_MODE = params["N_CHANNELS_OUT"] > 1
     params["N_CHANNELS_OUT"] = params["N_CHANNELS_OUT"] + int(MULTI_MODE)
-    for e, exp_file in enumerate(exps):
-        exp = processing.read_config(exp_file)
+    for e, label3d_file in enumerate(label3d_files):
+        exp = params.copy()
         exp = processing.make_paths_safe(exp)
-        exp = processing.inherit_config(
-            exp,
-            base_params,
-            ["CAMNAMES", "CALIBDIR", "calib_file", "extension", "datafile"],
-        )
+        exp["label3d_file"] = label3d_file
+        print(exp["label3d_file"])
+        exp["base_exp_folder"] = os.path.dirname(exp["label3d_file"])
+        exp["viddir"] = os.path.join(exp["base_exp_folder"], exp["viddir"])
 
-        for k in ["datadir", "viddir", "CALIBDIR"]:
-            exp[k] = os.path.join(exp["base_exp_folder"], exp[k])
-        exp["datafile"] = exp["com_datafile"]
         params["experiment"][e] = exp
         (
             samples_,
@@ -685,29 +675,24 @@ def dannce_train(base_config_path):
     com3d_dict = {}
     cameras = {}
     camnames = {}
-
-    exps = params["dannce_exp_path"]
-    num_experiments = len(exps)
+    label3d_files = params["label3d_files"]
+    num_experiments = len(label3d_files)
     params["experiment"] = {}
-    for e, exp_file in enumerate(exps):
-        exp = processing.read_config(exp_file)
+    for e, label3d_file in enumerate(label3d_files):
+        exp = params.copy()
         exp = processing.make_paths_safe(exp)
-
-        exp = processing.inherit_config(
-            exp,
-            base_params,
-            ["CAMNAMES", "CALIBDIR", "calib_file", "extension", "datafile"],
-        )
-
-        for k in ["COM3D_DICT", "COMfilename", "datadir", "viddir", "CALIBDIR"]:
-            if k in exp:
-                exp[k] = os.path.join(exp["base_exp_folder"], exp[k])
+        exp["label3d_file"] = label3d_file
+        exp["base_exp_folder"] = os.path.dirname(exp["label3d_file"])
+        exp["viddir"] = os.path.join(exp["base_exp_folder"], exp["viddir"])
+        for key in ["COMfilename", "COM3D_DICT"]:
+            if key in exp:
+                exp[key] = os.path.join(base_folder, exp[key])
 
         if "hard_train" in base_params.keys() and base_params["hard_train"]:
-            print("Not duplicating camnames, datafiles, and calib files")
+            print("Not duplicating camnames and label3d_files")
         else:
             # If len(exp['CAMNAMES']) divides evenly into 6, duplicate here
-            dupes = ["CAMNAMES", "datafile", "calib_file"]
+            dupes = ["CAMNAMES"]
             for d in dupes:
                 val = exp[d]
                 if _N_VIEWS % len(val) == 0:
@@ -1208,16 +1193,16 @@ def dannce_predict(base_config_path):
 
     # While we can use experiment files for DANNCE training,
     # for prediction we use the base data files present in the main config
-    exp_file = processing.grab_predict_exp_file()
-    exp = processing.read_config(exp_file)
-    exp = processing.inherit_config(exp, params, list(params.keys()))
-    for k in ["COM3D_DICT", "COMfilename", "datadir", "viddir", "CALIBDIR"]:
-        if k in exp:
-            exp[k] = os.path.join(exp["base_exp_folder"], exp[k])
-    exp["datadir"] = params["datadir"]
-    exp["datafile"] = params["datafile"]
-    params = exp
-    params["experiment"] = exp
+    # Grab the input file for prediction
+    params["label3d_file"] = processing.grab_predict_label3d_file()
+    base_folder = os.path.dirname(params["label3d_file"])
+    for key in ["COMfilename", "COM3D_DICT"]:
+        if key in params:
+            params[key] = os.path.join(base_folder, params[key])
+
+    # Also add parent params under the 'experiment' key for compatibility
+    # with DANNCE's video loading function
+    params["experiment"] = params
 
     dannce_predict_dir = params["dannce_predict_dir"]
     print(dannce_predict_dir)
@@ -1250,9 +1235,9 @@ def dannce_predict(base_config_path):
     # If len(params['experiment']['CAMNAMES']) divides evenly into 6, duplicate here,
     # Unless the network was "hard" trained to use less than 6 cameras
     if "hard_train" in base_params.keys() and base_params["hard_train"]:
-        print("Not duplicating camnames, datafiles, and calib files")
+        print("Not duplicating camnames and label3d_files")
     else:
-        dupes = ["CAMNAMES", "datafile", "calib_file"]
+        dupes = ["CAMNAMES"]
         for d in dupes:
             val = params["experiment"][d]
             if _N_VIEWS % len(val) == 0:
@@ -1271,38 +1256,16 @@ def dannce_predict(base_config_path):
         datadict_3d_,
         data_3d_,
         cameras_,
-    ) = serve_data_DANNCE.prepare_data(params["experiment"])
-    if "allcams" in params.keys() and params["allcams"]:
-        # This code allows a COM estimate from e.g. 6 cameras to be used when running
-        # DANNCE with 3 cameras
-        # Primarily used for debugging
-        # Make sure all cameras in debug fields are added, so that COM predictions
-        # can be more stable
-        dcameras_ = {}
-        for i in range(len(params["dCAMNAMES"])):
-            test = sio.loadmat(
-                os.path.join(params["dCALIBDIR"], params["dcalib_file"][i])
-            )
-            dcameras_[params["dCAMNAMES"][i]] = {
-                "K": test["K"],
-                "R": test["r"],
-                "t": test["t"],
-            }
-            if "RDistort" in list(test.keys()):
-                # Added Distortion params on Dec. 19 2018
-                dcameras_[params["dCAMNAMES"][i]]["RDistort"] = test["RDistort"]
-                dcameras_[params["dCAMNAMES"][i]]["TDistort"] = test["TDistort"]
-
+    ) = serve_data_DANNCE.prepare_data(params["experiment"], prediction=True)
     if "COM3D_DICT" not in params.keys():
 
         # Load in the COM file at the default location, or use one in the config file if provided
         if "COMfilename" in params.keys():
             comfn = params["COMfilename"]
         else:
-            comfn = os.path.join(".", "COM", "predict_results")
-            comfn = os.listdir(comfn)
-            comfn = [f for f in comfn if "COM_undistorted.pickle" in f]
-            comfn = os.path.join(".", "COM", "predict_results", comfn[0])
+            raise Exception(
+                "Please define either COM3D_DICT or COMfilename in exp.yaml"
+            )
 
         datadict_, com3d_dict_ = serve_data_DANNCE.prepare_COM(
             comfn,

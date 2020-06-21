@@ -2,6 +2,7 @@
 import numpy as np
 import scipy.io as sio
 from dannce.engine import ops as ops
+from dannce.utils import load_camera_params, load_labels, load_sync
 import os
 from six.moves import cPickle
 from scipy.special import comb
@@ -9,7 +10,9 @@ import warnings
 from copy import deepcopy
 
 
-def prepare_data(CONFIG_PARAMS, com_flag=True, nanflag=True, multimode=False):
+def prepare_data(
+    CONFIG_PARAMS, com_flag=True, nanflag=True, multimode=False, prediction=False
+):
     """Assemble necessary data structures given a set of config params.
 
     Given a set of config params, assemble necessary data structures and
@@ -19,35 +22,33 @@ def prepare_data(CONFIG_PARAMS, com_flag=True, nanflag=True, multimode=False):
 
     multimode: when this True, we output all 2D markers AND their 2D COM
     """
-    data = sio.loadmat(
-        os.path.join(CONFIG_PARAMS["datadir"], CONFIG_PARAMS["datafile"][0])
-    )
-    print(
-        "datadirfile:",
-        os.path.join(CONFIG_PARAMS["datadir"], CONFIG_PARAMS["datafile"][0]),
-    )
-    samples = np.squeeze(data["data_sampleID"])
+    if prediction:
+        labels = load_sync(CONFIG_PARAMS["label3d_file"])
+    else:
+        print(CONFIG_PARAMS["label3d_file"])
+        labels = load_labels(CONFIG_PARAMS["label3d_file"])
+    samples = np.squeeze(labels[0]["data_sampleID"])
 
-    if data["data_sampleID"].shape == (1, 1):
+    samples = np.squeeze(labels[0]["data_sampleID"])
+
+    if labels[0]["data_sampleID"].shape == (1, 1):
         # Then the squeezed value is just a number, so we add to to a list so
         # that is can be iterated over downstream
         samples = [samples]
-        warnings.warn("Note: only 1 sample in labe file")
-
+        warnings.warn("Note: only 1 sample in label file")
+    print(labels)
+    print(len(labels))
     # Collect data labels and matched frames info. We will keep the 2d labels
     # here just because we could in theory use this for training later.
     # No need to collect 3d data but it useful for checking predictions
-    if len(CONFIG_PARAMS["CAMNAMES"]) != len(CONFIG_PARAMS["datafile"]):
-        raise Exception("need a datafile for every cameras")
+    if len(CONFIG_PARAMS["CAMNAMES"]) != len(labels):
+        raise Exception("need an entry in label3d_file for every camera")
 
     framedict = {}
     ddict = {}
-    for i in range(len(CONFIG_PARAMS["datafile"])):
-        fr = sio.loadmat(
-            os.path.join(CONFIG_PARAMS["datadir"], CONFIG_PARAMS["datafile"][i])
-        )
-        framedict[CONFIG_PARAMS["CAMNAMES"][i]] = np.squeeze(fr["data_frame"])
-        data = fr["data_2d"]
+    for i, label in enumerate(labels):
+        framedict[CONFIG_PARAMS["CAMNAMES"][i]] = np.squeeze(label["data_frame"])
+        data = label["data_2d"]
 
         # reshape data_2d so that it is shape (time points, 2, 20)
         data = np.transpose(np.reshape(data, [data.shape[0], -1, 2]), [0, 2, 1])
@@ -71,7 +72,7 @@ def prepare_data(CONFIG_PARAMS, com_flag=True, nanflag=True, multimode=False):
             data = data[:, :, np.newaxis]
         ddict[CONFIG_PARAMS["CAMNAMES"][i]] = data
 
-    data_3d = fr["data_3d"]
+    data_3d = labels[0]["data_3d"]
     data_3d = np.transpose(np.reshape(data_3d, [data_3d.shape[0], -1, 3]), [0, 2, 1])
 
     datadict = {}
@@ -87,25 +88,12 @@ def prepare_data(CONFIG_PARAMS, com_flag=True, nanflag=True, multimode=False):
         datadict[samples[i]] = {"data": data, "frames": frames}
         datadict_3d[samples[i]] = data_3d[i]
 
-    if "calib_file" in list(CONFIG_PARAMS.keys()):
-        cameras = {}
-        for i in range(len(CONFIG_PARAMS["CAMNAMES"])):
-            test = sio.loadmat(
-                os.path.join(CONFIG_PARAMS["CALIBDIR"], CONFIG_PARAMS["calib_file"][i])
-            )
-            cameras[CONFIG_PARAMS["CAMNAMES"][i]] = {
-                "K": test["K"],
-                "R": test["r"],
-                "t": test["t"],
-            }
-            if "RDistort" in list(test.keys()):
-                # Added Distortion params on Dec. 19 2018
-                cameras[CONFIG_PARAMS["CAMNAMES"][i]]["RDistort"] = test["RDistort"]
-                cameras[CONFIG_PARAMS["CAMNAMES"][i]]["TDistort"] = test["TDistort"]
-
-        return samples, datadict, datadict_3d, fr["data_3d"], cameras
+    if "label3d_file" in list(CONFIG_PARAMS.keys()):
+        params = load_camera_params(CONFIG_PARAMS["label3d_file"])
+        cameras = {name: params[i] for i, name in enumerate(CONFIG_PARAMS["CAMNAMES"])}
+        return samples, datadict, datadict_3d, labels[0]["data_3d"], cameras
     else:
-        return samples, datadict, datadict_3d, fr["data_3d"]
+        return samples, datadict, datadict_3d, labels[0]["data_3d"]
 
 
 def do_retriangulate(this_com, j, k, uCamnames, camera_mats):
@@ -184,7 +172,7 @@ def prepare_COM(
     if isinstance(firstkey, str):
         com_ = {}
         for key in com.keys():
-            com_[int(key.split("_")[-1])] = com[key]
+            com_[int(float(key.split("_")[-1]))] = com[key]
         com = com_
 
     fcom = list(com.keys())[0]

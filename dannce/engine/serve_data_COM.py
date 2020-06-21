@@ -2,13 +2,14 @@
 import numpy as np
 import scipy.io as sio
 from dannce.engine import ops as ops
+from dannce.utils import load_camera_params, load_labels, load_sync
 import os
 from six.moves import cPickle
 
 _DEFAULT_CAM_NAMES = ["CameraR", "CameraL", "CameraE", "CameraU", "CameraS", "CameraU2"]
 
 
-def prepare_data(CONFIG_PARAMS, multimode=False):
+def prepare_data(CONFIG_PARAMS, multimode=False, prediction=False):
     """Assemble necessary data structures given a set of config params.
 
     Given a set of config params, assemble necessary data structures and
@@ -23,27 +24,27 @@ def prepare_data(CONFIG_PARAMS, multimode=False):
 
     minopt, maxopt: the minimum and maximum video file labels to be loaded.
     """
-    data = sio.loadmat(
-        os.path.join(CONFIG_PARAMS["datadir"], CONFIG_PARAMS["datafile"][0])
-    )
 
-    samples = np.squeeze(data["data_sampleID"])
+    # If predicting, load the whole sync file. If training load only the sync params
+    #  corresponding to labeled frames.
+    if prediction:
+        labels = load_sync(CONFIG_PARAMS["label3d_file"])
+    else:
+        labels = load_labels(CONFIG_PARAMS["label3d_file"])
+    samples = np.squeeze(labels[0]["data_sampleID"])
 
     # Collect data labels and matched frames info. We will keep the 2d labels
     # here just because we could in theory use this for training later.
     # No need to collect 3d data but it sueful for checking predictions
-    if len(CONFIG_PARAMS["CAMNAMES"]) != len(CONFIG_PARAMS["datafile"]):
-        raise Exception("need a datafile for every cameras")
+    if len(CONFIG_PARAMS["CAMNAMES"]) != len(labels):
+        raise Exception("need an entry in label3d_file for every camera")
 
     framedict = {}
     ddict = {}
-    for i in range(len(CONFIG_PARAMS["datafile"])):
-        fr = sio.loadmat(
-            os.path.join(CONFIG_PARAMS["datadir"], CONFIG_PARAMS["datafile"][i])
-        )
-        framedict[CONFIG_PARAMS["CAMNAMES"][i]] = np.squeeze(fr["data_frame"])
+    for i, label in enumerate(labels):
+        framedict[CONFIG_PARAMS["CAMNAMES"][i]] = np.squeeze(label["data_frame"])
+        data = label["data_2d"]
 
-        data = fr["data_2d"]
         # reshape data_2d so that it is shape (time points, 2, 20)
         data = np.transpose(np.reshape(data, [data.shape[0], -1, 2]), [0, 2, 1])
         # Correct for Matlab "1" indexing
@@ -60,7 +61,7 @@ def prepare_data(CONFIG_PARAMS, multimode=False):
 
         ddict[CONFIG_PARAMS["CAMNAMES"][i]] = data
 
-    data_3d = fr["data_3d"]
+    data_3d = labels[0]["data_3d"]
     data_3d = np.transpose(np.reshape(data_3d, [data_3d.shape[0], -1, 3]), [0, 2, 1])
 
     datadict = {}
@@ -77,22 +78,13 @@ def prepare_data(CONFIG_PARAMS, multimode=False):
         datadict_3d[samples[i]] = data_3d[i]
 
     # Set up cameras
-    cameras = {}
-    camera_mats = {}
-    for i in range(len(CONFIG_PARAMS["CAMNAMES"])):
-        test = sio.loadmat(
-            os.path.join(CONFIG_PARAMS["CALIBDIR"], CONFIG_PARAMS["calib_file"][i])
-        )
-        cameras[CONFIG_PARAMS["CAMNAMES"][i]] = {
-            "K": test["K"],
-            "R": test["r"],
-            "t": test["t"],
-            "RDistort": test["RDistort"],
-            "TDistort": test["TDistort"],
+    if "label3d_file" in list(CONFIG_PARAMS.keys()):
+        params = load_camera_params(CONFIG_PARAMS["label3d_file"])
+        cameras = {name: params[i] for i, name in enumerate(CONFIG_PARAMS["CAMNAMES"])}
+        camera_mats = {
+            name: ops.camera_matrix(cam["K"], cam["r"], cam["t"])
+            for name, cam in cameras.items()
         }
-        camera_mats[CONFIG_PARAMS["CAMNAMES"][i]] = ops.camera_matrix(
-            test["K"], test["r"], test["t"]
-        )
 
     return samples, datadict, datadict_3d, cameras, camera_mats
 

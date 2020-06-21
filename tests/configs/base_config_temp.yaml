@@ -66,13 +66,13 @@ lr: 1e-3
 
 # During prediction, will look for the last epoch weights saved to ./DANNCE/train_results/. To load in a different weights file, add the path here
 # Note that this must be a FULL MODEL file, not just weights.
-#predict_model: path_to_model_file
+predict_model: ../../demo/markerless_mouse_1/DANNCE/train_results/AVG/weights.1200-12.77642.hdf5
 
 # name of the network architecture (see nets.py) 'unet3d_big' (from scratch?)
 net: finetune_AVG
 
 # By default, will load in the first hdf5 file at this location for fine-tuning. If training from scratch, set to None
-weights: ../../demo/markerless_mouse_1/DANNCE/train_results/
+weights: ../../demo/markerless_mouse_1/DANNCE/weights/
 #weights: None
 
 # whether to use batch normalization or instance normalization. cannot both be true. If fine-tuning, this must be the same setting as used for the initial network
@@ -83,7 +83,7 @@ instance_norm: True
 # 'new': initializes and trains a network from scratch
 # 'finetune': loads in pre-trained weights and fine-tuned from there
 # 'continued': initializes a full model, including optimizer state, and continuous training from the last full model checkpoint
-train_mode: continued
+train_mode: finetune
 
 # When fine-tuning, sets the number of layers, starting from the input layer, to lock during training. Default 2
 N_LAYERS_LOCKED: 2
@@ -128,7 +128,7 @@ ROTATE: True
 DISTORT: True
 
 # If true, intializes an "AVG" version of the network (i.e. final spatial expected value output layer). If false, "MAX" version
-EXPVAL: False
+EXPVAL: True
 
 # COM finder output confidence scores less than this threshold will be discarded
 comthresh: 0
