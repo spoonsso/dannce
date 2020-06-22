@@ -2,7 +2,7 @@
 import numpy as np
 import scipy.io as sio
 from dannce.engine import ops as ops
-from dannce.utils import load_camera_params, load_labels, load_sync
+from dannce.engine.io import load_camera_params, load_labels, load_sync
 import os
 from six.moves import cPickle
 
