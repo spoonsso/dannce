@@ -52,9 +52,6 @@ def com_predict(base_config_path):
         params["loss"] = getattr(keras_losses, params["loss"])
     params["net"] = getattr(nets, params["net"])
 
-    vid_dir_flag = params["vid_dir_flag"]
-    _N_VIDEO_FRAMES = params["chunks"]
-
     os.environ["CUDA_VISIBLE_DEVICES"] = params["gpuID"]
 
     # If params['N_CHANNELS_OUT'] is greater than one, we enter a mode in
@@ -1010,15 +1007,23 @@ def dannce_train(base_config_path):
             X_train[i] = rr[0]
         y_train[i] = rr[1]
 
-    # tifdir = '/n/holylfs02/LABS/olveczky_lab/Jesse/P20_pups/RecordingP20Pup_one/images'
-    # for i in range(X_train.shape[0]):
-    #    for j in range(len(camnames[0])):
-    #        im = X_train[i,:,:,:,j*3:(j+1)*3]
-    #        im = processing.norm_im(im)*255
-    #        im = im.astype('uint8')
-    #        of = os.path.join(tifdir,partition['train_sampleIDs'][i]+'_cam' + str(j) + '.tif')
-    #        imageio.mimwrite(of,np.transpose(im,[2,0,1,3]))
-    # sys.exit()
+    if 'debug_volume_tifdir' in params.keys():
+        # When this option is toggled in the config, rather than
+        # training, the image volumes are dumped to tif stacks.
+        # This can be used for debugging problems with calibration or
+        # COM estimation
+        tifdir = params['debug_volume_tifdir']
+        print("Dump training volumes to {}".format(tifdir))
+        for i in range(X_train.shape[0]):
+            for j in range(len(camnames[0])):
+                im = X_train[i, :, :, :, j*3:(j+1)*3]
+                im = processing.norm_im(im)*255
+                im = im.astype('uint8')
+                of = os.path.join(tifdir,
+                    partition['train_sampleIDs'][i]+'_cam' + str(j) + '.tif')
+                imageio.mimwrite(of, np.transpose(im, [2, 0, 1, 3]))
+        print("Done! Exiting.")
+        sys.exit()
 
     print("Loading validation data into memory")
     for i in range(len(partition["valid_sampleIDs"])):
