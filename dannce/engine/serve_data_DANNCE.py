@@ -86,12 +86,16 @@ def prepare_data(
         datadict[samples[i]] = {"data": data, "frames": frames}
         datadict_3d[samples[i]] = data_3d[i]
 
-    if "label3d_file" in list(CONFIG_PARAMS.keys()):
-        params = load_camera_params(CONFIG_PARAMS["label3d_file"])
-        cameras = {name: params[i] for i, name in enumerate(CONFIG_PARAMS["CAMNAMES"])}
-        return samples, datadict, datadict_3d, labels[0]["data_3d"], cameras
+    params = load_camera_params(CONFIG_PARAMS["label3d_file"])
+    cameras = {name: params[i] for i, name in enumerate(CONFIG_PARAMS["CAMNAMES"])}
+    if return_cammmat:
+        camera_mats = {
+            name: ops.camera_matrix(cam["K"], cam["r"], cam["t"])
+            for name, cam in cameras.items()
+        }
+        return samples, datadict, datadict_3d, cameras, camera_mats
     else:
-        return samples, datadict, datadict_3d, labels[0]["data_3d"]
+        return samples, datadict, datadict_3d, cameras
 
 def prepare_COM(
     comfile,
@@ -280,7 +284,7 @@ def remove_samples(s, d3d, mode="clean", auxmode=None):
     return s, d3d
 
 
-def remove_samples_com(s, d3d, com3d_dict, cthresh=350, rmc=False):
+def remove_samples_com(s, com3d_dict, cthresh=350, rmc=False):
     """Remove any remaining samples in which the 3D COM estimates are nan.
 
     (i.e. no camera pair above threshold for a given frame)
@@ -296,8 +300,7 @@ def remove_samples_com(s, d3d, com3d_dict, cthresh=350, rmc=False):
                 sample_mask[i] = 0
 
     s = s[sample_mask]
-    d3d = d3d[sample_mask]
-    return s, d3d
+    return s
 
 
 def add_experiment(
