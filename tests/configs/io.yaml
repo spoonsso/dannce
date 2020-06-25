@@ -18,8 +18,12 @@ dannce_predict_dir: ../../demo/markerless_mouse_1/DANNCE/train_test/
 
 # predict_model
 
-# Path to a list of experiment config files. By Default, train_COMfinder.py will look for exp*.yaml files in the same directory as this file
-label3d_files: ['../../demo/markerless_mouse_1/label3d_dannce.mat', '../../demo/markerless_mouse_2/label3d_dannce.mat']
+com_file: '/home/twd/Dropbox/dannce/demo/markerless_mouse_1/COM/predict_results/COM_undistorted.pickle'
 
-COMfilename: COM/predict_results/COM_undistorted.pickle
-# COM3D_DICT: COM/predict_results/COM3D_undistorted.mat
+exp:
+    - label3d_file: '../../demo/markerless_mouse_1/label3d_dannce.mat'
+      CAMNAMES: ['Camera1','Camera2','Camera3','Camera4','Camera5','Camera6']
+      com_file: '/home/twd/Dropbox/dannce/demo/markerless_mouse_1/COM/predict_results/COM3D_undistorted.mat'
+    - label3d_file: '../../demo/markerless_mouse_2/label3d_dannce.mat'
+      CAMNAMES: ['Camera1','Camera2','Camera3','Camera4','Camera5','Camera6']
+      com_file: '/home/twd/Dropbox/dannce/demo/markerless_mouse_2/COM/predict_results/COM_undistorted.pickle'

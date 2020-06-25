@@ -20,48 +20,7 @@ import shutil
 import time
 import tensorflow as tf
 
-
-def initialize_vids(CONFIG_PARAMS, datadict, pathonly=True):
-    """
-    Modularizes video dict initialization
-    """
-    flist = []
-
-    for i in range(len(CONFIG_PARAMS["experiment"]["CAMNAMES"])):
-        # Rather than opening all vids, only open what is needed based on the
-        # maximum frame ID for this experiment and Camera
-        for key in datadict.keys():
-            flist.append(
-                datadict[key]["frames"][CONFIG_PARAMS["experiment"]["CAMNAMES"][i]]
-            )
-
-    flist = max(flist)
-
-    vids = {}
-
-    for i in range(len(CONFIG_PARAMS["experiment"]["CAMNAMES"])):
-        if CONFIG_PARAMS["vid_dir_flag"]:
-            addl = ""
-        else:
-            addl = os.listdir(
-                os.path.join(
-                    CONFIG_PARAMS["experiment"]["viddir"],
-                    CONFIG_PARAMS["experiment"]["CAMNAMES"][i],
-                )
-            )[0]
-        vids[CONFIG_PARAMS["experiment"]["CAMNAMES"][i]] = generate_readers(
-            CONFIG_PARAMS["experiment"]["viddir"],
-            os.path.join(CONFIG_PARAMS["experiment"]["CAMNAMES"][i], addl),
-            minopt=0,
-            maxopt=flist,
-            extension=CONFIG_PARAMS["experiment"]["extension"],
-            pathonly=pathonly,
-        )
-
-    return vids
-
-
-def initialize_vids_train(CONFIG_PARAMS, datadict, e, vids, pathonly=True):
+def initialize_vids(CONFIG_PARAMS, datadict, e, vids, pathonly=True):
     """
     Initializes video path dictionaries for a training session. This is different
         than a predict session because it operates over a single animal ("experiment")
@@ -100,7 +59,7 @@ def initialize_vids_train(CONFIG_PARAMS, datadict, e, vids, pathonly=True):
             pathonly=pathonly,
         )
 
-        # Add e to key
+        # Add e to key if training
         vids[CONFIG_PARAMS["experiment"][e]["CAMNAMES"][i]] = {}
         for key in r:
             vids[CONFIG_PARAMS["experiment"][e]["CAMNAMES"][i]][str(e) + "_" + key] = r[
@@ -779,3 +738,27 @@ def spatial_entropy(map_):
     """Calculate the spatial entropy of the input."""
     map_ = map_ / np.sum(map_)
     return -1 * np.sum(map_ * np.log(map_))
+
+def dupe_params(exp, dupes, _N_VIEWS):
+    """
+    When The number of views (_N_VIEWS) required
+        as input to the network is greater than the
+        number of actual cameras (e.g. when trying to
+        fine-tune a 6-camera network on data from a 
+        2-camera system), automatically duplicate necessary
+        parameters to match the required _N_VIEWS.
+    """
+
+    for d in dupes:
+        val = exp[d]
+        if _N_VIEWS % len(val) == 0:
+            num_reps = _N_VIEWS // len(val)
+            exp[d] = val * num_reps
+        else:
+            raise Exception(
+                "The length of the {} list must divide evenly into {}.".format(
+                    d, _N_VIEWS
+                )
+            )
+
+    return exp
