@@ -14,7 +14,6 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import ModelCheckpoint, CSVLogger, TensorBoard
 
 import dannce.engine.serve_data_DANNCE as serve_data_DANNCE
-import dannce.engine.serve_data_COM as serve_data_COM
 
 from dannce.engine.generator import DataGenerator_3Dconv
 from dannce.engine.generator import DataGenerator_3Dconv_frommem
@@ -238,8 +237,8 @@ def com_predict(base_config_path):
         print("Writing " + params["COMdebug"] + " confidence maps to " + cmapdir)
         print("Writing " + params["COMdebug"] + "COM-image overlays to " + overlaydir)
 
-    samples, datadict, datadict_3d, cameras, camera_mats = serve_data_COM.prepare_data(
-        params, multimode=MULTI_MODE, prediction=True
+    samples, datadict, datadict_3d, cameras, camera_mats = serve_data_DANNCE.prepare_data(
+        params, multimode=MULTI_MODE, prediction=True, return_cammat=True, nanflag=False,
     )
 
     # Zero any negative frames
@@ -346,7 +345,6 @@ def com_train(base_config_path):
             samples_,
             datadict_,
             datadict_3d_,
-            data_3d_,
             cameras_,
         ) = serve_data_DANNCE.prepare_data(
             params["experiment"][e],
@@ -695,7 +693,6 @@ def dannce_train(base_config_path):
             samples_,
             datadict_,
             datadict_3d_,
-            data_3d_,
             cameras_,
             com3d_dict_,
         ) = do_COM_load(exp, expdict, _N_VIEWS, e, params)
@@ -1158,7 +1155,6 @@ def dannce_predict(base_config_path):
         samples_,
         datadict_,
         datadict_3d_,
-        data_3d_,
         cameras_,
         com3d_dict_,
     ) = do_COM_load(params["experiment"][0],
@@ -1528,7 +1524,6 @@ def do_COM_load(exp, expdict, _N_VIEWS, e, params, training=True):
         samples_,
         datadict_,
         datadict_3d_,
-        data_3d_,
         cameras_,
     ) = serve_data_DANNCE.prepare_data(exp, 
                                        prediction = False if training else True)
@@ -1575,13 +1570,12 @@ def do_COM_load(exp, expdict, _N_VIEWS, e, params, training=True):
             raise Exception("com3d file but be .pickle or .mat")
         # Remove any 3D COMs that are beyond the confines off the 3D arena
         pre = len(samples_)
-        samples_, data_3d_ = serve_data_DANNCE.remove_samples_com(
+        samples_ = serve_data_DANNCE.remove_samples_com(
             samples_,
-            data_3d_,
             com3d_dict_,
             rmc=True,
             cthresh=exp["cthresh"],
         )
         msg = "Detected {} bad COMs and removed the associated frames from the dataset"
         print(msg.format(pre - len(samples_)))
-    return exp, samples_, datadict_, datadict_3d_, data_3d_, cameras_, com3d_dict_
+    return exp, samples_, datadict_, datadict_3d_, cameras_, com3d_dict_
