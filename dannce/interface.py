@@ -1384,9 +1384,7 @@ def dannce_predict(base_config_path):
                     )
 
             ims = valid_gen.__getitem__(i)
-            t_ = time.time()
             pred = model.predict(ims[0])
-            print(time.time()-t_)
 
             if params["EXPVAL"]:
                 probmap = pred[1]
@@ -1532,7 +1530,8 @@ def do_COM_load(exp, expdict, _N_VIEWS, e, params, training=True):
         datadict_3d_,
         data_3d_,
         cameras_,
-    ) = serve_data_DANNCE.prepare_data(exp)
+    ) = serve_data_DANNCE.prepare_data(exp, 
+                                       prediction = False if training else True)
 
     # If len(exp['CAMNAMES']) divides evenly into _N_VIEWS, duplicate here
     # This must come after loading in this excperiment's data because there
