@@ -12,8 +12,6 @@ import tensorflow.keras.losses as keras_losses
 from tensorflow.keras.models import load_model, Model
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import ModelCheckpoint, CSVLogger, TensorBoard
-import tensorflow.keras.backend as K
-from tensorflow.random import set_seed
 
 import dannce.engine.serve_data_DANNCE as serve_data_DANNCE
 import dannce.engine.serve_data_COM as serve_data_COM
@@ -35,6 +33,9 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
+_DEFAULT_VIDDIR = 'videos'
+_DEFAULT_COMSTRING = 'COM'
+_DEFAULT_COMFILENAME = 'com3d.mat'
 
 def com_predict(base_config_path):
     # Load in the params
@@ -80,7 +81,7 @@ def com_predict(base_config_path):
     if "predict_weights" in params.keys():
         model.load_weights(params["predict_weights"])
     else:
-        wdir = params["com_train_dir"]  # os.path.join('.', 'COM', 'train_results')
+        wdir = params["com_train_dir"]
         weights = os.listdir(wdir)
         weights = [f for f in weights if ".hdf5" in f]
         weights = sorted(weights, key=lambda x: int(x.split(".")[1].split("-")[0]))
@@ -131,9 +132,6 @@ def com_predict(base_config_path):
             )
 
             for m in range(pred_.shape[0]):
-                # odd loop condition, but it's because at the end of samples,
-                # predict_generator will continue to make predictions in a way I
-                # don't grasp yet, but also in a way we should ignore
 
                 # By selecting -1 for the last axis, we get the COM index for a
                 # normal COM network, and also the COM index for a multi_mode COM network,
@@ -394,7 +392,7 @@ def com_train(base_config_path):
     # Initialize video objects
     vids = {}
     for e in range(num_experiments):
-        vids = processing.initialize_vids_train(
+        vids = processing.initialize_vids(
             params, datadict, e, vids, pathonly=True
         )
 
@@ -478,7 +476,6 @@ def com_train(base_config_path):
     # Build net
     print("Initializing Network...")
 
-    # with tf.device("/gpu:0"):
     model = params["net"](
         params["loss"],
         float(params["lr"]),
@@ -540,7 +537,7 @@ def com_train(base_config_path):
         dtype="float32",
     )
 
-    # When there are a lot of videos
+    # Set up generators
     train_generator = DataGenerator_downsample(
         partition["train"], labels, vids, **train_params
     )
@@ -672,105 +669,36 @@ def dannce_train(base_config_path):
     com3d_dict = {}
     cameras = {}
     camnames = {}
-    label3d_files = params["label3d_files"]
-    num_experiments = len(label3d_files)
+    exps = params["exp"]
+    num_experiments = len(exps)
     params["experiment"] = {}
-    for e, label3d_file in enumerate(label3d_files):
+    for e, expdict in enumerate(exps):
         exp = params.copy()
         exp = processing.make_paths_safe(exp)
-        exp["label3d_file"] = label3d_file
+        exp["label3d_file"] = expdict["label3d_file"]
         exp["base_exp_folder"] = os.path.dirname(exp["label3d_file"])
-        exp["viddir"] = os.path.join(exp["base_exp_folder"], exp["viddir"])
-        for key in ["COMfilename", "COM3D_DICT"]:
-            if key in exp:
-                exp[key] = os.path.join(base_folder, exp[key])
-
-        if "hard_train" in base_params.keys() and base_params["hard_train"]:
-            print("Not duplicating camnames and label3d_files")
+        if "viddir" not in expdict.keys():
+            # if the videos are not at the _DEFAULT_VIDDIR, then it must
+            # be specified in the io.yaml experiment portion
+            exp["viddir"] = os.path.join(exp["base_exp_folder"],
+                                         _DEFAULT_VIDDIR)
         else:
-            # If len(exp['CAMNAMES']) divides evenly into 6, duplicate here
-            dupes = ["CAMNAMES"]
-            for d in dupes:
-                val = exp[d]
-                if _N_VIEWS % len(val) == 0:
-                    num_reps = _N_VIEWS // len(val)
-                    exp[d] = val * num_reps
-                else:
-                    raise Exception(
-                        "The length of the {} list must divide evenly into {}.".format(
-                            d, _N_VIEWS
-                        )
-                    )
+            exp["viddir"] = expdict["viddir"]
+        print("Experiment {} using videos in {}".format(e, exp["viddir"]))
+
+        if "CAMNAMES" in expdict.keys():
+            exp["CAMNAMES"] = expdict["CAMNAMES"]
+        print("Experiment {} using CAMNAMES: {}".format(e, exp["CAMNAMES"]))
 
         (
+            exp,
             samples_,
             datadict_,
             datadict_3d_,
             data_3d_,
             cameras_,
-        ) = serve_data_DANNCE.prepare_data(exp)
-
-        # New option: if there is "clean" data (full marker set), can take the
-        # 3D COM from the labels
-        if "COM_fromlabels" in exp.keys() and exp["COM_fromlabels"]:
-            print("For experiment {}, calculating 3D COM from labels".format(e))
-            com3d_dict_ = deepcopy(datadict_3d_)
-            for key in com3d_dict_.keys():
-                com3d_dict_[key] = np.nanmean(datadict_3d_[key], axis=1, keepdims=True)
-        else:  # then do traditional COM and sample alignment
-            if "COM3D_DICT" not in exp.keys():
-                if "COMfilename" not in exp.keys():
-                    raise Exception(
-                        "The COMfilename or COM3D_DICT field must be populated in the",
-                        "yaml for experiment {}".format(e),
-                    )
-
-                comfn = exp["COMfilename"]
-
-                datadict_, com3d_dict_ = serve_data_DANNCE.prepare_COM(
-                    comfn,
-                    datadict_,
-                    comthresh=params["comthresh"],
-                    weighted=params["weighted"],
-                    retriangulate=params["retriangulate"]
-                    if "retriangulate" in params.keys()
-                    else True,
-                    camera_mats=cameras_,
-                    method=params["com_method"],
-                )
-
-                # Need to cap this at the number of samples included in our
-                # COM finding estimates
-
-                tff = list(com3d_dict_.keys())
-                samples_ = samples_[: len(tff)]
-                data_3d_ = data_3d_[: len(tff)]
-                pre = len(samples_)
-                samples_, data_3d_ = serve_data_DANNCE.remove_samples_com(
-                    samples_,
-                    data_3d_,
-                    com3d_dict_,
-                    rmc=True,
-                    cthresh=params["cthresh"],
-                )
-                msg = "Detected {} bad COMs and removed the associated frames from the dataset"
-                print(msg.format(pre - len(samples_)))
-
-            else:
-                print(
-                    "Loading 3D COM and samples from file: {}".format(exp["COM3D_DICT"])
-                )
-                c3dfile = sio.loadmat(exp["COM3D_DICT"])
-                c3d = c3dfile["com"]
-                c3dsi = np.squeeze(c3dfile["sampleID"])
-                com3d_dict_ = {}
-                for (i, s) in enumerate(c3dsi):
-                    com3d_dict_[s] = c3d[i]
-
-                # verify all of the datadict_ keys are in this sample set
-                assert (set(c3dsi) & set(list(datadict_.keys()))) == set(
-                    list(datadict_.keys())
-                )
+            com3d_dict_,
+        ) = do_COM_load(exp, expdict, _N_VIEWS, e, params)
 
         print("Using {} samples total.".format(len(samples_)))
 
@@ -799,7 +727,8 @@ def dannce_train(base_config_path):
 
     # Additionally, to keep videos unique across experiments, need to add
     # experiment labels in other places. E.g. experiment 0 CameraE's "camname"
-    # Becomes 0_CameraE.
+    # Becomes 0_CameraE. *NOTE* This function modified camnames in place
+    # to add the appropriate experiment ID
     cameras, datadict, params = serve_data_DANNCE.prepend_experiment(
         params, datadict, num_experiments, camnames, cameras
     )
@@ -810,7 +739,7 @@ def dannce_train(base_config_path):
     vids = {}
     for e in range(num_experiments):
         if params["IMMODE"] == "vid":
-            vids = processing.initialize_vids_train(
+            vids = processing.initialize_vids(
                 params, datadict, e, vids, pathonly=True
             )
 
@@ -820,11 +749,7 @@ def dannce_train(base_config_path):
     else:
         outmode = "3dprob"
 
-    gridsize = (
-        params["NVOX"],
-        params["NVOX"],
-        params["NVOX"],
-    )
+    gridsize = tuple([params["NVOX"]]*3)
 
     # When this true, the data generator will shuffle the cameras and then select the first 3,
     # to feed to a native 3 camera model
@@ -927,12 +852,11 @@ def dannce_train(base_config_path):
     )
 
     # We should be able to load everything into memory...
+    gridsize = tuple([params["NVOX"]]*3)
     X_train = np.zeros(
         (
             len(partition["train_sampleIDs"]),
-            params["NVOX"],
-            params["NVOX"],
-            params["NVOX"],
+            *gridsize,
             params["N_CHANNELS_IN"] * len(camnames[0]),
         ),
         dtype="float32",
@@ -941,9 +865,7 @@ def dannce_train(base_config_path):
     X_valid = np.zeros(
         (
             len(partition["valid_sampleIDs"]),
-            params["NVOX"],
-            params["NVOX"],
-            params["NVOX"],
+            *gridsize,
             params["N_CHANNELS_IN"] * len(camnames[0]),
         ),
         dtype="float32",
@@ -973,9 +895,7 @@ def dannce_train(base_config_path):
         y_train = np.zeros(
             (
                 len(partition["train_sampleIDs"]),
-                params["NVOX"],
-                params["NVOX"],
-                params["NVOX"],
+                *gridsize,
                 params["NEW_N_CHANNELS_OUT"],
             ),
             dtype="float32",
@@ -984,9 +904,7 @@ def dannce_train(base_config_path):
         y_valid = np.zeros(
             (
                 len(partition["valid_sampleIDs"]),
-                params["NVOX"],
-                params["NVOX"],
-                params["NVOX"],
+                *gridsize,
                 params["NEW_N_CHANNELS_OUT"],
             ),
             dtype="float32",
@@ -1196,26 +1114,27 @@ def dannce_predict(base_config_path):
     netname = params["net"]
     params["net"] = getattr(nets, params["net"])
 
+    # Default to 6 views but a smaller number of views can be specified in the DANNCE config.
+    # If the legnth of the camera files list is smaller than _N_VIEWS, relevant lists will be
+    # duplicated in order to match _N_VIEWS, if possible.
+    _N_VIEWS = int(params["_N_VIEWS"] if "_N_VIEWS" in params.keys() else 6)
+
+    os.environ["CUDA_VISIBLE_DEVICES"] = params["gpuID"]
+    gpuID = params["gpuID"]
+
     # While we can use experiment files for DANNCE training,
     # for prediction we use the base data files present in the main config
     # Grab the input file for prediction
     params["label3d_file"] = processing.grab_predict_label3d_file()
-    base_folder = os.path.dirname(params["label3d_file"])
-    for key in ["COMfilename", "COM3D_DICT"]:
-        if key in params:
-            params[key] = os.path.join(base_folder, params[key])
-
-    # Also add parent params under the 'experiment' key for compatibility
-    # with DANNCE's video loading function
-    params["experiment"] = params
+    params["base_exp_folder"] = os.path.dirname(params["label3d_file"])
 
     dannce_predict_dir = params["dannce_predict_dir"]
-    print(dannce_predict_dir)
+    print("Predictions output to : {}".format(dannce_predict_dir))
 
     if not os.path.exists(dannce_predict_dir):
         os.makedirs(dannce_predict_dir)
 
-    # default to slow numpy backend if there is no rpedict_mode in config file. I.e. legacy support
+    # default to slow numpy backend if there is no predict_mode in config file. I.e. legacy support
     predict_mode = (
         params["predict_mode"] if "predict_mode" in params.keys() else "numpy"
     )
@@ -1229,93 +1148,28 @@ def dannce_predict(base_config_path):
         base_params["io_config"],
     )
 
-    # Default to 6 views but a smaller number of views can be specified in the DANNCE config.
-    # If the legnth of the camera files list is smaller than _N_VIEWS, relevant lists will be
-    # duplicated in order to match _N_VIEWS, if possible.
-    _N_VIEWS = int(params["_N_VIEWS"] if "_N_VIEWS" in params.keys() else 6)
-
-    os.environ["CUDA_VISIBLE_DEVICES"] = params["gpuID"]
-    gpuID = params["gpuID"]
-
-    # If len(params['experiment']['CAMNAMES']) divides evenly into 6, duplicate here,
-    # Unless the network was "hard" trained to use less than 6 cameras
-    if "hard_train" in base_params.keys() and base_params["hard_train"]:
-        print("Not duplicating camnames and label3d_files")
-    else:
-        dupes = ["CAMNAMES"]
-        for d in dupes:
-            val = params["experiment"][d]
-            if _N_VIEWS % len(val) == 0:
-                num_reps = _N_VIEWS // len(val)
-                params["experiment"][d] = val * num_reps
-            else:
-                raise Exception(
-                    "The length of the {} list must divide evenly into {}.".format(
-                        d, _N_VIEWS
-                    )
-                )
+    # Also add parent params under the 'experiment' key for compatibility
+    # with DANNCE's video loading function
+    params["experiment"] = {}
+    params["experiment"][0] = params
 
     (
+        params["experiment"][0],
         samples_,
         datadict_,
         datadict_3d_,
         data_3d_,
         cameras_,
-    ) = serve_data_DANNCE.prepare_data(params["experiment"], prediction=True)
-    if "COM3D_DICT" not in params.keys():
+        com3d_dict_,
+    ) = do_COM_load(params["experiment"][0],
+                    params["experiment"][0],
+                    _N_VIEWS,
+                    0,
+                    params,
+                    training=False)
 
-        # Load in the COM file at the default location, or use one in the config file if provided
-        if "COMfilename" in params.keys():
-            comfn = params["COMfilename"]
-        else:
-            raise Exception(
-                "Please define either COM3D_DICT or COMfilename in exp.yaml"
-            )
-
-        datadict_, com3d_dict_ = serve_data_DANNCE.prepare_COM(
-            comfn,
-            datadict_,
-            comthresh=params["comthresh"],
-            weighted=params["weighted"],
-            retriangulate=params["retriangulate"]
-            if "retriangulate" in params.keys()
-            else True,
-            camera_mats=dcameras_
-            if "allcams" in params.keys() and params["allcams"]
-            else cameras_,
-            method=params["com_method"],
-            allcams=params["allcams"]
-            if "allcams" in params.keys() and params["allcams"]
-            else False,
-        )
-
-        # Need to cap this at the number of samples included in our
-        # COM finding estimates
-        tff = list(com3d_dict_.keys())
-        samples_ = samples_[: len(tff)]
-        data_3d_ = data_3d_[: len(tff)]
-        pre = len(samples_)
-        samples_, data_3d_ = serve_data_DANNCE.remove_samples_com(
-            samples_, data_3d_, com3d_dict_, rmc=True, cthresh=params["cthresh"],
-        )
-        msg = "Detected {} bad COMs and removed the associated frames from the dataset"
-        print(msg.format(pre - len(samples_)))
-
-    else:
-
-        print("Loading 3D COM and samples from file: {}".format(exp["COM3D_DICT"]))
-        c3dfile = sio.loadmat(exp["COM3D_DICT"])
-        c3d = c3dfile["com"]
-        c3dsi = np.squeeze(c3dfile["sampleID"])
-        com3d_dict_ = {}
-        for (i, s) in enumerate(c3dsi):
-            com3d_dict_[s] = c3d[i]
-
-        # verify all of these samples are in datadict_, which we require in order to get the frames IDs
-        # for the videos
-        assert (set(c3dsi) & set(list(datadict_.keys()))) == set(list(datadict_.keys()))
-
-    # Write 3D COM to file
+    # Write 3D COM to file. This might be different from the input com3d file
+    # if arena thresholding was applied.
     cfilename = os.path.join(dannce_predict_dir, "COM3D_undistorted.mat")
     print("Saving 3D COM to {}".format(cfilename))
     c3d = np.zeros((len(samples_), 3))
@@ -1344,11 +1198,27 @@ def dannce_predict(base_config_path):
     cameras = {}
     cameras[0] = cameras_
     camnames = {}
-    camnames[0] = params["experiment"]["CAMNAMES"]
+    camnames[0] = params["experiment"][0]["CAMNAMES"]
+
+    # Need a '0' experiment ID to work with processing functions.
+    # *NOTE* This function modified camnames in place
+    # to add the appropriate experiment ID
+    cameras, datadict, params = serve_data_DANNCE.prepend_experiment(
+        params, datadict, 1, camnames, cameras
+    )
+
     samples = np.array(samples)
+
     # Initialize video dictionary. paths to videos only.
+    # TODO: Remove this IMMODE option if we decide not
+    # to support tifs
     if params["IMMODE"] == "vid":
-        vids = processing.initialize_vids(params, datadict, pathonly=True)
+        vids = {}
+        vids = processing.initialize_vids(params, 
+                                          datadict,
+                                          0,
+                                          vids, 
+                                          pathonly=True)
 
     # Parameters
     valid_params = {
@@ -1385,6 +1255,8 @@ def dannce_predict(base_config_path):
     partition = {}
     valid_inds = np.arange(len(samples))
     partition["valid_sampleIDs"] = samples[valid_inds]
+
+    # TODO: Remove tifdirs arguments, which are deprecated
     tifdirs = []
 
     # Generators
@@ -1392,30 +1264,14 @@ def dannce_predict(base_config_path):
         import torch
 
         device = "cuda:" + gpuID
-        valid_generator = DataGenerator_3Dconv_torch(
-            partition["valid_sampleIDs"],
-            datadict,
-            datadict_3d,
-            cameras,
-            partition["valid_sampleIDs"],
-            com3d_dict,
-            tifdirs,
-            **valid_params
-        )
+        genfunc = DataGenerator_3Dconv_torch
     elif predict_mode == "tf":
         device = "/GPU:" + gpuID
-        valid_generator = DataGenerator_3Dconv_tf(
-            partition["valid_sampleIDs"],
-            datadict,
-            datadict_3d,
-            cameras,
-            partition["valid_sampleIDs"],
-            com3d_dict,
-            tifdirs,
-            **valid_params
-        )
+        genfunc = DataGenerator_3Dconv_tf
     else:
-        valid_generator = DataGenerator_3Dconv(
+        genfunc = DataGenerator_3Dconv
+
+    valid_generator = genfunc(
             partition["valid_sampleIDs"],
             datadict,
             datadict_3d,
@@ -1451,11 +1307,7 @@ def dannce_predict(base_config_path):
     ):
         # This network is too "custom" to be loaded in as a full model, until I
         # figure out how to unroll the first tied weights layer
-        gridsize = (
-            params["NVOX"],
-            params["NVOX"],
-            params["NVOX"],
-        )
+        gridsize = tuple([params["NVOX"]]*3)
         model = params["net"](
             params["loss"],
             float(params["lr"]),
@@ -1532,7 +1384,9 @@ def dannce_predict(base_config_path):
                     )
 
             ims = valid_gen.__getitem__(i)
+            t_ = time.time()
             pred = model.predict(ims[0])
+            print(time.time()-t_)
 
             if params["EXPVAL"]:
                 probmap = pred[1]
@@ -1648,3 +1502,87 @@ def dannce_predict(base_config_path):
         )
 
     print("done!")
+
+def do_COM_load(exp, expdict, _N_VIEWS, e, params, training=True):
+    """
+    Factors COM loading and processing code, which is shared by
+    dannce_train() and dannce_predict()
+    """
+    if "com_file" in expdict.keys():
+        exp["com_file"] = expdict["com_file"]
+    else:
+        # If one wants to use default pathing, then the COM directory
+        # is extracted from the com_predict_dir by searching for the 
+        # path downstream of _DEFAULT_COMSTRING. If the comfilenames
+        # is at a location that does not match this pattern, then it must
+        # be specified
+        if _DEFAULT_COMSTRING not in exp["com_predict_dir"]:
+            raise Exception("Default COM directory not found",
+                ",please add an absolute path in your experiment defintions.")
+        compath = _DEFAULT_COMSTRING + \
+                exp["com_predict_dir"].split(_DEFAULT_COMSTRING)[-1]
+        exp["com_file"] = os.path.join(exp["base_exp_folder"],
+                                       compath,
+                                       _DEFAULT_COMFILENAME)
+
+    print("Experiment {} using com3d: {}".format(e, exp["com_file"]))
+    (
+        samples_,
+        datadict_,
+        datadict_3d_,
+        data_3d_,
+        cameras_,
+    ) = serve_data_DANNCE.prepare_data(exp)
+
+    # If len(exp['CAMNAMES']) divides evenly into _N_VIEWS, duplicate here
+    # This must come after loading in this excperiment's data because there
+    # is an assertion that len(exp['CAMNAMES']) == the number of cameras
+    # in the label files (which will not be duplicated)
+    exp = processing.dupe_params(exp, ["CAMNAMES"], _N_VIEWS)
+
+    # New option: if there is "clean" data (full marker set), can take the
+    # 3D COM from the labels
+    if "COM_fromlabels" in exp.keys() and exp["COM_fromlabels"] and training:
+        print("For experiment {}, calculating 3D COM from labels".format(e))
+        com3d_dict_ = deepcopy(datadict_3d_)
+        for key in com3d_dict_.keys():
+            com3d_dict_[key] = np.nanmean(datadict_3d_[key], axis=1, keepdims=True)
+    else:  # then use the com files
+        print(
+            "Loading 3D COM and samples from file: {}".format(exp["com_file"])
+        )
+        if '.mat' in exp["com_file"]:
+            c3dfile = sio.loadmat(exp["com_file"])
+            c3d = c3dfile["com"]
+            c3dsi = np.squeeze(c3dfile["sampleID"])
+            com3d_dict_ = {}
+            for (i, s) in enumerate(c3dsi):
+                com3d_dict_[s] = c3d[i]
+
+            # verify all of the datadict_ keys are in this sample set
+            assert (set(c3dsi) & set(list(datadict_.keys()))) == set(
+                list(datadict_.keys())
+            )
+        elif '.pickle' in exp["com_file"]:
+            datadict_, com3d_dict_ = serve_data_DANNCE.prepare_COM(
+                exp["com_file"],
+                datadict_,
+                comthresh=params["comthresh"],
+                weighted=params["weighted"],
+                camera_mats=cameras_,
+                method=params["com_method"],
+            )
+        else:
+            raise Exception("com3d file but be .pickle or .mat")
+        # Remove any 3D COMs that are beyond the confines off the 3D arena
+        pre = len(samples_)
+        samples_, data_3d_ = serve_data_DANNCE.remove_samples_com(
+            samples_,
+            data_3d_,
+            com3d_dict_,
+            rmc=True,
+            cthresh=exp["cthresh"],
+        )
+        msg = "Detected {} bad COMs and removed the associated frames from the dataset"
+        print(msg.format(pre - len(samples_)))
+    return exp, samples_, datadict_, datadict_3d_, data_3d_, cameras_, com3d_dict_

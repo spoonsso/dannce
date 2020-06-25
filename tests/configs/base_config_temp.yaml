@@ -66,7 +66,7 @@ lr: 1e-3
 
 # During prediction, will look for the last epoch weights saved to ./DANNCE/train_results/. To load in a different weights file, add the path here
 # Note that this must be a FULL MODEL file, not just weights.
-predict_model: ../../demo/markerless_mouse_1/DANNCE/train_results/AVG/weights.1200-12.77642.hdf5
+predict_model: ../../demo/markerless_mouse_1/DANNCE/train_results/weights.12000-0.00014.hdf5
 
 # name of the network architecture (see nets.py) 'unet3d_big' (from scratch?)
 net: finetune_AVG
@@ -128,7 +128,7 @@ ROTATE: True
 DISTORT: True
 
 # If true, intializes an "AVG" version of the network (i.e. final spatial expected value output layer). If false, "MAX" version
-EXPVAL: True
+EXPVAL: False
 
 # COM finder output confidence scores less than this threshold will be discarded
 comthresh: 0

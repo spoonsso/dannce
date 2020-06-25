@@ -27,7 +27,6 @@ def prepare_data(
     else:
         print(CONFIG_PARAMS["label3d_file"])
         labels = load_labels(CONFIG_PARAMS["label3d_file"])
-    samples = np.squeeze(labels[0]["data_sampleID"])
 
     samples = np.squeeze(labels[0]["data_sampleID"])
 
@@ -36,8 +35,7 @@ def prepare_data(
         # that is can be iterated over downstream
         samples = [samples]
         warnings.warn("Note: only 1 sample in label file")
-    print(labels)
-    print(len(labels))
+
     # Collect data labels and matched frames info. We will keep the 2d labels
     # here just because we could in theory use this for training later.
     # No need to collect 3d data but it useful for checking predictions
@@ -95,39 +93,14 @@ def prepare_data(
     else:
         return samples, datadict, datadict_3d, labels[0]["data_3d"]
 
-
-def do_retriangulate(this_com, j, k, uCamnames, camera_mats):
-    """Retriangulate COM.
-
-    If cameras parameters have been updated since finding COM,
-    COM should be re-trianngulated
-    """
-    pts1 = this_com[uCamnames[j]]["COM"]
-    pts2 = this_com[uCamnames[k]]["COM"]
-    pts1 = pts1[np.newaxis, :]
-    pts2 = pts2[np.newaxis, :]
-
-    test = camera_mats[uCamnames[j]]
-    cam1 = ops.camera_matrix(test["K"], test["R"], test["t"])
-
-    test = camera_mats[uCamnames[k]]
-    cam2 = ops.camera_matrix(test["K"], test["R"], test["t"])
-
-    test3d = np.squeeze(ops.triangulate(pts1, pts2, cam1, cam2))
-    this_com["triangulation"]["{}_{}".format(uCamnames[j], uCamnames[k])] = test3d
-
-
 def prepare_COM(
     comfile,
     datadict,
-    comthresh=0.01,
-    weighted=True,
-    retriangulate=False,
+    comthresh=0.,
+    weighted=False,
     camera_mats=None,
     conf_rescale=None,
-    method="mean",
-    allcams=False,
-    save_retriangulate=True,
+    method="median",
 ):
     """Replace 2d coords with preprocessed COM coords, return 3d COM coords.
 
@@ -140,8 +113,6 @@ def prepare_COM(
     detected by the generator to return nans such that bad camera
     frames do not get averaged in to image data
     """
-    if camera_mats is None and retriangulate:
-        raise Exception("Need camera matrices to retriangulate")
 
     with open(comfile, "rb") as f:
         com = cPickle.load(f)
@@ -155,12 +126,7 @@ def prepare_COM(
 
     firstkey = list(com.keys())[0]
 
-    if allcams:  # Then use all possible cameras, for better COM
-        camnames = np.array(
-            [s for s in list(com[firstkey].keys()) if "triangulation" not in s]
-        )
-    else:
-        camnames = np.array(list(datadict[list(datadict.keys())[0]]["data"].keys()))
+    camnames = np.array(list(datadict[list(datadict.keys())[0]]["data"].keys()))
 
         # Because I repeat cameras to fill up 6 camera quota, I need grab only
         # the unique names
@@ -198,32 +164,6 @@ def prepare_COM(
             cnt = 0
             for j in range(len(uCamnames)):
                 for k in range(j + 1, len(uCamnames)):
-                    if retriangulate:
-
-                        # Verify retriangulation happened
-                        if key == fcom:
-                            dtemp = deepcopy(this_com)
-                            do_retriangulate(this_com, j, k, uCamnames, camera_mats)
-                            print("Verifying retriangulation")
-                            assert np.any(
-                                dtemp["triangulation"][
-                                    "{}_{}".format(uCamnames[j], uCamnames[k])
-                                ]
-                                != this_com["triangulation"][
-                                    "{}_{}".format(uCamnames[j], uCamnames[k])
-                                ]
-                            )
-                            assert np.all(
-                                this_com["triangulation"][
-                                    "{}_{}".format(uCamnames[j], uCamnames[k])
-                                ]
-                                == this_com["triangulation"][
-                                    "{}_{}".format(uCamnames[j], uCamnames[k])
-                                ]
-                            )
-
-                        do_retriangulate(this_com, j, k, uCamnames, camera_mats)
-
                     if (this_com[uCamnames[j]]["pred_max"] > comthresh) and (
                         this_com[uCamnames[k]]["pred_max"] > comthresh
                     ):
@@ -271,11 +211,6 @@ def prepare_COM(
             com3d_dict[key] = com3d
         else:
             warnings.warn("Key in COM file but not in datadict")
-
-    if retriangulate and save_retriangulate:
-        # Then save the retriangulated, undistorted COM pickle so that it doesn't need to be retriangulated in the future
-        with open("COM_undistorted_retriangulate.pickl", "wb") as ff:
-            cPickle.dump(com, ff)
 
     return datadict, com3d_dict
 
