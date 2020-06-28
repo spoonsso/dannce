@@ -483,7 +483,7 @@ def com_train(base_config_path):
 
     # Create checkpoint and logging callbacks
     model_checkpoint = ModelCheckpoint(
-        os.path.join(com_train_dir, key,
+        os.path.join(com_train_dir, kkey),
         monitor=mon,
         save_best_only=True,
         save_weights_only=True,
@@ -528,29 +528,49 @@ def com_train(base_config_path):
         ims_valid[i * ncams : (i + 1) * ncams] = ims[0]
         y_valid[i * ncams : (i + 1) * ncams] = ims[1]
 
-    if params["debug"] and not MULTI_MODE:
-        # Plot all training images and save
-        # create new directory for images if necessary
-        debugdir = os.path.join(params["com_train_dir"], "debug_im_out")
-        print("Saving debug images to: " + debugdir)
-        if not os.path.exists(debugdir):
-            os.makedirs(debugdir)
+    def write_debug(trainData=True):
+        """
+        Factoring re-used debug output code.
 
-        plt.figure()
-        for i in range(ims_train.shape[0]):
-            plt.cla()
-            processing.plot_markers_2d(
-                processing.norm_im(ims_train[i]), y_train[i], newfig=False
-            )
-            plt.gca().xaxis.set_major_locator(plt.NullLocator())
-            plt.gca().yaxis.set_major_locator(plt.NullLocator())
+        Writes training or validation images to an output directory, together
+        with the ground truth COM labels and predicted COM labels, respectively.
+        """
 
-            imname = str(i) + ".png"
-            plt.savefig(
-                os.path.join(debugdir, imname), bbox_inches="tight", pad_inches=0
-            )
-    elif params["debug"] and MULTI_MODE:
-        print("Note: Cannot output debug information in COM multi-mode")
+        if params["debug"] and not MULTI_MODE:
+
+            if trainData:
+                outdir = "debug_im_out"
+                ims_out = ims_train
+                label_out = y_train
+            else:
+                outdir = "debug_im_out_valid"
+                ims_out = ims_valid
+                label_out = model.predict(ims_valid,
+                                          batch_size=1)
+            # Plot all training images and save
+            # create new directory for images if necessary
+            debugdir = os.path.join(params["com_train_dir"], outdir)
+            print("Saving debug images to: " + debugdir)
+            if not os.path.exists(debugdir):
+                os.makedirs(debugdir)
+
+            plt.figure()
+            for i in range(ims_out.shape[0]):
+                plt.cla()
+                processing.plot_markers_2d(
+                    processing.norm_im(ims_out[i]), label_out[i], newfig=False
+                )
+                plt.gca().xaxis.set_major_locator(plt.NullLocator())
+                plt.gca().yaxis.set_major_locator(plt.NullLocator())
+
+                imname = str(i) + ".png"
+                plt.savefig(
+                    os.path.join(debugdir, imname), bbox_inches="tight", pad_inches=0
+                )
+        elif params["debug"] and MULTI_MODE:
+            print("Note: Cannot output debug information in COM multi-mode")
+
+    write_debug(trainData=True)
 
     model.fit(
         ims_train,
@@ -562,30 +582,7 @@ def com_train(base_config_path):
         shuffle=True,
     )
 
-    if params["debug"] and not MULTI_MODE:
-        # Plot predictions on validation frames
-        debugdir = os.path.join(params["com_train_dir"], "debug_im_out_valid")
-        print("Saving debug images to: " + debugdir)
-        if not os.path.exists(debugdir):
-            os.makedirs(debugdir)
-
-        plt.figure()
-        for i in range(ims_valid.shape[0]):
-            plt.cla()
-            processing.plot_markers_2d(
-                processing.norm_im(ims_valid[i]),
-                model.predict(ims_valid[i : i + 1])[0],
-                newfig=False,
-            )
-            plt.gca().xaxis.set_major_locator(plt.NullLocator())
-            plt.gca().yaxis.set_major_locator(plt.NullLocator())
-
-            imname = str(i) + ".png"
-            plt.savefig(
-                os.path.join(debugdir, imname), bbox_inches="tight", pad_inches=0
-            )
-    elif params["debug"] and MULTI_MODE:
-        print("Note: Cannot output debug information in COM multi-mode")
+    write_debug(trainData=False)
 
     print("Saving full model at end of training")
     sdir = os.path.join(params["com_train_dir"], "fullmodel_weights")
