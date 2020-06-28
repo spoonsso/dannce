@@ -11,7 +11,12 @@ from copy import deepcopy
 
 
 def prepare_data(
-    CONFIG_PARAMS, com_flag=True, nanflag=True, multimode=False, prediction=False
+    CONFIG_PARAMS, 
+    com_flag=True, 
+    nanflag=True, 
+    multimode=False, 
+    prediction=False,
+    return_cammmat=False
 ):
     """Assemble necessary data structures given a set of config params.
 

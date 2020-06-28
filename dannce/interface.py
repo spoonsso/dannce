@@ -761,45 +761,12 @@ def dannce_train(base_config_path):
     # Setup a generator that will read videos and labels
     tifdirs = []  # Training from single images not yet supported in this demo
 
-    partition = {}
-    if "load_valid" not in params.keys():
-        all_inds = np.arange(len(samples))
+    partition = processing.make_data_splits(samples,
+                                            params,
+                                            dannce_train_dir,
+                                            num_experiments)
 
-        # extract random inds from each set for validation
-        v = params["num_validation_per_exp"]
-        valid_inds = []
-
-        if params["num_validation_per_exp"] > 0:  # if 0, do not perform validation
-            for e in range(num_experiments):
-                tinds = [
-                    i for i in range(len(samples)) if int(samples[i].split("_")[0]) == e
-                ]
-                valid_inds = valid_inds + list(
-                    np.random.choice(tinds, (v,), replace=False)
-                )
-
-        train_inds = [i for i in all_inds if i not in valid_inds]
-
-        assert (set(valid_inds) & set(train_inds)) == set()
-
-        partition["valid_sampleIDs"] = samples[valid_inds]
-        partition["train_sampleIDs"] = samples[train_inds]
-
-        # Save train/val inds
-        with open(dannce_train_dir + "val_samples.pickle", "wb") as f:
-            cPickle.dump(partition["valid_sampleIDs"], f)
-
-        with open(dannce_train_dir + "train_samples.pickle", "wb") as f:
-            cPickle.dump(partition["train_sampleIDs"], f)
-    else:
-        # Load validation samples from elsewhere
-        with open(os.path.join(params["load_valid"], "val_samples.pickle"), "rb",) as f:
-            partition["valid_sampleIDs"] = cPickle.load(f)
-        partition["train_sampleIDs"] = [
-            f for f in samples if f not in partition["valid_sampleIDs"]
-        ]
-
-    print(cameras)
+    import pdb; pdb.set_trace();
     train_generator = DataGenerator_3Dconv(
         partition["train_sampleIDs"],
         datadict,
