@@ -136,7 +136,7 @@ def com_predict(base_config_path):
                 # normal COM network, and also the COM index for a multi_mode COM network,
                 # as in multimode the COM label is put at the end
                 pred = pred_[m, :, :, :, -1]
-                sampleID_ = partition["valid"][i * pred_.shape[0] + m]
+                sampleID_ = partition["valid_sampleIDs"][i * pred_.shape[0] + m]
                 save_data[sampleID_] = {}
                 save_data[sampleID_]["triangulation"] = {}
 
@@ -284,13 +284,13 @@ def com_predict(base_config_path):
     }
 
     partition = {}
-    partition["valid"] = samples
+    partition["valid_sampleIDs"] = samples
     labels = datadict
 
     save_data = {}
 
     valid_generator = DataGenerator_downsample(
-        partition["valid"], labels, vids, **valid_params
+        partition["valid_sampleIDs"], labels, vids, **valid_params
     )
 
     # If we just want to analyze a chunk of video...
@@ -429,52 +429,10 @@ def com_train(base_config_path):
     valid_params = deepcopy(train_params)
     valid_params["shuffle"] = False
 
-    partition = {}
-    if "load_valid" not in params.keys():
-
-        all_inds = np.arange(len(samples))
-
-        # extract random inds from each set for validation
-        v = params["num_validation_per_exp"]
-        valid_inds = []
-        for e in range(num_experiments):
-            tinds = [
-                i for i in range(len(samples)) if int(samples[i].split("_")[0]) == e
-            ]
-            valid_inds = valid_inds + list(np.random.choice(tinds, (v,), replace=False))
-            valid_inds = list(np.sort(valid_inds))
-
-        train_inds = [i for i in all_inds if i not in valid_inds]
-        assert (set(valid_inds) & set(train_inds)) == set()
-
-        partition["train"] = samples[train_inds]
-        partition["valid"] = samples[valid_inds]
-    else:
-        # Load validation samples from elsewhere
-        with open(os.path.join(params["load_valid"], "val_samples.pickle"), "rb") as f:
-            partition["valid"] = cPickle.load(f)
-        partition["train"] = [f for f in samples if f not in partition["valid"]]
-
-    # Optionally, we can subselect a number of random train indices
-    if "num_train_per_exp" in params.keys():
-        nt = params["num_train_per_exp"]
-        subtrain = []
-        for e in range(num_experiments):
-            tinds = np.array(
-                [i for i in partition["train"] if int(i.split("_")[0]) == e]
-            )
-            tinds_ = np.random.choice(np.arange(len(tinds)), (nt,), replace=False)
-            tinds_ = np.sort(tinds_)
-            subtrain = subtrain + list(tinds[tinds_])
-
-        partition["train"] = subtrain
-
-    # Save train/val inds
-    with open(com_train_dir + "val_samples.pickle", "wb") as f:
-        cPickle.dump(partition["valid"], f)
-
-    with open(com_train_dir + "train_samples.pickle", "wb") as f:
-        cPickle.dump(partition["train"], f)
+    partition = processing.make_data_splits(samples,
+                                            params,
+                                            com_train_dir,
+                                            num_experiments)
 
     labels = datadict
 
@@ -516,9 +474,17 @@ def com_train(base_config_path):
     )
 
     # Create checkpoint and logging callbacks
+    if params["num_validation_per_exp"] > 0:
+        kkey = "weights.{epoch:02d}-{val_loss:.5f}.hdf5"
+        mon = "val_loss"
+    else:
+        kkey = "weights.{epoch:02d}-{loss:.5f}.hdf5"
+        mon = "loss"
+
+    # Create checkpoint and logging callbacks
     model_checkpoint = ModelCheckpoint(
-        os.path.join(com_train_dir, "weights.{epoch:02d}-{val_loss:.5f}.hdf5"),
-        monitor="loss",
+        os.path.join(com_train_dir, key,
+        monitor=mon,
         save_best_only=True,
         save_weights_only=True,
     )
@@ -531,33 +497,33 @@ def com_train(base_config_path):
     ncams = len(camnames[0])
     dh = (params["CROP_HEIGHT"][1] - params["CROP_HEIGHT"][0]) // params["DOWNFAC"]
     dw = (params["CROP_WIDTH"][1] - params["CROP_WIDTH"][0]) // params["DOWNFAC"]
-    ims_train = np.zeros((ncams * len(partition["train"]), dh, dw, 3), dtype="float32")
+    ims_train = np.zeros((ncams * len(partition["train_sampleIDs"]), dh, dw, 3), dtype="float32")
     y_train = np.zeros(
-        (ncams * len(partition["train"]), dh, dw, params["N_CHANNELS_OUT"]),
+        (ncams * len(partition["train_sampleIDs"]), dh, dw, params["N_CHANNELS_OUT"]),
         dtype="float32",
     )
-    ims_valid = np.zeros((ncams * len(partition["valid"]), dh, dw, 3), dtype="float32")
+    ims_valid = np.zeros((ncams * len(partition["valid_sampleIDs"]), dh, dw, 3), dtype="float32")
     y_valid = np.zeros(
-        (ncams * len(partition["valid"]), dh, dw, params["N_CHANNELS_OUT"]),
+        (ncams * len(partition["valid_sampleIDs"]), dh, dw, params["N_CHANNELS_OUT"]),
         dtype="float32",
     )
 
     # Set up generators
     train_generator = DataGenerator_downsample(
-        partition["train"], labels, vids, **train_params
+        partition["train_sampleIDs"], labels, vids, **train_params
     )
     valid_generator = DataGenerator_downsample(
-        partition["valid"], labels, vids, **valid_params
+        partition["valid_sampleIDs"], labels, vids, **valid_params
     )
 
     print("Loading data")
-    for i in range(len(partition["train"])):
+    for i in range(len(partition["train_sampleIDs"])):
         print(i, end="\r")
         ims = train_generator.__getitem__(i)
         ims_train[i * ncams : (i + 1) * ncams] = ims[0]
         y_train[i * ncams : (i + 1) * ncams] = ims[1]
 
-    for i in range(len(partition["valid"])):
+    for i in range(len(partition["valid_sampleIDs"])):
         ims = valid_generator.__getitem__(i)
         ims_valid[i * ncams : (i + 1) * ncams] = ims[0]
         y_valid[i * ncams : (i + 1) * ncams] = ims[1]
