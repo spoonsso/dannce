@@ -48,8 +48,9 @@ PyTorch is not required, but 3D volume generation is significantly faster when u
 To test your DANNCE installation and familiarize yourself with DANNCE file and configuration formatting, run DANNCE predictions for `markerless_mouse_1`. Because the videos and network weight files are too large to host on GitHub, use the links in these files to download necessary files and place them in each associated location:
 ```
 demo/markerless_mouse_1/DANNCE/train_results/link_to_weights.txt 
-demo/markerless_mouse_1/DANNCE/AVG/train_results/link_to_weights.txt
+demo/markerless_mouse_1/DANNCE/train_results/AVG/link_to_weights.txt
 demo/markerless_mouse_1/videos/link_to_videos.txt
+demo/markerless_mouse_2/videos/link_to_videos.txt
 ```
 
 Alternatively, on Linux you can run the following commands from the base `dannce` repository.
