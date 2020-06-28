@@ -27,49 +27,49 @@ cd tests/configs
 # com-predict config_com_mousetest.yaml
 # python ../compare_predictions.py ../touchstones/COM3D_undistorted_masternn.mat ../../demo/markerless_mouse_1/COM/predict_test/COM3D_undistorted.mat 0.001
 
-# echo "Testing DANNCE training, finetune_MAX"
-# awk '/net/{gsub(/finetune_AVG/, "finetune_MAX")};{print}' config_mousetest.yaml > config_temp.yaml
-# awk '/EXPVAL/{gsub(/True/, "False")};{print}' config_temp.yaml > config_temp2.yaml
-# awk '/weights/{gsub("../../demo/markerless_mouse_1/DANNCE/weights/", "../../demo/markerless_mouse_1/DANNCE/weights/weights.rat.MAX/")};{print}' config_temp2.yaml > base_config_temp.yaml
-# rm config_temp2.yaml
-# rm config_temp.yaml
-# dannce-train base_config_temp.yaml
+echo "Testing DANNCE training, finetune_MAX"
+awk '/net/{gsub(/finetune_AVG/, "finetune_MAX")};{print}' config_mousetest.yaml > config_temp.yaml
+awk '/EXPVAL/{gsub(/True/, "False")};{print}' config_temp.yaml > config_temp2.yaml
+awk '/weights/{gsub("../../demo/markerless_mouse_1/DANNCE/weights/", "../../demo/markerless_mouse_1/DANNCE/weights/weights.rat.MAX/")};{print}' config_temp2.yaml > base_config_temp.yaml
+rm config_temp2.yaml
+rm config_temp.yaml
+dannce-train base_config_temp.yaml
 
-# echo "Testing DANNCE training, finetune_AVG"
-# awk '/net/{gsub(/finetune_AVG/, "finetune_AVG")};{print}' config_mousetest.yaml > base_config_temp.yaml
-# dannce-train base_config_temp.yaml
+echo "Testing DANNCE training, finetune_AVG"
+awk '/net/{gsub(/finetune_AVG/, "finetune_AVG")};{print}' config_mousetest.yaml > base_config_temp.yaml
+dannce-train base_config_temp.yaml
 
-# echo "Testing DANNCE training, AVG net from scratch"
-# awk '/net/{gsub(/finetune_AVG/, "unet3d_big_expectedvalue")};{print}' config_mousetest.yaml > config_temp.yaml
-# awk '/train_mode/{gsub(/finetune/, "new")};{print}' config_temp.yaml > config_temp2.yaml
-# awk '/N_CHANNELS_OUT/{gsub(/20/, "22")};{print}' config_temp2.yaml > base_config_temp.yaml
-# rm config_temp2.yaml
-# rm config_temp.yaml
-# dannce-train base_config_temp.yaml
+echo "Testing DANNCE training, AVG net from scratch"
+awk '/net/{gsub(/finetune_AVG/, "unet3d_big_expectedvalue")};{print}' config_mousetest.yaml > config_temp.yaml
+awk '/train_mode/{gsub(/finetune/, "new")};{print}' config_temp.yaml > config_temp2.yaml
+awk '/N_CHANNELS_OUT/{gsub(/20/, "22")};{print}' config_temp2.yaml > base_config_temp.yaml
+rm config_temp2.yaml
+rm config_temp.yaml
+dannce-train base_config_temp.yaml
 
-# echo "Testing DANNCE training, MAX net from scratch"
-# awk '/net/{gsub(/finetune_AVG/, "unet3d_big")};{print}' config_mousetest.yaml > config_temp.yaml
-# awk '/EXPVAL/{gsub(/True/, "False")};{print}' config_temp.yaml > config_temp2.yaml
-# awk '/train_mode/{gsub(/finetune/, "new")};{print}' config_temp2.yaml > config_temp3.yaml
-# awk '/N_CHANNELS_OUT/{gsub(/20/, "22")};{print}' config_temp3.yaml > config_temp2.yaml
-# awk '/weights/{gsub("../../demo/markerless_mouse_1/DANNCE/weights/", "None")};{print}' config_temp2.yaml > base_config_temp.yaml
-# rm config_temp.yaml
-# rm config_temp2.yaml
-# rm config_temp3.yaml
-# dannce-train base_config_temp.yaml
+echo "Testing DANNCE training, MAX net from scratch"
+awk '/net/{gsub(/finetune_AVG/, "unet3d_big")};{print}' config_mousetest.yaml > config_temp.yaml
+awk '/EXPVAL/{gsub(/True/, "False")};{print}' config_temp.yaml > config_temp2.yaml
+awk '/train_mode/{gsub(/finetune/, "new")};{print}' config_temp2.yaml > config_temp3.yaml
+awk '/N_CHANNELS_OUT/{gsub(/20/, "22")};{print}' config_temp3.yaml > config_temp2.yaml
+awk '/weights/{gsub("../../demo/markerless_mouse_1/DANNCE/weights/", "None")};{print}' config_temp2.yaml > base_config_temp.yaml
+rm config_temp.yaml
+rm config_temp2.yaml
+rm config_temp3.yaml
+dannce-train base_config_temp.yaml
 
-# echo "Testing DANNCE training, AVG net continued"
-# awk '/train_mode/{gsub(/finetune/, "continued")};{print}' config_mousetest.yaml > config_temp2.yaml
-# awk '/weights/{gsub("../../demo/markerless_mouse_1/DANNCE/weights/", "../../demo/markerless_mouse_1/DANNCE/train_results/AVG/")};{print}' config_temp2.yaml > base_config_temp.yaml
-# rm config_temp2.yaml
-# dannce-train base_config_temp.yaml
+echo "Testing DANNCE training, AVG net continued"
+awk '/train_mode/{gsub(/finetune/, "continued")};{print}' config_mousetest.yaml > config_temp2.yaml
+awk '/weights/{gsub("../../demo/markerless_mouse_1/DANNCE/weights/", "../../demo/markerless_mouse_1/DANNCE/train_results/AVG/")};{print}' config_temp2.yaml > base_config_temp.yaml
+rm config_temp2.yaml
+dannce-train base_config_temp.yaml
 
-# echo "Testing DANNCE training, MAX net continued"
-# awk '/train_mode/{gsub(/finetune/, "continued")};{print}' config_mousetest.yaml > config_temp.yaml
-# awk '/EXPVAL/{gsub(/True/, "False")};{print}' config_temp.yaml > config_temp2.yaml
-# awk '/weights/{gsub("../../demo/markerless_mouse_1/DANNCE/weights/", "../../demo/markerless_mouse_1/DANNCE/train_results/")};{print}' config_temp2.yaml > base_config_temp.yaml
-# rm config_temp2.yaml
-# dannce-train config_mousetest.yaml
+echo "Testing DANNCE training, MAX net continued"
+awk '/train_mode/{gsub(/finetune/, "continued")};{print}' config_mousetest.yaml > config_temp.yaml
+awk '/EXPVAL/{gsub(/True/, "False")};{print}' config_temp.yaml > config_temp2.yaml
+awk '/weights/{gsub("../../demo/markerless_mouse_1/DANNCE/weights/", "../../demo/markerless_mouse_1/DANNCE/train_results/")};{print}' config_temp2.yaml > base_config_temp.yaml
+rm config_temp2.yaml
+dannce-train config_mousetest.yaml
 
 echo "Testing DANNCE MAX prediction"
 awk '/EXPVAL/{gsub(/True/, "False")};{print}' config_mousetest.yaml > config_temp2.yaml
