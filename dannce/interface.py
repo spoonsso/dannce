@@ -223,8 +223,12 @@ def com_predict(base_config_path):
     com_predict_dir = os.path.join(params["com_predict_dir"])
     print(com_predict_dir)
 
-    if not os.path.exists(com_predict_dir):
-        os.makedirs(com_predict_dir)
+    # Copy the configs for reproducibility
+    processing.copy_config(
+        com_predict_dir,
+        sys.argv[1],
+        base_params["io_config"],
+    )
 
     if "COMdebug" in params.keys():
         cmapdir = os.path.join(com_predict_dir, "cmap")
@@ -371,10 +375,13 @@ def com_train(base_config_path):
         camnames[e] = params["experiment"][e]["CAMNAMES"]
 
     com_train_dir = params["com_train_dir"]
-    print(com_train_dir)
 
-    if not os.path.exists(com_train_dir):
-        os.makedirs(com_train_dir)
+    # Copy the configs into the for reproducibility
+    processing.copy_config(
+        com_train_dir,
+        sys.argv[1],
+        base_params["io_config"],
+    )
 
     # Additionally, to keep videos unique across experiments, need to add
     # experiment labels in other places. E.g. experiment 0 CameraE's "camname"
@@ -717,10 +724,13 @@ def dannce_train(base_config_path):
         params["experiment"][e] = exp
 
     dannce_train_dir = params["dannce_train_dir"]
-    print(dannce_train_dir)
 
-    if not os.path.exists(dannce_train_dir):
-        os.makedirs(dannce_train_dir)
+    # Copy the configs for reproducibility
+    processing.copy_config(
+        dannce_train_dir,
+        sys.argv[1],
+        base_params["io_config"],
+    )
 
     # Additionally, to keep videos unique across experiments, need to add
     # experiment labels in other places. E.g. experiment 0 CameraE's "camname"
@@ -1126,10 +1136,6 @@ def dannce_predict(base_config_path):
     params["base_exp_folder"] = os.path.dirname(params["label3d_file"])
 
     dannce_predict_dir = params["dannce_predict_dir"]
-    print("Predictions output to : {}".format(dannce_predict_dir))
-
-    if not os.path.exists(dannce_predict_dir):
-        os.makedirs(dannce_predict_dir)
 
     # default to slow numpy backend if there is no predict_mode in config file. I.e. legacy support
     predict_mode = (
@@ -1141,7 +1147,6 @@ def dannce_predict(base_config_path):
     processing.copy_config(
         dannce_predict_dir,
         sys.argv[1],
-        base_params["io_config"],
         base_params["io_config"],
     )
 

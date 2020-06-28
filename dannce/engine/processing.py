@@ -69,23 +69,25 @@ def initialize_vids(CONFIG_PARAMS, datadict, e, vids, pathonly=True):
     return vids
 
 
-def copy_config(RESULTSDIR, main_config, dannce_config, com_config):
+def copy_config(RESULTSDIR, main_config, io_config):
     """
-    Copies config files into the results directory
+    Copies config files into the results directory, and creates results
+        directory if necessary
     """
+    print("Saving results to: {}".format(RESULTSDIR))
+
+    if not os.path.exists(RESULTSDIR):
+        os.makedirs(RESULTSDIR)
+        
     mconfig = os.path.join(
         RESULTSDIR, "copy_main_config_" + main_config.split(os.sep)[-1]
     )
     dconfig = os.path.join(
-        RESULTSDIR, "copy_dannce_config_" + dannce_config.split(os.sep)[-1]
-    )
-    cconfig = os.path.join(
-        RESULTSDIR, "copy_com_config_" + com_config.split(os.sep)[-1]
+        RESULTSDIR, "copy_io_config_" + io_config.split(os.sep)[-1]
     )
 
     shutil.copyfile(main_config, mconfig)
-    shutil.copyfile(dannce_config, dconfig)
-    shutil.copyfile(com_config, cconfig)
+    shutil.copyfile(io_config, dconfig)
 
 
 def make_paths_safe(params):
