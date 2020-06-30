@@ -16,7 +16,7 @@ def prepare_data(
     nanflag=True, 
     multimode=False, 
     prediction=False,
-    return_cammmat=False
+    return_cammat=False
 ):
     """Assemble necessary data structures given a set of config params.
 
@@ -93,7 +93,7 @@ def prepare_data(
 
     params = load_camera_params(CONFIG_PARAMS["label3d_file"])
     cameras = {name: params[i] for i, name in enumerate(CONFIG_PARAMS["CAMNAMES"])}
-    if return_cammmat:
+    if return_cammat:
         camera_mats = {
             name: ops.camera_matrix(cam["K"], cam["r"], cam["t"])
             for name, cam in cameras.items()

@@ -40,34 +40,60 @@ def initialize_vids(CONFIG_PARAMS, datadict, e, vids, pathonly=True):
 
         flist = max(flist)
 
+        # For COM prediction, we don't prepend experiment IDs
+        # So detect this case and act accordingly.
+        basecam = CONFIG_PARAMS["experiment"][e]["CAMNAMES"][i]
+        if "_" in basecam:
+            basecam = basecam.split("_")[1]
+
         if CONFIG_PARAMS["vid_dir_flag"]:
             addl = ""
         else:
             addl = os.listdir(
                 os.path.join(
                     CONFIG_PARAMS["experiment"][e]["viddir"],
-                    CONFIG_PARAMS["experiment"][e]["CAMNAMES"][i].split("_")[1],
+                    basecam,
                 )
             )[0]
         r = generate_readers(
             CONFIG_PARAMS["experiment"][e]["viddir"],
             os.path.join(
-                CONFIG_PARAMS["experiment"][e]["CAMNAMES"][i].split("_")[1], addl
+                basecam, addl
             ),
             maxopt=flist,  # Large enough to encompass all videos in directory.
             extension=CONFIG_PARAMS["experiment"][e]["extension"],
             pathonly=pathonly,
         )
 
-        # Add e to key if training
-        vids[CONFIG_PARAMS["experiment"][e]["CAMNAMES"][i]] = {}
-        for key in r:
-            vids[CONFIG_PARAMS["experiment"][e]["CAMNAMES"][i]][str(e) + "_" + key] = r[
-                key
-            ]
+        if "_" in CONFIG_PARAMS["experiment"][e]["CAMNAMES"][i]:
+            vids[CONFIG_PARAMS["experiment"][e]["CAMNAMES"][i]] = {}
+            for key in r:
+                vids[CONFIG_PARAMS["experiment"][e]["CAMNAMES"][i]][str(e) + "_" + key] = r[
+                    key
+                ]
+        else:
+            vids[CONFIG_PARAMS["experiment"][e]["CAMNAMES"][i]] = r
 
     return vids
 
+def check_config(params):
+    """
+    Add parameter checks and restrictions here.
+    """
+    check_camnames(params)
+
+    if 'exp' in params.keys():
+        for expdict in params['exp']:
+            check_camnames(expdict)
+
+def check_camnames(camp):
+    """
+    Raises an exception if camera names contain '_'
+    """
+    if 'CAMNAMES' in camp:
+        for cam in camp['CAMNAMES']:
+            if '_' in cam:
+                raise Exception("Camera names cannot contain '_' ")
 
 def copy_config(RESULTSDIR, main_config, io_config):
     """
@@ -190,10 +216,8 @@ def save_COM_checkpoint(save_data, RESULTSDIR, datadict_, cameras, params):
         datadict_save,
         comthresh=0,
         weighted=False,
-        retriangulate=False,
         camera_mats=cameras,
-        method="median",
-        allcams=False,
+        method="median"
     )
 
     cfilename = os.path.join(RESULTSDIR, "COM3D_undistorted.mat")
@@ -234,7 +258,7 @@ def inherit_config(child, parent, keys):
         if key not in child.keys():
             child[key] = parent[key]
             print(
-                "{} not found in exp.yaml file, falling back to main config".format(key)
+                "{} not found in io.yaml file, falling back to main config".format(key)
             )
 
     return child

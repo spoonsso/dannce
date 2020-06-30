@@ -4,21 +4,16 @@ com_train_dir: ../../demo/markerless_mouse_1/COM/train_test/
 com_predict_dir: ../../demo/markerless_mouse_1/COM/predict_test/
 
 # During prediction, will look for the last epoch weights saved to ./COM/train_results/. To load in a different weights file, add the path here
-predict_weights: ../../demo/markerless_mouse_1/COM/train_results/weights.250-0.00036.hdf5
-
-# List of paths to Label3D output files. By default, the first file in the list will be used for prediction. 
-com_label3d_files: ['../../demo/markerless_mouse_1/com_dannce.mat', '../../demo/markerless_mouse_2/com_dannce.mat']
-
-
+com_predict_weights: ../../demo/markerless_mouse_1/COM/train_results/weights.250-0.00036.hdf5
 
 ### Dannce ###
 # path to folder where DANNCE weights and logs will be saved
 dannce_train_dir: ../../demo/markerless_mouse_1/DANNCE/train_test/
 dannce_predict_dir: ../../demo/markerless_mouse_1/DANNCE/train_test/
 
-# predict_model
-
-com_file: '/home/twd/Dropbox/dannce/demo/markerless_mouse_1/COM/predict_results/COM_undistorted.pickle'
+# During prediction, will look for the last epoch weights saved to ./DANNCE/train_results/. To load in a different weights file, add the path here
+# Note that this must be a FULL MODEL file, not just weights.
+dannce_predict_model: ../../demo/markerless_mouse_1/DANNCE/train_results/AVG/weights.1200-12.77642.hdf5
 
 exp:
     - label3d_file: '../../demo/markerless_mouse_1/label3d_dannce.mat'
@@ -27,3 +22,16 @@ exp:
     - label3d_file: '../../demo/markerless_mouse_2/label3d_dannce.mat'
       CAMNAMES: ['Camera1','Camera2','Camera3','Camera4','Camera5','Camera6']
       com_file: '/home/twd/Dropbox/dannce/demo/markerless_mouse_2/COM/predict_results/COM_undistorted.pickle'
+
+# path to folder contraining video sub directories. Used only for com and dannce PREDICTION
+viddir: ../../demo/markerless_mouse_1/videos/
+
+# path to folder contraining video sub directories. Used only for dannce PREDICTION
+com_file: '/home/twd/Dropbox/dannce/demo/markerless_mouse_1/COM/predict_results/COM_undistorted.pickle'
+
+# How to crop the input images. The U-Net expects each dimension size to be a multiple of 32.
+CROP_HEIGHT: [0, 1024]
+CROP_WIDTH: [0, 1152]
+
+CAMNAMES: ['Camera1', 'Camera2', 'Camera3', 'Camera4', 'Camera5', 'Camera6']
+

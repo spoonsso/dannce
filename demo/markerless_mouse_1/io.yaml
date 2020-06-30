@@ -1,22 +1,42 @@
 ### COM ###
 # path to folder where COM weights and logs will be saved
-com_train_dir: ./COM/train_test/
-com_predict_dir: ./COM/predict_test/
+com_train_dir: ./COM/train_results/
+com_predict_dir: ./COM/predict_results/
 
 # During prediction, will look for the last epoch weights saved to ./COM/train_results/. To load in a different weights file, add the path here
-predict_weights: ./COM/train_results/weights.250-0.00036.hdf5
+com_predict_weights: ./COM/train_results/weights.250-0.00036.hdf5
 
-# Path to a list of experiment config files. By Default, train_COMfinder.py will look for exp*.yaml files in the same directory as this file
-com_exp_path: ['./markerless_mouse_1/exp.yaml', './markerless_mouse_2/exp.yaml']
-
-
+com_finetune_weights: ./COM/weights/
 
 ### Dannce ###
 # path to folder where DANNCE weights and logs will be saved
 dannce_train_dir: ./DANNCE/train_results/
 dannce_predict_dir: ./DANNCE/predict_results/
 
-# predict_model
+# During prediction, will look for the last epoch weights saved to ./DANNCE/train_results/. To load in a different weights file, add the path here
+# Note that this must be a FULL MODEL file, not just weights.
+dannce_predict_model: ./DANNCE/train_results/AVG/weights.1200-12.77642.hdf5
 
-# Path to a list of experiment config files. By Default, train_COMfinder.py will look for exp*.yaml files in the same directory as this file
-dannce_exp_path: ['./markerless_mouse_1/exp.yaml', './markerless_mouse_2/exp.yaml']
+# By default, will load in the first hdf5 file at this location for fine-tuning. If training from scratch, set to None
+dannce_finetune_weights: ./DANNCE/weights/
+
+exp:
+    - label3d_file: './label3d_dannce.mat'
+      CAMNAMES: ['Camera1','Camera2','Camera3','Camera4','Camera5','Camera6']
+      com_file: './COM/predict_results/COM3D_undistorted.mat'
+    - label3d_file: '../markerless_mouse_2/label3d_dannce.mat'
+      CAMNAMES: ['Camera1','Camera2','Camera3','Camera4','Camera5','Camera6']
+      com_file: '../markerless_mouse_2/COM/predict_results/COM_undistorted.pickle'
+
+# path to folder contraining video sub directories. Used only for com and dannce PREDICTION
+viddir: ./videos/
+
+# path to folder contraining video sub directories. Used only for dannce PREDICTION
+#com_file: './COM/predict_results/COM_undistorted.pickle'
+
+# How to crop the input images. The U-Net expects each dimension size to be a multiple of 32.
+CROP_HEIGHT: [0, 1024]
+CROP_WIDTH: [0, 1152]
+
+CAMNAMES: ['Camera1', 'Camera2', 'Camera3', 'Camera4', 'Camera5', 'Camera6']
+
