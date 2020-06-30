@@ -8,29 +8,26 @@ com_predict_weights: ./COM/train_results/weights.250-0.00036.hdf5
 
 ### Dannce ###
 # path to folder where DANNCE weights and logs will be saved
-dannce_train_dir: ./DANNCE/train_results/
+dannce_train_dir: ./DANNCE/train_results/AVG/
 dannce_predict_dir: ./DANNCE/predict_results/
 
 # During prediction, will look for the last epoch weights saved to ./DANNCE/train_results/. To load in a different weights file, add the path here
 # Note that this must be a FULL MODEL file, not just weights.
-dannce_predict_model: ./DANNCE/train_results/AVG/weights.1200-12.77642.hdf5
-
-# By default, will load in the first hdf5 file at this location for fine-tuning. If training from scratch, set to None
-dannce_finetune_weights: ./DANNCE/weights/
+# dannce_predict_model: ./DANNCE/train_results/AVG/weights.1200-12.77642.hdf5
 
 exp:
     - label3d_file: './label3d_dannce.mat'
-      CAMNAMES: ['Camera1','Camera2','Camera3','Camera4','Camera5','Camera6']
-      com_file: './COM/predict_results/COM3D_undistorted.mat'
+      #CAMNAMES: ['Camera1','Camera2','Camera3','Camera4','Camera5','Camera6']
+      #com_file: './COM/predict_results/com3d.mat'
     - label3d_file: '../markerless_mouse_2/label3d_dannce.mat'
-      CAMNAMES: ['Camera1','Camera2','Camera3','Camera4','Camera5','Camera6']
-      com_file: '../markerless_mouse_2/COM/predict_results/COM_undistorted.pickle'
+      #CAMNAMES: ['Camera1','Camera2','Camera3','Camera4','Camera5','Camera6']
+      com_file: '../markerless_mouse_2/COM/predict_results/com3d.pickle'
 
 # path to folder contraining video sub directories. Used only for com and dannce PREDICTION
 viddir: ./videos/
 
 # path to folder contraining video sub directories. Used only for dannce PREDICTION
-#com_file: './COM/predict_results/COM_undistorted.pickle'
+com_file: './COM/predict_results/com3d.pickle'
 
 # How to crop the input images. The U-Net expects each dimension size to be a multiple of 32.
 CROP_HEIGHT: [0, 1024]
