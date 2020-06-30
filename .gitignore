@@ -44,5 +44,14 @@ demo/markerless_mouse_1/COM/train_results/*.pickle
 demo/markerless_mouse_1/COM/train_results/*.csv
 demo/markerless_mouse_1/COM/train_results/logs
 
+demo/markerless_mouse_1/COM/train_results/copy*
+demo/markerless_mouse_1/COM/predict_results/copy*
+demo/markerless_mouse_1/DANNCE/train_results/copy*
+
+demo/markerless_mouse_2/COM/train_results/copy*
+demo/markerless_mouse_2/COM/predict_results/copy*
+demo/markerless_mouse_2/DANNCE/train_results/copy*
+demo/markerless_mouse_2/DANNCE/predict_results/copy*
+
 demo/markerless_mouse_1/videos/
 demo/markerless_mouse_2/videos/
