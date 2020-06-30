@@ -1,17 +1,3 @@
-# path to folder containing formatted data files 
-datadir: ../../demo/markerless_mouse_1/sync/
-
-# path to folder contraining video sub directories
-viddir: ../../demo/markerless_mouse_1/videos/
-
-# names of data files. must match the order of CAMNAMES below
-datafile: ['Camera1_sync', 'Camera2_sync', 'Camera3_sync', 'Camera4_sync','Camera5_sync','Camera6_sync']
-
-# Names for each of the camera subdirectories in the video folder. Order should match the datafiles above.
-CAMNAMES: ['Camera1', 'Camera2', 'Camera3', 'Camera4', 'Camera5', 'Camera6']
-CALIBDIR: ../../demo/markerless_mouse_1/calibration/
-calib_file: ['kyle_cam1_params.mat','kyle_cam2_params.mat','kyle_cam3_params.mat','kyle_cam4_params.mat', 'kyle_cam5_params.mat', 'kyle_cam6_params.mat']
-
 # If true, each camera's video directory contains only the video files. If false, each camera's video directory contains an additional subdirectory, which then contains the video files
 vid_dir_flag: True
 
@@ -22,10 +8,6 @@ extension: '.mp4'
 chunks: 3000
 
 io_config: io.yaml
-
-# How to crop the input images. The U-Net expects each dimension size to be a multiple of 32.
-CROP_HEIGHT: [0, 1024]
-CROP_WIDTH: [0, 1156]
 
 # Number of channels for each input image (e.g. RGB == 3)
 N_CHANNELS_IN: 3
@@ -40,20 +22,14 @@ NEW_N_CHANNELS_OUT: 22
 # New size of the final output kernel
 NEW_LAST_KERNEL_SIZE: [3,3,3]
 
-# BATCH_SIZE
+# Batch size for training and prediction
 BATCH_SIZE: 4
-
-# Number of parallel workers serving data to the model
-WORKERS: 4
-
-# Max. number of batches in multi-processing queue
-MAX_QUEUE_SIZE: 20
 
 # DANNCE training option. Sets the size of the 3D Guassians (in mm) used as labels for the MAX models
 SIGMA: 10
 
 # DANNCE training option. Sets the number of epochs during training (default 1200)
-EPOCHS: 3
+EPOCHS: 600
 
 # DANNCE training option. Sets the verbosity of training output
 VERBOSE: 1
@@ -69,15 +45,7 @@ lr: 1e-3
 #predict_model: path_to_model_file
 
 # name of the network architecture (see nets.py) 'unet3d_big' (from scratch?)
-net: finetune_MAX
-
-# By default, will load in the first hdf5 file at this location for fine-tuning. If training from scratch, set to None
-weights: ../../demo/markerless_mouse_1/DANNCE/weights/weights.rat.MAX/
-#weights: None
-
-# whether to use batch normalization or instance normalization. cannot both be true. If fine-tuning, this must be the same setting as used for the initial network
-batch_norm: False
-instance_norm: True
+net: finetune_AVG
 
 # Options:
 # 'new': initializes and trains a network from scratch
@@ -88,9 +56,6 @@ train_mode: finetune
 # When fine-tuning, sets the number of layers, starting from the input layer, to lock during training. Default 2
 N_LAYERS_LOCKED: 2
 
-# If true, each camera's video directory contains only the video files. If false, each camera's video directory contains an additional subdirectory, which then contains the video files
-vid_dir_flag: True
-
 # DANNCE training. Metric to be monitored in addition to loss
 metric: ['mse']
 #['euclidean_distance_3D','centered_euclidean_distance_3D']
@@ -100,12 +65,6 @@ num_validation_per_exp: 4
 
 # When using a system with multiple GPUs, we should just target one of them
 gpuID: "0"
-
-# The number of frames in each video file
-chunks: 3000
-
-# path to COM file. By Default, during prediction DANNCE will look in ./COM/predict_results/ for a COM_undistorted.mat file
-COMfilename: ../../demo/markerless_mouse_1/COM/predict_results/COM_undistorted.pickle
 
 # Limits (in mm) to 3D volumes anchored on subject
 VMIN: -60
@@ -119,17 +78,14 @@ INTERP: nearest
 # If DEPTH is true, will append depth information when sampling images. Particularly useful when using just 1 cameras.
 DEPTH: False
 
+# set to 'vid' only, tif support in development
 IMMODE: 'vid'
 
 # DANNCE training option. Whether to turn on rotation augmentation during training
 ROTATE: True
 
-# Whether to apply lens distortion during sampling. Default True
-DISTORT: True
-
 # If true, intializes an "AVG" version of the network (i.e. final spatial expected value output layer). If false, "MAX" version
-EXPVAL: False
-
+EXPVAL: True
 # COM finder output confidence scores less than this threshold will be discarded
 comthresh: 0
 
@@ -148,6 +104,7 @@ CHANNEL_COMBO: 'None'
 # max. number of batches to evaluate during prediction. set to 'max' to evaluate over all data/video frames
 maxbatch: 250
 
-retriangulate: False
-
 predict_mode: 'torch'
+
+# By default, will load in the first hdf5 file at this location for fine-tuning. If training from scratch, set to None
+dannce_finetune_weights: ./DANNCE/weights/

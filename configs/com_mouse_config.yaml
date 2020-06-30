@@ -68,3 +68,5 @@ max_num_samples: 1000
 
 # Downsampling mode, 'dsm' is downsample local mean. 'nn' is nearest neighbor and potentially faster
 dsmode: nn
+
+com_finetune_weights: ./COM/weights/
