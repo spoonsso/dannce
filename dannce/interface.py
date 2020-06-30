@@ -25,7 +25,6 @@ from dannce.engine.processing import savedata_tomat, savedata_expval
 from dannce.engine import nets
 from dannce.engine import losses
 from dannce.engine import ops
-from six.moves import cPickle
 
 import matplotlib
 
@@ -44,7 +43,7 @@ def com_predict(base_config_path):
     params = processing.read_config(base_params["io_config"])
     params = processing.make_paths_safe(params)
     params = processing.inherit_config(params, base_params, list(base_params.keys()))
-
+    processing.check_config(params)
     # Load the appropriate loss function and network
     try:
         params["loss"] = getattr(losses, params["loss"])
@@ -64,7 +63,8 @@ def com_predict(base_config_path):
 
     # Also add parent params under the 'experiment' key for compatibility
     # with DANNCE's video loading function
-    params["experiment"] = params
+    params["experiment"] = {}
+    params["experiment"][0] = params
 
     # Build net
     print("Initializing Network...")
@@ -77,17 +77,16 @@ def com_predict(base_config_path):
         multigpu=False,
     )
 
-    if "predict_weights" in params.keys():
-        model.load_weights(params["predict_weights"])
-    else:
+    if "com_predict_weights" not in params.keys():
         wdir = params["com_train_dir"]
         weights = os.listdir(wdir)
         weights = [f for f in weights if ".hdf5" in f]
         weights = sorted(weights, key=lambda x: int(x.split(".")[1].split("-")[0]))
         weights = weights[-1]
-
-        print("Loading weights from " + os.path.join(wdir, weights))
-        model.load_weights(os.path.join(wdir, weights))
+        params["com_predict_weights"] = os.path.join(wdir, weights)
+    
+    print("Loading weights from " + params["com_predict_weights"])
+    model.load_weights(params["com_predict_weights"])
 
     print("COMPLETE\n")
 
@@ -260,7 +259,12 @@ def com_predict(base_config_path):
     datadict = datadict_
 
     # Initialize video dictionary. paths to videos only.
-    vids = processing.initialize_vids(params, datadict, pathonly=True)
+    vids = {}
+    vids = processing.initialize_vids(params, 
+                                      datadict, 
+                                      0,
+                                      vids,
+                                      pathonly=True)
 
     # Parameters
     valid_params = {
@@ -279,7 +283,7 @@ def com_predict(base_config_path):
         "labelmode": "coord",
         "chunks": params["chunks"],
         "shuffle": False,
-        "dsmode": params["dsmode"] if "dsmode" in params.keys() else "dsm",
+        "dsmode": params["dsmode"],
         "preload": False,
     }
 
@@ -318,11 +322,17 @@ def com_train(base_config_path):
     params = processing.read_config(base_params["io_config"])
     params = processing.make_paths_safe(params)
     params = processing.inherit_config(params, base_params, list(base_params.keys()))
+    processing.check_config(params)
 
     params["loss"] = getattr(losses, params["loss"])
     params["net"] = getattr(nets, params["net"])
 
     os.environ["CUDA_VISIBLE_DEVICES"] = params["gpuID"]
+
+    # MULTI_MODE is where the full set of markers is trained on, rather than
+    # the COM only. In some cases, this can help improve COMfinder performance.
+    MULTI_MODE = params["N_CHANNELS_OUT"] > 1
+    params["N_CHANNELS_OUT"] = params["N_CHANNELS_OUT"] + int(MULTI_MODE)
 
     samples = []
     datadict = {}
@@ -330,19 +340,33 @@ def com_train(base_config_path):
     cameras = {}
     camnames = {}
 
-    label3d_files = params["com_label3d_files"]
-    print(label3d_files, flush=True)
-    num_experiments = len(label3d_files)
+    # Use the same label files and experiment settings as DANNCE unless
+    # indicated otherwise by using a 'com_exp' block in io.yaml.
+    #
+    # This can be useful for introducing additional COM-only label files.
+    if "com_exp" in params.keys():
+        exps = params["com_exp"]
+    else:
+        exps = params["exp"]
+    num_experiments = len(exps)
     params["experiment"] = {}
-    MULTI_MODE = params["N_CHANNELS_OUT"] > 1
-    params["N_CHANNELS_OUT"] = params["N_CHANNELS_OUT"] + int(MULTI_MODE)
-    for e, label3d_file in enumerate(label3d_files):
+    for e, expdict in enumerate(exps):
         exp = params.copy()
         exp = processing.make_paths_safe(exp)
-        exp["label3d_file"] = label3d_file
-        print(exp["label3d_file"])
+        exp["label3d_file"] = expdict["label3d_file"]
         exp["base_exp_folder"] = os.path.dirname(exp["label3d_file"])
-        exp["viddir"] = os.path.join(exp["base_exp_folder"], exp["viddir"])
+        if "viddir" not in expdict.keys():
+            # if the videos are not at the _DEFAULT_VIDDIR, then it must
+            # be specified in the io.yaml experiment block
+            exp["viddir"] = os.path.join(exp["base_exp_folder"],
+                                         _DEFAULT_VIDDIR)
+        else:
+            exp["viddir"] = expdict["viddir"]
+        print("Experiment {} using videos in {}".format(e, exp["viddir"]))
+
+        if "CAMNAMES" in expdict.keys():
+            exp["CAMNAMES"] = expdict["CAMNAMES"]
+        print("Experiment {} using CAMNAMES: {}".format(e, exp["CAMNAMES"]))
 
         params["experiment"][e] = exp
         (
@@ -403,7 +427,7 @@ def com_train(base_config_path):
 
     print(
         "Using {} downsampling".format(
-            params["dsmode"] if "dsmode" in params.keys() else "dsm"
+            params["dsmode"]
         )
     )
 
@@ -422,7 +446,7 @@ def com_train(base_config_path):
         "downsample": params["DOWNFAC"],
         "shuffle": False,
         "chunks": params["chunks"],
-        "dsmode": params["dsmode"] if "dsmode" in params.keys() else "dsm",
+        "dsmode": params["dsmode"],
         "preload": False,
     }
 
@@ -435,7 +459,6 @@ def com_train(base_config_path):
                                             num_experiments)
 
     labels = datadict
-
     # Build net
     print("Initializing Network...")
 
@@ -449,13 +472,13 @@ def com_train(base_config_path):
     )
     print("COMPLETE\n")
 
-    if params["weights"] is not None:
-        weights = os.listdir(params["weights"])
+    if params["com_finetune_weights"] is not None:
+        weights = os.listdir(params["com_finetune_weights"])
         weights = [f for f in weights if ".hdf5" in f]
         weights = weights[0]
 
         try:
-            model.load_weights(os.path.join(params["weights"], weights))
+            model.load_weights(os.path.join(params["com_finetune_weights"], weights))
         except:
             print(
                 "Note: model weights could not be loaded due to a mismatch in dimensions.\
@@ -463,7 +486,7 @@ def com_train(base_config_path):
                   the top of the net accordingly"
             )
             model.layers[-1].name = "top_conv"
-            model.load_weights(os.path.join(params["weights"], weights), by_name=True)
+            model.load_weights(os.path.join(params["com_finetune_weights"], weights), by_name=True)
 
     if "lockfirst" in params.keys() and params["lockfirst"]:
         for layer in model.layers[:2]:
@@ -524,6 +547,7 @@ def com_train(base_config_path):
         y_train[i * ncams : (i + 1) * ncams] = ims[1]
 
     for i in range(len(partition["valid_sampleIDs"])):
+        print(i, end="\r")
         ims = valid_generator.__getitem__(i)
         ims_valid[i * ncams : (i + 1) * ncams] = ims[0]
         y_valid[i * ncams : (i + 1) * ncams] = ims[1]
@@ -600,7 +624,8 @@ def dannce_train(base_config_path):
     params = processing.read_config(base_params["io_config"])
     params = processing.make_paths_safe(params)
     params = processing.inherit_config(params, base_params, list(base_params.keys()))
-
+    processing.check_config(params)
+    
     params["loss"] = getattr(losses, params["loss"])
     params["net"] = getattr(nets, params["net"])
 
@@ -622,14 +647,15 @@ def dannce_train(base_config_path):
     os.environ["CUDA_VISIBLE_DEVICES"] = params["gpuID"]
 
     # find the weights given config path
-    if params["weights"] != "None":
-        weights = os.listdir(params["weights"])
+    if params["dannce_finetune_weights"] != "None":
+        weights = os.listdir(params["dannce_finetune_weights"])
         weights = [f for f in weights if ".hdf5" in f]
         weights = weights[0]
 
-        params["weights"] = os.path.join(params["weights"], weights)
+        params["dannce_finetune_weights"] = \
+            os.path.join(params["dannce_finetune_weights"], weights)
 
-        print("Fine-tuning from {}".format(params["weights"]))
+        print("Fine-tuning from {}".format(params["dannce_finetune_weights"]))
 
     samples = []
     datadict = {}
@@ -751,7 +777,7 @@ def dannce_train(base_config_path):
         "shuffle": False,  # We will shuffle later
         "rotation": False,  # We will rotate later if desired
         "vidreaders": vids,
-        "distort": params["DISTORT"],
+        "distort": True,
         "expval": params["EXPVAL"],
         "crop_im": False,
         "chunks": params["chunks"],
@@ -925,8 +951,6 @@ def dannce_train(base_config_path):
     # Build net
     print("Initializing Network...")
 
-    assert not (params["batch_norm"] == True) & (params["instance_norm"] == True)
-
     # Currently, we expect four modes of use:
     # 1) Training a new network from scratch
     # 2) Fine-tuning a network trained on a diff. dataset (transfer learning)
@@ -941,8 +965,8 @@ def dannce_train(base_config_path):
             params["N_CHANNELS_IN"] + params["DEPTH"],
             params["N_CHANNELS_OUT"],
             len(camnames[0]),
-            batch_norm=params["batch_norm"],
-            instance_norm=params["instance_norm"],
+            batch_norm=False,
+            instance_norm=True,
             include_top=True,
             gridsize=gridsize,
         )
@@ -955,15 +979,15 @@ def dannce_train(base_config_path):
             len(camnames[0]),
             params["NEW_LAST_KERNEL_SIZE"],
             params["NEW_N_CHANNELS_OUT"],
-            params["weights"],
+            params["dannce_finetune_weights"],
             params["N_LAYERS_LOCKED"],
-            batch_norm=params["batch_norm"],
-            instance_norm=params["instance_norm"],
+            batch_norm=False,
+            instance_norm=True,
             gridsize=gridsize,
         )
     elif params["train_mode"] == "continued":
         model = load_model(
-            params["weights"],
+            params["dannce_finetune_weights"],
             custom_objects={
                 "ops": ops,
                 "slice_input": nets.slice_input,
@@ -981,12 +1005,12 @@ def dannce_train(base_config_path):
             params["N_CHANNELS_IN"] + params["DEPTH"],
             params["N_CHANNELS_OUT"],
             3 if cam3_train else len(camnames[0]),
-            batch_norm=params["batch_norm"],
-            instance_norm=params["instance_norm"],
+            batch_norm=False,
+            instance_norm=True,
             include_top=True,
             gridsize=gridsize,
         )
-        model.load_weights(params["weights"])
+        model.load_weights(params["dannce_finetune_weights"])
     else:
         raise Exception("Invalid training mode")
 
@@ -1041,7 +1065,7 @@ def dannce_predict(base_config_path):
     params = processing.read_config(base_params["io_config"])
     params = processing.make_paths_safe(params)
     params = processing.inherit_config(params, base_params, list(base_params.keys()))
-
+    processing.check_config(params)
     # Load the appropriate loss function and network
     try:
         params["loss"] = getattr(losses, params["loss"])
@@ -1174,7 +1198,7 @@ def dannce_predict(base_config_path):
         "shuffle": False,
         "rotation": False,
         "vidreaders": vids,
-        "distort": params["DISTORT"],
+        "distort": True,
         "expval": params["EXPVAL"],
         "crop_im": False,
         "chunks": params["chunks"],
@@ -1219,8 +1243,8 @@ def dannce_predict(base_config_path):
     # As a precaution, we import all possible custom objects that could be used
     # by a model and thus need declarations
 
-    if "predict_model" in params.keys():
-        mdl_file = params["predict_model"]
+    if "dannce_predict_model" in params.keys():
+        mdl_file = params["dannce_predict_model"]
     else:
         wdir = params["dannce_train_dir"]
         weights = os.listdir(wdir)
@@ -1229,7 +1253,8 @@ def dannce_predict(base_config_path):
         weights = weights[-1]
 
         mdl_file = os.path.join(wdir, weights)
-        print("Loading model from " + mdl_file)
+
+    print("Loading model from " + mdl_file)
 
     if (
         netname == "unet3d_big_tiedfirstlayer_expectedvalue"
@@ -1244,8 +1269,8 @@ def dannce_predict(base_config_path):
             params["N_CHANNELS_IN"] + params["DEPTH"],
             params["N_CHANNELS_OUT"],
             len(camnames[0]),
-            batch_norm=params["batch_norm"],
-            instance_norm=params["instance_norm"],
+            batch_norm=False,
+            instance_norm=True,
             include_top=True,
             gridsize=gridsize,
         )

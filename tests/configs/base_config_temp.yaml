@@ -1,17 +1,3 @@
-# path to folder containing formatted data files 
-datadir: ../../demo/markerless_mouse_1/sync/
-
-# path to folder contraining video sub directories
-viddir: ../../demo/markerless_mouse_1/videos/
-
-# names of data files. must match the order of CAMNAMES below
-datafile: ['Camera1_sync', 'Camera2_sync', 'Camera3_sync', 'Camera4_sync','Camera5_sync','Camera6_sync']
-
-# Names for each of the camera subdirectories in the video folder. Order should match the datafiles above.
-CAMNAMES: ['Camera1', 'Camera2', 'Camera3', 'Camera4', 'Camera5', 'Camera6']
-CALIBDIR: ../../demo/markerless_mouse_1/calibration/
-calib_file: ['kyle_cam1_params.mat','kyle_cam2_params.mat','kyle_cam3_params.mat','kyle_cam4_params.mat', 'kyle_cam5_params.mat', 'kyle_cam6_params.mat']
-
 # If true, each camera's video directory contains only the video files. If false, each camera's video directory contains an additional subdirectory, which then contains the video files
 vid_dir_flag: True
 
@@ -21,11 +7,7 @@ extension: '.mp4'
 # The number of frames in each video file. If only a single video file exists for each camera, set this to 1e10
 chunks: 3000
 
-io_config: io.yaml
-
-# How to crop the input images. The U-Net expects each dimension size to be a multiple of 32.
-CROP_HEIGHT: [0, 1024]
-CROP_WIDTH: [0, 1156]
+io_config: io_temp.yaml
 
 # Number of channels for each input image (e.g. RGB == 3)
 N_CHANNELS_IN: 3
@@ -66,14 +48,10 @@ lr: 1e-3
 
 # During prediction, will look for the last epoch weights saved to ./DANNCE/train_results/. To load in a different weights file, add the path here
 # Note that this must be a FULL MODEL file, not just weights.
-predict_model: ../../demo/markerless_mouse_1/DANNCE/train_results/AVG/weights.1200-12.77642.hdf5
+#predict_model: path_to_model_file
 
 # name of the network architecture (see nets.py) 'unet3d_big' (from scratch?)
 net: finetune_AVG
-
-# By default, will load in the first hdf5 file at this location for fine-tuning. If training from scratch, set to None
-weights: ../../demo/markerless_mouse_1/DANNCE/weights/
-#weights: None
 
 # whether to use batch normalization or instance normalization. cannot both be true. If fine-tuning, this must be the same setting as used for the initial network
 batch_norm: False
@@ -104,9 +82,6 @@ gpuID: "0"
 # The number of frames in each video file
 chunks: 3000
 
-# path to COM file. By Default, during prediction DANNCE will look in ./COM/predict_results/ for a COM_undistorted.mat file
-COMfilename: ../../demo/markerless_mouse_1/COM/predict_results/COM_undistorted.pickle
-
 # Limits (in mm) to 3D volumes anchored on subject
 VMIN: -60
 VMAX: 60
@@ -128,7 +103,7 @@ ROTATE: True
 DISTORT: True
 
 # If true, intializes an "AVG" version of the network (i.e. final spatial expected value output layer). If false, "MAX" version
-EXPVAL: True
+EXPVAL: False
 
 # COM finder output confidence scores less than this threshold will be discarded
 comthresh: 0
@@ -148,6 +123,6 @@ CHANNEL_COMBO: 'None'
 # max. number of batches to evaluate during prediction. set to 'max' to evaluate over all data/video frames
 maxbatch: 250
 
-retriangulate: False
-
 predict_mode: 'torch'
+
+dannce_finetune_weights: ../../demo/markerless_mouse_1/DANNCE/weights/
