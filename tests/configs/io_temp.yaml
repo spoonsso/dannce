@@ -13,7 +13,7 @@ dannce_predict_dir: ../../demo/markerless_mouse_1/DANNCE/train_test/
 
 # During prediction, will look for the last epoch weights saved to ./DANNCE/train_results/. To load in a different weights file, add the path here
 # Note that this must be a FULL MODEL file, not just weights.
-dannce_predict_model: ../../demo/markerless_mouse_1/DANNCE/train_results/AVG/weights.1200-12.77642.hdf5
+dannce_predict_model: ../../demo/markerless_mouse_1/DANNCE/train_results/weights.12000-0.00014.hdf5
 
 exp:
     - label3d_file: ../../demo/markerless_mouse_1/label3d_dannce.mat
