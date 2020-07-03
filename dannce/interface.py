@@ -57,10 +57,10 @@ def com_predict(params):
 
     os.environ["CUDA_VISIBLE_DEVICES"] = params["gpuID"]
 
-    # If params['N_CHANNELS_OUT'] is greater than one, we enter a mode in
+    # If params['n_channels_out'] is greater than one, we enter a mode in
     # which we predict all available labels + the COM
-    MULTI_MODE = params["N_CHANNELS_OUT"] > 1
-    params["N_CHANNELS_OUT"] = params["N_CHANNELS_OUT"] + int(MULTI_MODE)
+    MULTI_MODE = params["n_channels_out"] > 1
+    params["n_channels_out"] = params["n_channels_out"] + int(MULTI_MODE)
 
     # Grab the input file for prediction
     params["label3d_file"] = processing.grab_predict_label3d_file()
@@ -75,8 +75,8 @@ def com_predict(params):
     model = params["net"](
         params["loss"],
         float(params["lr"]),
-        params["N_CHANNELS_IN"],
-        params["N_CHANNELS_OUT"],
+        params["n_channels_in"],
+        params["n_channels_out"],
         params["metric"],
         multigpu=False,
     )
@@ -126,7 +126,7 @@ def com_predict(params):
                 pred_,
                 [
                     -1,
-                    len(params["CAMNAMES"]),
+                    len(params["camnames"]),
                     pred_.shape[1],
                     pred_.shape[2],
                     pred_.shape[3],
@@ -145,14 +145,14 @@ def com_predict(params):
 
                 for j in range(pred.shape[0]):  # this loops over all cameras
                     # get coords for each map. This assumes that image are coming
-                    # out in pred in the same order as CONFIG_PARAMS['CAMNAMES']
+                    # out in pred in the same order as CONFIG_PARAMS['camnames']
                     pred_max = np.max(np.squeeze(pred[j]))
                     ind = (
                         np.array(processing.get_peak_inds(np.squeeze(pred[j])))
-                        * params["DOWNFAC"]
+                        * params["downfac"]
                     )
-                    ind[0] += params["CROP_HEIGHT"][0]
-                    ind[1] += params["CROP_WIDTH"][0]
+                    ind[0] += params["crop_height"][0]
+                    ind[1] += params["crop_width"][0]
                     ind = ind[::-1]
                     # now, the center of mass is (x,y) instead of (i,j)
                     # now, we need to use camera calibration to triangulate
@@ -174,8 +174,8 @@ def com_predict(params):
                         im = valid_gen.__getitem__(i * pred_.shape[0] + m)
                         plt.imshow(processing.norm_im(im[0][j]))
                         plt.plot(
-                            (ind[0] - params["CROP_WIDTH"][0]) / params["DOWNFAC"],
-                            (ind[1] - params["CROP_HEIGHT"][0]) / params["DOWNFAC"],
+                            (ind[0] - params["crop_width"][0]) / params["downfac"],
+                            (ind[1] - params["crop_height"][0]) / params["downfac"],
                             "or",
                         )
                         plt.savefig(
@@ -184,43 +184,43 @@ def com_predict(params):
                             )
                         )
 
-                    save_data[sampleID_][params["CAMNAMES"][j]] = {
+                    save_data[sampleID_][params["camnames"][j]] = {
                         "pred_max": pred_max,
                         "COM": ind,
                     }
 
                     # Undistort this COM here.
-                    pts1 = save_data[sampleID_][params["CAMNAMES"][j]]["COM"]
+                    pts1 = save_data[sampleID_][params["camnames"][j]]["COM"]
                     pts1 = pts1[np.newaxis, :]
                     pts1 = ops.unDistortPoints(
                         pts1,
-                        cameras[params["CAMNAMES"][j]]["K"],
-                        cameras[params["CAMNAMES"][j]]["RDistort"],
-                        cameras[params["CAMNAMES"][j]]["TDistort"],
-                        cameras[params["CAMNAMES"][j]]["R"],
-                        cameras[params["CAMNAMES"][j]]["t"],
+                        cameras[params["camnames"][j]]["K"],
+                        cameras[params["camnames"][j]]["RDistort"],
+                        cameras[params["camnames"][j]]["TDistort"],
+                        cameras[params["camnames"][j]]["R"],
+                        cameras[params["camnames"][j]]["t"],
                     )
-                    save_data[sampleID_][params["CAMNAMES"][j]]["COM"] = np.squeeze(
+                    save_data[sampleID_][params["camnames"][j]]["COM"] = np.squeeze(
                         pts1
                     )
 
                 # Triangulate for all unique pairs
                 for j in range(pred.shape[0]):
                     for k in range(j + 1, pred.shape[0]):
-                        pts1 = save_data[sampleID_][params["CAMNAMES"][j]]["COM"]
-                        pts2 = save_data[sampleID_][params["CAMNAMES"][k]]["COM"]
+                        pts1 = save_data[sampleID_][params["camnames"][j]]["COM"]
+                        pts2 = save_data[sampleID_][params["camnames"][k]]["COM"]
                         pts1 = pts1[np.newaxis, :]
                         pts2 = pts2[np.newaxis, :]
 
                         test3d = ops.triangulate(
                             pts1,
                             pts2,
-                            camera_mats[params["CAMNAMES"][j]],
-                            camera_mats[params["CAMNAMES"][k]],
+                            camera_mats[params["camnames"][j]],
+                            camera_mats[params["camnames"][k]],
                         ).squeeze()
 
                         save_data[sampleID_]["triangulation"][
-                            "{}_{}".format(params["CAMNAMES"][j], params["CAMNAMES"][k])
+                            "{}_{}".format(params["camnames"][j], params["camnames"][k])
                         ] = test3d
 
     com_predict_dir = os.path.join(params["com_predict_dir"])
@@ -238,7 +238,7 @@ def com_predict(params):
             os.makedirs(cmapdir)
         if not os.path.exists(overlaydir):
             os.makedirs(overlaydir)
-        cnum = params["CAMNAMES"].index(params["COMdebug"])
+        cnum = params["camnames"].index(params["COMdebug"])
         print("Writing " + params["COMdebug"] + " confidence maps to " + cmapdir)
         print("Writing " + params["COMdebug"] + "COM-image overlays to " + overlaydir)
 
@@ -277,17 +277,17 @@ def com_predict(params):
     # Parameters
     valid_params = {
         "dim_in": (
-            params["CROP_HEIGHT"][1] - params["CROP_HEIGHT"][0],
-            params["CROP_WIDTH"][1] - params["CROP_WIDTH"][0],
+            params["crop_height"][1] - params["crop_height"][0],
+            params["crop_width"][1] - params["crop_width"][0],
         ),
-        "n_channels_in": params["N_CHANNELS_IN"],
+        "n_channels_in": params["n_channels_in"],
         "batch_size": 1,
-        "n_channels_out": params["N_CHANNELS_OUT"],
-        "out_scale": params["SIGMA"],
-        "camnames": {0: params["CAMNAMES"]},
-        "crop_width": params["CROP_WIDTH"],
-        "crop_height": params["CROP_HEIGHT"],
-        "downsample": params["DOWNFAC"],
+        "n_channels_out": params["n_channels_out"],
+        "out_scale": params["sigma"],
+        "camnames": {0: params["camnames"]},
+        "crop_width": params["crop_width"],
+        "crop_height": params["crop_height"],
+        "downsample": params["downfac"],
         "labelmode": "coord",
         "chunks": params["chunks"],
         "shuffle": False,
@@ -307,7 +307,7 @@ def com_predict(params):
 
     # If we just want to analyze a chunk of video...
     st_ind = (
-        params["start_sample_index"] if "start_sample_index" in params.keys() else 0
+        params["start_batch"]
     )
     if params["max_num_samples"] == "max":
         evaluate_ondemand(st_ind, len(valid_generator), valid_generator)
@@ -330,8 +330,8 @@ def com_train(params):
 
     # MULTI_MODE is where the full set of markers is trained on, rather than
     # the COM only. In some cases, this can help improve COMfinder performance.
-    MULTI_MODE = params["N_CHANNELS_OUT"] > 1
-    params["N_CHANNELS_OUT"] = params["N_CHANNELS_OUT"] + int(MULTI_MODE)
+    MULTI_MODE = params["n_channels_out"] > 1
+    params["n_channels_out"] = params["n_channels_out"] + int(MULTI_MODE)
 
     samples = []
     datadict = {}
@@ -362,9 +362,9 @@ def com_train(params):
             exp["viddir"] = expdict["viddir"]
         print("Experiment {} using videos in {}".format(e, exp["viddir"]))
 
-        if "CAMNAMES" in expdict.keys():
-            exp["CAMNAMES"] = expdict["CAMNAMES"]
-        print("Experiment {} using CAMNAMES: {}".format(e, exp["CAMNAMES"]))
+        if "camnames" in expdict.keys():
+            exp["camnames"] = expdict["camnames"]
+        print("Experiment {} using camnames: {}".format(e, exp["camnames"]))
 
         params["experiment"][e] = exp
         (samples_, datadict_, datadict_3d_, cameras_,) = serve_data_DANNCE.prepare_data(
@@ -389,7 +389,7 @@ def com_train(params):
             {},
         )
         cameras[e] = cameras_
-        camnames[e] = params["experiment"][e]["CAMNAMES"]
+        camnames[e] = params["experiment"][e]["camnames"]
 
     com_train_dir = params["com_train_dir"]
 
@@ -418,17 +418,17 @@ def com_train(params):
 
     train_params = {
         "dim_in": (
-            params["CROP_HEIGHT"][1] - params["CROP_HEIGHT"][0],
-            params["CROP_WIDTH"][1] - params["CROP_WIDTH"][0],
+            params["crop_height"][1] - params["crop_height"][0],
+            params["crop_width"][1] - params["crop_width"][0],
         ),
-        "n_channels_in": params["N_CHANNELS_IN"],
+        "n_channels_in": params["n_channels_in"],
         "batch_size": 1,
-        "n_channels_out": params["N_CHANNELS_OUT"],
-        "out_scale": params["SIGMA"],
+        "n_channels_out": params["n_channels_out"],
+        "out_scale": params["sigma"],
         "camnames": camnames,
-        "crop_width": params["CROP_WIDTH"],
-        "crop_height": params["CROP_HEIGHT"],
-        "downsample": params["DOWNFAC"],
+        "crop_width": params["crop_width"],
+        "crop_height": params["crop_height"],
+        "downsample": params["downfac"],
         "shuffle": False,
         "chunks": params["chunks"],
         "dsmode": params["dsmode"],
@@ -449,8 +449,8 @@ def com_train(params):
     model = params["net"](
         params["loss"],
         float(params["lr"]),
-        params["N_CHANNELS_IN"],
-        params["N_CHANNELS_OUT"],
+        params["n_channels_in"],
+        params["n_channels_out"],
         params["metric"],
         multigpu=False,
     )
@@ -500,20 +500,20 @@ def com_train(params):
 
     # Initialize data structures
     ncams = len(camnames[0])
-    dh = (params["CROP_HEIGHT"][1] - params["CROP_HEIGHT"][0]) // params["DOWNFAC"]
-    dw = (params["CROP_WIDTH"][1] - params["CROP_WIDTH"][0]) // params["DOWNFAC"]
+    dh = (params["crop_height"][1] - params["crop_height"][0]) // params["downfac"]
+    dw = (params["crop_width"][1] - params["crop_width"][0]) // params["downfac"]
     ims_train = np.zeros(
         (ncams * len(partition["train_sampleIDs"]), dh, dw, 3), dtype="float32"
     )
     y_train = np.zeros(
-        (ncams * len(partition["train_sampleIDs"]), dh, dw, params["N_CHANNELS_OUT"]),
+        (ncams * len(partition["train_sampleIDs"]), dh, dw, params["n_channels_out"]),
         dtype="float32",
     )
     ims_valid = np.zeros(
         (ncams * len(partition["valid_sampleIDs"]), dh, dw, 3), dtype="float32"
     )
     y_valid = np.zeros(
-        (ncams * len(partition["valid_sampleIDs"]), dh, dw, params["N_CHANNELS_OUT"]),
+        (ncams * len(partition["valid_sampleIDs"]), dh, dw, params["n_channels_out"]),
         dtype="float32",
     )
 
@@ -585,8 +585,8 @@ def com_train(params):
         ims_train,
         y_train,
         validation_data=(ims_valid, y_valid),
-        batch_size=params["BATCH_SIZE"] * ncams,
-        epochs=params["EPOCHS"],
+        batch_size=params["batch_size"] * ncams,
+        epochs=params["epochs"],
         callbacks=[csvlog, model_checkpoint, tboard],
         shuffle=True,
     )
@@ -665,9 +665,9 @@ def dannce_train(params):
             exp["viddir"] = expdict["viddir"]
         print("Experiment {} using videos in {}".format(e, exp["viddir"]))
 
-        if "CAMNAMES" in expdict.keys():
-            exp["CAMNAMES"] = expdict["CAMNAMES"]
-        print("Experiment {} using CAMNAMES: {}".format(e, exp["CAMNAMES"]))
+        if "camnames" in expdict.keys():
+            exp["camnames"] = expdict["camnames"]
+        print("Experiment {} using camnames: {}".format(e, exp["camnames"]))
 
         (exp, samples_, datadict_, datadict_3d_, cameras_, com3d_dict_,) = do_COM_load(
             exp, expdict, _N_VIEWS, e, params
@@ -688,7 +688,7 @@ def dannce_train(params):
         )
 
         cameras[e] = cameras_
-        camnames[e] = exp["CAMNAMES"]
+        camnames[e] = exp["camnames"]
         print("Using the following cameras: {}".format(camnames[e]))
         params["experiment"][e] = exp
 
@@ -712,16 +712,16 @@ def dannce_train(params):
     # Initialize video objects
     vids = {}
     for e in range(num_experiments):
-        if params["IMMODE"] == "vid":
+        if params["immode"] == "vid":
             vids = processing.initialize_vids(params, datadict, e, vids, pathonly=True)
 
     # Parameters
-    if params["EXPVAL"]:
+    if params["expval"]:
         outmode = "coordinates"
     else:
         outmode = "3dprob"
 
-    gridsize = tuple([params["NVOX"]] * 3)
+    gridsize = tuple([params["nvox"]] * 3)
 
     # When this true, the data generator will shuffle the cameras and then select the first 3,
     # to feed to a native 3 camera model
@@ -732,29 +732,29 @@ def dannce_train(params):
 
     valid_params = {
         "dim_in": (
-            params["CROP_HEIGHT"][1] - params["CROP_HEIGHT"][0],
-            params["CROP_WIDTH"][1] - params["CROP_WIDTH"][0],
+            params["crop_height"][1] - params["crop_height"][0],
+            params["crop_width"][1] - params["crop_width"][0],
         ),
-        "n_channels_in": params["N_CHANNELS_IN"],
+        "n_channels_in": params["n_channels_in"],
         "batch_size": 1,
-        "n_channels_out": params["NEW_N_CHANNELS_OUT"],
-        "out_scale": params["SIGMA"],
-        "crop_width": params["CROP_WIDTH"],
-        "crop_height": params["CROP_HEIGHT"],
-        "vmin": params["VMIN"],
-        "vmax": params["VMAX"],
-        "nvox": params["NVOX"],
-        "interp": params["INTERP"],
-        "depth": params["DEPTH"],
-        "channel_combo": params["CHANNEL_COMBO"],
+        "n_channels_out": params["new_n_channels_out"],
+        "out_scale": params["sigma"],
+        "crop_width": params["crop_width"],
+        "crop_height": params["crop_height"],
+        "vmin": params["vmin"],
+        "vmax": params["vmax"],
+        "nvox": params["nvox"],
+        "interp": params["interp"],
+        "depth": params["depth"],
+        "channel_combo": params["channel_combo"],
         "mode": outmode,
         "camnames": camnames,
-        "immode": params["IMMODE"],
+        "immode": params["immode"],
         "shuffle": False,  # We will shuffle later
         "rotation": False,  # We will rotate later if desired
         "vidreaders": vids,
         "distort": True,
-        "expval": params["EXPVAL"],
+        "expval": params["expval"],
         "crop_im": False,
         "chunks": params["chunks"],
         "preload": False,
@@ -789,12 +789,12 @@ def dannce_train(params):
     )
 
     # We should be able to load everything into memory...
-    gridsize = tuple([params["NVOX"]] * 3)
+    gridsize = tuple([params["nvox"]] * 3)
     X_train = np.zeros(
         (
             len(partition["train_sampleIDs"]),
             *gridsize,
-            params["N_CHANNELS_IN"] * len(camnames[0]),
+            params["n_channels_in"] * len(camnames[0]),
         ),
         dtype="float32",
     )
@@ -803,29 +803,29 @@ def dannce_train(params):
         (
             len(partition["valid_sampleIDs"]),
             *gridsize,
-            params["N_CHANNELS_IN"] * len(camnames[0]),
+            params["n_channels_in"] * len(camnames[0]),
         ),
         dtype="float32",
     )
 
     X_train_grid = None
     X_valid_grid = None
-    if params["EXPVAL"]:
+    if params["expval"]:
         y_train = np.zeros(
-            (len(partition["train_sampleIDs"]), 3, params["NEW_N_CHANNELS_OUT"],),
+            (len(partition["train_sampleIDs"]), 3, params["new_n_channels_out"],),
             dtype="float32",
         )
         X_train_grid = np.zeros(
-            (len(partition["train_sampleIDs"]), params["NVOX"] ** 3, 3),
+            (len(partition["train_sampleIDs"]), params["nvox"] ** 3, 3),
             dtype="float32",
         )
 
         y_valid = np.zeros(
-            (len(partition["valid_sampleIDs"]), 3, params["NEW_N_CHANNELS_OUT"],),
+            (len(partition["valid_sampleIDs"]), 3, params["new_n_channels_out"],),
             dtype="float32",
         )
         X_valid_grid = np.zeros(
-            (len(partition["valid_sampleIDs"]), params["NVOX"] ** 3, 3),
+            (len(partition["valid_sampleIDs"]), params["nvox"] ** 3, 3),
             dtype="float32",
         )
     else:
@@ -833,7 +833,7 @@ def dannce_train(params):
             (
                 len(partition["train_sampleIDs"]),
                 *gridsize,
-                params["NEW_N_CHANNELS_OUT"],
+                params["new_n_channels_out"],
             ),
             dtype="float32",
         )
@@ -842,7 +842,7 @@ def dannce_train(params):
             (
                 len(partition["valid_sampleIDs"]),
                 *gridsize,
-                params["NEW_N_CHANNELS_OUT"],
+                params["new_n_channels_out"],
             ),
             dtype="float32",
         )
@@ -855,7 +855,7 @@ def dannce_train(params):
     for i in range(len(partition["train_sampleIDs"])):
         print(i, end="\r")
         rr = train_generator.__getitem__(i)
-        if params["EXPVAL"]:
+        if params["expval"]:
             X_train[i] = rr[0][0]
             X_train_grid[i] = rr[0][1]
         else:
@@ -885,7 +885,7 @@ def dannce_train(params):
     for i in range(len(partition["valid_sampleIDs"])):
         print(i, end="\r")
         rr = valid_generator.__getitem__(i)
-        if params["EXPVAL"]:
+        if params["expval"]:
             X_valid[i] = rr[0][0]
             X_valid_grid[i] = rr[0][1]
         else:
@@ -893,7 +893,7 @@ def dannce_train(params):
         y_valid[i] = rr[1]
 
     # Now we can generate from memory with shuffling, rotation, etc.
-    if params["CHANNEL_COMBO"] == "random":
+    if params["channel_combo"] == "random":
         randflag = True
     else:
         randflag = False
@@ -902,12 +902,12 @@ def dannce_train(params):
         np.arange(len(partition["train_sampleIDs"])),
         X_train,
         y_train,
-        batch_size=params["BATCH_SIZE"],
+        batch_size=params["batch_size"],
         random=randflag,
-        rotation=params["ROTATE"],
-        expval=params["EXPVAL"],
+        rotation=params["rotate"],
+        expval=params["expval"],
         xgrid=X_train_grid,
-        nvox=params["NVOX"],
+        nvox=params["nvox"],
         cam3_train=cam3_train,
     )
     valid_generator = DataGenerator_3Dconv_frommem(
@@ -917,9 +917,9 @@ def dannce_train(params):
         batch_size=1,
         random=randflag,
         rotation=False,
-        expval=params["EXPVAL"],
+        expval=params["expval"],
         xgrid=X_valid_grid,
-        nvox=params["NVOX"],
+        nvox=params["nvox"],
         shuffle=False,
         cam3_train=cam3_train,
     )
@@ -938,8 +938,8 @@ def dannce_train(params):
         model = params["net"](
             params["loss"],
             float(params["lr"]),
-            params["N_CHANNELS_IN"] + params["DEPTH"],
-            params["N_CHANNELS_OUT"],
+            params["n_channels_in"] + params["depth"],
+            params["n_channels_out"],
             len(camnames[0]),
             batch_norm=False,
             instance_norm=True,
@@ -950,13 +950,13 @@ def dannce_train(params):
         model = params["net"](
             params["loss"],
             float(params["lr"]),
-            params["N_CHANNELS_IN"] + params["DEPTH"],
-            params["N_CHANNELS_OUT"],
+            params["n_channels_in"] + params["depth"],
+            params["n_channels_out"],
             len(camnames[0]),
-            params["NEW_LAST_KERNEL_SIZE"],
-            params["NEW_N_CHANNELS_OUT"],
+            params["new_last_kernel_size"],
+            params["new_n_channels_out"],
             params["dannce_finetune_weights"],
-            params["N_LAYERS_LOCKED"],
+            params["n_layers_locked"],
             batch_norm=False,
             instance_norm=True,
             gridsize=gridsize,
@@ -978,8 +978,8 @@ def dannce_train(params):
         model = params["net"](
             params["loss"],
             float(params["lr"]),
-            params["N_CHANNELS_IN"] + params["DEPTH"],
-            params["N_CHANNELS_OUT"],
+            params["n_channels_in"] + params["depth"],
+            params["n_channels_out"],
             3 if cam3_train else len(camnames[0]),
             batch_norm=False,
             instance_norm=True,
@@ -1016,8 +1016,8 @@ def dannce_train(params):
         steps_per_epoch=len(train_generator),
         validation_data=valid_generator,
         validation_steps=len(valid_generator),
-        verbose=params["VERBOSE"],
-        epochs=params["EPOCHS"],
+        verbose=params["verbose"],
+        epochs=params["epochs"],
         callbacks=[csvlog, model_checkpoint, tboard],
     )
 
@@ -1092,7 +1092,7 @@ def dannce_predict(params):
 
     # Write 3D COM to file. This might be different from the input com3d file
     # if arena thresholding was applied.
-    cfilename = os.path.join(dannce_predict_dir, "COM3D_undistorted.mat")
+    cfilename = os.path.join(dannce_predict_dir, "com3d_used.mat")
     print("Saving 3D COM to {}".format(cfilename))
     c3d = np.zeros((len(samples_), 3))
     for i in range(len(samples_)):
@@ -1120,7 +1120,7 @@ def dannce_predict(params):
     cameras = {}
     cameras[0] = cameras_
     camnames = {}
-    camnames[0] = params["experiment"][0]["CAMNAMES"]
+    camnames[0] = params["experiment"][0]["camnames"]
 
     # Need a '0' experiment ID to work with processing functions.
     # *NOTE* This function modified camnames in place
@@ -1134,36 +1134,36 @@ def dannce_predict(params):
     # Initialize video dictionary. paths to videos only.
     # TODO: Remove this IMMODE option if we decide not
     # to support tifs
-    if params["IMMODE"] == "vid":
+    if params["immode"] == "vid":
         vids = {}
         vids = processing.initialize_vids(params, datadict, 0, vids, pathonly=True)
 
     # Parameters
     valid_params = {
         "dim_in": (
-            params["CROP_HEIGHT"][1] - params["CROP_HEIGHT"][0],
-            params["CROP_WIDTH"][1] - params["CROP_WIDTH"][0],
+            params["crop_height"][1] - params["crop_height"][0],
+            params["crop_width"][1] - params["crop_width"][0],
         ),
-        "n_channels_in": params["N_CHANNELS_IN"],
-        "batch_size": params["BATCH_SIZE"],
-        "n_channels_out": params["N_CHANNELS_OUT"],
-        "out_scale": params["SIGMA"],
-        "crop_width": params["CROP_WIDTH"],
-        "crop_height": params["CROP_HEIGHT"],
-        "vmin": params["VMIN"],
-        "vmax": params["VMAX"],
-        "nvox": params["NVOX"],
-        "interp": params["INTERP"],
-        "depth": params["DEPTH"],
-        "channel_combo": params["CHANNEL_COMBO"],
+        "n_channels_in": params["n_channels_in"],
+        "batch_size": params["batch_size"],
+        "n_channels_out": params["n_channels_out"],
+        "out_scale": params["sigma"],
+        "crop_width": params["crop_width"],
+        "crop_height": params["crop_height"],
+        "vmin": params["vmin"],
+        "vmax": params["vmax"],
+        "nvox": params["nvox"],
+        "interp": params["interp"],
+        "depth": params["depth"],
+        "channel_combo": params["channel_combo"],
         "mode": "coordinates",
         "camnames": camnames,
-        "immode": params["IMMODE"],
+        "immode": params["immode"],
         "shuffle": False,
         "rotation": False,
         "vidreaders": vids,
         "distort": True,
-        "expval": params["EXPVAL"],
+        "expval": params["expval"],
         "crop_im": False,
         "chunks": params["chunks"],
         "preload": False,
@@ -1222,16 +1222,16 @@ def dannce_predict(params):
 
     if (
         netname == "unet3d_big_tiedfirstlayer_expectedvalue"
-        or "FROM_WEIGHTS" in params.keys()
+        or "from_weights" in params.keys()
     ):
         # This network is too "custom" to be loaded in as a full model, until I
         # figure out how to unroll the first tied weights layer
-        gridsize = tuple([params["NVOX"]] * 3)
+        gridsize = tuple([params["nvox"]] * 3)
         model = params["net"](
             params["loss"],
             float(params["lr"]),
-            params["N_CHANNELS_IN"] + params["DEPTH"],
-            params["N_CHANNELS_OUT"],
+            params["n_channels_in"] + params["depth"],
+            params["n_channels_out"],
             len(camnames[0]),
             batch_norm=False,
             instance_norm=True,
@@ -1251,10 +1251,10 @@ def dannce_predict(params):
             },
         )
 
-    # To speed up EXPVAL prediction, rather than doing two forward passes: one for the 3d coordinate
+    # To speed up expval prediction, rather than doing two forward passes: one for the 3d coordinate
     # and one for the probability map, here we splice on a new output layer after
     # the softmax on the last convolutional layer
-    if params["EXPVAL"]:
+    if params["expval"]:
         from tensorflow.keras.layers import GlobalMaxPooling3D
 
         o2 = GlobalMaxPooling3D()(model.layers[-3].output)
@@ -1281,7 +1281,7 @@ def dannce_predict(params):
 
             if (i - start_ind) % 1000 == 0 and i != start_ind:
                 print("Saving checkpoint at {}th batch".format(i))
-                if params["EXPVAL"]:
+                if params["expval"]:
                     p_n = savedata_expval(
                         dannce_predict_dir + "save_data_AVG.mat",
                         write=True,
@@ -1293,9 +1293,9 @@ def dannce_predict(params):
                 else:
                     p_n = savedata_tomat(
                         dannce_predict_dir + "save_data_MAX.mat",
-                        params["VMIN"],
-                        params["VMAX"],
-                        params["NVOX"],
+                        params["vmin"],
+                        params["vmax"],
+                        params["nvox"],
                         write=True,
                         data=save_data,
                         num_markers=nchn,
@@ -1305,7 +1305,7 @@ def dannce_predict(params):
             ims = valid_gen.__getitem__(i)
             pred = model.predict(ims[0])
 
-            if params["EXPVAL"]:
+            if params["expval"]:
                 probmap = pred[1]
                 pred = pred[0]
                 for j in range(pred.shape[0]):
@@ -1395,14 +1395,14 @@ def dannce_predict(params):
     else:
         start_batch = 0
 
-    if "NEW_N_CHANNELS_OUT" in params.keys():
-        nchn = params["NEW_N_CHANNELS_OUT"]
+    if "new_n_channels_out" in params.keys():
+        nchn = params["new_n_channels_out"]
     else:
-        nchn = params["N_CHANNELS_OUT"]
+        nchn = params["n_channels_out"]
 
     evaluate_ondemand(start_batch, max_eval_batch, valid_generator)
 
-    if params["EXPVAL"]:
+    if params["expval"]:
         if params["start_batch"] is not None:
             path = os.path.join(
                 dannce_predict_dir, "save_data_AVG%d.mat" % (start_batch)
@@ -1421,9 +1421,9 @@ def dannce_predict(params):
             path = os.path.join(dannce_predict_dir, "save_data_MAX.mat")
         p_n = savedata_tomat(
             path,
-            params["VMIN"],
-            params["VMAX"],
-            params["NVOX"],
+            params["vmin"],
+            params["vmax"],
+            params["nvox"],
             write=True,
             data=save_data,
             num_markers=nchn,
@@ -1461,15 +1461,15 @@ def do_COM_load(exp, expdict, _N_VIEWS, e, params, training=True):
         exp, prediction=False if training else True, nanflag=False
     )
 
-    # If len(exp['CAMNAMES']) divides evenly into _N_VIEWS, duplicate here
+    # If len(exp['camnames']) divides evenly into _N_VIEWS, duplicate here
     # This must come after loading in this excperiment's data because there
-    # is an assertion that len(exp['CAMNAMES']) == the number of cameras
+    # is an assertion that len(exp['camnames']) == the number of cameras
     # in the label files (which will not be duplicated)
-    exp = processing.dupe_params(exp, ["CAMNAMES"], _N_VIEWS)
+    exp = processing.dupe_params(exp, ["camnames"], _N_VIEWS)
 
     # New option: if there is "clean" data (full marker set), can take the
     # 3D COM from the labels
-    if "COM_fromlabels" in exp.keys() and exp["COM_fromlabels"] and training:
+    if exp["com_fromlabels"] and training:
         print("For experiment {}, calculating 3D COM from labels".format(e))
         com3d_dict_ = deepcopy(datadict_3d_)
         for key in com3d_dict_.keys():
