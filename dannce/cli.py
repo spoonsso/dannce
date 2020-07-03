@@ -11,43 +11,37 @@ import ast
 import argparse
 
 
-def load_params(param_path):
-    with open(param_path, "rb") as f:
-        params = yaml.safe_load(f)
-    return params
-
-
 def com_predict_cli():
     parser = argparse.ArgumentParser(description="Com predict CLI")
     args = parse_clargs(parser, model_type="com", prediction=True)
-    params = build_clarg_params(args)
+    params = build_clarg_params(args, dannce_net=False)
     com_predict(params)
 
 
 def com_train_cli():
     parser = argparse.ArgumentParser(description="Com train CLI")
     args = parse_clargs(parser, model_type="com", prediction=False)
-    params = build_clarg_params(args)
+    params = build_clarg_params(args, dannce_net=False)
     com_train(params)
 
 
 def dannce_predict_cli():
     parser = argparse.ArgumentParser(description="Dannce predict CLI")
     args = parse_clargs(parser, model_type="dannce", prediction=True)
-    params = build_clarg_params(args)
+    params = build_clarg_params(args, dannce_net=True)
     dannce_predict(params)
 
 
 def dannce_train_cli():
     parser = argparse.ArgumentParser(description="Dannce train CLI")
     args = parse_clargs(parser, model_type="dannce", prediction=False)
-    params = build_clarg_params(args)
+    params = build_clarg_params(args, dannce_net=True)
     dannce_train(params)
 
 
-def build_clarg_params(args):
+def build_clarg_params(args, dannce_net):
     # Get the params specified in base config and io.yaml
-    params = build_params(args.base_config)
+    params = build_params(args.base_config, dannce_net)
 
     # Combine those params with the clargs
     params = combine(params, args)

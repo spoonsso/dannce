@@ -76,6 +76,111 @@ def initialize_vids(CONFIG_PARAMS, datadict, e, vids, pathonly=True):
 
     return vids
 
+def load_default_params(params, dannce_net):
+    """
+    Loads in default parameter values if they have not been specified in the
+    yaml files. These will be overwritten by CL arguments if provided, in the
+    subsequent combine() step in cli.py
+    """
+
+    if dannce_net:
+        print_and_set(params, "metric", ['euclidean_distance_3D'])
+        print_and_set(params, "SIGMA", 10)
+        print_and_set(params, "lr", 1e-3)
+        print_and_set(params, "N_LAYERS_LOCKED", 2)
+        print_and_set(params, "INTERP", 'nearest')
+        print_and_set(params, "DEPTH", False)
+        print_and_set(params, "ROTATE", True)
+        print_and_set(params, "predict_mode", 'torch')
+        print_and_set(params, "comthresh", 0)
+        print_and_set(params, "weighted", False)
+        print_and_set(params, "com_method", 'median')
+        print_and_set(params, "CHANNEL_COMBO", 'None')
+        print_and_set(params, "NEW_LAST_KERNEL_SIZE", [3, 3, 3])
+        print_and_set(params, "N_CHANNELS_OUT", 20)
+        print_and_set(params, "cthresh", 350)
+    else:
+        print_and_set(params, "dsmode", 'nn')
+        print_and_set(params, "SIGMA", 30)
+        print_and_set(params, "debug", False)
+        print_and_set(params, "lr", 5e-5)
+        print_and_set(params, "net", 'unet2d_fullbn')
+        print_and_set(params, "N_CHANNELS_OUT", 1)
+
+    print_and_set(params, "IMMODE", 'vid')
+    print_and_set(params, "VERBOSE", 1)
+    print_and_set(params, "gpuID", "0")
+    print_and_set(params, "loss", 'mask_nan_keep_loss')
+    print_and_set(params, "start_batch", 0)
+
+    return params
+
+def infer_params(params, dannce_net):
+    """
+    Some parameters that were previously specified in configs can just be inferred
+        from others, thus relieving config bloat
+    """
+
+    # Infer vid_dir_flag and extension and N_CHANNELS_IN and chunks
+    # from the videos and video folder organization.
+    # Look into the video directory / CAMNAMES[0]. Is there a video file?
+    # If so, vid_dir_flag = True
+    viddir = os.path.join(params["viddir"], params["CAMNAMES"][0])
+    camdirs = os.listdir(viddir)
+    if '.mp4' in camdirs[0] or '.avi' in camdirs[0]:
+        print_and_set(params, "vid_dir_flag", True)
+        print_and_set(params, "extension",
+                      '.mp4' if '.mp4' in camdirs[0] else '.avi')
+        if len(camdirs) > 1:
+            camdirs = sorted(camdirs, key=lambda x: int(x.split('.')[0]))
+            chunks = int(camdirs[1].split('.')[0]) - int(camdirs[0].split('.')[0])
+        else:
+            chunks = 1e10
+        camf = os.path.join(viddir, camdirs[0])
+
+    else:
+        print_and_set(params, "vid_dir_flag", False)
+        viddir = os.path.join(viddir,
+                              camdirs[0])
+        camdirs = os.listdir(viddir)
+        if len(camdirs) > 1:
+            camdirs = sorted(camdirs, key=lambda x: int(x.split('.')[0]))
+            chunks = int(camdirs[1].split('.')[0]) - int(camdirs[0].split('.')[0])
+        else:
+            chunks = 1e10
+
+        print_and_set(params, "extension",
+                      '.mp4' if '.mp4' in camdirs[0] else '.avi')
+        camf = os.path.join(viddir, camdirs[0])
+
+    print_and_set(params, "chunks", chunks)
+
+    # Infer N_CHANNELS_IN from the video info
+    v = imageio.get_reader(camf)
+    im = v.get_data(0)
+    v.close()
+    print_and_set(params, "N_CHANNELS_IN", im.shape[-1])
+
+    if dannce_net:
+        # Infer dannce specific parameters
+        # Infer EXPVAL from the netname.
+        if 'AVG' in params["net"] or 'expected' in params["net"]:
+            print_and_set(params, "EXPVAL", True)
+        else:
+            print_and_set(params, "EXPVAL", False)
+
+        print_and_set(params,
+                      "maxbatch",
+                      int(params["max_num_samples"]//params["BATCH_SIZE"]))
+
+    return params
+
+    
+def print_and_set(params, varname, value):
+    # Should add new values to params in place, no need to return
+    params[varname] = value
+    print("Setting {} to {}.".format(varname, params[varname]))
+
 def check_config(params):
     """
     Add parameter checks and restrictions here.
@@ -164,6 +269,24 @@ def make_data_splits(samples, params, RESULTSDIR, num_experiments):
 
     return partition
 
+def rename_weights(traindir, kkey, mon):
+    """
+    At the end of DANNCe or COM training, rename the best weights file with the epoch #
+        and value of the monitored quantity
+    """
+    #First load in the training.csv
+    r = np.genfromtxt(os.path.join(traindir,'training.csv'),
+                      delimiter=',',
+                      names=True)
+    e = r['epoch']
+    q = r[mon]
+    minq = np.min(q)
+    beste = e[np.argmin(q)]
+
+    newname = 'weights.' + str(int(beste)) + '-' + '{:.5f}'.format(minq) + '.hdf5'
+
+    os.rename(os.path.join(traindir,kkey), os.path.join(traindir,newname))
+
 def make_paths_safe(params):
     """Given a parameter dictionary, loops through the keys and replaces any \\ or / with os.sep
 	to promote OS agnosticism
@@ -200,7 +323,7 @@ def save_COM_checkpoint(save_data, RESULTSDIR, datadict_, cameras, params):
 
     """
     # Save undistorted 2D COMs and their 3D triangulations
-    f = open(os.path.join(RESULTSDIR, "COM_undistorted.pickle"), "wb")
+    f = open(os.path.join(RESULTSDIR, "com3d.pickle"), "wb")
     cPickle.dump(save_data, f)
     f.close()
 
@@ -212,7 +335,7 @@ def save_COM_checkpoint(save_data, RESULTSDIR, datadict_, cameras, params):
         datadict_save[int(float(key.split("_")[-1]))] = datadict_[key]
 
     _, com3d_dict = serve_data_DANNCE.prepare_COM(
-        os.path.join(RESULTSDIR, "COM_undistorted.pickle"),
+        os.path.join(RESULTSDIR, "com3d.pickle"),
         datadict_save,
         comthresh=0,
         weighted=False,
@@ -220,7 +343,7 @@ def save_COM_checkpoint(save_data, RESULTSDIR, datadict_, cameras, params):
         method="median"
     )
 
-    cfilename = os.path.join(RESULTSDIR, "COM3D_undistorted.mat")
+    cfilename = os.path.join(RESULTSDIR, "com3d.mat")
     print("Saving 3D COM to {}".format(cfilename))
     samples_keys = list(com3d_dict.keys())
 

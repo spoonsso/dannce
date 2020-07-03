@@ -21,12 +21,12 @@ python setup.py install
 
 cd tests/configs
 
-echo "Testing COMfinder training"
-com-train config_com_mousetest.yaml
+# echo "Testing COMfinder training"
+# com-train config_com_mousetest.yaml
 
-echo "Testing COMfinder prediction"
-com-predict config_com_mousetest.yaml
-python ../compare_predictions.py ../touchstones/COM3D_undistorted_masternn.mat ../../demo/markerless_mouse_1/COM/predict_test/COM3D_undistorted.mat 0.001
+# echo "Testing COMfinder prediction"
+# com-predict config_com_mousetest.yaml
+# python ../compare_predictions.py ../touchstones/COM3D_undistorted_masternn.mat ../../demo/markerless_mouse_1/COM/predict_test/com3d.mat 0.001
 
 echo "Testing DANNCE training, finetune_MAX"
 dannce-train config_mousetest.yaml --net=finetune_MAX --EXPVAL=False --dannce-finetune-weights=../../demo/markerless_mouse_1/DANNCE/weights/weights.rat.MAX/
