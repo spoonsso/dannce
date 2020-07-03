@@ -77,7 +77,7 @@ def com_predict(params):
         float(params["lr"]),
         params["n_channels_in"],
         params["n_channels_out"],
-        params["metric"],
+        ['mse'],
         multigpu=False,
     )
 
@@ -451,7 +451,7 @@ def com_train(params):
         float(params["lr"]),
         params["n_channels_in"],
         params["n_channels_out"],
-        params["metric"],
+        ['mse'],
         multigpu=False,
     )
     print("COMPLETE\n")
@@ -630,12 +630,7 @@ def dannce_train(params):
     if params["dannce_finetune_weights"] != "None":
         weights = os.listdir(params["dannce_finetune_weights"])
         weights = [f for f in weights if ".hdf5" in f]
-        if any(['rat' in f for f in weights]):
-            weights = [f for f in weights if 'rat' in f]
-            weights = weights[0]
-        else:
-            order = np.argsort([int(file.split('.')[1].split('-')[0]) for file in weights])
-            weights = weights[order[-1]]
+        weights = weights[0]
 
         params["dannce_finetune_weights"] = os.path.join(
             params["dannce_finetune_weights"], weights
