@@ -26,7 +26,7 @@ def initialize_vids(CONFIG_PARAMS, datadict, e, vids, pathonly=True):
         than a predict session because it operates over a single animal ("experiment")
         at a time
     """
-    for i in range(len(CONFIG_PARAMS["experiment"][e]["CAMNAMES"])):
+    for i in range(len(CONFIG_PARAMS["experiment"][e]["camnames"])):
         # Rather than opening all vids, only open what is needed based on the
         # maximum frame ID for this experiment and Camera
         flist = []
@@ -34,7 +34,7 @@ def initialize_vids(CONFIG_PARAMS, datadict, e, vids, pathonly=True):
             if int(key.split("_")[0]) == e:
                 flist.append(
                     datadict[key]["frames"][
-                        CONFIG_PARAMS["experiment"][e]["CAMNAMES"][i]
+                        CONFIG_PARAMS["experiment"][e]["camnames"][i]
                     ]
                 )
 
@@ -42,7 +42,7 @@ def initialize_vids(CONFIG_PARAMS, datadict, e, vids, pathonly=True):
 
         # For COM prediction, we don't prepend experiment IDs
         # So detect this case and act accordingly.
-        basecam = CONFIG_PARAMS["experiment"][e]["CAMNAMES"][i]
+        basecam = CONFIG_PARAMS["experiment"][e]["camnames"][i]
         if "_" in basecam:
             basecam = basecam.split("_")[1]
 
@@ -65,14 +65,14 @@ def initialize_vids(CONFIG_PARAMS, datadict, e, vids, pathonly=True):
             pathonly=pathonly,
         )
 
-        if "_" in CONFIG_PARAMS["experiment"][e]["CAMNAMES"][i]:
-            vids[CONFIG_PARAMS["experiment"][e]["CAMNAMES"][i]] = {}
+        if "_" in CONFIG_PARAMS["experiment"][e]["camnames"][i]:
+            vids[CONFIG_PARAMS["experiment"][e]["camnames"][i]] = {}
             for key in r:
-                vids[CONFIG_PARAMS["experiment"][e]["CAMNAMES"][i]][str(e) + "_" + key] = r[
+                vids[CONFIG_PARAMS["experiment"][e]["camnames"][i]][str(e) + "_" + key] = r[
                     key
                 ]
         else:
-            vids[CONFIG_PARAMS["experiment"][e]["CAMNAMES"][i]] = r
+            vids[CONFIG_PARAMS["experiment"][e]["camnames"][i]] = r
 
     return vids
 
@@ -85,30 +85,30 @@ def load_default_params(params, dannce_net):
 
     if dannce_net:
         print_and_set(params, "metric", ['euclidean_distance_3D'])
-        print_and_set(params, "SIGMA", 10)
+        print_and_set(params, "sigma", 10)
         print_and_set(params, "lr", 1e-3)
-        print_and_set(params, "N_LAYERS_LOCKED", 2)
-        print_and_set(params, "INTERP", 'nearest')
-        print_and_set(params, "DEPTH", False)
-        print_and_set(params, "ROTATE", True)
+        print_and_set(params, "n_layers_locked", 2)
+        print_and_set(params, "interp", 'nearest')
+        print_and_set(params, "depth", False)
+        print_and_set(params, "rotate", True)
         print_and_set(params, "predict_mode", 'torch')
         print_and_set(params, "comthresh", 0)
         print_and_set(params, "weighted", False)
         print_and_set(params, "com_method", 'median')
-        print_and_set(params, "CHANNEL_COMBO", 'None')
-        print_and_set(params, "NEW_LAST_KERNEL_SIZE", [3, 3, 3])
-        print_and_set(params, "N_CHANNELS_OUT", 20)
+        print_and_set(params, "channel_combo", 'None')
+        print_and_set(params, "new_last_kernel_size", [3, 3, 3])
+        print_and_set(params, "n_channels_out", 20)
         print_and_set(params, "cthresh", 350)
     else:
         print_and_set(params, "dsmode", 'nn')
-        print_and_set(params, "SIGMA", 30)
+        print_and_set(params, "sigma", 30)
         print_and_set(params, "debug", False)
         print_and_set(params, "lr", 5e-5)
         print_and_set(params, "net", 'unet2d_fullbn')
-        print_and_set(params, "N_CHANNELS_OUT", 1)
+        print_and_set(params, "n_channels_out", 1)
 
-    print_and_set(params, "IMMODE", 'vid')
-    print_and_set(params, "VERBOSE", 1)
+    print_and_set(params, "immode", 'vid')
+    print_and_set(params, "verbose", 1)
     print_and_set(params, "gpuID", "0")
     print_and_set(params, "loss", 'mask_nan_keep_loss')
     print_and_set(params, "start_batch", 0)
@@ -121,11 +121,11 @@ def infer_params(params, dannce_net):
         from others, thus relieving config bloat
     """
 
-    # Infer vid_dir_flag and extension and N_CHANNELS_IN and chunks
+    # Infer vid_dir_flag and extension and n_channels_in and chunks
     # from the videos and video folder organization.
-    # Look into the video directory / CAMNAMES[0]. Is there a video file?
+    # Look into the video directory / camnames[0]. Is there a video file?
     # If so, vid_dir_flag = True
-    viddir = os.path.join(params["viddir"], params["CAMNAMES"][0])
+    viddir = os.path.join(params["viddir"], params["camnames"][0])
     camdirs = os.listdir(viddir)
     if '.mp4' in camdirs[0] or '.avi' in camdirs[0]:
         print_and_set(params, "vid_dir_flag", True)
@@ -159,19 +159,19 @@ def infer_params(params, dannce_net):
     v = imageio.get_reader(camf)
     im = v.get_data(0)
     v.close()
-    print_and_set(params, "N_CHANNELS_IN", im.shape[-1])
+    print_and_set(params, "n_channels_in", im.shape[-1])
 
     if dannce_net:
         # Infer dannce specific parameters
         # Infer EXPVAL from the netname.
         if 'AVG' in params["net"] or 'expected' in params["net"]:
-            print_and_set(params, "EXPVAL", True)
+            print_and_set(params, "expval", True)
         else:
-            print_and_set(params, "EXPVAL", False)
+            print_and_set(params, "expval", False)
 
         print_and_set(params,
                       "maxbatch",
-                      int(params["max_num_samples"]//params["BATCH_SIZE"]))
+                      int(params["max_num_samples"]//params["batch_size"]))
 
     return params
 
@@ -195,8 +195,8 @@ def check_camnames(camp):
     """
     Raises an exception if camera names contain '_'
     """
-    if 'CAMNAMES' in camp:
-        for cam in camp['CAMNAMES']:
+    if 'camnames' in camp:
+        for cam in camp['camnames']:
             if '_' in cam:
                 raise Exception("Camera names cannot contain '_' ")
 
@@ -352,17 +352,17 @@ def save_COM_checkpoint(save_data, RESULTSDIR, datadict_, cameras, params):
         c3d[i] = com3d_dict[samples_keys[i]]
 
     # optionally, smooth with median filter
-    if "MEDFILT_WINDOW" in params:
+    if "medfilt_window" in params:
         # Make window size odd if not odd
-        if params["MEDFILT_WINDOW"] % 2 == 0:
-            params["MEDFILT_WINDOW"] += 1
+        if params["medfilt_window"] % 2 == 0:
+            params["medfilt_window"] += 1
             print(
-                "MEDFILT_WINDOW was not odd, changing to: {}".format(
-                    params["MEDFILT_WINDOW"]
+                "medfilt_window was not odd, changing to: {}".format(
+                    params["medfilt_window"]
                 )
             )
 
-        c3d_med = medfilt(c3d, (params["MEDFILT_WINDOW"], 1))
+        c3d_med = medfilt(c3d, (params["medfilt_window"], 1))
 
         sio.savemat(
             cfilename.split(".mat")[0] + "_medfilt.mat",

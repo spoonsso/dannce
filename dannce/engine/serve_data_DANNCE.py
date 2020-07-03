@@ -44,13 +44,13 @@ def prepare_data(
     # Collect data labels and matched frames info. We will keep the 2d labels
     # here just because we could in theory use this for training later.
     # No need to collect 3d data but it useful for checking predictions
-    if len(CONFIG_PARAMS["CAMNAMES"]) != len(labels):
+    if len(CONFIG_PARAMS["camnames"]) != len(labels):
         raise Exception("need an entry in label3d_file for every camera")
 
     framedict = {}
     ddict = {}
     for i, label in enumerate(labels):
-        framedict[CONFIG_PARAMS["CAMNAMES"][i]] = np.squeeze(label["data_frame"])
+        framedict[CONFIG_PARAMS["camnames"][i]] = np.squeeze(label["data_frame"])
         data = label["data_2d"]
 
         # reshape data_2d so that it is shape (time points, 2, 20)
@@ -73,7 +73,7 @@ def prepare_data(
             else:
                 data = np.nanmean(data, axis=2)
             data = data[:, :, np.newaxis]
-        ddict[CONFIG_PARAMS["CAMNAMES"][i]] = data
+        ddict[CONFIG_PARAMS["camnames"][i]] = data
 
     data_3d = labels[0]["data_3d"]
     data_3d = np.transpose(np.reshape(data_3d, [data_3d.shape[0], -1, 3]), [0, 2, 1])
@@ -83,16 +83,16 @@ def prepare_data(
     for i in range(len(samples)):
         frames = {}
         data = {}
-        for j in range(len(CONFIG_PARAMS["CAMNAMES"])):
-            frames[CONFIG_PARAMS["CAMNAMES"][j]] = framedict[
-                CONFIG_PARAMS["CAMNAMES"][j]
+        for j in range(len(CONFIG_PARAMS["camnames"])):
+            frames[CONFIG_PARAMS["camnames"][j]] = framedict[
+                CONFIG_PARAMS["camnames"][j]
             ][i]
-            data[CONFIG_PARAMS["CAMNAMES"][j]] = ddict[CONFIG_PARAMS["CAMNAMES"][j]][i]
+            data[CONFIG_PARAMS["camnames"][j]] = ddict[CONFIG_PARAMS["camnames"][j]][i]
         datadict[samples[i]] = {"data": data, "frames": frames}
         datadict_3d[samples[i]] = data_3d[i]
 
     params = load_camera_params(CONFIG_PARAMS["label3d_file"])
-    cameras = {name: params[i] for i, name in enumerate(CONFIG_PARAMS["CAMNAMES"])}
+    cameras = {name: params[i] for i, name in enumerate(CONFIG_PARAMS["camnames"])}
     if return_cammat:
         camera_mats = {
             name: ops.camera_matrix(cam["K"], cam["r"], cam["t"])
@@ -354,7 +354,7 @@ def prepend_experiment(CONFIG_PARAMS, datadict, num_experiments, camnames, camer
 
         camnames[e] = [str(e) + "_" + f for f in camnames[e]]
 
-        CONFIG_PARAMS["experiment"][e]["CAMNAMES"] = camnames[e]
+        CONFIG_PARAMS["experiment"][e]["camnames"] = camnames[e]
 
     for key in datadict.keys():
         enum = key.split("_")[0]

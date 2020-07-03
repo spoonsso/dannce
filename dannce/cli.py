@@ -56,20 +56,20 @@ def add_shared_args(parser):
     )
     parser.add_argument("--viddir", dest="viddir", help="Directory containing videos.")
     parser.add_argument(
-        "--CROP-HEIGHT",
-        dest="CROP_HEIGHT",
+        "--crop-height",
+        dest="crop_height",
         type=ast.literal_eval,
         help="Image crop height.",
     )
     parser.add_argument(
-        "--CROP-WIDTH",
-        dest="CROP_WIDTH",
+        "--crop-width",
+        dest="crop_width",
         type=ast.literal_eval,
         help="Image crop width.",
     )
     parser.add_argument(
-        "--CAMNAMES",
-        dest="CAMNAMES",
+        "--camnames",
+        dest="camnames",
         type=ast.literal_eval,
         help="List of ordered camera names.",
     )
@@ -83,36 +83,27 @@ def add_shared_args(parser):
     parser.add_argument("--chunks", dest="chunks", help="Number of frames per video.")
     parser.add_argument("--io-config", dest="io_config", help="Path to io.yaml file.")
     parser.add_argument(
-        "--N-CHANNELS-IN",
-        dest="N_CHANNELS_IN",
+        "--n-channels-in",
+        dest="n_channels_in",
         help="Number of channels in input image. (RGBD = 4, RGB = 3, grayscale = 1)",
     )
     parser.add_argument(
-        "--N-CHANNELS-OUT", dest="N_CHANNELS_OUT", help="Number of keypoints to output."
+        "--n-channels-out", dest="n_channels_out", help="Number of keypoints to output. For COM, this is typically 1, but can be equal to the number of points tracked to run in MULTI_MODE."
     )
     parser.add_argument(
-        "--BATCH-SIZE", dest="BATCH_SIZE", help="Number of images per batch."
+        "--batch-size", dest="batch_size", help="Number of images per batch."
     )
     parser.add_argument(
-        "--SIGMA", dest="SIGMA", help="Standard deviation of confidence maps."
+        "--sigma", dest="sigma", help="Standard deviation of confidence maps."
     )
     parser.add_argument(
-        "--VERBOSE",
-        dest="VERBOSE",
-        help="VERBOSE=0 prints nothing to std out. VERBOSE=1 prints training summary to std out.",
-    )
-    parser.add_argument(
-        "--DOWNFAC", dest="DOWNFAC", help="Downfactoring rate of images."
+        "--verbose",
+        dest="verbose",
+        help="verbose=0 prints nothing to std out. verbose=1 prints training summary to std out.",
     )
     parser.add_argument("--net", dest="net", help="Network architecture. See nets.py")
-    parser.add_argument(
-        "--debug",
-        dest="debug",
-        type=ast.literal_eval,
-        help="If True, perform debugging operations.",
-    )
     parser.add_argument("--gpuID", dest="gpuID", help="String identifying GPU to use.")
-    parser.add_argument("--IMMODE", dest="IMMODE", help="Data format for images.")
+    parser.add_argument("--immode", dest="immode", help="Data format for images.")
     return parser
 
 
@@ -128,7 +119,7 @@ def add_shared_train_args(parser):
         dest="loss",
         help="Loss function to use during training. See losses.py.",
     )
-    parser.add_argument("--EPOCHS", dest="EPOCHS", help="Number of epochs to train.")
+    parser.add_argument("--epochs", dest="epochs", help="Number of epochs to train.")
     parser.add_argument(
         "--num-validation-per-exp",
         dest="num_validation_per_exp",
@@ -153,6 +144,11 @@ def add_shared_train_args(parser):
 
 
 def add_shared_predict_args(parser):
+    parser.add_argument(
+        "--max-num-samples",
+        dest="max_num_samples",
+        help="Maximum number of samples to predict during COM or DANNCE prediction.",
+    )
     return parser
 
 
@@ -160,72 +156,49 @@ def add_dannce_shared_args(parser):
     parser.add_argument(
         "--com-file",
         dest="com_file",
-        help="Path to com file to use during dannce training and prediction.",
+        help="Path to com file to use during dannce prediction.",
     )
     parser.add_argument(
-        "--NEW-LAST-KERNEL-SIZE",
-        dest="NEW_LAST_KERNEL_SIZE",
+        "--new-last-kernel-size",
+        dest="new_last_kernel_size",
         type=ast.literal_eval,
-        help="List denoting last 3d kernel size. Ex: --NEW-LAST-KERNEL-SIZE=[3,3,3]",
+        help="List denoting last 3d kernel size. Ex: --new-last-kernel-size=[3,3,3]",
     )
     parser.add_argument(
-        "--NEW-N-CHANNELS-OUT",
-        dest="NEW_N_CHANNELS_OUT",
+        "--new-n-channels_out",
+        dest="new_n_channels_out",
         help="When finetuning, this refers to the new number of predicted keypoints.",
     )
     parser.add_argument(
-        "--MAX-QUEUE-SIZE",
-        dest="MAX_QUEUE_SIZE",
-        help="Number of images to keep in queue for the generator.",
-    )
-    parser.add_argument(
-        "--batch-norm",
-        dest="batch_norm",
-        type=ast.literal_eval,
-        help="If True, use batch normalization.",
-    )
-    parser.add_argument(
-        "--instance-norm",
-        dest="instance_norm",
-        type=ast.literal_eval,
-        help="If True, use instance normalization.",
-    )
-    parser.add_argument(
-        "--N-LAYERS-LOCKED",
-        dest="N_LAYERS_LOCKED",
+        "--n-layers-locked",
+        dest="n_layers_locked",
         help="Number of layers from model input to freeze during finetuning.",
     )
     parser.add_argument(
-        "--VMIN", dest="VMIN", help="Minimum range of 3D grid. (Units of distance)"
+        "--vmin", dest="vmin", help="Minimum range of 3D grid. (Units of distance)"
     )
     parser.add_argument(
-        "--VMAX", dest="VMAX", help="Maximum range of 3D grid. (Units of distance)"
+        "--vmax", dest="vmax", help="Maximum range of 3D grid. (Units of distance)"
     )
     parser.add_argument(
-        "--NVOX",
-        dest="NVOX",
+        "--nvox",
+        dest="nvox",
         help="Number of voxels to span each dimension of 3D grid.",
     )
     parser.add_argument(
-        "--INTERP",
-        dest="INTERP",
+        "--interp",
+        dest="interp",
         help="Voxel interpolation for 3D grid. Linear or nearest.",
     )
     parser.add_argument(
-        "--DEPTH",
-        dest="DEPTH",
+        "--depth",
+        dest="depth",
         type=ast.literal_eval,
         help="If True, will append depth information when sampling images. Particularly useful when using just 1 cameras.",
     )
     parser.add_argument(
-        "--DISTORT",
-        dest="DISTORT",
-        type=ast.literal_eval,
-        help="If True, apply lens distortion during sampling.",
-    )
-    parser.add_argument(
-        "--EXPVAL",
-        dest="EXPVAL",
+        "--expval",
+        dest="expval",
         type=ast.literal_eval,
         help="If True, use expected value network.",
     )
@@ -251,8 +224,8 @@ def add_dannce_shared_args(parser):
         help="If the 3D COM has a coordinate beyond this value (in mm), discard it as an error.",
     )
     parser.add_argument(
-        "--CHANNEL-COMBO",
-        dest="CHANNEL_COMBO",
+        "--channel-combo",
+        dest="channel_combo",
         help="Dictates whether or not to randomly shuffle the camera order when processing volumes. Options: 'None', 'random'",
     )
     parser.add_argument(
@@ -270,8 +243,8 @@ def add_dannce_train_args(parser):
         help="Training directory for dannce network.",
     )
     parser.add_argument(
-        "--ROTATE",
-        dest="ROTATE",
+        "--rotate",
+        dest="rotate",
         type=ast.literal_eval,
         help="If True, use rotation augmentation for dannce training.",
     )
@@ -298,11 +271,6 @@ def add_dannce_predict_args(parser):
         "--start-batch",
         dest="start_batch",
         help="Starting batch number during dannce prediction.",
-    )
-    parser.add_argument(
-        "--maxbatch",
-        dest="maxbatch",
-        help="Ending batch number during dannce prediction. Set to 'max' to predict from start_batch to the last batch.",
     )
     parser.add_argument(
         "--predict-model",
@@ -337,11 +305,6 @@ def add_com_predict_args(parser):
         dest="com_predict_weights",
         help="Path to .hdf5 weights to use for COM prediction.",
     )
-    parser.add_argument(
-        "--max-num-samples",
-        dest="max_num_samples",
-        help="Maximum number of samples to predict during COM prediction.",
-    )
     return parser
 
 
@@ -350,6 +313,15 @@ def add_com_shared_args(parser):
         "--dsmode",
         dest="dsmode",
         help="Downsampling mode. Can be dsm (local average) or nn (nearest_neighbor).",
+    )
+    parser.add_argument(
+        "--downfac", dest="downfac", help="Downfactoring rate of images."
+    )
+    parser.add_argument(
+        "--debug",
+        dest="debug",
+        type=ast.literal_eval,
+        help="If True, perform debugging operations.",
     )
     return parser
 
