@@ -35,13 +35,15 @@ _DEFAULT_VIDDIR = "videos"
 _DEFAULT_COMSTRING = "COM"
 _DEFAULT_COMFILENAME = "com3d.mat"
 
-def build_params(base_config):
+def build_params(base_config, dannce_net):
     base_params = processing.read_config(base_config)
     base_params = processing.make_paths_safe(base_params)
     params = processing.read_config(base_params["io_config"])
     params = processing.make_paths_safe(params)
     params = processing.inherit_config(params, base_params, list(base_params.keys()))
     processing.check_config(params)
+    params = processing.load_default_params(params, dannce_net)
+    params = processing.infer_params(params, dannce_net)
     return params
 
 
@@ -477,16 +479,12 @@ def com_train(params):
             layer.trainable = False
 
     model.compile(
-        optimizer=Adam(lr=float(params["lr"])), loss=params["loss"], metrics=["mse"],
+        optimizer=Adam(lr=float(params["lr"])), loss=params["loss"],
     )
 
     # Create checkpoint and logging callbacks
-    if params["num_validation_per_exp"] > 0:
-        kkey = "weights.{epoch:02d}-{val_loss:.5f}.hdf5"
-        mon = "val_loss"
-    else:
-        kkey = "weights.{epoch:02d}-{loss:.5f}.hdf5"
-        mon = "loss"
+    kkey = "weights.hdf5"
+    mon = "val_loss" if params["num_validation_per_exp"] > 0 else "loss"
 
     # Create checkpoint and logging callbacks
     model_checkpoint = ModelCheckpoint(
@@ -594,6 +592,9 @@ def com_train(params):
     )
 
     write_debug(trainData=False)
+
+    print("Renaming weights file with best epoch description")
+    processing.rename_weights(com_train_dir, kkey, mon)
 
     print("Saving full model at end of training")
     sdir = os.path.join(params["com_train_dir"], "fullmodel_weights")
@@ -996,12 +997,8 @@ def dannce_train(params):
     print("COMPLETE\n")
 
     # Create checkpoint and logging callbacks
-    if params["num_validation_per_exp"] > 0:
-        kkey = "weights.{epoch:02d}-{val_loss:.5f}.hdf5"
-        mon = "val_loss"
-    else:
-        kkey = "weights.{epoch:02d}-{loss:.5f}.hdf5"
-        mon = "loss"
+    kkey = "weights.hdf5"
+    mon = "val_loss" if params["num_validation_per_exp"] > 0 else "loss"
 
     model_checkpoint = ModelCheckpoint(
         os.path.join(dannce_train_dir, kkey),
@@ -1023,6 +1020,9 @@ def dannce_train(params):
         epochs=params["EPOCHS"],
         callbacks=[csvlog, model_checkpoint, tboard],
     )
+
+    print("Renaming weights file with best epoch description")
+    processing.rename_weights(dannce_train_dir, kkey, mon)
 
     print("Saving full model at end of training")
     sdir = os.path.join(params["dannce_train_dir"], "fullmodel_weights")
