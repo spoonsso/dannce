@@ -33,6 +33,8 @@ _DEFAULT_VIDDIR = "videos"
 _DEFAULT_COMSTRING = "COM"
 _DEFAULT_COMFILENAME = "com3d.mat"
 
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"
+
 def build_params(base_config, dannce_net):
     base_params = processing.read_config(base_config)
     base_params = processing.make_paths_safe(base_params)
@@ -40,8 +42,6 @@ def build_params(base_config, dannce_net):
     params = processing.make_paths_safe(params)
     params = processing.inherit_config(params, base_params, list(base_params.keys()))
     processing.check_config(params)
-    params = processing.load_default_params(params, dannce_net)
-    params = processing.infer_params(params, dannce_net)
     return params
 
 
@@ -362,6 +362,8 @@ def com_train(params):
 
         if "camnames" in expdict.keys():
             exp["camnames"] = expdict["camnames"]
+        else:
+            exp["camnames"] = io.load_camnames(expdict["label3d_file"])
         print("Experiment {} using camnames: {}".format(e, exp["camnames"]))
 
         params["experiment"][e] = exp
@@ -660,6 +662,9 @@ def dannce_train(params):
 
         if "camnames" in expdict.keys():
             exp["camnames"] = expdict["camnames"]
+        else:
+            exp["camnames"] = io.load_camnames(expdict["label3d_file"])
+
         print("Experiment {} using camnames: {}".format(e, exp["camnames"]))
 
         (exp, samples_, datadict_, datadict_3d_, cameras_, com3d_dict_,) = do_COM_load(
@@ -1046,6 +1051,7 @@ def dannce_predict(params):
     # for prediction we use the base data files present in the main config
     # Grab the input file for prediction
     params["label3d_file"] = processing.grab_predict_label3d_file()
+
     params["base_exp_folder"] = os.path.dirname(params["label3d_file"])
 
     dannce_predict_dir = params["dannce_predict_dir"]

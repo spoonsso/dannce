@@ -41,3 +41,7 @@ def load_com(path):
     data['com3d'] = d['com3d'][0, 0]
     data['sampleID'] = d['sampleID'][0, 0]
     return data
+
+def load_camnames(path):
+    r = sio.loadmat(path)
+    return [f[0] for f in r['camnames'][0]]
