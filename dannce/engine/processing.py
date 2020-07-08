@@ -4,12 +4,12 @@ from skimage.color import rgb2gray
 from skimage.transform import downscale_local_mean as dsm
 import imageio
 import os
-from scipy.signal import medfilt
 import dannce.engine.serve_data_DANNCE as serve_data_DANNCE
 import PIL
 from six.moves import cPickle
 import scipy.io as sio
 
+from dannce.engine import io
 import matplotlib
 
 matplotlib.use("Agg")
@@ -76,53 +76,15 @@ def initialize_vids(CONFIG_PARAMS, datadict, e, vids, pathonly=True):
 
     return vids
 
-def load_default_params(params, dannce_net):
-    """
-    Loads in default parameter values if they have not been specified in the
-    yaml files. These will be overwritten by CL arguments if provided, in the
-    subsequent combine() step in cli.py
-    """
-
-    if dannce_net:
-        print_and_set(params, "metric", ['euclidean_distance_3D'])
-        print_and_set(params, "sigma", 10)
-        print_and_set(params, "lr", 1e-3)
-        print_and_set(params, "n_layers_locked", 2)
-        print_and_set(params, "interp", 'nearest')
-        print_and_set(params, "depth", False)
-        print_and_set(params, "rotate", True)
-        print_and_set(params, "predict_mode", 'torch')
-        print_and_set(params, "comthresh", 0)
-        print_and_set(params, "weighted", False)
-        print_and_set(params, "com_method", 'median')
-        print_and_set(params, "channel_combo", 'None')
-        print_and_set(params, "new_last_kernel_size", [3, 3, 3])
-        print_and_set(params, "n_channels_out", 20)
-        print_and_set(params, "cthresh", 350)
-        print_and_set(params, "medfilt_window", None)
-        print_and_set(params, "com_fromlabels", None)
-    else:
-        print_and_set(params, "dsmode", 'nn')
-        print_and_set(params, "sigma", 30)
-        print_and_set(params, "debug", False)
-        print_and_set(params, "lr", 5e-5)
-        print_and_set(params, "net", 'unet2d_fullbn')
-        print_and_set(params, "n_channels_out", 1)
-
-    print_and_set(params, "immode", 'vid')
-    print_and_set(params, "verbose", 1)
-    print_and_set(params, "gpuID", "0")
-    print_and_set(params, "loss", 'mask_nan_keep_loss')
-    print_and_set(params, "start_batch", 0)
-
-    return params
-
 def infer_params(params, dannce_net):
     """
     Some parameters that were previously specified in configs can just be inferred
         from others, thus relieving config bloat
     """
-
+    # Grab the camnames from *dannce.mat if not in config
+    if 'camnames' not in params:
+        f = grab_predict_label3d_file()
+        params["camnames"] = io.load_camnames(f)
     # Infer vid_dir_flag and extension and n_channels_in and chunks
     # from the videos and video folder organization.
     # Look into the video directory / camnames[0]. Is there a video file?
@@ -163,7 +125,7 @@ def infer_params(params, dannce_net):
     v.close()
     print_and_set(params, "n_channels_in", im.shape[-1])
 
-    if dannce_net:
+    if dannce_net and 'expval' not in params:
         # Infer dannce specific parameters
         # Infer EXPVAL from the netname.
         if 'AVG' in params["net"] or 'expected' in params["net"]:
@@ -171,6 +133,7 @@ def infer_params(params, dannce_net):
         else:
             print_and_set(params, "expval", False)
 
+    if dannce_net:
         print_and_set(params,
                       "maxbatch",
                       int(params["max_num_samples"]//params["batch_size"]))
@@ -390,26 +353,6 @@ def save_COM_checkpoint(save_data, RESULTSDIR, datadict_, cameras, params):
     c3d = np.zeros((len(samples_keys), 3))
     for i in range(len(samples_keys)):
         c3d[i] = com3d_dict[samples_keys[i]]
-
-    # optionally, smooth with median filter
-    if params["medfilt_window"] is not None:
-        # Make window size odd if not odd
-        if params["medfilt_window"] % 2 == 0:
-            params["medfilt_window"] += 1
-            print(
-                "medfilt_window was not odd, changing to: {}".format(
-                    params["medfilt_window"]
-                )
-            )
-
-        c3d_med = medfilt(c3d, (params["medfilt_window"], 1))
-
-        sio.savemat(
-            cfilename.split(".mat")[0] + "_medfilt.mat",
-            {"sampleID": samples_keys, 
-            "com": c3d_med,
-            "metadata": prepare_save_metadata(params)},
-        )
 
     sio.savemat(cfilename, {"sampleID": samples_keys, 
                             "com": c3d,

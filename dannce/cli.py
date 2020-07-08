@@ -1,50 +1,56 @@
 """Entrypoints for dannce training and prediction."""
 from dannce.interface import com_predict, com_train, dannce_predict, dannce_train, build_params
 from dannce.engine.processing import (
-    read_config,
-    make_paths_safe,
-    inherit_config,
     check_config,
+    infer_params
 )
+from dannce import _param_defaults_dannce, _param_defaults_shared, _param_defaults_com
 import sys
 import ast
 import argparse
 
-
 def com_predict_cli():
-    parser = argparse.ArgumentParser(description="Com predict CLI")
+    parser = argparse.ArgumentParser(description="Com predict CLI",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.set_defaults(**{**_param_defaults_shared, **_param_defaults_com})
     args = parse_clargs(parser, model_type="com", prediction=True)
     params = build_clarg_params(args, dannce_net=False)
     com_predict(params)
 
 
 def com_train_cli():
-    parser = argparse.ArgumentParser(description="Com train CLI")
+    parser = argparse.ArgumentParser(description="Com train CLI",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.set_defaults(**{**_param_defaults_shared, **_param_defaults_com})
     args = parse_clargs(parser, model_type="com", prediction=False)
     params = build_clarg_params(args, dannce_net=False)
     com_train(params)
 
 
 def dannce_predict_cli():
-    parser = argparse.ArgumentParser(description="Dannce predict CLI")
+    parser = argparse.ArgumentParser(description="Dannce predict CLI",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.set_defaults(**{**_param_defaults_shared, **_param_defaults_dannce})
     args = parse_clargs(parser, model_type="dannce", prediction=True)
     params = build_clarg_params(args, dannce_net=True)
     dannce_predict(params)
 
 
 def dannce_train_cli():
-    parser = argparse.ArgumentParser(description="Dannce train CLI")
+    parser = argparse.ArgumentParser(description="Dannce train CLI",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.set_defaults(**{**_param_defaults_shared, **_param_defaults_dannce})
     args = parse_clargs(parser, model_type="dannce", prediction=False)
     params = build_clarg_params(args, dannce_net=True)
     dannce_train(params)
-
 
 def build_clarg_params(args, dannce_net):
     # Get the params specified in base config and io.yaml
     params = build_params(args.base_config, dannce_net)
 
     # Combine those params with the clargs
-    params = combine(params, args)
+    params = combine(params, args, dannce_net)
+    params = infer_params(params, dannce_net)
     check_config(params)
     return params
 
@@ -73,20 +79,7 @@ def add_shared_args(parser):
         type=ast.literal_eval,
         help="List of ordered camera names.",
     )
-    parser.add_argument(
-        "--vid-dir-flag",
-        dest="vid_dir_flag",
-        type=ast.literal_eval,
-        help="Set to True if viddir contains nested directories to videos.",
-    )
-    parser.add_argument("--extension", dest="extension", help="Video extension.")
-    parser.add_argument("--chunks", dest="chunks", help="Number of frames per video.")
     parser.add_argument("--io-config", dest="io_config", help="Path to io.yaml file.")
-    parser.add_argument(
-        "--n-channels-in",
-        dest="n_channels_in",
-        help="Number of channels in input image. (RGBD = 4, RGB = 3, grayscale = 1)",
-    )
     parser.add_argument(
         "--n-channels-out", dest="n_channels_out", help="Number of keypoints to output. For COM, this is typically 1, but can be equal to the number of points tracked to run in MULTI_MODE."
     )
@@ -131,14 +124,6 @@ def add_shared_train_args(parser):
         type=ast.literal_eval,
         help="List of additional metrics to report. See losses.py",
     )
-    parser.add_argument(
-        "--train-mode",
-        dest="train_mode",
-        help="Training modes can be:\n"
-        "new: initializes and trains a network from scratch\n"
-        "finetune: loads in pre-trained weights and fine-tuned from there\n"
-        "continued: initializes a full model, including optimizer state, and continuous training from the last full model checkpoint",
-    )
     parser.add_argument("--lr", dest="lr", help="Learning rate.")
     return parser
 
@@ -153,6 +138,16 @@ def add_shared_predict_args(parser):
 
 
 def add_dannce_shared_args(parser):
+    parser.add_argument(
+        "--com-fromlabels",
+        dest="com_fromlabels",
+        help="If True, uses the average 3D label position as the 3D COM. Inaccurate for frames with few labeled landmarks.",
+    )
+    parser.add_argument(
+        "--medfilt-window",
+        dest="medfilt_window",
+        help="Sets the size of an optional median filter used to smooth the COM trace before DANNCE training or prediction.",
+    )
     parser.add_argument(
         "--com-file",
         dest="com_file",
@@ -195,12 +190,6 @@ def add_dannce_shared_args(parser):
         dest="depth",
         type=ast.literal_eval,
         help="If True, will append depth information when sampling images. Particularly useful when using just 1 cameras.",
-    )
-    parser.add_argument(
-        "--expval",
-        dest="expval",
-        type=ast.literal_eval,
-        help="If True, use expected value network.",
     )
     parser.add_argument(
         "--comthresh",
@@ -253,6 +242,14 @@ def add_dannce_train_args(parser):
         dest="dannce_finetune_weights",
         help="Path to weights of initial model for dannce fine tuning.",
     )
+    parser.add_argument(
+        "--train-mode",
+        dest="train_mode",
+        help="Training modes can be:\n"
+        "new: initializes and trains a network from scratch\n"
+        "finetune: loads in pre-trained weights and fine-tuned from there\n"
+        "continued: initializes a full model, including optimizer state, and continuous training from the last full model checkpoint",
+    )
     return parser
 
 
@@ -276,6 +273,12 @@ def add_dannce_predict_args(parser):
         "--predict-model",
         dest="predict_model",
         help="Path to model to use for dannce prediction.",
+    )
+    parser.add_argument(
+        "--expval",
+        dest="expval",
+        type=ast.literal_eval,
+        help="If True, use expected value network. This is normally inferred from the network name. But because prediction can be decoupled from the net param, expval can be set independently if desired.",
     )
     return parser
 
@@ -353,8 +356,22 @@ def parse_clargs(parser, model_type, prediction):
     return parser.parse_args()
 
 
-def combine(base_params, clargs):
+def combine(base_params, clargs, dannce_net):
+    if dannce_net:
+        alldefaults = {**_param_defaults_shared, **_param_defaults_dannce}
+    else:
+        alldefaults = {**_param_defaults_shared, **_param_defaults_com}
+
+    # Logic ---
+    # load defaults from parser if they are not already in config
+    # use parser argument if different from the default
     for k, v in clargs.__dict__.items():
-        if v is not None:
+        if k in alldefaults:
+            if v != alldefaults[k] or k not in base_params:
+                base_params[k] = v
+        elif v is not None:
             base_params[k] = v
+
+    for k, v in base_params.items():
+        print("{} set to: {}".format(k, v))
     return base_params

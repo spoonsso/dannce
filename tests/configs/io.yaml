@@ -16,11 +16,11 @@ dannce_predict_dir: ../../demo/markerless_mouse_1/DANNCE/train_test/
 dannce_predict_model: ../../demo/markerless_mouse_1/DANNCE/train_results/AVG/weights.1200-12.77642.hdf5
 
 exp:
-    - label3d_file: ./label3d_dannce.mat
+    - label3d_file: ./label3d_dannce_temp.mat
       # camnames: ['Camera1','Camera2','Camera3','Camera4','Camera5','Camera6']
       # com_file: ../../demo/markerless_mouse_1/COM/predict_results/com3d.mat
       viddir: ../../demo/markerless_mouse_1/videos/
-    - label3d_file: ./label3d_dannce.mat
+    - label3d_file: ./label3d_dannce_temp.mat
       # camnames: ['Camera1','Camera2','Camera3','Camera4','Camera5','Camera6']
       # com_file: ../../demo/markerless_mouse_2/COM/predict_results/com3d.pickle
       viddir: ../../demo/markerless_mouse_2/videos/
@@ -31,6 +31,4 @@ viddir: ../../demo/markerless_mouse_1/videos/
 # How to crop the input images. The U-Net expects each dimension size to be a multiple of 32.
 crop_height: [0, 1024]
 crop_width: [0, 1152]
-
-camnames: ['Camera1', 'Camera2', 'Camera3', 'Camera4', 'Camera5', 'Camera6']
 
