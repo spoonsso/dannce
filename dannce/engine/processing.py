@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 import yaml
 import shutil
 import time
-import tensorflow as tf
+
 
 def initialize_vids(CONFIG_PARAMS, datadict, e, vids, pathonly=True):
     """
@@ -99,6 +99,8 @@ def load_default_params(params, dannce_net):
         print_and_set(params, "new_last_kernel_size", [3, 3, 3])
         print_and_set(params, "n_channels_out", 20)
         print_and_set(params, "cthresh", 350)
+        print_and_set(params, "medfilt_window", None)
+        print_and_set(params, "com_fromlabels", None)
     else:
         print_and_set(params, "dsmode", 'nn')
         print_and_set(params, "sigma", 30)
@@ -316,6 +318,45 @@ def trim_COM_pickle(fpath, start_sample, end_sample, opath=None):
         cPickle.dump(sd, f)
     return sd
 
+def prepare_save_metadata(params):
+    """
+    To save metadata, i.e. the prediction param values associated with COM or DANNCE
+        output, we need to convert loss and metrics and net into names, and remove
+        the 'experiment' field
+    """
+    meta = params.copy()
+    if 'experiment' in meta:
+        del meta['experiment']
+    if 'loss' in meta:
+        meta['loss'] = meta['loss'].__name__
+    if 'net' in meta:
+        meta['net'] = meta['net'].__name__
+    if 'metric' in meta:
+        meta['metric'] = [f.__name__ if not isinstance(f,str) else f for f in meta['metric'] ]
+
+    # Need to convert None to string but still want to conserve the metadat structure
+    # format, so we don't want to convert the whole dict to a string
+    for key in meta.keys():
+        if meta[key] is None:
+            meta[key] = 'None'
+
+    return meta
+
+def save_COM_dannce_mat(params, com3d, sampleID):
+    """
+    Instead of saving 3D COM to com3d.mat, save it into the dannce.mat file, which
+    streamlines subsequent dannce access.
+    """
+    com = {}
+    com['com3d'] = com3d
+    com['sampleID'] = sampleID
+    com['metadata'] = prepare_save_metadata(params)
+
+    # Open dannce.mat file, add com and re-save
+    print("Saving COM predictions to " + params['label3d_file'])
+    rr = sio.loadmat(params['label3d_file'])
+    rr['com'] = com
+    sio.savemat(params['label3d_file'], rr)
 
 def save_COM_checkpoint(save_data, RESULTSDIR, datadict_, cameras, params):
     """
@@ -327,7 +368,6 @@ def save_COM_checkpoint(save_data, RESULTSDIR, datadict_, cameras, params):
     cPickle.dump(save_data, f)
     f.close()
 
-    # Also save a COM3D_undistorted.mat file.
     # We need to remove the eID in front of all the keys in datadict
     # for prepare_COM to run properly
     datadict_save = {}
@@ -352,7 +392,7 @@ def save_COM_checkpoint(save_data, RESULTSDIR, datadict_, cameras, params):
         c3d[i] = com3d_dict[samples_keys[i]]
 
     # optionally, smooth with median filter
-    if "medfilt_window" in params:
+    if params["medfilt_window"] is not None:
         # Make window size odd if not odd
         if params["medfilt_window"] % 2 == 0:
             params["medfilt_window"] += 1
@@ -366,10 +406,17 @@ def save_COM_checkpoint(save_data, RESULTSDIR, datadict_, cameras, params):
 
         sio.savemat(
             cfilename.split(".mat")[0] + "_medfilt.mat",
-            {"sampleID": samples_keys, "com": c3d_med},
+            {"sampleID": samples_keys, 
+            "com": c3d_med,
+            "metadata": prepare_save_metadata(params)},
         )
 
-    sio.savemat(cfilename, {"sampleID": samples_keys, "com": c3d})
+    sio.savemat(cfilename, {"sampleID": samples_keys, 
+                            "com": c3d,
+                            "metadata": prepare_save_metadata(params)})
+
+    # Also save a copy into the label3d file
+    save_COM_dannce_mat(params, c3d, samples_keys)
 
 
 def inherit_config(child, parent, keys):
@@ -695,6 +742,8 @@ def plot_markers_3d(stack, nonan=True):
 
 def plot_markers_3d_tf(stack, nonan=True):
     """Return the 3d coordinates for each of the peaks in probability maps."""
+    import tensorflow as tf
+    
     with tf.device(stack.device):
         n_mark = stack.shape[-1]
         indices = tf.math.argmax(tf.reshape(stack, [-1, n_mark]), output_type="int32")
@@ -802,7 +851,7 @@ def get_marker_peaks_2d(stack):
 
 
 def savedata_expval(
-    fname, write=True, data=None, num_markers=20, tcoord=True, pmax=False
+    fname, params, write=True, data=None, num_markers=20, tcoord=True, pmax=False
 ):
     """Save the expected values."""
     if data is None:
@@ -823,14 +872,19 @@ def savedata_expval(
             p_max[i] = data[key]["pred_max"]
         sID[i] = data[key]["sampleID"]
 
+        sdict = {"pred": d_coords, 
+                 "data": t_coords, 
+                 "p_max": p_max, 
+                 "sampleID": sID,
+                 "metadata": prepare_save_metadata(params)}
     if write and data is None:
         sio.savemat(
             fname.split(".pickle")[0] + ".mat",
-            {"pred": d_coords, "data": t_coords, "p_max": p_max, "sampleID": sID},
+            sdict,
         )
     elif write and data is not None:
         sio.savemat(
-            fname, {"pred": d_coords, "data": t_coords, "p_max": p_max, "sampleID": sID}
+            fname, sdict
         )
 
     return d_coords, t_coords, p_max, sID
@@ -838,6 +892,7 @@ def savedata_expval(
 
 def savedata_tomat(
     fname,
+    params,
     vmin,
     vmax,
     nvox,
@@ -885,27 +940,23 @@ def savedata_tomat(
         for i in range(len(sID)):
             pred_out_world[i] = pred_out_world[i] + addCOM[int(sID)][:, np.newaxis]
 
-    if write and data is None:
-        sio.savemat(
-            fname.split(".pickle")[0] + ".mat",
-            {
+    sdict = {
                 "pred": pred_out_world,
                 "data": t_coords,
                 "p_max": p_max,
                 "sampleID": sID,
                 "log_pmax": log_p_max,
-            },
+                "metadata": prepare_save_metadata(params)
+            }
+    if write and data is None:
+        sio.savemat(
+            fname.split(".pickle")[0] + ".mat",
+            sdict,
         )
     elif write and data is not None:
         sio.savemat(
             fname,
-            {
-                "pred": pred_out_world,
-                "data": t_coords,
-                "p_max": p_max,
-                "sampleID": sID,
-                "log_pmax": log_p_max,
-            },
+            sdict,
         )
     return pred_out_world, t_coords, p_max, log_p_max, sID
 
