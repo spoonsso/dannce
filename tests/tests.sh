@@ -21,30 +21,30 @@ python setup.py install
 
 cd tests/configs
 
-echo "Testing COMfinder training"
-com-train config_com_mousetest.yaml
+# echo "Testing COMfinder training"
+# com-train config_com_mousetest.yaml
 
-echo "Testing COMfinder prediction"
-com-predict config_com_mousetest.yaml
-python ../compare_predictions.py ../touchstones/COM3D_undistorted_masternn.mat ../../demo/markerless_mouse_1/COM/predict_test/com3d.mat 0.001
+# echo "Testing COMfinder prediction"
+# com-predict config_com_mousetest.yaml
+# python ../compare_predictions.py ../touchstones/COM3D_undistorted_masternn.mat ../../demo/markerless_mouse_1/COM/predict_test/com3d.mat 0.001
 
-echo "Testing DANNCE training, finetune_MAX"
-dannce-train config_mousetest.yaml --net=finetune_MAX --expval=False --dannce-finetune-weights=../../demo/markerless_mouse_1/DANNCE/weights/weights.rat.MAX/
+# echo "Testing DANNCE training, finetune_MAX"
+# dannce-train config_mousetest.yaml --net=finetune_MAX --expval=False --dannce-finetune-weights=../../demo/markerless_mouse_1/DANNCE/weights/weights.rat.MAX/
 
-echo "Testing DANNCE training, finetune_AVG"
-dannce-train config_mousetest.yaml --net=finetune_AVG --expval=True
+# echo "Testing DANNCE training, finetune_AVG"
+# dannce-train config_mousetest.yaml --net=finetune_AVG --expval=True
 
-echo "Testing DANNCE training, AVG net from scratch"
-dannce-train config_mousetest.yaml --net=unet3d_big_expectedvalue --train-mode=new --n-channels-out=22
+# echo "Testing DANNCE training, AVG net from scratch"
+# dannce-train config_mousetest.yaml --net=unet3d_big_expectedvalue --train-mode=new --n-channels-out=22
 
-echo "Testing DANNCE training, MAX net from scratch"
-dannce-train config_mousetest.yaml --net=unet3d_big --expval=False --train-mode=new --n-channels-out=22 --dannce-finetune-weights="None"
+# echo "Testing DANNCE training, MAX net from scratch"
+# dannce-train config_mousetest.yaml --net=unet3d_big --expval=False --train-mode=new --n-channels-out=22 --dannce-finetune-weights="None"
 
-echo "Testing DANNCE training, AVG net continued"
-dannce-train config_mousetest.yaml --train-mode=continued --dannce-finetune-weights=../../demo/markerless_mouse_1/DANNCE/train_results/AVG/
+# echo "Testing DANNCE training, AVG net continued"
+# dannce-train config_mousetest.yaml --train-mode=continued --dannce-finetune-weights=../../demo/markerless_mouse_1/DANNCE/train_results/AVG/
 
-echo "Testing DANNCE training, MAX net continued"
-dannce-train config_mousetest.yaml --train-mode=continued --expval=False --dannce-finetune-weights=../../demo/markerless_mouse_1/DANNCE/train_results/
+# echo "Testing DANNCE training, MAX net continued"
+# dannce-train config_mousetest.yaml --train-mode=continued --expval=False --dannce-finetune-weights=../../demo/markerless_mouse_1/DANNCE/train_results/
 
 echo "Testing DANNCE AVG prediction"
 dannce-predict config_mousetest.yaml
