@@ -1,8 +1,5 @@
 io_config: io.yaml
 
-# Number of channels for each input image (e.g. RGB == 3)
-n_channels_in: 3
-
 # If training from scratch, set to the desired number of output channels (i.e. keypoints)
 # If fine-tuning, this must match the previous number of output channels, and the new desired
 # number is set by NEW_N_CHANNELS_OUT
