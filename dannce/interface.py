@@ -63,6 +63,8 @@ def com_predict(params):
     # Grab the input file for prediction
     params["label3d_file"] = processing.grab_predict_label3d_file()
 
+    print("Using camnames: {}".format(params["camnames"]))
+
     # Also add parent params under the 'experiment' key for compatibility
     # with DANNCE's video loading function
     params["experiment"] = {}
@@ -348,24 +350,9 @@ def com_train(params):
     num_experiments = len(exps)
     params["experiment"] = {}
     for e, expdict in enumerate(exps):
-        exp = params.copy()
-        exp = processing.make_paths_safe(exp)
-        exp["label3d_file"] = expdict["label3d_file"]
-        exp["base_exp_folder"] = os.path.dirname(exp["label3d_file"])
-        if "viddir" not in expdict.keys():
-            # if the videos are not at the _DEFAULT_VIDDIR, then it must
-            # be specified in the io.yaml experiment block
-            exp["viddir"] = os.path.join(exp["base_exp_folder"], _DEFAULT_VIDDIR)
-        else:
-            exp["viddir"] = expdict["viddir"]
-        print("Experiment {} using videos in {}".format(e, exp["viddir"]))
 
-        if "camnames" in expdict.keys():
-            exp["camnames"] = expdict["camnames"]
-        else:
-            exp["camnames"] = io.load_camnames(expdict["label3d_file"])
-        print("Experiment {} using camnames: {}".format(e, exp["camnames"]))
-
+        exp = processing.load_expdict(params, e, expdict, _DEFAULT_VIDDIR)
+        
         params["experiment"][e] = exp
         (samples_, datadict_, datadict_3d_, cameras_,) = serve_data_DANNCE.prepare_data(
             params["experiment"][e],
@@ -648,24 +635,8 @@ def dannce_train(params):
     num_experiments = len(exps)
     params["experiment"] = {}
     for e, expdict in enumerate(exps):
-        exp = params.copy()
-        exp = processing.make_paths_safe(exp)
-        exp["label3d_file"] = expdict["label3d_file"]
-        exp["base_exp_folder"] = os.path.dirname(exp["label3d_file"])
-        if "viddir" not in expdict.keys():
-            # if the videos are not at the _DEFAULT_VIDDIR, then it must
-            # be specified in the io.yaml experiment portion
-            exp["viddir"] = os.path.join(exp["base_exp_folder"], _DEFAULT_VIDDIR)
-        else:
-            exp["viddir"] = expdict["viddir"]
-        print("Experiment {} using videos in {}".format(e, exp["viddir"]))
 
-        if "camnames" in expdict.keys():
-            exp["camnames"] = expdict["camnames"]
-        else:
-            exp["camnames"] = io.load_camnames(expdict["label3d_file"])
-
-        print("Experiment {} using camnames: {}".format(e, exp["camnames"]))
+        exp = processing.load_expdict(params, e, expdict, _DEFAULT_VIDDIR)
 
         (exp, samples_, datadict_, datadict_3d_, cameras_, com3d_dict_,) = do_COM_load(
             exp, expdict, _N_VIEWS, e, params
@@ -1067,6 +1038,7 @@ def dannce_predict(params):
         dannce_predict_dir, sys.argv[1], params["io_config"],
     )
 
+    print("Using camnames: {}".format(params["camnames"]))
     # Also add parent params under the 'experiment' key for compatibility
     # with DANNCE's video loading function
     params["experiment"] = {}

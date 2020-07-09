@@ -44,4 +44,8 @@ def load_com(path):
 
 def load_camnames(path):
     r = sio.loadmat(path)
-    return [f[0] for f in r['camnames'][0]]
+    if 'camnames' in r:
+        s = [f[0] for f in r['camnames'][0]]
+    else:
+        s = None
+    return s

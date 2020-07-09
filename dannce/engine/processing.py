@@ -85,6 +85,8 @@ def infer_params(params, dannce_net):
     if 'camnames' not in params:
         f = grab_predict_label3d_file()
         params["camnames"] = io.load_camnames(f)
+    if params["camnames"] is None:
+        raise Exception("No camnames in config or in *dannce.mat")
     # Infer vid_dir_flag and extension and n_channels_in and chunks
     # from the videos and video folder organization.
     # Look into the video directory / camnames[0]. Is there a video file?
@@ -420,6 +422,33 @@ def grab_predict_label3d_file(defaultdir=""):
         raise Exception("Did not find any *dannce.mat file in {}".format(def_ep))
     print("Using the following *dannce.mat files: {}".format(label3d_files[0]))
     return label3d_files[0]
+
+def load_expdict(params, e, expdict, _DEFAULT_VIDDIR):
+    """
+    Load in camnames and video directories and label3d files for a single experiment
+        during training.
+    """
+    exp = params.copy()
+    exp = make_paths_safe(exp)
+    exp["label3d_file"] = expdict["label3d_file"]
+    exp["base_exp_folder"] = os.path.dirname(exp["label3d_file"])
+    if "viddir" not in expdict.keys():
+        # if the videos are not at the _DEFAULT_VIDDIR, then it must
+        # be specified in the io.yaml experiment portion
+        exp["viddir"] = os.path.join(exp["base_exp_folder"], _DEFAULT_VIDDIR)
+    else:
+        exp["viddir"] = expdict["viddir"]
+    print("Experiment {} using videos in {}".format(e, exp["viddir"]))
+
+    l3d_camnames = io.load_camnames(expdict["label3d_file"])
+    if "camnames" in expdict.keys():
+        exp["camnames"] = expdict["camnames"]
+    elif l3d_camnames is not None:
+        exp["camnames"] = l3d_camnames
+
+    print("Experiment {} using camnames: {}".format(e, exp["camnames"]))
+
+    return exp
 
 
 def batch_rgb2gray(imstack):
