@@ -232,13 +232,13 @@ def sample_grid_torch_linear(im, projPts, device, method="bilinear"):
     Ic = feats[im_y1_safe, im_x0]
     Id = feats[im_y1_safe, im_x1_safe]
 
-    # o recaptiulate behavior  in numpy/TF, zero out values that fall outside bounds
+    # To recaptiulate behavior  in numpy/TF, zero out values that fall outside bounds
     Ib[im_x1 > fw - 1] = 0
-    Ib[im_y1 > fh - 1] = 0
+    Ic[im_y1 > fh - 1] = 0
     Id[(im_x1 > fw - 1) | (im_y1 > fh - 1)] = 0
     # Calculate bilinear weights
     # We've now sampled the feature maps at corners around the projected values
-    # Here, the corners are weights by distance from the projected value
+    # Here, the corners are weighted by distance from the projected value
     wa = (im_x1_f - im_x) * (im_y1_f - im_y)
     wb = (im_x1_f - im_x) * (im_y - im_y0_f)
     wc = (im_x - im_x0_f) * (im_y1_f - im_y)

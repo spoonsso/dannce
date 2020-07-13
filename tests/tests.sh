@@ -29,10 +29,10 @@ com-predict config_com_mousetest.yaml
 python ../compare_predictions.py ../touchstones/COM3D_undistorted_masternn.mat ../../demo/markerless_mouse_1/COM/predict_test/com3d.mat 0.001
 
 echo "Testing DANNCE training, finetune_MAX"
-dannce-train config_mousetest.yaml --net=finetune_MAX --dannce-finetune-weights=../../demo/markerless_mouse_1/DANNCE/weights/weights.rat.MAX/
+dannce-train config_mousetest.yaml --net-type=MAX --dannce-finetune-weights=../../demo/markerless_mouse_1/DANNCE/weights/weights.rat.MAX/
 
 echo "Testing DANNCE training, finetune_AVG"
-dannce-train config_mousetest.yaml --net=finetune_AVG --dannce-finetune-weights=../../demo/markerless_mouse_1/DANNCE/train_test/
+dannce-train config_mousetest.yaml --net-type=AVG --dannce-finetune-weights=../../demo/markerless_mouse_1/DANNCE/weights/
 
 echo "Testing DANNCE training, AVG net from scratch"
 dannce-train config_mousetest.yaml --net=unet3d_big_expectedvalue --train-mode=new --n-channels-out=22
