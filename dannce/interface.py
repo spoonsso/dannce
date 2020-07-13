@@ -41,7 +41,6 @@ def build_params(base_config, dannce_net):
     params = processing.read_config(base_params["io_config"])
     params = processing.make_paths_safe(params)
     params = processing.inherit_config(params, base_params, list(base_params.keys()))
-    processing.check_config(params)
     return params
 
 

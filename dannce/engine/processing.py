@@ -76,7 +76,7 @@ def initialize_vids(CONFIG_PARAMS, datadict, e, vids, pathonly=True):
 
     return vids
 
-def infer_params(params, dannce_net):
+def infer_params(params, dannce_net, prediction):
     """
     Some parameters that were previously specified in configs can just be inferred
         from others, thus relieving config bloat
@@ -92,32 +92,27 @@ def infer_params(params, dannce_net):
     # Look into the video directory / camnames[0]. Is there a video file?
     # If so, vid_dir_flag = True
     viddir = os.path.join(params["viddir"], params["camnames"][0])
-    camdirs = os.listdir(viddir)
-    if '.mp4' in camdirs[0] or '.avi' in camdirs[0]:
-        print_and_set(params, "vid_dir_flag", True)
-        print_and_set(params, "extension",
-                      '.mp4' if '.mp4' in camdirs[0] else '.avi')
-        if len(camdirs) > 1:
-            camdirs = sorted(camdirs, key=lambda x: int(x.split('.')[0]))
-            chunks = int(camdirs[1].split('.')[0]) - int(camdirs[0].split('.')[0])
-        else:
-            chunks = 1e10
-        camf = os.path.join(viddir, camdirs[0])
+    video_files = os.listdir(viddir)
 
+    if any([".mp4" in file for file in video_files]) or \
+        any([".avi" in file for file in video_files]):
+
+        print_and_set(params, "vid_dir_flag", True)
     else:
         print_and_set(params, "vid_dir_flag", False)
         viddir = os.path.join(viddir,
-                              camdirs[0])
-        camdirs = os.listdir(viddir)
-        if len(camdirs) > 1:
-            camdirs = sorted(camdirs, key=lambda x: int(x.split('.')[0]))
-            chunks = int(camdirs[1].split('.')[0]) - int(camdirs[0].split('.')[0])
-        else:
-            chunks = 1e10
+                              video_files[0])
+        video_files = os.listdir(viddir)
 
-        print_and_set(params, "extension",
-                      '.mp4' if '.mp4' in camdirs[0] else '.avi')
-        camf = os.path.join(viddir, camdirs[0])
+    extension = ".mp4" if any([".mp4" in file for file in video_files]) else ".avi"
+    print_and_set(params, "extension", extension)
+    video_files = [file for file in video_files if extension in file]
+    if len(video_files) > 1:
+        video_files = sorted(video_files, key=lambda x: int(x.split(".")[0]))
+        chunks = int(video_files[1].split(".")[0]) - int(video_files[0].split(".")[0])
+    else:
+        chunks = 1e10
+    camf = os.path.join(viddir, video_files[0])
 
     print_and_set(params, "chunks", chunks)
 
@@ -127,9 +122,44 @@ def infer_params(params, dannce_net):
     v.close()
     print_and_set(params, "n_channels_in", im.shape[-1])
 
-    if dannce_net and 'expval' not in params:
-        # Infer dannce specific parameters
-        # Infer EXPVAL from the netname.
+    if dannce_net and 'net' not in params and 'expval' not in params:
+        # Here we assume that if the network and expval are specified by the user
+        # then there is no reason to infer anything. net + expval compatibility
+        # are subsequently verified during check_config()
+        #
+        # If both the net and expval are unspecified, then we use the simpler
+        # 'net_type' + 'train_mode' to select the correct network and set expval.
+        # During prediction, the train_mode might be missing, and in any case only the
+        # expval needs to be set.
+        if 'net_type' not in params:
+            raise Exception("Without a net name and expval params, net_type must be specified")
+        
+        if not prediction and 'train_mode' not in params:
+            raise Exception("Need to specific train_mode for DANNCE training")
+
+        if params['net_type'] == 'AVG':
+            print_and_set(params, "expval", True)
+        elif params['net_type'] == 'MAX':
+            print_and_set(params, "expval", False)
+        else:
+            raise Exception("{} not a valid net_type".format(params['net_type']))
+
+        if not prediction:
+            if params['net_type'] == 'AVG' and params['train_mode'] == 'finetune':
+                print_and_set(params, "net", "finetune_AVG")
+            elif params['net_type'] == 'AVG':
+                # This is the network for training from scratch.
+                # This will also set the network for "continued", but that network
+                # will be ignored, as for continued training the full model file
+                # is loaded in without a call to construct the network. However, a value
+                # for params['net'] is still required for initialization
+                print_and_set(params, "net", "unet3d_big_expectedvalue")
+            elif params['net_type'] == 'MAX' and params['train_mode'] == "finetune":
+                print_and_set(params, "net", "finetune_MAX")
+            elif params['net_type'] == 'MAX':
+                print_and_set(params, "net", "unet3d_big")
+
+    elif dannce_net and 'expval' not in params:
         if 'AVG' in params["net"] or 'expected' in params["net"]:
             print_and_set(params, "expval", True)
         else:
@@ -140,6 +170,10 @@ def infer_params(params, dannce_net):
                       "maxbatch",
                       int(params["max_num_samples"]//params["batch_size"]))
 
+        if "vol_size" in params:
+            print_and_set(params, "vmin", -1*params["vol_size"]//2)
+            print_and_set(params, "vmax", params["vol_size"]//2)
+
     return params
 
     
@@ -148,7 +182,7 @@ def print_and_set(params, varname, value):
     params[varname] = value
     print("Setting {} to {}.".format(varname, params[varname]))
 
-def check_config(params):
+def check_config(params, dannce_net):
     """
     Add parameter checks and restrictions here.
     """
@@ -158,6 +192,15 @@ def check_config(params):
         for expdict in params['exp']:
             check_camnames(expdict)
 
+    if dannce_net:
+        check_net_expval(params)
+        check_vmin_vmax(params)
+
+def check_vmin_vmax(params):
+    for v in ["vmin", "vmax", "nvox"]:
+        if v not in params:
+            raise Exception("{} not in parameters. Please add it, or use vol_size instead of vmin and vmax".format(v))
+
 def check_camnames(camp):
     """
     Raises an exception if camera names contain '_'
@@ -166,6 +209,15 @@ def check_camnames(camp):
         for cam in camp['camnames']:
             if '_' in cam:
                 raise Exception("Camera names cannot contain '_' ")
+
+def check_net_expval(params):
+    """
+    Raise an exception if the network and expval (i.e. AVG/MAX) are incompatible
+    """
+    if params['expval'] and 'AVG' not in params['net'] and 'expected' not in params['net']:
+        raise Exception("Config is set to AVG but you are using a MAX network")
+    if not params['expval'] and 'MAX' not in params['net'] and 'expected' in params['net']:
+        raise Exception("Config is set to MAX but you are using an AVG network")
 
 def copy_config(RESULTSDIR, main_config, io_config):
     """

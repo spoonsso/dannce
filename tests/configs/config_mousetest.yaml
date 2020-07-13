@@ -1,30 +1,13 @@
 io_config: io.yaml
 
-# If training from scratch, set to the desired number of output channels (i.e. keypoints)
-# If fine-tuning, this must match the previous number of output channels, and the new desired
-# number is set by NEW_N_CHANNELS_OUT
-n_channels_out: 20
-
 # New number of network output channels.
 new_n_channels_out: 22
-# New size of the final output kernel
-new_last_kernel_size: [3,3,3]
 
 # batch_size
 batch_size: 4
 
 # DANNCE training option. Sets the number of epochs during training (default 1200)
 epochs: 3
-
-# DANNCE training option. Loss function to be used. Default MSE.
-loss: mask_nan_keep_loss
-
-# DANNCE training option. Learning rate for the Adam optimizer. Default 1e-3.
-lr: 1e-3
-
-# During prediction, will look for the last epoch weights saved to ./DANNCE/train_results/. To load in a different weights file, add the path here
-# Note that this must be a FULL MODEL file, not just weights.
-#predict_model: path_to_model_file
 
 # name of the network architecture (see nets.py) 'unet3d_big' (from scratch?)
 net: finetune_AVG
@@ -38,15 +21,9 @@ train_mode: finetune
 # How many samples from each animal do you want to (randomly) set aside for a validation metric?
 num_validation_per_exp: 4
 
-# When using a system with multiple GPUs, we should just target one of them
-gpuID: "0"
+# Size of 3D volume (in mm) anchored on animal
+vol_size: 120
 
-# The number of frames in each video file
-chunks: 3000
-
-# Limits (in mm) to 3D volumes anchored on subject
-vmin: -60
-vmax: 60
 # Number of voxels along each spatial dimension
 nvox: 64
 
@@ -54,7 +31,5 @@ nvox: 64
 max_num_samples: 1000
 
 start_batch: 0
-
-predict_mode: 'torch'
 
 dannce_finetune_weights: ../../demo/markerless_mouse_1/DANNCE/weights/

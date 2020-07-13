@@ -14,7 +14,7 @@ def com_predict_cli():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.set_defaults(**{**_param_defaults_shared, **_param_defaults_com})
     args = parse_clargs(parser, model_type="com", prediction=True)
-    params = build_clarg_params(args, dannce_net=False)
+    params = build_clarg_params(args, dannce_net=False, prediction=True)
     com_predict(params)
 
 
@@ -23,7 +23,7 @@ def com_train_cli():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.set_defaults(**{**_param_defaults_shared, **_param_defaults_com})
     args = parse_clargs(parser, model_type="com", prediction=False)
-    params = build_clarg_params(args, dannce_net=False)
+    params = build_clarg_params(args, dannce_net=False, prediction=False)
     com_train(params)
 
 
@@ -32,7 +32,7 @@ def dannce_predict_cli():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.set_defaults(**{**_param_defaults_shared, **_param_defaults_dannce})
     args = parse_clargs(parser, model_type="dannce", prediction=True)
-    params = build_clarg_params(args, dannce_net=True)
+    params = build_clarg_params(args, dannce_net=True, prediction=True)
     dannce_predict(params)
 
 
@@ -41,17 +41,17 @@ def dannce_train_cli():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.set_defaults(**{**_param_defaults_shared, **_param_defaults_dannce})
     args = parse_clargs(parser, model_type="dannce", prediction=False)
-    params = build_clarg_params(args, dannce_net=True)
+    params = build_clarg_params(args, dannce_net=True, prediction=False)
     dannce_train(params)
 
-def build_clarg_params(args, dannce_net):
+def build_clarg_params(args, dannce_net, prediction):
     # Get the params specified in base config and io.yaml
     params = build_params(args.base_config, dannce_net)
 
     # Combine those params with the clargs
     params = combine(params, args, dannce_net)
-    params = infer_params(params, dannce_net)
-    check_config(params)
+    params = infer_params(params, dannce_net, prediction)
+    check_config(params, dannce_net)
     return params
 
 
@@ -249,6 +249,13 @@ def add_dannce_train_args(parser):
         "new: initializes and trains a network from scratch\n"
         "finetune: loads in pre-trained weights and fine-tuned from there\n"
         "continued: initializes a full model, including optimizer state, and continuous training from the last full model checkpoint",
+    )
+    parser.add_argument(
+        "--net-type",
+        dest="net_type",
+        help="Net types can be:\n"
+        "AVG: more precise spatial average DANNCE, can be harder to train\n"
+        "MAX: DANNCE where joint locations are at the maximum of the 3D output distribution\n"
     )
     return parser
 
