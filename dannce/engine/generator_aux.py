@@ -267,6 +267,73 @@ class DataGenerator_downsample(keras.utils.Sequence):
 
         return pp_vgg19(X), y
 
+class DataGenerator_downsample_frommem(keras.utils.Sequence):
+    """Generate 3d conv data from memory."""
+
+    def __init__(
+        self,
+        list_IDs,
+        data,
+        labels,
+        batch_size,
+        rotation=True,
+        random=True,
+        chan_num=3,
+        shuffle=True,
+        expval=False,
+        xgrid=None,
+        var_reg=False,
+        nvox=64,
+        cam3_train=False,
+    ):
+        """Initialize data generator."""
+        self.list_IDs = list_IDs
+        self.data = data
+        self.labels = labels
+        self.rotation = rotation
+        self.batch_size = batch_size
+        self.random = random
+        self.chan_num = 3
+        self.shuffle = shuffle
+        self.expval = expval
+        self.var_reg = var_reg
+        if self.expval:
+            self.xgrid = xgrid
+        self.nvox = nvox
+        self.cam3_train = cam3_train
+        self.on_epoch_end()
+
+    def __len__(self):
+        """Denote the number of batches per epoch."""
+        return int(np.floor(len(self.list_IDs) / self.batch_size))
+
+    def __getitem__(self, index):
+        """Generate one batch of data."""
+        # Generate indexes of the batch
+        indexes = self.indexes[index * self.batch_size : (index + 1) * self.batch_size]
+
+        # Find list of IDs
+        list_IDs_temp = [self.list_IDs[k] for k in indexes]
+
+        # Generate data
+        X, y = self.__data_generation(list_IDs_temp)
+
+        return X, y
+
+        def __data_generation(self, list_IDs_temp):
+            """Generate data containing batch_size samples."""
+            # Initialization
+
+            X = np.zeros((self.batch_size, *self.data.shape[1:]))
+            y_3d = np.zeros((self.batch_size, *self.labels.shape[1:]))
+
+            for i, ID in enumerate(list_IDs_temp):
+                X[i] = self.data[ID].copy()
+                y_3d[i] = self.labels[ID]
+
+                if self
+
+
     def save_for_dlc(self, imfolder, ext=".png", full_data=True, compress_level=9):
         """Generate data.
 
