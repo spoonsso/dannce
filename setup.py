@@ -8,9 +8,9 @@ setup(
     install_requires=[
         "six",
         "pyyaml",
-        "imageio==2.8.0",
+        "imageio==2.2.0",
         "imageio-ffmpeg",
-        "scikit-image",
+        "scikit-image==0.15.0",
         "matplotlib",
         "opencv-python",
         "tensorflow",

@@ -4,11 +4,11 @@ datadir: ../../demo/markerless_mouse_1/sync/
 # path to folder contraining video sub directories
 viddir: ../../demo/markerless_mouse_1/videos/
 
-# names of data files. must match the order of CAMNAMES below
+# names of data files. must match the order of camnames below
 datafile: ['Camera1_sync', 'Camera2_sync', 'Camera3_sync', 'Camera4_sync','Camera5_sync','Camera6_sync']
 
 # Names for each of the camera subdirectories in the video folder. Order should match the datafiles above.
-CAMNAMES: ['Camera1', 'Camera2', 'Camera3', 'Camera4', 'Camera5', 'Camera6']
+camnames: ['Camera1', 'Camera2', 'Camera3', 'Camera4', 'Camera5', 'Camera6']
 CALIBDIR: ../../demo/markerless_mouse_1/calibration/
 calib_file: ['kyle_cam1_params.mat','kyle_cam2_params.mat','kyle_cam3_params.mat','kyle_cam4_params.mat', 'kyle_cam5_params.mat', 'kyle_cam6_params.mat']
 
@@ -31,39 +31,39 @@ DANNCE_CONFIG: config_temp.yaml
 
 
 # How to crop the input images. The U-Net expects each dimension size to be a multiple of 32.
-CROP_HEIGHT: [0, 1024]
-CROP_WIDTH: [0, 1156]
+crop_height: [0, 1024]
+crop_width: [0, 1156]
 
 # Number of channels for each input image (e.g. RGB == 3)
-N_CHANNELS_IN: 3
+n_channels_in: 3
 
 # If training from scratch, set to the desired number of output channels (i.e. keypoints)
 # If fine-tuning, this must match the previous number of output channels, and the new desired
-# number is set by NEW_N_CHANNELS_OUT
-N_CHANNELS_OUT: 20
+# number is set by new_n_channels_out
+n_channels_out: 20
 
 # New number of network output channels.
-NEW_N_CHANNELS_OUT: 22
+new_n_channels_out: 22
 # New size of the final output kernel
-NEW_LAST_KERNEL_SIZE: [3,3,3]
+new_last_kernel_size: [3,3,3]
 
-# BATCH_SIZE
-BATCH_SIZE: 4
+# batch_size
+batch_size: 4
 
 # Number of parallel workers serving data to the model
-WORKERS: 4
+workers: 4
 
 # Max. number of batches in multi-processing queue
-MAX_QUEUE_SIZE: 20
+max_queue_size: 20
 
 # DANNCE training option. Sets the size of the 3D Guassians (in mm) used as labels for the MAX models
-SIGMA: 10
+sigma: 10
 
 # DANNCE training option. Sets the number of epochs during training (default 1200)
-EPOCHS: 3
+epochs: 3
 
 # DANNCE training option. Sets the verbosity of training output
-VERBOSE: 1
+verbose: 1
 
 # DANNCE training option. Loss function to be used. Default MSE.
 loss: mask_nan_keep_loss
@@ -93,7 +93,7 @@ instance_norm: True
 train_mode: finetune
 
 # When fine-tuning, sets the number of layers, starting from the input layer, to lock during training. Default 2
-N_LAYERS_LOCKED: 2
+n_layers_locked: 2
 
 # If true, each camera's video directory contains only the video files. If false, each camera's video directory contains an additional subdirectory, which then contains the video files
 vid_dir_flag: True
@@ -106,7 +106,7 @@ metric: ['mse']
 num_validation_per_exp: 4
 
 # When using a system with multiple GPUs, we should just target one of them
-gpuID: "0"
+gpu_id: "0"
 
 # The number of frames in each video file
 chunks: 3000
@@ -115,30 +115,30 @@ chunks: 3000
 COMfilename: ../../demo/markerless_mouse_1/COM/predict_results/COM_undistorted.pickle
 
 # Limits (in mm) to 3D volumes anchored on subject
-VMIN: -60
-VMAX: 60
+vmin: -60
+vmax: 60
 # Number of voxels along each spatial dimension
-NVOX: 64
+nvox: 64
 
 # Interpolation mode.
-INTERP: nearest
+interp: nearest
 
-# If DEPTH is true, will append depth information when sampling images. Particularly useful when using just 1 cameras.
-DEPTH: False
+# If depth is true, will append depth information when sampling images. Particularly useful when using just 1 cameras.
+depth: False
 
-IMMODE: 'vid'
+immode: 'vid'
 
 # DANNCE training option. Whether to turn on rotation augmentation during training
-ROTATE: True
+rotate: True
 
 # Whether to apply lens distortion during sampling. Default True
-DISTORT: True
+distort: True
 
 # If true, intializes an "AVG" version of the network (i.e. final spatial expected value output layer). If false, "MAX" version
-EXPVAL: True
+expval: True
 
 # COM finder output confidence scores less than this threshold will be discarded
-comthresh: 0
+com_thresh: 0
 
 # If True, will weight the COM estimate in each camera by its confidence score
 weighted: False
@@ -150,7 +150,7 @@ com_method: 'median'
 cthresh: 350
 
 # Dictates whether or not to randomly shuffle the camera order when processing volumes. Options: 'None', 'random'
-CHANNEL_COMBO: 'None'
+channel_combo: 'None'
 
 # max. number of batches to evaluate during prediction. set to 'max' to evaluate over all data/video frames
 maxbatch: 250

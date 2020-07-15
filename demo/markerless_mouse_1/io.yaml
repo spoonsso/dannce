@@ -17,10 +17,10 @@ dannce_predict_dir: ./DANNCE/predict_results/
 
 exp:
     - label3d_file: './label3d_dannce.mat'
-      #CAMNAMES: ['Camera1','Camera2','Camera3','Camera4','Camera5','Camera6']
+      #camnames: ['Camera1','Camera2','Camera3','Camera4','Camera5','Camera6']
       #com_file: './COM/predict_results/com3d.mat'
     - label3d_file: '../markerless_mouse_2/label3d_dannce.mat'
-      #CAMNAMES: ['Camera1','Camera2','Camera3','Camera4','Camera5','Camera6']
+      #camnames: ['Camera1','Camera2','Camera3','Camera4','Camera5','Camera6']
       com_file: '../markerless_mouse_2/COM/predict_results/com3d.pickle'
 
 # path to folder contraining video sub directories. Used only for com and dannce PREDICTION
@@ -30,8 +30,8 @@ viddir: ./videos/
 com_file: './COM/predict_results/com3d.pickle'
 
 # How to crop the input images. The U-Net expects each dimension size to be a multiple of 32.
-CROP_HEIGHT: [0, 1024]
-CROP_WIDTH: [0, 1152]
+crop_height: [0, 1024]
+crop_width: [0, 1152]
 
-CAMNAMES: ['Camera1', 'Camera2', 'Camera3', 'Camera4', 'Camera5', 'Camera6']
+camnames: ['Camera1', 'Camera2', 'Camera3', 'Camera4', 'Camera5', 'Camera6']
 

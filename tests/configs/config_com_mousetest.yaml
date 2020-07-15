@@ -40,7 +40,7 @@ num_validation_per_exp: 2
 debug: False
 
 # When using a system with multiple GPUs, we should just target one of them
-gpuID: "0"
+gpu_id: "0"
 
 # If present, write the confidence map output and image/COM overlays to disk during prediction
 #COMdebug: Camera5

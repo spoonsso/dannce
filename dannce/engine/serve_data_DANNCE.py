@@ -11,12 +11,12 @@ from copy import deepcopy
 
 
 def prepare_data(
-    CONFIG_PARAMS, 
-    com_flag=True, 
-    nanflag=True, 
-    multimode=False, 
+    CONFIG_PARAMS,
+    com_flag=True,
+    nanflag=True,
+    multimode=False,
     prediction=False,
-    return_cammat=False
+    return_cammat=False,
 ):
     """Assemble necessary data structures given a set of config params.
 
@@ -49,7 +49,7 @@ def prepare_data(
 
     framedict = {}
     ddict = {}
-    
+
     for i, label in enumerate(labels):
         framedict[CONFIG_PARAMS["camnames"][i]] = np.squeeze(label["data_frame"])
         data = label["data_2d"]
@@ -103,10 +103,11 @@ def prepare_data(
     else:
         return samples, datadict, datadict_3d, cameras
 
+
 def prepare_COM(
     comfile,
     datadict,
-    comthresh=0.,
+    com_thresh=0.0,
     weighted=False,
     camera_mats=None,
     conf_rescale=None,
@@ -117,7 +118,7 @@ def prepare_COM(
     Loads COM file, replaces 2D coordinates in datadict with the preprocessed
     COM coordinates, returns dict of 3d COM coordinates
 
-    Thresholds COM predictions at comthresh w.r.t. saved pred_max values.
+    Thresholds COM predictions at com_thresh w.r.t. saved pred_max values.
     Averages only the 3d coords for camera pairs that both meet thresh.
     Returns nan for 2d COM if camera does not reach thresh. This should be
     detected by the generator to return nans such that bad camera
@@ -138,8 +139,8 @@ def prepare_COM(
 
     camnames = np.array(list(datadict[list(datadict.keys())[0]]["data"].keys()))
 
-        # Because I repeat cameras to fill up 6 camera quota, I need grab only
-        # the unique names
+    # Because I repeat cameras to fill up 6 camera quota, I need grab only
+    # the unique names
     _, idx = np.unique(camnames, return_index=True)
     uCamnames = camnames[np.sort(idx)]
 
@@ -166,7 +167,7 @@ def prepare_COM(
                     this_com[camnames[k]]["pred_max"] *= conf_rescale[camnames[k]]
 
                 # then, set to nan
-                if this_com[camnames[k]]["pred_max"] <= comthresh:
+                if this_com[camnames[k]]["pred_max"] <= com_thresh:
                     datadict[key]["data"][camnames[k]][:] = np.nan
 
             com3d = np.zeros((3, int(comb(len(uCamnames), 2)))) * np.nan
@@ -174,8 +175,8 @@ def prepare_COM(
             cnt = 0
             for j in range(len(uCamnames)):
                 for k in range(j + 1, len(uCamnames)):
-                    if (this_com[uCamnames[j]]["pred_max"] > comthresh) and (
-                        this_com[uCamnames[k]]["pred_max"] > comthresh
+                    if (this_com[uCamnames[j]]["pred_max"] > com_thresh) and (
+                        this_com[uCamnames[k]]["pred_max"] > com_thresh
                     ):
                         if (
                             "{}_{}".format(uCamnames[j], uCamnames[k])
@@ -299,11 +300,14 @@ def remove_samples_com(s, com3d_dict, cthresh=350, rmc=False):
     sample_mask = np.ones((len(s),), dtype="bool")
 
     for i in range(len(s)):
-        if np.isnan(np.sum(com3d_dict[s[i]])):
+        if s[i] not in com3d_dict:
             sample_mask[i] = 0
-        if rmc:
-            if np.any(np.abs(com3d_dict[s[i]]) > cthresh):
+        else:
+            if np.isnan(np.sum(com3d_dict[s[i]])):
                 sample_mask[i] = 0
+            if rmc:
+                if np.any(np.abs(com3d_dict[s[i]]) > cthresh):
+                    sample_mask[i] = 0
 
     s = s[sample_mask]
     return s

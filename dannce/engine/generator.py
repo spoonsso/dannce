@@ -7,8 +7,11 @@ from dannce.engine import ops as ops
 import imageio
 import warnings
 import time
+import scipy.ndimage.interpolation
 
 import tensorflow as tf
+
+# from tensorflow_graphics.geometry.transformation.axis_angle import rotate
 from multiprocessing.dummy import Pool as ThreadPool
 
 
@@ -178,7 +181,7 @@ class DataGenerator_3Dconv(DataGenerator):
         vmin=-100,
         vmax=100,
         nvox=32,
-        gpuID="0",
+        gpu_id="0",
         interp="linear",
         depth=False,
         channel_combo=None,
@@ -241,7 +244,7 @@ class DataGenerator_3Dconv(DataGenerator):
         self.crop_im = crop_im
         # If saving npy as uint8 rather than training directly, dont normalize
         self.norm_im = norm_im
-        self.gpuID = gpuID
+        self.gpu_id = gpu_id
 
     def __getitem__(self, index):
         """Generate one batch of data."""
@@ -563,6 +566,11 @@ class DataGenerator_3Dconv(DataGenerator):
                 else:
                     X, y_3d, rotate_log = self.random_rotate(X, y_3d, log=True)
 
+        # if True:
+        #     for n_cam in range(int(X.shape[-1] / 3)):
+        #         channel_ids =  np.arange(n_cam * 3, n_cam * 3 + 3)
+        #         X[..., channel_ids] = tf.image.random_hue(X[..., channel_ids], .1)
+
         # Then we also need to return the 3d grid center coordinates,
         # for calculating a spatial expected value
         # Xgrid is typically symmetric for 90 and 180 degree rotations
@@ -613,7 +621,7 @@ class DataGenerator_3Dconv_torch(DataGenerator):
         vmin=-100,
         vmax=100,
         nvox=32,
-        gpuID="0",
+        gpu_id="0",
         interp="linear",
         depth=False,
         channel_combo=None,
@@ -663,7 +671,7 @@ class DataGenerator_3Dconv_torch(DataGenerator):
         self.depth = depth
         self.channel_combo = channel_combo
         print(self.channel_combo)
-        self.gpuID = gpuID
+        self.gpu_id = gpu_id
         self.mode = mode
         self.immode = immode
         self.tifdirs = tifdirs
@@ -680,7 +688,7 @@ class DataGenerator_3Dconv_torch(DataGenerator):
 
         # importing torch here allows other modes to run without pytorch installed
         self.torch = __import__("torch")
-        self.device = self.torch.device("cuda:" + self.gpuID)
+        self.device = self.torch.device("cuda:" + self.gpu_id)
         # self.device = self.torch.device('cpu')
 
         self.threadpool = ThreadPool(len(self.camnames[0]))
@@ -1044,7 +1052,7 @@ class DataGenerator_3Dconv_tf(DataGenerator):
         vmin=-100,
         vmax=100,
         nvox=32,
-        gpuID="0",
+        gpu_id="0",
         interp="linear",
         depth=False,
         channel_combo=None,
@@ -1095,7 +1103,7 @@ class DataGenerator_3Dconv_tf(DataGenerator):
         self.depth = depth
         self.channel_combo = channel_combo
         print(self.channel_combo)
-        self.gpuID = gpuID
+        self.gpu_id = gpu_id
         self.mode = mode
         self.immode = immode
         self.tifdirs = tifdirs
@@ -1115,7 +1123,7 @@ class DataGenerator_3Dconv_tf(DataGenerator):
         self.config.gpu_options.allow_growth = True
         self.session = tf.compat.v1.InteractiveSession(config=self.config)
 
-        self.device = "/GPU:" + self.gpuID
+        self.device = "/GPU:" + self.gpu_id
 
         self.threadpool = ThreadPool(len(self.camnames[0]))
 
@@ -1531,6 +1539,9 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         var_reg=False,
         nvox=64,
         cam3_train=False,
+        augment_brightness=True,
+        augment_hue=True,
+        augment_continuous_rotation=True,
     ):
         """Initialize data generator."""
         self.list_IDs = list_IDs
@@ -1542,6 +1553,9 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         self.chan_num = 3
         self.shuffle = shuffle
         self.expval = expval
+        self.augment_hue = augment_hue
+        self.augment_continuous_rotation = augment_continuous_rotation
+        self.augment_brightness = augment_brightness
         self.var_reg = var_reg
         if self.expval:
             self.xgrid = xgrid
@@ -1606,6 +1620,58 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
 
         return X, y_3d
 
+    def visualize(self, original, augmented):
+        import matplotlib.pyplot as plt
+
+        fig = plt.figure()
+        plt.subplot(1, 2, 1)
+        plt.title("Original image")
+        plt.imshow(original)
+
+        plt.subplot(1, 2, 2)
+        plt.title("Augmented image")
+        plt.imshow(augmented)
+        plt.show()
+        input("Press Enter to continue...")
+
+    def random_continuous_rotation(self, X, y_3d, log=False, max_delta=5):
+        rotangle = np.random.rand() * (2 * max_delta) - max_delta
+        X = tf.reshape(X, [X.shape[0], X.shape[1], X.shape[2], -1]).numpy()
+        y_3d = tf.reshape(
+            y_3d, [y_3d.shape[0], y_3d.shape[1], y_3d.shape[2], -1]
+        ).numpy()
+        for i in range(X.shape[0]):
+            X[i] = tf.keras.preprocessing.image.apply_affine_transform(
+                X[i],
+                theta=rotangle,
+                row_axis=0,
+                col_axis=1,
+                channel_axis=2,
+                fill_mode="nearest",
+                cval=0.0,
+                order=1,
+            )
+            y_3d[i] = tf.keras.preprocessing.image.apply_affine_transform(
+                y_3d[i],
+                theta=rotangle,
+                row_axis=0,
+                col_axis=1,
+                channel_axis=2,
+                fill_mode="nearest",
+                cval=0.0,
+                order=1,
+            )
+
+        X = tf.reshape(X, [X.shape[0], X.shape[1], X.shape[2], X.shape[2], -1]).numpy()
+        y_3d = tf.reshape(
+            y_3d, [y_3d.shape[0], y_3d.shape[1], y_3d.shape[2], y_3d.shape[2], -1]
+        ).numpy()
+
+        if log:
+            return X, y_3d, rots
+        else:
+            return X, y_3d
+
     def __data_generation(self, list_IDs_temp):
         """Generate data containing batch_size samples."""
         # Initialization
@@ -1633,6 +1699,33 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
                 X_grid = np.reshape(X_grid, (self.batch_size, -1, 3))
             else:
                 X, y_3d = self.random_rotate(X.copy(), y_3d.copy())
+
+        if self.augment_continuous_rotation:
+            # import pdb
+            # pdb.set_trace()
+            # print(y_3d.shape, flush=True)
+            if self.expval:
+                # First make X_grid 3d
+                X_grid = np.reshape(
+                    X_grid, (self.batch_size, self.nvox, self.nvox, self.nvox, 3)
+                )
+                X, X_grid = self.random_continuous_rotation(X.copy(), X_grid.copy())
+                # Need to reshape back to raveled version
+                X_grid = np.reshape(X_grid, (self.batch_size, -1, 3))
+            else:
+                X, y_3d = self.random_continuous_rotation(X.copy(), y_3d.copy())
+
+        if self.augment_hue:
+            for n_cam in range(int(X.shape[-1] / 3)):
+                channel_ids = np.arange(n_cam * 3, n_cam * 3 + 3)
+                X[..., channel_ids] = tf.image.random_hue(X[..., channel_ids], 0.05)
+
+        if self.augment_brightness:
+            for n_cam in range(int(X.shape[-1] / 3)):
+                channel_ids = np.arange(n_cam * 3, n_cam * 3 + 3)
+                X[..., channel_ids] = tf.image.random_brightness(
+                    X[..., channel_ids], 0.05
+                )
 
         # Randomly re-order, if desired
         if self.random:

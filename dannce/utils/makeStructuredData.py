@@ -30,7 +30,7 @@ CONFIG_PARAMS["experiment"] = PARENT_PARAMS
 RESULTSDIR = CONFIG_PARAMS["RESULTSDIR_PREDICT"]
 print("Reading results from: " + RESULTSDIR)
 
-# This is agnostic to the EXPVAL setting, i.e. MAX or AVG net
+# This is agnostic to the expval setting, i.e. MAX or AVG net
 # However, we will eventually add the COM back in only for MAX-type results
 dfiles = os.listdir(RESULTSDIR)
 sfile = [f for f in dfiles if "save_data" in f]
@@ -40,7 +40,7 @@ pred = sio.loadmat(os.path.join(RESULTSDIR, sfile))
 
 pred["sampleID"] = np.squeeze(pred["sampleID"])
 
-if not CONFIG_PARAMS["EXPVAL"]:
+if not CONFIG_PARAMS["expval"]:
     print("adding 3D COM back in")
     com3d = sio.loadmat(os.path.join(RESULTSDIR, "COM3D_undistorted.mat"))
     # We should make sure the sampleIDs match up
@@ -99,7 +99,7 @@ predictions["sampleID"] = pred["sampleID"]
 
 cameras = {}
 
-cnames = PARENT_PARAMS["CAMNAMES"]
+cnames = PARENT_PARAMS["camnames"]
 for i in range(len(cnames)):
     cameras[cnames[i]] = {}
 

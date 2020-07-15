@@ -1,6 +1,5 @@
 #!/bin/bash
 set -e
-python setup.py install
 #Set of tests to run.
 #
 #List of tests:
