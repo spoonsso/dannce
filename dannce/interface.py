@@ -847,7 +847,6 @@ def dannce_train(params):
                 )
                 imageio.mimwrite(of, np.transpose(im, [2, 0, 1, 3]))
         print("Done! Exiting.")
-        sys.exit()
 
     print("Loading validation data into memory")
     for i in range(len(partition["valid_sampleIDs"])):

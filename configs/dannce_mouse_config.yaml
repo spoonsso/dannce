@@ -18,11 +18,8 @@ BATCH_SIZE: 4
 # DANNCE training option. Sets the number of epochs during training (default 1200)
 EPOCHS: 600
 
-# DANNCE training option. Learning rate for the Adam optimizer. Default 1e-3.
-#lr: 1e-3
-
-# name of the network architecture (see nets.py) 'unet3d_big' (from scratch?)
-net: finetune_AVG
+# name of the network architecture (see nets.py)
+net_type: AVG
 
 # Options:
 # 'new': initializes and trains a network from scratch

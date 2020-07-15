@@ -4,7 +4,8 @@ _param_defaults_shared = {"immode": 'vid',
                           "verbose": 1,
                           "gpuID": "0",
                           "loss": 'mask_nan_keep_loss',
-                          "start_batch": 0}
+                          "start_batch": 0,
+                          "viddir": "videos"}
 _param_defaults_dannce = {"metric": ['euclidean_distance_3D'],
                           "sigma": 10,
                           "lr": 1e-3,
@@ -27,4 +28,8 @@ _param_defaults_com = {"dsmode": 'nn',
                        "debug": False,
                        "lr": 5e-5,
                        "net": 'unet2d_fullbn',
-                       "n_channels_out": 1}
+                       "n_channels_out": 1,
+                       "augment_hue": False,
+                       "augment_brightness": False,
+                       "augment_rotation": False,
+                       "augment_translation": False}
