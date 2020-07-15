@@ -434,7 +434,7 @@ def save_COM_checkpoint(save_data, RESULTSDIR, datadict_, cameras, params):
     _, com3d_dict = serve_data_DANNCE.prepare_COM(
         os.path.join(RESULTSDIR, "com3d.pickle"),
         datadict_save,
-        com_thresh=0,
+        comthresh=0,
         weighted=False,
         camera_mats=cameras,
         method="median",
