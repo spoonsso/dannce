@@ -1,17 +1,23 @@
 """Entrypoints for dannce training and prediction."""
-from dannce.interface import com_predict, com_train, dannce_predict, dannce_train, build_params
-from dannce.engine.processing import (
-    check_config,
-    infer_params
+from dannce.interface import (
+    com_predict,
+    com_train,
+    dannce_predict,
+    dannce_train,
+    build_params,
 )
+from dannce.engine.processing import check_config, infer_params
 from dannce import _param_defaults_dannce, _param_defaults_shared, _param_defaults_com
 import sys
 import ast
 import argparse
 
+
 def com_predict_cli():
-    parser = argparse.ArgumentParser(description="Com predict CLI",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description="Com predict CLI",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
     parser.set_defaults(**{**_param_defaults_shared, **_param_defaults_com})
     args = parse_clargs(parser, model_type="com", prediction=True)
     params = build_clarg_params(args, dannce_net=False, prediction=True)
@@ -19,8 +25,10 @@ def com_predict_cli():
 
 
 def com_train_cli():
-    parser = argparse.ArgumentParser(description="Com train CLI",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description="Com train CLI",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
     parser.set_defaults(**{**_param_defaults_shared, **_param_defaults_com})
     args = parse_clargs(parser, model_type="com", prediction=False)
     params = build_clarg_params(args, dannce_net=False, prediction=False)
@@ -28,8 +36,10 @@ def com_train_cli():
 
 
 def dannce_predict_cli():
-    parser = argparse.ArgumentParser(description="Dannce predict CLI",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description="Dannce predict CLI",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
     parser.set_defaults(**{**_param_defaults_shared, **_param_defaults_dannce})
     args = parse_clargs(parser, model_type="dannce", prediction=True)
     params = build_clarg_params(args, dannce_net=True, prediction=True)
@@ -37,12 +47,15 @@ def dannce_predict_cli():
 
 
 def dannce_train_cli():
-    parser = argparse.ArgumentParser(description="Dannce train CLI",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description="Dannce train CLI",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
     parser.set_defaults(**{**_param_defaults_shared, **_param_defaults_dannce})
     args = parse_clargs(parser, model_type="dannce", prediction=False)
     params = build_clarg_params(args, dannce_net=True, prediction=False)
     dannce_train(params)
+
 
 def build_clarg_params(args, dannce_net, prediction):
     # Get the params specified in base config and io.yaml
@@ -79,15 +92,20 @@ def add_shared_args(parser):
         type=ast.literal_eval,
         help="List of ordered camera names.",
     )
+
     parser.add_argument("--io-config", dest="io_config", help="Path to io.yaml file.")
+
     parser.add_argument(
-        "--n-channels-out", dest="n_channels_out", help="Number of keypoints to output. For COM, this is typically 1, but can be equal to the number of points tracked to run in MULTI_MODE."
+        "--n-channels-out",
+        dest="n_channels_out",
+        type=int,
+        help="Number of keypoints to output. For COM, this is typically 1, but can be equal to the number of points tracked to run in MULTI_MODE.",
     )
     parser.add_argument(
-        "--batch-size", dest="batch_size", help="Number of images per batch."
+        "--batch-size", dest="batch_size", type=int, help="Number of images per batch."
     )
     parser.add_argument(
-        "--sigma", dest="sigma", help="Standard deviation of confidence maps."
+        "--sigma", dest="sigma", type=int, help="Standard deviation of confidence maps."
     )
     parser.add_argument(
         "--verbose",
@@ -95,7 +113,9 @@ def add_shared_args(parser):
         help="verbose=0 prints nothing to std out. verbose=1 prints training summary to std out.",
     )
     parser.add_argument("--net", dest="net", help="Network architecture. See nets.py")
-    parser.add_argument("--gpuID", dest="gpuID", help="String identifying GPU to use.")
+    parser.add_argument(
+        "--gpu-id", dest="gpu_id", help="String identifying GPU to use."
+    )
     parser.add_argument("--immode", dest="immode", help="Data format for images.")
     return parser
 
@@ -116,6 +136,7 @@ def add_shared_train_args(parser):
     parser.add_argument(
         "--num-validation-per-exp",
         dest="num_validation_per_exp",
+        type=int,
         help="Number of validation images to use during training.",
     )
     parser.add_argument(
@@ -124,6 +145,7 @@ def add_shared_train_args(parser):
         type=ast.literal_eval,
         help="List of additional metrics to report. See losses.py",
     )
+
     parser.add_argument("--lr", dest="lr", help="Learning rate.")
     return parser
 
@@ -132,6 +154,7 @@ def add_shared_predict_args(parser):
     parser.add_argument(
         "--max-num-samples",
         dest="max_num_samples",
+        type=int,
         help="Maximum number of samples to predict during COM or DANNCE prediction.",
     )
     return parser
@@ -146,6 +169,7 @@ def add_dannce_shared_args(parser):
     parser.add_argument(
         "--medfilt-window",
         dest="medfilt_window",
+        type=int,
         help="Sets the size of an optional median filter used to smooth the COM trace before DANNCE training or prediction.",
     )
     parser.add_argument(
@@ -162,22 +186,31 @@ def add_dannce_shared_args(parser):
     parser.add_argument(
         "--new-n-channels_out",
         dest="new_n_channels_out",
+        type=int,
         help="When finetuning, this refers to the new number of predicted keypoints.",
     )
     parser.add_argument(
         "--n-layers-locked",
         dest="n_layers_locked",
+        type=int,
         help="Number of layers from model input to freeze during finetuning.",
     )
     parser.add_argument(
-        "--vmin", dest="vmin", help="Minimum range of 3D grid. (Units of distance)"
+        "--vmin",
+        dest="vmin",
+        type=int,
+        help="Minimum range of 3D grid. (Units of distance)",
     )
     parser.add_argument(
-        "--vmax", dest="vmax", help="Maximum range of 3D grid. (Units of distance)"
+        "--vmax",
+        dest="vmax",
+        type=int,
+        help="Maximum range of 3D grid. (Units of distance)",
     )
     parser.add_argument(
         "--nvox",
         dest="nvox",
+        type=int,
         help="Number of voxels to span each dimension of 3D grid.",
     )
     parser.add_argument(
@@ -191,6 +224,7 @@ def add_dannce_shared_args(parser):
         type=ast.literal_eval,
         help="If True, will append depth information when sampling images. Particularly useful when using just 1 cameras.",
     )
+
     parser.add_argument(
         "--comthresh",
         dest="comthresh",
@@ -210,6 +244,7 @@ def add_dannce_shared_args(parser):
     parser.add_argument(
         "--cthresh",
         dest="cthresh",
+        type=int,
         help="If the 3D COM has a coordinate beyond this value (in mm), discard it as an error.",
     )
     parser.add_argument(
@@ -255,7 +290,25 @@ def add_dannce_train_args(parser):
         dest="net_type",
         help="Net types can be:\n"
         "AVG: more precise spatial average DANNCE, can be harder to train\n"
-        "MAX: DANNCE where joint locations are at the maximum of the 3D output distribution\n"
+        "MAX: DANNCE where joint locations are at the maximum of the 3D output distribution\n",
+    )
+    parser.add_argument(
+        "--augment-hue",
+        dest="augment_hue",
+        type=ast.literal_eval,
+        help="If True, randomly augment hue of each image in training set during training.",
+    )
+    parser.add_argument(
+        "--augment-brightness",
+        dest="augment_brightness",
+        type=ast.literal_eval,
+        help="If True, randomly augment brightness of each image in training set during training.",
+    )
+    parser.add_argument(
+        "--augment-continuous-rotation",
+        dest="augment_continuous_rotation",
+        type=ast.literal_eval,
+        help="If True, rotate all images in each sample of the training set by a random value between [-5 and 5] degrees during training.",
     )
     return parser
 
@@ -274,7 +327,14 @@ def add_dannce_predict_args(parser):
     parser.add_argument(
         "--start-batch",
         dest="start_batch",
+        type=int,
         help="Starting batch number during dannce prediction.",
+    )
+    parser.add_argument(
+        "--start-sample",
+        dest="start_sample",
+        type=int,
+        help="Starting sample number during dannce prediction.",
     )
     parser.add_argument(
         "--predict-model",

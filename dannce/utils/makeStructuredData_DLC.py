@@ -45,7 +45,7 @@ dlc = sio.loadmat(CONFIG_PARAMS["DLC_PATH"])
 pred_dlc = np.median(dlc["data_3d"], axis=-1)
 pred_dlc = np.transpose(pred_dlc, [0, 2, 1])
 
-cnames = PARENT_PARAMS["CAMNAMES"]
+cnames = PARENT_PARAMS["camnames"]
 
 # if bool_3cams is True, get 3-cams here
 if len(sys.argv) > 2 and sys.argv[2]:

@@ -1,0 +1,161 @@
+# path to folder where randomly sampled images will be saved
+RESULTSDIR: ./
+
+io_config: io.yaml
+
+# path to folder contraining video sub directories
+viddir: ./videos/
+
+# names of data files. must match the order of camnames below
+datadir: ./sync/
+
+# How to crop the input images. For labeling, this is not strictly required
+crop_height: [0, 1024]
+crop_width: [20, 1300]
+
+# Number of channels for each input image (e.g. RGB == 3)
+n_channels_in: 3
+
+# Names for each of the camera subdirectories in the video folder. Order should match the datafiles above.
+camnames: ['CameraR', 'CameraL', 'CameraU', 'CameraE', 'CameraS', 'CameraU2']
+# CALIBDIR: ./calibration/
+# calib_file: ['hires_cam3_params_rRDistort.mat','hires_cam5_params_rRDistort.mat','hires_cam6_params_rRDistort.mat', 'hires_cam1_params_rRDistort.mat','hires_cam2_params_rRDistort.mat','hires_cam4_params_rRDistort.mat']
+
+# Degree of downsampling applied to image input. Default 1.
+downfac: 1
+
+# Video file extension
+extension: '.mp4'
+
+n_views: 6
+
+# How to crop the input images. The U-Net expects each dimension size to be a multiple of 32.
+crop_height: [0, 1024]
+crop_width: [20, 1300]
+
+# Number of channels for each input image (e.g. RGB == 3)
+n_channels_in: 3
+
+# If training from scratch, set to the desired number of output channels (i.e. keypoints)
+# If fine-tuning, this must match the previous number of output channels, and the new desired
+# number is set by new_n_channels_out
+
+n_channels_out: 20
+
+# New number of network output channels.
+new_n_channels_out: 26
+# New size of the final output kernel
+new_last_kernel_size: [3,3,3]
+
+# batch_size
+batch_size: 4
+
+# Number of parallel workers serving data to the model
+workers: 4
+
+# Max. number of batches in multi-processing queue
+max_queue_size: 10
+
+# DANNCE training option. Sets the size of the 3D Guassians (in mm) used as labels for the MAX models
+sigma: 10
+
+# DANNCE training option. Sets the number of epochs during training
+epochs: 1000
+
+# DANNCE training option. Sets the verbosity of training output
+verbose: 1
+
+# DANNCE training option. Loss function to be used. Default MSE.
+loss: mask_nan_keep_loss
+
+# DANNCE training option. Learning rate for the Adam optimizer. Default 1e-3.
+lr: 1e-3
+
+
+
+# name of the network architecture (see nets.py)
+net: finetune_AVG
+
+# By default, will load in the first hdf5 file at this location for fine-tuning. If training from scratch, set to None
+dannce_finetune_weights: /n/holylfs02/LABS/olveczky_lab/Diego/data/dannce/weights/ratAVG2/
+
+# whether to use batch normalization or instance normalization. cannot both be true. If fine-tuning, this must be the same setting as used for the initial network
+batch_norm: False
+instance_norm: True
+
+# Options:
+# 'new': initializes and trains a network from scratch
+# 'finetune': loads in pre-trained weights and fine-tuned from there
+# 'continued': initializes a full model, including optimizer state, and continuous training from the last full model checkpoint
+train_mode: finetune
+
+# When fine-tuning, sets the number of layers, starting from the input layer, to lock during training. Default 2
+n_layers_locked: 2
+
+# If true, each camera's video directory contains only the video files. If false, each camera's video directory contains an additional subdirectory, which then contains the video files
+vid_dir_flag: False
+
+# DANNCE training. Metric to be monitored in addition to loss
+metric: ['mse']
+#['euclidean_distance_3D','centered_euclidean_distance_3D']
+
+# How many samples from each animal do you want to (randomly) set aside for a validation metric?
+num_validation_per_exp: 4
+
+# When using a system with multiple GPUs, we should just target one ofthem
+gpu_id: "0"
+
+# The number of frames in each video file
+chunks: 3500
+
+# path to COM file. By Default, during prediction DANNCE will look in ./COM/predict_results/ for a COM_undistorted.mat file
+#COMfilename: ./
+
+# Limits (in mm) to 3D volumes anchored on subject
+vmin: -160
+vmax: 120
+# Number of voxels along each spatial dimension
+nvox: 64
+
+# Interpolation mode.
+interp: linear
+
+retriangulate: False
+
+# If depth is true, will append depth information when sampling images. Particularly useful when using just 1 cameras.
+depth: False
+
+immode: 'vid'
+
+# DANNCE training option. Whetehr to turn on rotation augmentation during training
+rotate: True
+# Whether to apply lens distortion during sampling. Default True
+distort: True
+
+# If true, intializes an "AVG" version of the network (i.e. final spatial expected value output layer). If false, "MAX" version
+expval: True
+
+# COM finder output confidence scores less than this threshodl will be discarded
+com_thresh: 0
+
+# If True, will weight the COM estimate in each camera by its confidence score
+weighted: False
+
+# Method or combining 3D COMs across camera pairs. Options: 'median', 'mean'
+com_method: 'median'
+
+# If the 3D COM has a coordinate beyond this value (in mm), discard it as an error. How large is your arena?
+cthresh: 600
+
+# Dictates whether or not to randomly shuffle the camera order when processing volumes. Options: None, 'random'
+channel_combo: 'None'
+
+#
+max_num_samples: 'max'
+
+# For debugging, True: use all_cams for COM, even when using fewer cameras
+all_cams: False
+
+retriangulate: False
+
+predict_mode: 'torch'
