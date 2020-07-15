@@ -154,7 +154,6 @@ def add_shared_predict_args(parser):
     parser.add_argument(
         "--max-num-samples",
         dest="max_num_samples",
-        type=int,
         help="Maximum number of samples to predict during COM or DANNCE prediction.",
     )
     return parser
