@@ -2,7 +2,7 @@
 thresholds away crazy outliers, reprojects the 3D projections
 into each camera, then saves COM data files that can be used for training.
 
-Usage python generate_COM_bootstraps.py path_to_config com_thresh [max_num_samples]
+Usage python generate_COM_bootstraps.py path_to_config comthresh [max_num_samples]
 """
 import sys
 import numpy as np
@@ -20,7 +20,7 @@ PARENT_PARAMS = processing.make_paths_safe(PARENT_PARAMS)
 CONFIG_PARAMS = processing.read_config(PARENT_PARAMS["DANNCE_CONFIG"])
 CONFIG_PARAMS = processing.make_paths_safe(CONFIG_PARAMS)
 
-com_thresh = float(sys.argv[2])
+comthresh = float(sys.argv[2])
 # If desired, crop the data at max_num_samples
 if len(sys.argv) > 3:
     max_num_samples = int(sys.argv[3])
@@ -51,7 +51,7 @@ else:
 datadict_, com3d_dict_ = serve_data.prepare_COM(
     comfn,
     datadict_,
-    com_thresh=com_thresh,
+    comthresh=comthresh,
     weighted=False,
     retriangulate=True,
     camera_mats=cameras_,

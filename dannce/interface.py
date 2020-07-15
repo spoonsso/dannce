@@ -1448,7 +1448,7 @@ def do_COM_load(exp, expdict, n_views, e, params, training=True):
             datadict_, com3d_dict_ = serve_data_DANNCE.prepare_COM(
                 exp["com_file"],
                 datadict_,
-                com_thresh=params["com_thresh"],
+                comthresh=params["comthresh"],
                 weighted=params["weighted"],
                 camera_mats=cameras_,
                 method=params["com_method"],

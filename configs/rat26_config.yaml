@@ -159,3 +159,5 @@ all_cams: False
 retriangulate: False
 
 predict_mode: 'torch'
+
+medfilt_window: 30

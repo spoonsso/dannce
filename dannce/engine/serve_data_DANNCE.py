@@ -107,7 +107,7 @@ def prepare_data(
 def prepare_COM(
     comfile,
     datadict,
-    com_thresh=0.0,
+    comthresh=0.0,
     weighted=False,
     camera_mats=None,
     conf_rescale=None,
@@ -118,7 +118,7 @@ def prepare_COM(
     Loads COM file, replaces 2D coordinates in datadict with the preprocessed
     COM coordinates, returns dict of 3d COM coordinates
 
-    Thresholds COM predictions at com_thresh w.r.t. saved pred_max values.
+    Thresholds COM predictions at comthresh w.r.t. saved pred_max values.
     Averages only the 3d coords for camera pairs that both meet thresh.
     Returns nan for 2d COM if camera does not reach thresh. This should be
     detected by the generator to return nans such that bad camera
@@ -167,7 +167,7 @@ def prepare_COM(
                     this_com[camnames[k]]["pred_max"] *= conf_rescale[camnames[k]]
 
                 # then, set to nan
-                if this_com[camnames[k]]["pred_max"] <= com_thresh:
+                if this_com[camnames[k]]["pred_max"] <= comthresh:
                     datadict[key]["data"][camnames[k]][:] = np.nan
 
             com3d = np.zeros((3, int(comb(len(uCamnames), 2)))) * np.nan
@@ -175,8 +175,8 @@ def prepare_COM(
             cnt = 0
             for j in range(len(uCamnames)):
                 for k in range(j + 1, len(uCamnames)):
-                    if (this_com[uCamnames[j]]["pred_max"] > com_thresh) and (
-                        this_com[uCamnames[k]]["pred_max"] > com_thresh
+                    if (this_com[uCamnames[j]]["pred_max"] > comthresh) and (
+                        this_com[uCamnames[k]]["pred_max"] > comthresh
                     ):
                         if (
                             "{}_{}".format(uCamnames[j], uCamnames[k])
