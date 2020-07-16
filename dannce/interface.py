@@ -44,8 +44,20 @@ def build_params(base_config, dannce_net):
     params = processing.inherit_config(params, base_params, list(base_params.keys()))
     return params
 
+def make_folder(key, params):
+    # Make the prediction directory if it does not exist.
+    if key in params:
+        if not os.path.exists(params[key]):
+            os.makedirs(params[key])
+    else:
+        raise ValueError(key + ' must be defined.')
 
 def com_predict(params):
+
+    # Make the prediction directory if it does not exist.
+    make_folder('com_predict_dir', params)
+
+
     # Load the appropriate loss function and network
     try:
         params["loss"] = getattr(losses, params["loss"])
@@ -321,6 +333,10 @@ def com_predict(params):
 
 
 def com_train(params):
+
+    # Make the train directory if it does not exist.
+    make_folder('com_train_dir', params)
+
     params["loss"] = getattr(losses, params["loss"])
     params["net"] = getattr(nets, params["net"])
 
@@ -590,6 +606,9 @@ def com_train(params):
 
 def dannce_train(params):
     """Entrypoint for dannce training."""
+
+    # Make the training directory if it does not exist.
+    make_folder('dannce_train_dir', params)
 
     params["loss"] = getattr(losses, params["loss"])
     params["net"] = getattr(nets, params["net"])
@@ -1007,6 +1026,9 @@ def dannce_train(params):
 
 
 def dannce_predict(params):
+    # Make the prediction directory if it does not exist.
+    make_folder('dannce_predict_dir', params)
+
     # Load the appropriate loss function and network
     try:
         params["loss"] = getattr(losses, params["loss"])
