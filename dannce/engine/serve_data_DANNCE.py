@@ -11,12 +11,12 @@ from copy import deepcopy
 
 
 def prepare_data(
-    CONFIG_PARAMS, 
-    com_flag=True, 
-    nanflag=True, 
-    multimode=False, 
+    CONFIG_PARAMS,
+    com_flag=True,
+    nanflag=True,
+    multimode=False,
     prediction=False,
-    return_cammat=False
+    return_cammat=False,
 ):
     """Assemble necessary data structures given a set of config params.
 
@@ -49,7 +49,7 @@ def prepare_data(
 
     framedict = {}
     ddict = {}
-    
+
     for i, label in enumerate(labels):
         framedict[CONFIG_PARAMS["camnames"][i]] = np.squeeze(label["data_frame"])
         data = label["data_2d"]
@@ -103,10 +103,11 @@ def prepare_data(
     else:
         return samples, datadict, datadict_3d, cameras
 
+
 def prepare_COM(
     comfile,
     datadict,
-    comthresh=0.,
+    comthresh=0.0,
     weighted=False,
     camera_mats=None,
     conf_rescale=None,
@@ -138,8 +139,8 @@ def prepare_COM(
 
     camnames = np.array(list(datadict[list(datadict.keys())[0]]["data"].keys()))
 
-        # Because I repeat cameras to fill up 6 camera quota, I need grab only
-        # the unique names
+    # Because I repeat cameras to fill up 6 camera quota, I need grab only
+    # the unique names
     _, idx = np.unique(camnames, return_index=True)
     uCamnames = camnames[np.sort(idx)]
 
@@ -299,11 +300,14 @@ def remove_samples_com(s, com3d_dict, cthresh=350, rmc=False):
     sample_mask = np.ones((len(s),), dtype="bool")
 
     for i in range(len(s)):
-        if np.isnan(np.sum(com3d_dict[s[i]])):
+        if s[i] not in com3d_dict:
             sample_mask[i] = 0
-        if rmc:
-            if np.any(np.abs(com3d_dict[s[i]]) > cthresh):
+        else:
+            if np.isnan(np.sum(com3d_dict[s[i]])):
                 sample_mask[i] = 0
+            if rmc:
+                if np.any(np.abs(com3d_dict[s[i]]) > cthresh):
+                    sample_mask[i] = 0
 
     s = s[sample_mask]
     return s

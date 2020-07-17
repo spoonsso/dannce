@@ -28,7 +28,7 @@ def multiview_consistency(y_true, y_pred):
 
     msk_loss = mask_nan_keep_loss(y_true[-1], y_pred[-1])
 
-    # The output should be (BATCH_SIZE,NVOX,NVOX,NVOX,n_markers)
+    # The output should be (batch_size,nvox,nvox,nvox,n_markers)
     # For a 3-cam system, there are only 3 different possible pairs, so we discard the last, which is the complete set
     y_pred_ = y_pred[:-1]
     y_pred_diff = y_pred_[1:] - y_pred_[:-1]

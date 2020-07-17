@@ -2,7 +2,7 @@
 Predicting with predict_DANNCE.py requires a full model, not just the weights. If one
 needs to convert a weights file to a full model for this purpose, use this script.
 
-Usage: python weights_to_fullmodel.py path_to_full_model path_to_weights gpuID
+Usage: python weights_to_fullmodel.py path_to_full_model path_to_weights gpu_id
 """
 
 # from keras.models import model_from_json

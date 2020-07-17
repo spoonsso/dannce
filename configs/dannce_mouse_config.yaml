@@ -4,19 +4,19 @@ io_config: io.yaml
 
 # If training from scratch, set to the desired number of output channels (i.e. keypoints)
 # If fine-tuning, this must match the previous number of output channels, and the new desired
-# number is set by NEW_N_CHANNELS_OUT
-N_CHANNELS_OUT: 20
+# number is set by new_n_channels_out
+n_channels_out: 20
 
 # New number of network output channels.
-NEW_N_CHANNELS_OUT: 22
+new_n_channels_out: 22
 # New size of the final output kernel
-NEW_LAST_KERNEL_SIZE: [3,3,3]
+new_last_kernel_size: [3,3,3]
 
 # Batch size for training and prediction
-BATCH_SIZE: 4
+batch_size: 4
 
 # DANNCE training option. Sets the number of epochs during training (default 1200)
-EPOCHS: 600
+epochs: 600
 
 # name of the network architecture (see nets.py)
 net_type: AVG
@@ -31,10 +31,10 @@ train_mode: finetune
 num_validation_per_exp: 4
 
 # Limits (in mm) to 3D volumes anchored on subject
-VMIN: -60
-VMAX: 60
+vmin: -60
+vmax: 60
 # Number of voxels along each spatial dimension
-NVOX: 64
+nvox: 64
 
 # max. number of batches to evaluate during prediction. set to 'max' to evaluate over all data/video frames
 max_num_samples: 1000
