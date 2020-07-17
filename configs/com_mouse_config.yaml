@@ -2,18 +2,18 @@
 # call com functions
 io_config: io.yaml
 
-# BATCH_SIZE*{num_cameras} should be <= 6 for most COM training applications
-BATCH_SIZE: 2
+# batch_size*{num_cameras} should be <= 6 for most COM training applications
+batch_size: 2
 
 # COM training option. Sets the number of epochs during training
-EPOCHS: 3
+epochs: 3
 
 # Degree of downsampling applied to image input. The demo COMfinder was trained
-# with DOWNFAC:2, but when fine-tuning your own COMfinder, we suggest using 
+# with downfac:2, but when fine-tuning your own COMfinder, we suggest using 
 # 4, which will greatly increase prediction speed. This of course depends on the
 # size of your raw images. If they are low resolution to begin with, you won't
-# need or want to use a large DOWNFAC value.
-DOWNFAC: 2
+# need or want to use a large downfac value.
+downfac: 2
 
 # Learning rate for the Adam optimizer. Default 5e-5.
 lr: 5e-5

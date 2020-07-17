@@ -1,6 +1,7 @@
 import numpy as np
 import scipy.io as sio
 
+
 def load_label3d_data(path, key):
     d = sio.loadmat(path)[key]
     dataset = [f[0] for f in d]
@@ -29,23 +30,33 @@ def load_camera_params(path):
 
 
 def load_sync(path):
-    return load_label3d_data(path, "sync")
+    dataset = load_label3d_data(path, "sync")
+    for d in dataset:
+        d["data_frame"] = d["data_frame"].astype(int)
+        d["data_sampleID"] = d["data_sampleID"].astype(int)
+    return dataset
 
 
 def load_labels(path):
-    return load_label3d_data(path, "labelData")
+    dataset = load_label3d_data(path, "labelData")
+    for d in dataset:
+        d["data_frame"] = d["data_frame"].astype(int)
+        d["data_sampleID"] = d["data_sampleID"].astype(int)
+    return dataset
+
 
 def load_com(path):
-    d = sio.loadmat(path)['com']
+    d = sio.loadmat(path)["com"]
     data = {}
-    data['com3d'] = d['com3d'][0, 0]
-    data['sampleID'] = d['sampleID'][0, 0]
+    data["com3d"] = d["com3d"][0, 0]
+    data["sampleID"] = d["sampleID"][0, 0]
     return data
+
 
 def load_camnames(path):
     r = sio.loadmat(path)
-    if 'camnames' in r:
-        s = [f[0] for f in r['camnames'][0]]
+    if "camnames" in r:
+        s = [f[0] for f in r["camnames"][0]]
     else:
         s = None
     return s

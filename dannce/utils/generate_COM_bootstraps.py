@@ -2,7 +2,7 @@
 thresholds away crazy outliers, reprojects the 3D projections
 into each camera, then saves COM data files that can be used for training.
 
-Usage python generate_COM_bootstraps.py path_to_config com_thresh [max_num_samples]
+Usage python generate_COM_bootstraps.py path_to_config comthresh [max_num_samples]
 """
 import sys
 import numpy as np
@@ -12,7 +12,7 @@ import dannce.engine.processing as processing
 import dannce.engine.ops as ops
 import scipy.io as sio
 
-_N_VIEWS = 6
+n_views = 6
 
 # Set up parameters
 PARENT_PARAMS = processing.read_config(sys.argv[1])
@@ -20,7 +20,7 @@ PARENT_PARAMS = processing.make_paths_safe(PARENT_PARAMS)
 CONFIG_PARAMS = processing.read_config(PARENT_PARAMS["DANNCE_CONFIG"])
 CONFIG_PARAMS = processing.make_paths_safe(CONFIG_PARAMS)
 
-com_thresh = float(sys.argv[2])
+comthresh = float(sys.argv[2])
 # If desired, crop the data at max_num_samples
 if len(sys.argv) > 3:
     max_num_samples = int(sys.argv[3])
@@ -51,7 +51,7 @@ else:
 datadict_, com3d_dict_ = serve_data.prepare_COM(
     comfn,
     datadict_,
-    comthresh=com_thresh,
+    comthresh=comthresh,
     weighted=False,
     retriangulate=True,
     camera_mats=cameras_,
@@ -76,8 +76,8 @@ print(msg.format(pre - len(samples_)))
 
 # OK, now it's just a matter of projecting the 3D COMs down and then
 # saving everything in the proper format w/ proper shape
-for i in range(len(PARENT_PARAMS["CAMNAMES"])):
-    tcam_name = PARENT_PARAMS["CAMNAMES"][i]
+for i in range(len(PARENT_PARAMS["camnames"])):
+    tcam_name = PARENT_PARAMS["camnames"][i]
     tcam = cameras_[tcam_name]
 
     data_3d = np.zeros((len(samples_), 3))
@@ -105,8 +105,8 @@ for i in range(len(PARENT_PARAMS["CAMNAMES"])):
         data_frame[k] = datadict_[s]["frames"][tcam_name]
 
     # make sure data_2d and data_3d match expected diemnsionality for future use
-    data_3d = np.tile(data_3d, (1, CONFIG_PARAMS["N_CHANNELS_OUT"]))
-    data_2d = np.tile(data_2d, (1, CONFIG_PARAMS["N_CHANNELS_OUT"]))
+    data_3d = np.tile(data_3d, (1, CONFIG_PARAMS["n_channels_out"]))
+    data_2d = np.tile(data_2d, (1, CONFIG_PARAMS["n_channels_out"]))
 
     # Save for this camera
     fname = os.path.join(RESULTSDIR, tcam_name + "_bootstrapDATA.mat")

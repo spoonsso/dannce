@@ -50,16 +50,11 @@ def initialize_vids(CONFIG_PARAMS, datadict, e, vids, pathonly=True):
             addl = ""
         else:
             addl = os.listdir(
-                os.path.join(
-                    CONFIG_PARAMS["experiment"][e]["viddir"],
-                    basecam,
-                )
+                os.path.join(CONFIG_PARAMS["experiment"][e]["viddir"], basecam,)
             )[0]
         r = generate_readers(
             CONFIG_PARAMS["experiment"][e]["viddir"],
-            os.path.join(
-                basecam, addl
-            ),
+            os.path.join(basecam, addl),
             maxopt=flist,  # Large enough to encompass all videos in directory.
             extension=CONFIG_PARAMS["experiment"][e]["extension"],
             pathonly=pathonly,
@@ -68,13 +63,14 @@ def initialize_vids(CONFIG_PARAMS, datadict, e, vids, pathonly=True):
         if "_" in CONFIG_PARAMS["experiment"][e]["camnames"][i]:
             vids[CONFIG_PARAMS["experiment"][e]["camnames"][i]] = {}
             for key in r:
-                vids[CONFIG_PARAMS["experiment"][e]["camnames"][i]][str(e) + "_" + key] = r[
-                    key
-                ]
+                vids[CONFIG_PARAMS["experiment"][e]["camnames"][i]][
+                    str(e) + "_" + key
+                ] = r[key]
         else:
             vids[CONFIG_PARAMS["experiment"][e]["camnames"][i]] = r
 
     return vids
+
 
 def infer_params(params, dannce_net, prediction):
     """
@@ -82,7 +78,7 @@ def infer_params(params, dannce_net, prediction):
         from others, thus relieving config bloat
     """
     # Grab the camnames from *dannce.mat if not in config
-    if 'camnames' not in params:
+    if "camnames" not in params:
         f = grab_predict_label3d_file()
         params["camnames"] = io.load_camnames(f)
     if params["camnames"] is None:
@@ -94,14 +90,14 @@ def infer_params(params, dannce_net, prediction):
     viddir = os.path.join(params["viddir"], params["camnames"][0])
     video_files = os.listdir(viddir)
 
-    if any([".mp4" in file for file in video_files]) or \
-        any([".avi" in file for file in video_files]):
+    if any([".mp4" in file for file in video_files]) or any(
+        [".avi" in file for file in video_files]
+    ):
 
         print_and_set(params, "vid_dir_flag", True)
     else:
         print_and_set(params, "vid_dir_flag", False)
-        viddir = os.path.join(viddir,
-                              video_files[0])
+        viddir = os.path.join(viddir, video_files[0])
         video_files = os.listdir(viddir)
 
     extension = ".mp4" if any([".mp4" in file for file in video_files]) else ".avi"
@@ -116,13 +112,13 @@ def infer_params(params, dannce_net, prediction):
 
     print_and_set(params, "chunks", chunks)
 
-    # Infer N_CHANNELS_IN from the video info
+    # Infer n_channels_in from the video info
     v = imageio.get_reader(camf)
     im = v.get_data(0)
     v.close()
     print_and_set(params, "n_channels_in", im.shape[-1])
 
-    if dannce_net and 'net' not in params and 'expval' not in params:
+    if dannce_net and "net" not in params and "expval" not in params:
         # Here we assume that if the network and expval are specified by the user
         # then there is no reason to infer anything. net + expval compatibility
         # are subsequently verified during check_config()
@@ -131,56 +127,80 @@ def infer_params(params, dannce_net, prediction):
         # 'net_type' + 'train_mode' to select the correct network and set expval.
         # During prediction, the train_mode might be missing, and in any case only the
         # expval needs to be set.
-        if 'net_type' not in params:
-            raise Exception("Without a net name and expval params, net_type must be specified")
-        
-        if not prediction and 'train_mode' not in params:
+        if "net_type" not in params:
+            raise Exception(
+                "Without a net name and expval params, net_type must be specified"
+            )
+
+        if not prediction and "train_mode" not in params:
             raise Exception("Need to specific train_mode for DANNCE training")
 
-        if params['net_type'] == 'AVG':
+        if params["net_type"] == "AVG":
             print_and_set(params, "expval", True)
-        elif params['net_type'] == 'MAX':
+        elif params["net_type"] == "MAX":
             print_and_set(params, "expval", False)
         else:
-            raise Exception("{} not a valid net_type".format(params['net_type']))
+            raise Exception("{} not a valid net_type".format(params["net_type"]))
 
         if not prediction:
-            if params['net_type'] == 'AVG' and params['train_mode'] == 'finetune':
+            if params["net_type"] == "AVG" and params["train_mode"] == "finetune":
                 print_and_set(params, "net", "finetune_AVG")
-            elif params['net_type'] == 'AVG':
+            elif params["net_type"] == "AVG":
                 # This is the network for training from scratch.
                 # This will also set the network for "continued", but that network
                 # will be ignored, as for continued training the full model file
                 # is loaded in without a call to construct the network. However, a value
                 # for params['net'] is still required for initialization
                 print_and_set(params, "net", "unet3d_big_expectedvalue")
-            elif params['net_type'] == 'MAX' and params['train_mode'] == "finetune":
+            elif params["net_type"] == "MAX" and params["train_mode"] == "finetune":
                 print_and_set(params, "net", "finetune_MAX")
-            elif params['net_type'] == 'MAX':
+            elif params["net_type"] == "MAX":
                 print_and_set(params, "net", "unet3d_big")
 
-    elif dannce_net and 'expval' not in params:
-        if 'AVG' in params["net"] or 'expected' in params["net"]:
+    elif dannce_net and "expval" not in params:
+        if "AVG" in params["net"] or "expected" in params["net"]:
             print_and_set(params, "expval", True)
         else:
             print_and_set(params, "expval", False)
 
     if dannce_net:
-        print_and_set(params,
-                      "maxbatch",
-                      int(params["max_num_samples"]//params["batch_size"]))
+        if "max_num_samples" in params.keys():
+            if params["max_num_samples"] == "max":
+                print_and_set(params, "maxbatch", "max")
+            elif isinstance(params["max_num_samples"], (int, np.integer)):
+                print_and_set(
+                    params,
+                    "maxbatch",
+                    int(params["max_num_samples"] // params["batch_size"]),
+                )
+            else:
+                raise TypeError("max_num_samples must be an int or 'max'")
+        else:
+            print_and_set(params, "maxbatch", "max")
+
+        if "start_sample" in params.keys():
+            if isinstance(params["start_sample"], (int, np.integer)):
+                print_and_set(
+                    params,
+                    "start_batch",
+                    int(params["start_sample"] // params["batch_size"]),
+                )
+            else:
+                raise TypeError("start_sample must be an int.")
+        else:
+            print_and_set(params, "start_batch", 0)
 
         if "vol_size" in params:
-            print_and_set(params, "vmin", -1*params["vol_size"]//2)
-            print_and_set(params, "vmax", params["vol_size"]//2)
-
+            print_and_set(params, "vmin", -1 * params["vol_size"] // 2)
+            print_and_set(params, "vmax", params["vol_size"] // 2)
     return params
 
-    
+
 def print_and_set(params, varname, value):
     # Should add new values to params in place, no need to return
     params[varname] = value
     print("Setting {} to {}.".format(varname, params[varname]))
+
 
 def check_config(params, dannce_net):
     """
@@ -188,36 +208,52 @@ def check_config(params, dannce_net):
     """
     check_camnames(params)
 
-    if 'exp' in params.keys():
-        for expdict in params['exp']:
+    if "exp" in params.keys():
+        for expdict in params["exp"]:
             check_camnames(expdict)
 
     if dannce_net:
         check_net_expval(params)
         check_vmin_vmax(params)
 
+
 def check_vmin_vmax(params):
     for v in ["vmin", "vmax", "nvox"]:
         if v not in params:
-            raise Exception("{} not in parameters. Please add it, or use vol_size instead of vmin and vmax".format(v))
+            raise Exception(
+                "{} not in parameters. Please add it, or use vol_size instead of vmin and vmax".format(
+                    v
+                )
+            )
+
 
 def check_camnames(camp):
     """
     Raises an exception if camera names contain '_'
     """
-    if 'camnames' in camp:
-        for cam in camp['camnames']:
-            if '_' in cam:
+    if "camnames" in camp:
+        for cam in camp["camnames"]:
+            if "_" in cam:
                 raise Exception("Camera names cannot contain '_' ")
+
 
 def check_net_expval(params):
     """
     Raise an exception if the network and expval (i.e. AVG/MAX) are incompatible
     """
-    if params['expval'] and 'AVG' not in params['net'] and 'expected' not in params['net']:
+    if (
+        params["expval"]
+        and "AVG" not in params["net"]
+        and "expected" not in params["net"]
+    ):
         raise Exception("Config is set to AVG but you are using a MAX network")
-    if not params['expval'] and 'MAX' not in params['net'] and 'expected' in params['net']:
+    if (
+        not params["expval"]
+        and "MAX" not in params["net"]
+        and "expected" in params["net"]
+    ):
         raise Exception("Config is set to MAX but you are using an AVG network")
+
 
 def copy_config(RESULTSDIR, main_config, io_config):
     """
@@ -232,12 +268,11 @@ def copy_config(RESULTSDIR, main_config, io_config):
     mconfig = os.path.join(
         RESULTSDIR, "copy_main_config_" + main_config.split(os.sep)[-1]
     )
-    dconfig = os.path.join(
-        RESULTSDIR, "copy_io_config_" + io_config.split(os.sep)[-1]
-    )
+    dconfig = os.path.join(RESULTSDIR, "copy_io_config_" + io_config.split(os.sep)[-1])
 
     shutil.copyfile(main_config, mconfig)
     shutil.copyfile(io_config, dconfig)
+
 
 def make_data_splits(samples, params, RESULTSDIR, num_experiments):
     """
@@ -264,7 +299,7 @@ def make_data_splits(samples, params, RESULTSDIR, num_experiments):
                     np.random.choice(tinds, (v,), replace=False)
                 )
                 valid_inds = list(np.sort(valid_inds))
-                
+
         train_inds = [i for i in all_inds if i not in valid_inds]
 
         assert (set(valid_inds) & set(train_inds)) == set()
@@ -288,28 +323,28 @@ def make_data_splits(samples, params, RESULTSDIR, num_experiments):
 
     return partition
 
+
 def rename_weights(traindir, kkey, mon):
     """
     At the end of DANNCe or COM training, rename the best weights file with the epoch #
         and value of the monitored quantity
     """
-    #First load in the training.csv
-    r = np.genfromtxt(os.path.join(traindir,'training.csv'),
-                      delimiter=',',
-                      names=True)
-    e = r['epoch']
+    # First load in the training.csv
+    r = np.genfromtxt(os.path.join(traindir, "training.csv"), delimiter=",", names=True)
+    e = r["epoch"]
     q = r[mon]
     minq = np.min(q)
     beste = e[np.argmin(q)]
 
-    newname = 'weights.' + str(int(beste)) + '-' + '{:.5f}'.format(minq) + '.hdf5'
+    newname = "weights." + str(int(beste)) + "-" + "{:.5f}".format(minq) + ".hdf5"
 
-    os.rename(os.path.join(traindir,kkey), os.path.join(traindir,newname))
+    os.rename(os.path.join(traindir, kkey), os.path.join(traindir, newname))
+
 
 def make_paths_safe(params):
     """Given a parameter dictionary, loops through the keys and replaces any \\ or / with os.sep
-	to promote OS agnosticism
-	"""
+    to promote OS agnosticism
+    """
     for key in params.keys():
         if isinstance(params[key], str):
             params[key] = params[key].replace("/", os.sep)
@@ -335,6 +370,7 @@ def trim_COM_pickle(fpath, start_sample, end_sample, opath=None):
         cPickle.dump(sd, f)
     return sd
 
+
 def prepare_save_metadata(params):
     """
     To save metadata, i.e. the prediction param values associated with COM or DANNCE
@@ -342,22 +378,25 @@ def prepare_save_metadata(params):
         the 'experiment' field
     """
     meta = params.copy()
-    if 'experiment' in meta:
-        del meta['experiment']
-    if 'loss' in meta:
-        meta['loss'] = meta['loss'].__name__
-    if 'net' in meta:
-        meta['net'] = meta['net'].__name__
-    if 'metric' in meta:
-        meta['metric'] = [f.__name__ if not isinstance(f,str) else f for f in meta['metric'] ]
+    if "experiment" in meta:
+        del meta["experiment"]
+    if "loss" in meta:
+        meta["loss"] = meta["loss"].__name__
+    if "net" in meta:
+        meta["net"] = meta["net"].__name__
+    if "metric" in meta:
+        meta["metric"] = [
+            f.__name__ if not isinstance(f, str) else f for f in meta["metric"]
+        ]
 
     # Need to convert None to string but still want to conserve the metadat structure
     # format, so we don't want to convert the whole dict to a string
     for key in meta.keys():
         if meta[key] is None:
-            meta[key] = 'None'
+            meta[key] = "None"
 
     return meta
+
 
 def save_COM_dannce_mat(params, com3d, sampleID):
     """
@@ -365,15 +404,16 @@ def save_COM_dannce_mat(params, com3d, sampleID):
     streamlines subsequent dannce access.
     """
     com = {}
-    com['com3d'] = com3d
-    com['sampleID'] = sampleID
-    com['metadata'] = prepare_save_metadata(params)
+    com["com3d"] = com3d
+    com["sampleID"] = sampleID
+    com["metadata"] = prepare_save_metadata(params)
 
     # Open dannce.mat file, add com and re-save
-    print("Saving COM predictions to " + params['label3d_file'])
-    rr = sio.loadmat(params['label3d_file'])
-    rr['com'] = com
-    sio.savemat(params['label3d_file'], rr)
+    print("Saving COM predictions to " + params["label3d_file"])
+    rr = sio.loadmat(params["label3d_file"])
+    rr["com"] = com
+    sio.savemat(params["label3d_file"], rr)
+
 
 def save_COM_checkpoint(save_data, RESULTSDIR, datadict_, cameras, params):
     """
@@ -397,7 +437,7 @@ def save_COM_checkpoint(save_data, RESULTSDIR, datadict_, cameras, params):
         comthresh=0,
         weighted=False,
         camera_mats=cameras,
-        method="median"
+        method="median",
     )
 
     cfilename = os.path.join(RESULTSDIR, "com3d.mat")
@@ -408,9 +448,14 @@ def save_COM_checkpoint(save_data, RESULTSDIR, datadict_, cameras, params):
     for i in range(len(samples_keys)):
         c3d[i] = com3d_dict[samples_keys[i]]
 
-    sio.savemat(cfilename, {"sampleID": samples_keys, 
-                            "com": c3d,
-                            "metadata": prepare_save_metadata(params)})
+    sio.savemat(
+        cfilename,
+        {
+            "sampleID": samples_keys,
+            "com": c3d,
+            "metadata": prepare_save_metadata(params),
+        },
+    )
 
     # Also save a copy into the label3d file
     save_COM_dannce_mat(params, c3d, samples_keys)
@@ -469,11 +514,13 @@ def grab_predict_label3d_file(defaultdir=""):
     label3d_files = [
         os.path.join(def_ep, f) for f in label3d_files if "dannce.mat" in f
     ]
+    label3d_files.sort()
 
     if len(label3d_files) == 0:
         raise Exception("Did not find any *dannce.mat file in {}".format(def_ep))
     print("Using the following *dannce.mat files: {}".format(label3d_files[0]))
     return label3d_files[0]
+
 
 def load_expdict(params, e, expdict, _DEFAULT_VIDDIR):
     """
@@ -767,7 +814,7 @@ def plot_markers_3d(stack, nonan=True):
 def plot_markers_3d_tf(stack, nonan=True):
     """Return the 3d coordinates for each of the peaks in probability maps."""
     import tensorflow as tf
-    
+
     with tf.device(stack.device):
         n_mark = stack.shape[-1]
         indices = tf.math.argmax(tf.reshape(stack, [-1, n_mark]), output_type="int32")
@@ -896,20 +943,19 @@ def savedata_expval(
             p_max[i] = data[key]["pred_max"]
         sID[i] = data[key]["sampleID"]
 
-        sdict = {"pred": d_coords, 
-                 "data": t_coords, 
-                 "p_max": p_max, 
-                 "sampleID": sID,
-                 "metadata": prepare_save_metadata(params)}
+        sdict = {
+            "pred": d_coords,
+            "data": t_coords,
+            "p_max": p_max,
+            "sampleID": sID,
+            "metadata": prepare_save_metadata(params),
+        }
     if write and data is None:
         sio.savemat(
-            fname.split(".pickle")[0] + ".mat",
-            sdict,
+            fname.split(".pickle")[0] + ".mat", sdict,
         )
     elif write and data is not None:
-        sio.savemat(
-            fname, sdict
-        )
+        sio.savemat(fname, sdict)
 
     return d_coords, t_coords, p_max, sID
 
@@ -965,22 +1011,20 @@ def savedata_tomat(
             pred_out_world[i] = pred_out_world[i] + addCOM[int(sID)][:, np.newaxis]
 
     sdict = {
-                "pred": pred_out_world,
-                "data": t_coords,
-                "p_max": p_max,
-                "sampleID": sID,
-                "log_pmax": log_p_max,
-                "metadata": prepare_save_metadata(params)
-            }
+        "pred": pred_out_world,
+        "data": t_coords,
+        "p_max": p_max,
+        "sampleID": sID,
+        "log_pmax": log_p_max,
+        "metadata": prepare_save_metadata(params),
+    }
     if write and data is None:
         sio.savemat(
-            fname.split(".pickle")[0] + ".mat",
-            sdict,
+            fname.split(".pickle")[0] + ".mat", sdict,
         )
     elif write and data is not None:
         sio.savemat(
-            fname,
-            sdict,
+            fname, sdict,
         )
     return pred_out_world, t_coords, p_max, log_p_max, sID
 
@@ -1011,25 +1055,26 @@ def spatial_entropy(map_):
     map_ = map_ / np.sum(map_)
     return -1 * np.sum(map_ * np.log(map_))
 
-def dupe_params(exp, dupes, _N_VIEWS):
+
+def dupe_params(exp, dupes, n_views):
     """
-    When The number of views (_N_VIEWS) required
+    When The number of views (n_views) required
         as input to the network is greater than the
         number of actual cameras (e.g. when trying to
         fine-tune a 6-camera network on data from a 
         2-camera system), automatically duplicate necessary
-        parameters to match the required _N_VIEWS.
+        parameters to match the required n_views.
     """
 
     for d in dupes:
         val = exp[d]
-        if _N_VIEWS % len(val) == 0:
-            num_reps = _N_VIEWS // len(val)
+        if n_views % len(val) == 0:
+            num_reps = n_views // len(val)
             exp[d] = val * num_reps
         else:
             raise Exception(
                 "The length of the {} list must divide evenly into {}.".format(
-                    d, _N_VIEWS
+                    d, n_views
                 )
             )
 
