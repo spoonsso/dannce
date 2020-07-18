@@ -78,11 +78,12 @@ def infer_params(params, dannce_net, prediction):
         from others, thus relieving config bloat
     """
     # Grab the camnames from *dannce.mat if not in config
-    if "camnames" not in params:
+    if params["camnames"] is None:
         f = grab_predict_label3d_file()
         params["camnames"] = io.load_camnames(f)
-    if params["camnames"] is None:
-        raise Exception("No camnames in config or in *dannce.mat")
+        if params["camnames"] is None:
+            raise Exception("No camnames in config or in *dannce.mat")
+        
     # Infer vid_dir_flag and extension and n_channels_in and chunks
     # from the videos and video folder organization.
     # Look into the video directory / camnames[0]. Is there a video file?
@@ -118,7 +119,7 @@ def infer_params(params, dannce_net, prediction):
     v.close()
     print_and_set(params, "n_channels_in", im.shape[-1])
 
-    if dannce_net and "net" not in params and "expval" not in params:
+    if dannce_net and params["net"] is None and params["expval"] is None:
         # Here we assume that if the network and expval are specified by the user
         # then there is no reason to infer anything. net + expval compatibility
         # are subsequently verified during check_config()
@@ -127,12 +128,12 @@ def infer_params(params, dannce_net, prediction):
         # 'net_type' + 'train_mode' to select the correct network and set expval.
         # During prediction, the train_mode might be missing, and in any case only the
         # expval needs to be set.
-        if "net_type" not in params:
+        if params["net_type"] is None:
             raise Exception(
                 "Without a net name and expval params, net_type must be specified"
             )
 
-        if not prediction and "train_mode" not in params:
+        if not prediction and params["train_mode"] is None:
             raise Exception("Need to specific train_mode for DANNCE training")
 
         if params["net_type"] == "AVG":
@@ -157,14 +158,14 @@ def infer_params(params, dannce_net, prediction):
             elif params["net_type"] == "MAX":
                 print_and_set(params, "net", "unet3d_big")
 
-    elif dannce_net and "expval" not in params:
+    elif dannce_net and params["expval"] is None:
         if "AVG" in params["net"] or "expected" in params["net"]:
             print_and_set(params, "expval", True)
         else:
             print_and_set(params, "expval", False)
 
     if dannce_net:
-        if "max_num_samples" in params.keys():
+        if params["max_num_samples"] is not None:
             if params["max_num_samples"] == "max":
                 print_and_set(params, "maxbatch", "max")
             elif isinstance(params["max_num_samples"], (int, np.integer)):
@@ -178,7 +179,7 @@ def infer_params(params, dannce_net, prediction):
         else:
             print_and_set(params, "maxbatch", "max")
 
-        if "start_sample" in params.keys():
+        if params["start_sample"] is not None:
             if isinstance(params["start_sample"], (int, np.integer)):
                 print_and_set(
                     params,
@@ -190,7 +191,7 @@ def infer_params(params, dannce_net, prediction):
         else:
             print_and_set(params, "start_batch", 0)
 
-        if "vol_size" in params:
+        if params["vol_size"] is not None:
             print_and_set(params, "vmin", -1 * params["vol_size"] // 2)
             print_and_set(params, "vmax", params["vol_size"] // 2)
     return params
@@ -208,7 +209,7 @@ def check_config(params, dannce_net):
     """
     check_camnames(params)
 
-    if "exp" in params.keys():
+    if params["exp"] is not None:
         for expdict in params["exp"]:
             check_camnames(expdict)
 
@@ -219,7 +220,7 @@ def check_config(params, dannce_net):
 
 def check_vmin_vmax(params):
     for v in ["vmin", "vmax", "nvox"]:
-        if v not in params:
+        if params[v] is None:
             raise Exception(
                 "{} not in parameters. Please add it, or use vol_size instead of vmin and vmax".format(
                     v
@@ -283,7 +284,7 @@ def make_data_splits(samples, params, RESULTSDIR, num_experiments):
     # and change.
 
     partition = {}
-    if "load_valid" not in params.keys():
+    if params["load_valid"] is None:
         all_inds = np.arange(len(samples))
 
         # extract random inds from each set for validation
@@ -377,7 +378,14 @@ def prepare_save_metadata(params):
         output, we need to convert loss and metrics and net into names, and remove
         the 'experiment' field
     """
+
+    # Need to convert None to string but still want to conserve the metadat structure
+    # format, so we don't want to convert the whole dict to a string
     meta = params.copy()
+    for key in meta.keys():
+        if meta[key] is None:
+            meta[key] = "None"
+
     if "experiment" in meta:
         del meta["experiment"]
     if "loss" in meta:
@@ -388,12 +396,6 @@ def prepare_save_metadata(params):
         meta["metric"] = [
             f.__name__ if not isinstance(f, str) else f for f in meta["metric"]
         ]
-
-    # Need to convert None to string but still want to conserve the metadat structure
-    # format, so we don't want to convert the whole dict to a string
-    for key in meta.keys():
-        if meta[key] is None:
-            meta[key] = "None"
 
     return meta
 
