@@ -533,7 +533,8 @@ def load_expdict(params, e, expdict, _DEFAULT_VIDDIR):
     exp = make_paths_safe(exp)
     exp["label3d_file"] = expdict["label3d_file"]
     exp["base_exp_folder"] = os.path.dirname(exp["label3d_file"])
-    if "viddir" not in expdict.keys():
+    
+    if "viddir" not in expdict:
         # if the videos are not at the _DEFAULT_VIDDIR, then it must
         # be specified in the io.yaml experiment portion
         exp["viddir"] = os.path.join(exp["base_exp_folder"], _DEFAULT_VIDDIR)
@@ -542,7 +543,7 @@ def load_expdict(params, e, expdict, _DEFAULT_VIDDIR):
     print("Experiment {} using videos in {}".format(e, exp["viddir"]))
 
     l3d_camnames = io.load_camnames(expdict["label3d_file"])
-    if "camnames" in expdict.keys():
+    if "camnames" in expdict:
         exp["camnames"] = expdict["camnames"]
     elif l3d_camnames is not None:
         exp["camnames"] = l3d_camnames
