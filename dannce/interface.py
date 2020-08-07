@@ -1535,7 +1535,7 @@ def do_COM_load(exp, expdict, n_views, e, params, training=True):
     samples_ = serve_data_DANNCE.remove_samples_com(
         samples_, com3d_dict_, rmc=True, cthresh=exp["cthresh"],
     )
-    msg = "Detected {} bad COMs and removed the associated frames from the dataset"
+    msg = "Removed {} samples from the dataset because they either had COM positions over cthresh, or did not have matching sampleIDs in the COM file"
     print(msg.format(pre - len(samples_)))
 
     return exp, samples_, datadict_, datadict_3d_, cameras_, com3d_dict_
