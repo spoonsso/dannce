@@ -1545,7 +1545,4 @@ def check_COM_load(c3dfile, kkey, datadict_, wsize):
     for (i, s) in enumerate(c3dsi):
         com3d_dict_[s] = c3d[i]
 
-    # verify all of the datadict_ keys are in this sample set
-    # assert (set(c3dsi) & set(list(datadict_.keys()))) == set(list(datadict_.keys()))
-
     return com3d_dict_
