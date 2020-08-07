@@ -1,6 +1,7 @@
 """Generator for 3d video images."""
 import numpy as np
 import tensorflow.keras as keras
+import tensorflow as tf
 import os
 from tensorflow.keras.applications.vgg19 import preprocess_input as pp_vgg19
 import imageio
@@ -37,6 +38,7 @@ class DataGenerator_downsample(keras.utils.Sequence):
         dsmode="dsm",
         chunks=3500,
         multimode=False,
+        mono=False,
     ):
         """Initialize generator.
 
@@ -72,6 +74,8 @@ class DataGenerator_downsample(keras.utils.Sequence):
         self.multimode = multimode
 
         self._N_VIDEO_FRAMES = self.chunks
+
+        self.mono = mono
 
         if not self.preload:
             # then we keep a running video object so at least we don't open a new one every time
@@ -265,7 +269,175 @@ class DataGenerator_downsample(keras.utils.Sequence):
                 )
                 y /= np.max(np.max(y, axis=1), axis=1)[:, np.newaxis, np.newaxis, :]
 
+        if self.mono and self.n_channels_in == 3:
+            # Go from 3 to 1 channel using RGB conversion. This will also
+            # work fine if there are just 3 channel grayscale
+            X = X[:, :, :, 0]*0.2125 + \
+                    X[:, :, :, 1]*0.7154 + \
+                    X[:, :, :, 2]*0.0721
+
         return pp_vgg19(X), y
+
+class DataGenerator_downsample_frommem(keras.utils.Sequence):
+    """Generate 3d conv data from memory."""
+
+    def __init__(
+        self,
+        list_IDs,
+        data,
+        labels,
+        batch_size,
+        chan_num=3,
+        shuffle=True,
+        augment_brightness=False,
+        augment_hue=False,
+        augment_rotation=False,
+        augment_zoom=False,
+        augment_shear=False,
+        augment_shift=False,
+        bright_val=0.05,
+        hue_val=0.05,
+        shift_val=0.05,
+        rotation_val=5,
+        shear_val=5,
+        zoom_val=0.05
+    ):
+        """Initialize data generator."""
+        self.list_IDs = list_IDs
+        self.data = data
+        self.labels = labels
+        self.batch_size = batch_size
+        self.chan_num = chan_num
+        self.shuffle = shuffle
+
+        self.augment_brightness = augment_brightness
+        self.augment_hue = augment_hue
+        self.augment_rotation = augment_rotation
+        self.augment_zoom = augment_zoom
+        self.augment_shear = augment_shear
+        self.augment_shift = augment_shift
+        self.bright_val = bright_val
+        self.hue_val = hue_val
+        self.shift_val = shift_val
+        self.rotation_val = rotation_val
+        self.shear_val = shear_val
+        self.zoom_val = zoom_val
+        self.on_epoch_end()
+
+    def __len__(self):
+        """Denote the number of batches per epoch."""
+        return int(np.floor(len(self.list_IDs) / self.batch_size))
+
+    def shift_im(self, im, lim, dim=2):
+        if lim < 0:
+            im[:, :, :(im.shape[dim]-np.abs(lim))] = im[:, :, np.abs(lim):]
+            im[:, :, (im.shape[dim]-np.abs(lim)):] = im[:, :, (im.shape[dim]-np.abs(lim))]
+        else:
+            im[:, :, lim:] = im[:, :, :(im.shape[dim]-lim)]
+            im[:, :, :lim] = im[:, :, lim]
+
+        return im
+
+    def random_shift(self, X, y_2d, im_h, im_w, scale):
+        """
+        Randomly shifts all images in batch, in the range [-im_w*scale, im_w*scale]
+            and [im_h*scale, im_h*scale]
+        """
+        wrng = np.random.randint(-int(im_w*scale), int(im_w*scale))
+        hrng = np.random.randint(-int(im_h*scale), int(im_h*scale))
+
+        X = self.shift_im(X, wrng)
+        X = self.shift_im(X, hrng, dim=1)
+
+        y_2d = self.shift_im(y_2d, wrng)
+        y_2d = self.shift_im(y_2d, hrng, dim=1)
+
+        return X, y_2d
+
+    def __getitem__(self, index):
+        """Generate one batch of data."""
+        # Generate indexes of the batch
+        indexes = self.indexes[index * self.batch_size : (index + 1) * self.batch_size]
+
+        # Find list of IDs
+        list_IDs_temp = [self.list_IDs[k] for k in indexes]
+
+        # Generate data
+        X, y = self.__data_generation(list_IDs_temp)
+
+        return X, y
+
+        def __data_generation(self, list_IDs_temp):
+            """Generate data containing batch_size samples."""
+            # Initialization
+
+            X = np.zeros((self.batch_size, *self.data.shape[1:]))
+            y_2d = np.zeros((self.batch_size, *self.labels.shape[1:]))
+
+            for i, ID in enumerate(list_IDs_temp):
+                X[i] = self.data[ID].copy()
+                y_2d[i] = self.labels[ID]
+
+                if self.augment_brightness:
+                    X = tf.image.random_brightness(X, self.bright_val)
+
+                if self.augment_hue:
+                    if self.chan_num == 3:
+                        X = tf.image.random_hue(X, self.hue_val)
+                    else:
+                        warnings.warn("Hue augmention set to True for mono. Ignoring.")
+
+                if self.augment_shift:
+                    X, y_2d = self.random_shift(X, y_2d.copy(),
+                                             X.shape[1],
+                                             X.shape[2],
+                                             self.shift_val)
+
+
+                if self.augment_rotatation \
+                    or self.augment_shear or self.augment_zoom:
+
+                    affine = {}
+                    affine['zoom'] = 1
+                    affine['rotation'] = 0
+                    affine['shear'] = 0
+
+                    # Because we use views down below, 
+                    # don't change the targets in memory.
+                    # But also, don't deep copy y_2d unless necessary (that's
+                    # why it's here and not above)
+                    y_2d = y_2d.copy()
+
+                    if self.augment_rotation:
+                        affine['rotation'] = self.rotation_val*\
+                            (np.random.rand()*2-1)
+                    if self.augment_zoom:
+                        affine['zoom'] = self.zoom_val*\
+                            (np.random.rand()*2-1) + 1
+                    if self.shear:
+                        affine['shear'] = self.shear_val*\
+                            (np.random.rand()*2-1)
+
+                    for idx in range(X.shape[0]):
+                        X[idx] = \
+                            tf.keras.preprocessing.image.apply_affine_transform(
+                                X[idx],
+                                theta=affine['rotation'],
+                                shear=affine['shear'],
+                                zx=affine['zoom'],
+                                zy=affine['zoom'],
+                                fill_mode='nearest')
+                        y_2d[idx] = \
+                            tf.keras.preprocessing.image.apply_affine_transform(
+                                y_2d[idx],
+                                theta=affine['rotation'],
+                                shear=affine['shear'],
+                                zx=affine['zoom'],
+                                zy=affine['zoom'],
+                                fill_mode='nearest')
+
+            return X.numpy(), y_2d.numpy()
+
 
     def save_for_dlc(self, imfolder, ext=".png", full_data=True, compress_level=9):
         """Generate data.
