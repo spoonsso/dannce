@@ -20,6 +20,7 @@ from dannce.engine.generator import DataGenerator_3Dconv_frommem
 from dannce.engine.generator import DataGenerator_3Dconv_torch
 from dannce.engine.generator import DataGenerator_3Dconv_tf
 from dannce.engine.generator_aux import DataGenerator_downsample
+from dannce.engine.generator_aux import DataGenerator_downsample_frommem
 import dannce.engine.processing as processing
 from dannce.engine.processing import savedata_tomat, savedata_expval
 from dannce.engine import nets, losses, ops, io
@@ -455,6 +456,7 @@ def com_train(params):
         "chunks": params["chunks"],
         "dsmode": params["dsmode"],
         "preload": False,
+        "mono": params["mono"]
     }
 
     valid_params = deepcopy(train_params)
@@ -465,13 +467,16 @@ def com_train(params):
     )
 
     labels = datadict
+
+    # For real mono training
+    params["chan_num"] = 1 if params["mono"] else params["n_channels_in"]
     # Build net
     print("Initializing Network...")
 
     model = params["net"](
         params["loss"],
         float(params["lr"]),
-        params["n_channels_in"],
+        params["chan_num"],
         params["n_channels_out"],
         ["mse"],
         multigpu=False,
@@ -525,14 +530,16 @@ def com_train(params):
     dh = (params["crop_height"][1] - params["crop_height"][0]) // params["downfac"]
     dw = (params["crop_width"][1] - params["crop_width"][0]) // params["downfac"]
     ims_train = np.zeros(
-        (ncams * len(partition["train_sampleIDs"]), dh, dw, 3), dtype="float32"
+        (ncams * len(partition["train_sampleIDs"]), dh, dw, params["chan_num"]), 
+        dtype="float32"
     )
     y_train = np.zeros(
         (ncams * len(partition["train_sampleIDs"]), dh, dw, params["n_channels_out"]),
         dtype="float32",
     )
     ims_valid = np.zeros(
-        (ncams * len(partition["valid_sampleIDs"]), dh, dw, 3), dtype="float32"
+        (ncams * len(partition["valid_sampleIDs"]), dh, dw, params["chan_num"]), 
+        dtype="float32"
     )
     y_valid = np.zeros(
         (ncams * len(partition["valid_sampleIDs"]), dh, dw, params["n_channels_out"]),
@@ -559,6 +566,34 @@ def com_train(params):
         ims = valid_generator.__getitem__(i)
         ims_valid[i * ncams : (i + 1) * ncams] = ims[0]
         y_valid[i * ncams : (i + 1) * ncams] = ims[1]
+
+    train_generator = DataGenerator_downsample_frommem(
+        np.arange(len(partition["train_sampleIDs"])),
+        ims_train,
+        y_train,
+        batch_size=params["batch_size"]*ncams,
+        augment_hue=params["augment_hue"],
+        augment_brightness=params["augment_brightness"],
+        augment_rotation=params["augment_rotation"],
+        augment_shear=params["augment_hue"],
+        augment_shift=params["augment_brightness"],
+        augment_zoom=params["augment_rotation"],
+        bright_val=params["augment_bright_val"],
+        hue_val=params["augment_hue_val"],
+        shift_val=params["augment_shift_val"],
+        rotation_val=params["augment_rotation_val"],
+        shear_val=params["augment_shear_val"],
+        zoom_val=params["augment_zoom_val"],
+        chan_num=params["chan_num"]
+    )
+    valid_generator = DataGenerator_downsample_frommem(
+        np.arange(len(partition["valid_sampleIDs"])),
+        ims_valid,
+        y_valid,
+        batch_size=ncams,
+        shuffle=False,
+        chan_num=params["chan_num"]
+    )
 
     def write_debug(trainData=True):
         """
@@ -604,13 +639,14 @@ def com_train(params):
     write_debug(trainData=True)
 
     model.fit(
-        ims_train,
-        y_train,
-        validation_data=(ims_valid, y_valid),
-        batch_size=params["batch_size"] * ncams,
+        x=train_generator,
+        steps_per_epoch=len(train_generator),
+        validation_data=valid_generator,
+        validation_steps=len(valid_generator),
+        verbose=params["verbose"],
         epochs=params["epochs"],
+        workers=6,
         callbacks=[csvlog, model_checkpoint, tboard],
-        shuffle=True,
     )
 
     write_debug(trainData=False)
@@ -1520,7 +1556,7 @@ def do_COM_load(exp, expdict, n_views, e, params, training=True):
     samples_ = serve_data_DANNCE.remove_samples_com(
         samples_, com3d_dict_, rmc=True, cthresh=exp["cthresh"],
     )
-    msg = "Detected {} bad COMs and removed the associated frames from the dataset"
+    msg = "Removed {} samples from the dataset because they either had COM positions over cthresh, or did not have matching sampleIDs in the COM file"
     print(msg.format(pre - len(samples_)))
 
     return exp, samples_, datadict_, datadict_3d_, cameras_, com3d_dict_

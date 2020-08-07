@@ -1550,7 +1550,7 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         self.rotation = rotation
         self.batch_size = batch_size
         self.random = random
-        self.chan_num = 3
+        self.chan_num = chan_num
         self.shuffle = shuffle
         self.expval = expval
         self.augment_hue = augment_hue
@@ -1634,7 +1634,7 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         plt.show()
         input("Press Enter to continue...")
 
-    def random_continuous_rotation(self, X, y_3d, log=False, max_delta=5):
+    def random_continuous_rotation(self, X, y_3d, max_delta=5):
         rotangle = np.random.rand() * (2 * max_delta) - max_delta
         X = tf.reshape(X, [X.shape[0], X.shape[1], X.shape[2], -1]).numpy()
         y_3d = tf.reshape(
@@ -1667,10 +1667,7 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
             y_3d, [y_3d.shape[0], y_3d.shape[1], y_3d.shape[2], y_3d.shape[2], -1]
         ).numpy()
 
-        if log:
-            return X, y_3d, rots
-        else:
-            return X, y_3d
+        return X, y_3d
 
     def __data_generation(self, list_IDs_temp):
         """Generate data containing batch_size samples."""
