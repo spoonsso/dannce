@@ -24,6 +24,7 @@ from dannce.engine.generator_aux import DataGenerator_downsample_frommem
 import dannce.engine.processing as processing
 from dannce.engine.processing import savedata_tomat, savedata_expval
 from dannce.engine import nets, losses, ops, io
+from dannce import _param_defaults_dannce, _param_defaults_shared, _param_defaults_com
 
 import matplotlib
 
@@ -37,27 +38,47 @@ _DEFAULT_COMFILENAME = "com3d.mat"
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"
 
 
+def check_unrecognized_params(params):
+    """Check for invalid keys in the params dict against param defaults."""
+    # Check if key in any of the defaults
+    invalid_keys = []
+    for key in params:
+        in_com = key in _param_defaults_com
+        in_dannce = key in _param_defaults_dannce
+        in_shared = key in _param_defaults_shared
+        if not (in_com or in_dannce or in_shared):
+            invalid_keys.append(key)
+
+    # If there are any keys that are invalid, throw an error and print them out
+    if len(invalid_keys) > 0:
+        invalid_key_msg = [" %s," % key for key in invalid_keys]
+        msg = "Unrecognized keys in the configs: %s" % "".join(invalid_key_msg)
+        raise ValueError(msg)
+
+
 def build_params(base_config, dannce_net):
     base_params = processing.read_config(base_config)
     base_params = processing.make_paths_safe(base_params)
     params = processing.read_config(base_params["io_config"])
     params = processing.make_paths_safe(params)
     params = processing.inherit_config(params, base_params, list(base_params.keys()))
+    check_unrecognized_params(params)
     return params
+
 
 def make_folder(key, params):
     # Make the prediction directory if it does not exist.
-    if key in params:
+    if params[key] is not None:
         if not os.path.exists(params[key]):
             os.makedirs(params[key])
     else:
-        raise ValueError(key + ' must be defined.')
+        raise ValueError(key + " must be defined.")
+
 
 def com_predict(params):
 
     # Make the prediction directory if it does not exist.
-    make_folder('com_predict_dir', params)
-
+    make_folder("com_predict_dir", params)
 
     # Load the appropriate loss function and network
     try:
@@ -94,7 +115,7 @@ def com_predict(params):
         multigpu=False,
     )
 
-    if "com_predict_weights" not in params.keys():
+    if params["com_predict_weights"] is None:
         wdir = params["com_train_dir"]
         weights = os.listdir(wdir)
         weights = [f for f in weights if ".hdf5" in f]
@@ -171,14 +192,14 @@ def com_predict(params):
                     # now, we need to use camera calibration to triangulate
                     # from 2D to 3D
 
-                    if "COMdebug" in params.keys() and j == cnum:
+                    if params["com_debug"] is not None and j == cnum:
                         # Write preds
                         plt.figure(0)
                         plt.cla()
                         plt.imshow(np.squeeze(pred[j]))
                         plt.savefig(
                             os.path.join(
-                                cmapdir, params["COMdebug"] + str(i + m) + ".png"
+                                cmapdir, params["com_debug"] + str(i + m) + ".png"
                             )
                         )
 
@@ -193,7 +214,7 @@ def com_predict(params):
                         )
                         plt.savefig(
                             os.path.join(
-                                overlaydir, params["COMdebug"] + str(i + m) + ".png"
+                                overlaydir, params["com_debug"] + str(i + m) + ".png"
                             )
                         )
 
@@ -244,16 +265,16 @@ def com_predict(params):
     #     com_predict_dir, sys.argv[1], params["io_config"],
     # )
 
-    if "COMdebug" in params.keys():
+    if params["com_debug"] is not None:
         cmapdir = os.path.join(com_predict_dir, "cmap")
         overlaydir = os.path.join(com_predict_dir, "overlay")
         if not os.path.exists(cmapdir):
             os.makedirs(cmapdir)
         if not os.path.exists(overlaydir):
             os.makedirs(overlaydir)
-        cnum = params["camnames"].index(params["COMdebug"])
-        print("Writing " + params["COMdebug"] + " confidence maps to " + cmapdir)
-        print("Writing " + params["COMdebug"] + "COM-image overlays to " + overlaydir)
+        cnum = params["camnames"].index(params["com_debug"])
+        print("Writing " + params["com_debug"] + " confidence maps to " + cmapdir)
+        print("Writing " + params["com_debug"] + "COM-image overlays to " + overlaydir)
 
     (
         samples,
@@ -336,7 +357,7 @@ def com_predict(params):
 def com_train(params):
 
     # Make the train directory if it does not exist.
-    make_folder('com_train_dir', params)
+    make_folder("com_train_dir", params)
 
     params["loss"] = getattr(losses, params["loss"])
     params["net"] = getattr(nets, params["net"])
@@ -358,7 +379,7 @@ def com_train(params):
     # indicated otherwise by using a 'com_exp' block in io.yaml.
     #
     # This can be useful for introducing additional COM-only label files.
-    if "com_exp" in params.keys():
+    if params["com_exp"] is not None:
         exps = params["com_exp"]
     else:
         exps = params["exp"]
@@ -480,7 +501,7 @@ def com_train(params):
                 os.path.join(params["com_finetune_weights"], weights), by_name=True
             )
 
-    if "lockfirst" in params.keys() and params["lockfirst"]:
+    if params["lockfirst"]:
         for layer in model.layers[:2]:
             layer.trainable = False
 
@@ -644,7 +665,7 @@ def dannce_train(params):
     """Entrypoint for dannce training."""
 
     # Make the training directory if it does not exist.
-    make_folder('dannce_train_dir', params)
+    make_folder("dannce_train_dir", params)
 
     params["loss"] = getattr(losses, params["loss"])
     params["net"] = getattr(nets, params["net"])
@@ -652,7 +673,7 @@ def dannce_train(params):
     # Default to 6 views but a smaller number of views can be specified in the DANNCE config.
     # If the legnth of the camera files list is smaller than n_views, relevant lists will be
     # duplicated in order to match n_views, if possible.
-    n_views = int(params["n_views"] if "n_views" in params.keys() else 6)
+    n_views = int(params["n_views"])
 
     # Convert all metric strings to objects
     metrics = []
@@ -667,7 +688,7 @@ def dannce_train(params):
     os.environ["CUDA_VISIBLE_DEVICES"] = params["gpu_id"]
 
     # find the weights given config path
-    if params["dannce_finetune_weights"] != "None":
+    if params["dannce_finetune_weights"] is not None:
         weights = os.listdir(params["dannce_finetune_weights"])
         weights = [f for f in weights if ".hdf5" in f]
         weights = weights[0]
@@ -747,7 +768,7 @@ def dannce_train(params):
 
     # When this true, the data generator will shuffle the cameras and then select the first 3,
     # to feed to a native 3 camera model
-    if "cam3_train" in params.keys() and params["cam3_train"]:
+    if params["cam3_train"]:
         cam3_train = True
     else:
         cam3_train = False
@@ -884,7 +905,7 @@ def dannce_train(params):
             X_train[i] = rr[0]
         y_train[i] = rr[1]
 
-    if "debug_volume_tifdir" in params.keys():
+    if params["debug_volume_tifdir"] is not None:
         # When this option is toggled in the config, rather than
         # training, the image volumes are dumped to tif stacks.
         # This can be used for debugging problems with calibration or
@@ -1063,7 +1084,7 @@ def dannce_train(params):
 
 def dannce_predict(params):
     # Make the prediction directory if it does not exist.
-    make_folder('dannce_predict_dir', params)
+    make_folder("dannce_predict_dir", params)
 
     # Load the appropriate loss function and network
     try:
@@ -1075,7 +1096,7 @@ def dannce_predict(params):
     # Default to 6 views but a smaller number of views can be specified in the DANNCE config.
     # If the legnth of the camera files list is smaller than n_views, relevant lists will be
     # duplicated in order to match n_views, if possible.
-    n_views = int(params["n_views"] if "n_views" in params.keys() else 6)
+    n_views = int(params["n_views"])
 
     os.environ["CUDA_VISIBLE_DEVICES"] = params["gpu_id"]
     gpu_id = params["gpu_id"]
@@ -1091,7 +1112,7 @@ def dannce_predict(params):
 
     # default to slow numpy backend if there is no predict_mode in config file. I.e. legacy support
     predict_mode = (
-        params["predict_mode"] if "predict_mode" in params.keys() else "numpy"
+        params["predict_mode"] if params["predict_mode"] is not None else "numpy"
     )
     print("Using {} predict mode".format(predict_mode))
 
@@ -1239,7 +1260,7 @@ def dannce_predict(params):
     # As a precaution, we import all possible custom objects that could be used
     # by a model and thus need declarations
 
-    if "dannce_predict_model" in params.keys():
+    if params["dannce_predict_model"] is not None:
         mdl_file = params["dannce_predict_model"]
     else:
         wdir = params["dannce_train_dir"]
@@ -1430,7 +1451,7 @@ def dannce_predict(params):
     else:
         start_batch = 0
 
-    if "new_n_channels_out" in params.keys():
+    if params["new_n_channels_out"] is not None:
         nchn = params["new_n_channels_out"]
     else:
         nchn = params["n_channels_out"]
@@ -1495,7 +1516,7 @@ def do_COM_load(exp, expdict, n_views, e, params, training=True):
         com3d_dict_ = deepcopy(datadict_3d_)
         for key in com3d_dict_.keys():
             com3d_dict_[key] = np.nanmean(datadict_3d_[key], axis=1, keepdims=True)
-    elif "com_file" in expdict.keys():
+    elif expdict["com_file"] is not None:
         exp["com_file"] = expdict["com_file"]
         if ".mat" in exp["com_file"]:
             c3dfile = sio.loadmat(exp["com_file"])
@@ -1559,8 +1580,5 @@ def check_COM_load(c3dfile, kkey, datadict_, wsize):
     com3d_dict_ = {}
     for (i, s) in enumerate(c3dsi):
         com3d_dict_[s] = c3d[i]
-
-    # verify all of the datadict_ keys are in this sample set
-    assert (set(c3dsi) & set(list(datadict_.keys()))) == set(list(datadict_.keys()))
 
     return com3d_dict_

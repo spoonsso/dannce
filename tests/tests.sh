@@ -37,7 +37,7 @@ echo "Testing DANNCE training, AVG net from scratch"
 dannce-train config_mousetest.yaml --net=unet3d_big_expectedvalue --train-mode=new --n-channels-out=22
 
 echo "Testing DANNCE training, MAX net from scratch"
-dannce-train config_mousetest.yaml --net=unet3d_big --train-mode=new --n-channels-out=22 --dannce-finetune-weights="None"
+dannce-train config_mousetest.yaml --net=unet3d_big --train-mode=new --n-channels-out=22
 
 echo "Testing DANNCE training, AVG net continued"
 dannce-train config_mousetest.yaml --train-mode=continued --dannce-finetune-weights=../../demo/markerless_mouse_1/DANNCE/train_results/AVG/
