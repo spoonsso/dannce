@@ -28,7 +28,5 @@ exp:
 # path to folder contraining video sub directories. Used only for com and dannce PREDICTION
 viddir: ../../demo/markerless_mouse_1/videos/
 
-# How to crop the input images. The U-Net expects each dimension size to be a multiple of 32.
-crop_height: [0, 1024]
-crop_width: [0, 1152]
+
 

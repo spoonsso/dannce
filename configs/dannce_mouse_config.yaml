@@ -2,21 +2,14 @@
 # call dannce functions
 io_config: io.yaml
 
-# If training from scratch, set to the desired number of output channels (i.e. keypoints)
-# If fine-tuning, this must match the previous number of output channels, and the new desired
-# number is set by new_n_channels_out
-n_channels_out: 20
-
 # New number of network output channels.
 new_n_channels_out: 22
-# New size of the final output kernel
-new_last_kernel_size: [3,3,3]
 
 # Batch size for training and prediction
 batch_size: 4
 
 # DANNCE training option. Sets the number of epochs during training (default 1200)
-epochs: 600
+epochs: 1200
 
 # name of the network architecture (see nets.py)
 net_type: AVG
@@ -30,9 +23,9 @@ train_mode: finetune
 # How many samples from each animal do you want to (randomly) set aside for a validation metric?
 num_validation_per_exp: 4
 
-# Limits (in mm) to 3D volumes anchored on subject
-vmin: -60
-vmax: 60
+# Size of 3D volume (in mm) anchored on animal
+vol_size: 120
+
 # Number of voxels along each spatial dimension
 nvox: 64
 
@@ -41,8 +34,3 @@ max_num_samples: 1000
 
 # By default, will load in the first hdf5 file at this location for fine-tuning. If training from scratch, set to None
 dannce_finetune_weights: ./DANNCE/weights/
-
-#### When using com3d.pickle
-# If the 3D COM has a coordinate beyond this value (in mm), discard it as an error. How large is your arena?
-cthresh: 350
-

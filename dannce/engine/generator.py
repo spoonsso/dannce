@@ -36,6 +36,7 @@ class DataGenerator(keras.utils.Sequence):
         vidreaders=None,
         chunks=3500,
         preload=True,
+        mono=False,
     ):
         """Initialize Generator."""
         self.dim_in = dim_in
@@ -56,6 +57,7 @@ class DataGenerator(keras.utils.Sequence):
         self.samples_per_cluster = samples_per_cluster
         self._N_VIDEO_FRAMES = chunks
         self.preload = preload
+        self.mono=mono
         self.on_epoch_end()
 
         if self.vidreaders is not None:
@@ -199,6 +201,7 @@ class DataGenerator_3Dconv(DataGenerator):
         crop_im=True,
         norm_im=True,
         chunks=3500,
+        mono=False
     ):
         """Initialize data generator."""
         DataGenerator.__init__(
@@ -219,6 +222,7 @@ class DataGenerator_3Dconv(DataGenerator):
             vidreaders,
             chunks,
             preload,
+            mono
         )
         self.vmin = vmin
         self.vmax = vmax
@@ -566,10 +570,18 @@ class DataGenerator_3Dconv(DataGenerator):
                 else:
                     X, y_3d, rotate_log = self.random_rotate(X, y_3d, log=True)
 
-        # if True:
-        #     for n_cam in range(int(X.shape[-1] / 3)):
-        #         channel_ids =  np.arange(n_cam * 3, n_cam * 3 + 3)
-        #         X[..., channel_ids] = tf.image.random_hue(X[..., channel_ids], .1)
+        if self.mono and self.n_channels_in == 3:
+            # Convert from RGB to mono using the skimage formula. Drop the duplicated frames.
+            # Reshape so RGB can be processed easily.
+            X = np.reshape(X, (X.shape[0],
+                               X.shape[1],
+                               X.shape[2],
+                               X.shape[3],
+                               self.n_channels_in,
+                               -1), order='F')
+            X = X[:, :, :, :, 0]*0.2125 + \
+                X[:, :, :, :, 1]*0.7154 + \
+                X[:, :, :, :, 2]*0.0721
 
         # Then we also need to return the 3d grid center coordinates,
         # for calculating a spatial expected value
@@ -639,6 +651,7 @@ class DataGenerator_3Dconv_torch(DataGenerator):
         crop_im=True,
         norm_im=True,
         chunks=3500,
+        mono=False
     ):
         """Initialize data generator."""
         DataGenerator.__init__(
@@ -659,6 +672,7 @@ class DataGenerator_3Dconv_torch(DataGenerator):
             vidreaders,
             chunks,
             preload,
+            mono
         )
         self.vmin = vmin
         self.vmax = vmax
@@ -995,6 +1009,19 @@ class DataGenerator_3Dconv_torch(DataGenerator):
                 else:
                     X, y_3d, rotate_log = self.random_rotate(X, y_3d, log=True)
 
+        if self.mono and self.n_channels_in == 3:
+            # Convert from RGB to mono using the skimage formula. Drop the duplicated frames.
+            # Reshape so RGB can be processed easily.
+            X = self.torch.reshape(X, (X.shape[0],
+                                       X.shape[1],
+                                       X.shape[2],
+                                       X.shape[3],
+                                       len(self.camnames[first_exp]),
+                                       -1))
+            X = X[:, :, :, :, :, 0]*0.2125 + \
+                X[:, :, :, :, :, 1]*0.7154 + \
+                X[:, :, :, :, :, 2]*0.0721
+
         # Convert pytorch tensors back to numpy array
         ts = time.time()
         if self.torch.is_tensor(X):
@@ -1070,6 +1097,7 @@ class DataGenerator_3Dconv_tf(DataGenerator):
         crop_im=True,
         norm_im=True,
         chunks=3500,
+        mono=False,
     ):
 
         """Initialize data generator."""
@@ -1091,6 +1119,7 @@ class DataGenerator_3Dconv_tf(DataGenerator):
             vidreaders,
             chunks,
             preload,
+            mono
         )
         self.vmin = vmin
         self.vmax = vmax
@@ -1500,6 +1529,18 @@ class DataGenerator_3Dconv_tf(DataGenerator):
             # print('Eval took {} sec.'.format(time.time()-ts))
 
         # print('Wrap-up took {} sec.'.format(time.time()-ts))
+        if self.mono and self.n_channels_in == 3:
+            # Convert from RGB to mono using the skimage formula. Drop the duplicated frames.
+            # Reshape so RGB can be processed easily.
+            X = np.reshape(X, (X.shape[0],
+                               X.shape[1],
+                               X.shape[2],
+                               X.shape[3], 
+                               self.n_channels_in,
+                               -1), order='F')
+            X = X[:, :, :, :, 0]*0.2125 + \
+                X[:, :, :, :, 1]*0.7154 + \
+                X[:, :, :, :, 2]*0.0721
 
         if self.expval:
             if self.var_reg:
@@ -1542,6 +1583,9 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         augment_brightness=True,
         augment_hue=True,
         augment_continuous_rotation=True,
+        bright_val=0.05,
+        hue_val=0.05,
+        rotation_val=0.05,
     ):
         """Initialize data generator."""
         self.list_IDs = list_IDs
@@ -1561,6 +1605,9 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
             self.xgrid = xgrid
         self.nvox = nvox
         self.cam3_train = cam3_train
+        self.bright_val = bright_val
+        self.hue_val = hue_val
+        self.rotation_val = rotation_val
         self.on_epoch_end()
 
     def __len__(self):
@@ -1706,22 +1753,24 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
                 X_grid = np.reshape(
                     X_grid, (self.batch_size, self.nvox, self.nvox, self.nvox, 3)
                 )
-                X, X_grid = self.random_continuous_rotation(X.copy(), X_grid.copy())
+                X, X_grid = self.random_continuous_rotation(X.copy(), X_grid.copy(), self.rotation_val)
                 # Need to reshape back to raveled version
                 X_grid = np.reshape(X_grid, (self.batch_size, -1, 3))
             else:
-                X, y_3d = self.random_continuous_rotation(X.copy(), y_3d.copy())
+                X, y_3d = self.random_continuous_rotation(X.copy(), y_3d.copy(), self.rotation_val)
 
-        if self.augment_hue:
-            for n_cam in range(int(X.shape[-1] / 3)):
-                channel_ids = np.arange(n_cam * 3, n_cam * 3 + 3)
-                X[..., channel_ids] = tf.image.random_hue(X[..., channel_ids], 0.05)
+        if self.augment_hue and self.chan_num == 3:
+            for n_cam in range(int(X.shape[-1] / self.chan_num)):
+                channel_ids = np.arange(n_cam * self.chan_num, n_cam * self.chan_num + self.chan_num)
+                X[..., channel_ids] = tf.image.random_hue(X[..., channel_ids], self.hue_val)
+        else:
+            warnings.warn("Trying to augment hue with an image that is not RGB. Skipping.")
 
         if self.augment_brightness:
-            for n_cam in range(int(X.shape[-1] / 3)):
-                channel_ids = np.arange(n_cam * 3, n_cam * 3 + 3)
+            for n_cam in range(int(X.shape[-1] / self.chan_num)):
+                channel_ids = np.arange(n_cam * self.chan_num, n_cam * self.chan_num + self.chan_num)
                 X[..., channel_ids] = tf.image.random_brightness(
-                    X[..., channel_ids], 0.05
+                    X[..., channel_ids], self.bright_val
                 )
 
         # Randomly re-order, if desired

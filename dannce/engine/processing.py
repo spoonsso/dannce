@@ -165,6 +165,13 @@ def infer_params(params, dannce_net, prediction):
             print_and_set(params, "expval", False)
 
     if dannce_net:
+        #infer crop_height and crop_width if None. Just use max dims of video, as
+        # DANNCE does not need to crop.
+        if params["crop_height"] is None:
+            params["crop_height"] = [0, im.shape[0]]
+        if params["crop_width"] is None:
+            params["crop_width"] = [0, im.shape[1]]
+            
         if params["max_num_samples"] is not None:
             if params["max_num_samples"] == "max":
                 print_and_set(params, "maxbatch", "max")
