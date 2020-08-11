@@ -119,7 +119,7 @@ def infer_params(params, dannce_net, prediction):
     v.close()
     print_and_set(params, "n_channels_in", im.shape[-1])
 
-    if dannce_net and params["net"] is None and params["expval"] is None:
+    if dannce_net and params["net"] is None:
         # Here we assume that if the network and expval are specified by the user
         # then there is no reason to infer anything. net + expval compatibility
         # are subsequently verified during check_config()
@@ -130,7 +130,7 @@ def infer_params(params, dannce_net, prediction):
         # expval needs to be set.
         if params["net_type"] is None:
             raise Exception(
-                "Without a net name and expval params, net_type must be specified"
+                "Without a net name, net_type must be specified"
             )
 
         if not prediction and params["train_mode"] is None:
@@ -138,8 +138,12 @@ def infer_params(params, dannce_net, prediction):
 
         if params["net_type"] == "AVG":
             print_and_set(params, "expval", True)
+            if prediction:
+                print_and_set(params, "net", "unet3d_big_expectedvalue")
         elif params["net_type"] == "MAX":
             print_and_set(params, "expval", False)
+            if prediction:
+                print_and_set(params, "net", "unet3d_big")
         else:
             raise Exception("{} not a valid net_type".format(params["net_type"]))
 
@@ -210,7 +214,7 @@ def print_and_set(params, varname, value):
     print("Setting {} to {}.".format(varname, params[varname]))
 
 
-def check_config(params, dannce_net):
+def check_config(params, dannce_net, prediction):
     """
     Add parameter checks and restrictions here.
     """
@@ -249,18 +253,34 @@ def check_net_expval(params):
     """
     Raise an exception if the network and expval (i.e. AVG/MAX) are incompatible
     """
+    if params["net"] is None:
+        raise Exception("net is None. You must set either net or net_type.")
+    if params["net_type"] is not None:
+        if (
+            params["net_type"] == 'AVG'
+            and "AVG" not in params["net"]
+            and "expected" not in params["net"]
+        ):
+            raise Exception("net_type is set to AVG, but you are using a MAX network")
+        if (
+            params["net_type"] == 'MAX'
+            and "MAX" not in params["net"]
+            and params["net"] != "unet3d_big"
+        ):
+            raise Exception("net_type is set to MAX, but you are using a AVG network")
+        
     if (
         params["expval"]
         and "AVG" not in params["net"]
         and "expected" not in params["net"]
     ):
-        raise Exception("Config is set to AVG but you are using a MAX network")
+        raise Exception("expval is set to True but you are using a MAX network")
     if (
         not params["expval"]
         and "MAX" not in params["net"]
-        and "expected" in params["net"]
+        and params["net"] != "unet3d_big"
     ):
-        raise Exception("Config is set to MAX but you are using an AVG network")
+        raise Exception("expval is set to False but you are using an AVG network")
 
 
 def copy_config(RESULTSDIR, main_config, io_config):
@@ -378,6 +398,14 @@ def trim_COM_pickle(fpath, start_sample, end_sample, opath=None):
         cPickle.dump(sd, f)
     return sd
 
+def save_params(outdir, params):
+    """
+    Save copy of params to outdir as .mat file
+    """
+    sio.savemat(os.path.join(outdir, 'copy_params.mat'),
+                prepare_save_metadata(params))
+
+    return True
 
 def prepare_save_metadata(params):
     """

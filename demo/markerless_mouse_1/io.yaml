@@ -15,15 +15,7 @@ dannce_predict_dir: ./DANNCE/predict_results/
 # Note that this must be a FULL MODEL file, not just weights.
 dannce_predict_model: ./DANNCE/train_results/AVG/weights.1200-12.77642.hdf5
 
-# com_exp is NOT REQUIRED for COM training, but it can be used to add additional
-# COM-only labels to the training set, if desired
-com_exp:
-    - label3d_file: './label3d_com.mat'
-    - label3d_file: './label3d_dannce.mat'
-    - label3d_file: '../markerless_mouse_2/label3d_dannce.mat'
-    - label3d_file: '../markerless_mouse_2/label3d_com.mat'
-
 exp:
-    - label3d_file: './label3d_dannce.mat'
-    - label3d_file: '../markerless_mouse_2/label3d_dannce.mat'
+    - label3d_file: './label3d_demo.mat'
+    - label3d_file: '../markerless_mouse_2/label3d_demo.mat'
 

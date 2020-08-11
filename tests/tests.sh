@@ -45,7 +45,7 @@ echo "Testing DANNCE training, MAX net from scratch"
 dannce-train config_mousetest.yaml --net=unet3d_big --train-mode=new --n-channels-out=22
 
 echo "Testing DANNCE training, AVG net continued"
-dannce-train config_mousetest.yaml --train-mode=continued --dannce-finetune-weights=../../demo/markerless_mouse_1/DANNCE/train_results/AVG/
+dannce-train config_mousetest.yaml --net-type=AVG --train-mode=continued --dannce-finetune-weights=../../demo/markerless_mouse_1/DANNCE/train_results/AVG/
 
 echo "Testing DANNCE training, MAX net continued"
 dannce-train config_mousetest.yaml --net=finetune_MAX --train-mode=continued --dannce-finetune-weights=../../demo/markerless_mouse_1/DANNCE/train_results/
@@ -56,17 +56,20 @@ dannce-train config_mousetest.yaml --net-type=AVG --train-mode=new --net=unet3d_
 echo "Testing DANNCE training, AVG MONO from scratch w/ augmentation"
 dannce-train config_mousetest.yaml --net-type=AVG --train-mode=new --net=unet3d_big_expectedvalue --mono=True --n-channels-out=22 --augment-brightness=True --augment-continuous-rotation=True --augment-hue=True
 
+echo "Testing DANNCE training, AVG MONO finetune"
+dannce-train config_mousetest.yaml --net-type=AVG --mono=True --dannce-finetune-weights=../../demo/markerless_mouse_1/DANNCE/weights/weights.rat.AVG.MONO/
+
 echo "Testing DANNCE prediction, MONO"
-dannce-predict config_mousetest.yaml --dannce-predict-model=../../demo/markerless_mouse_1/DANNCE/train_test/fullmodel_weights/fullmodel_end.hdf5 --mono=True
+dannce-predict config_mousetest.yaml --net-type=AVG --dannce-predict-model=../../demo/markerless_mouse_1/DANNCE/train_test/fullmodel_weights/fullmodel_end.hdf5 --mono=True
 
 cp ./label3d_temp_dannce.mat ./alabel3d_temp_dannce.mat
 echo "Testing DANNCE AVG prediction"
-dannce-predict config_mousetest.yaml
-python ../compare_predictions.py ../touchstones/save_data_AVG_torch_nearest.mat ../../demo/markerless_mouse_1/DANNCE/predict_results/save_data_AVG.mat 0.001
+dannce-predict config_mousetest.yaml --net-type=AVG
+python ../compare_predictions.py ../touchstones/save_data_AVG_torch_nearest.mat ../../demo/markerless_mouse_1/DANNCE/predict_test/save_data_AVG0.mat 0.001
 
 echo "Testing DANNCE MAX prediction"
-dannce-predict config_mousetest.yaml --expval=False --dannce-predict-model=../../demo/markerless_mouse_1/DANNCE/train_results/weights.12000-0.00014.hdf5
-python ../compare_predictions.py ../touchstones/save_data_MAX_torchnearest_newtfroutine.mat ../../demo/markerless_mouse_1/DANNCE/predict_results/save_data_MAX.mat 0.001
+dannce-predict config_mousetest.yaml --net-type=MAX --expval=False --dannce-predict-model=../../demo/markerless_mouse_1/DANNCE/train_results/weights.12000-0.00014.hdf5
+python ../compare_predictions.py ../touchstones/save_data_MAX_torchnearest_newtfroutine.mat ../../demo/markerless_mouse_1/DANNCE/predict_test/save_data_MAX0.mat 0.001
 
 # Remove temporary folders containign weights, etc.
 # rm -rf ./DANNCE/
