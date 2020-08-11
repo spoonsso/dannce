@@ -1,9 +1,0 @@
-# path to folder where DANNCE weights and logs will be saved
-RESULTSDIR: ../../demo/markerless_mouse_1/COM/train_test/
-RESULTSDIR_PREDICT: ../../demo/markerless_mouse_1/COM/predict_test/
-
-# During prediction, will look for the last epoch weights saved to ./COM/train_results/. To load in a different weights file, add the path here
-predict_weights: ../../demo/markerless_mouse_1/COM/train_results/weights.250-0.00036.hdf5
-
-# Path to a list of experiment config files. By Default, train_COMfinder.py will look for exp*.yaml files in the same directory as this file
-exp_path: ['../../demo/markerless_mouse_1/exp.yaml', '../../demo/markerless_mouse_2/exp.yaml']
