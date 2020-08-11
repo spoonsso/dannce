@@ -171,7 +171,7 @@ def infer_params(params, dannce_net, prediction):
             params["crop_height"] = [0, im.shape[0]]
         if params["crop_width"] is None:
             params["crop_width"] = [0, im.shape[1]]
-            
+
         if params["max_num_samples"] is not None:
             if params["max_num_samples"] == "max":
                 print_and_set(params, "maxbatch", "max")
@@ -420,9 +420,12 @@ def save_COM_dannce_mat(params, com3d, sampleID):
     # Open dannce.mat file, add com and re-save
     print("Saving COM predictions to " + params["label3d_file"])
     rr = sio.loadmat(params["label3d_file"])
+    # For safety, save old file to temp and delete it at the end
+    sio.savemat(params["label3d_file"]+".temp", rr)
     rr["com"] = com
     sio.savemat(params["label3d_file"], rr)
 
+    os.remove(params["label3d_file"]+".temp")
 
 def save_COM_checkpoint(save_data, RESULTSDIR, datadict_, cameras, params):
     """
@@ -483,36 +486,6 @@ def inherit_config(child, parent, keys):
             )
 
     return child
-
-
-def grab_exp_file(CONFIG_PARAMS, defaultdir=""):
-    """
-    Finds the paths to the training experiment yaml files.
-    """
-    if "exp_path" not in CONFIG_PARAMS:
-        raise Exception("exp_path must be defined in DANNCE_CONFIG.")
-    else:
-        exps = CONFIG_PARAMS["exp_path"]
-    print("Using the following exp.yaml files: {}".format(exps))
-
-    return exps
-
-
-def grab_predict_exp_file(defaultdir=""):
-    """
-    Finds the paths to the training experiment yaml files.
-    """
-    def_ep = os.path.join(".", defaultdir)
-    exps = os.listdir(def_ep)
-    exps = [os.path.join(def_ep, f) for f in exps if "exp.yaml" == f]
-
-    if len(exps) == 0:
-        raise Exception("Did not find any exp.yaml file in {}".format(def_ep))
-    if len(exps) > 1:
-        raise Exception("Multiple files named exp.yaml in {}".format(def_ep))
-    print("Using the following exp.yaml files: {}".format(exps))
-    return exps[0]
-
 
 def grab_predict_label3d_file(defaultdir=""):
     """
