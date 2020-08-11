@@ -1,0 +1,37 @@
+### COM ###
+# path to folder where COM weights and logs will be saved
+com_train_dir: ../../demo/markerless_mouse_1/COM/train_test/
+com_predict_dir: ../../demo/markerless_mouse_1/COM/predict_test/
+
+# During prediction, will look for the last epoch weights saved to ./COM/train_results/. To load in a different weights file, add the path here
+com_predict_weights: ../../demo/markerless_mouse_1/COM/train_results/weights.250-0.00036.hdf5
+
+### Dannce ###
+# path to folder where DANNCE weights and logs will be saved
+dannce_train_dir: ../../demo/markerless_mouse_1/DANNCE/train_test/
+dannce_predict_dir: ../../demo/markerless_mouse_1/DANNCE/train_test/
+
+# During prediction, will look for the last epoch weights saved to ./DANNCE/train_results/. To load in a different weights file, add the path here
+# Note that this must be a FULL MODEL file, not just weights.
+dannce_predict_model: ../../demo/markerless_mouse_1/DANNCE/train_results/weights.12000-0.00014.hdf5
+
+exp:
+    - label3d_file: ../../demo/markerless_mouse_1/label3d_dannce.mat
+      camnames: ['Camera1','Camera2','Camera3','Camera4','Camera5','Camera6']
+      com_file: ../../demo/markerless_mouse_1/COM/predict_results/com3d.mat
+    - label3d_file: ../../demo/markerless_mouse_2/label3d_dannce.mat
+      camnames: ['Camera1','Camera2','Camera3','Camera4','Camera5','Camera6']
+      com_file: ../../demo/markerless_mouse_2/COM/predict_results/com3d.pickle
+
+# path to folder contraining video sub directories. Used only for com and dannce PREDICTION
+viddir: ../../demo/markerless_mouse_1/videos/
+
+# path to folder contraining video sub directories. Used only for dannce PREDICTION
+com_file: '../../demo/markerless_mouse_1/COM/predict_results/com3d.pickle'
+
+# How to crop the input images. The U-Net expects each dimension size to be a multiple of 32.
+crop_height: [0, 1024]
+crop_width: [0, 1152]
+
+camnames: ['Camera1', 'Camera2', 'Camera3', 'Camera4', 'Camera5', 'Camera6']
+

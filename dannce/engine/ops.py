@@ -58,9 +58,9 @@ def project_to2d_torch(pts, M, device):
 
     # pts = torch.Tensor(pts.copy()).to(device)
     M = M.to(device=device)
-    pts1 = torch.ones(pts.shape[0], 1, dtype=torch.float32, device = device)
+    pts1 = torch.ones(pts.shape[0], 1, dtype=torch.float32, device=device)
 
-    projPts = torch.matmul(torch.cat((pts,pts1),1),M)
+    projPts = torch.matmul(torch.cat((pts, pts1), 1), M)
     projPts[:, :2] = projPts[:, :2] / projPts[:, 2:]
 
     return projPts
@@ -82,7 +82,7 @@ def project_to2d_tf(projPts, M):
     return projPts
 
 
-def sample_grid(im, projPts, method='linear'):
+def sample_grid(im, projPts, method="linear"):
     """Transfer 3d features to 2d by projecting down to 2d grid.
 
     Use 2d interpolation to transfer features to 3d points that have
@@ -91,19 +91,28 @@ def sample_grid(im, projPts, method='linear'):
     reshaped after being returned
     """
 
-    if method == 'linear':
+    if method == "linear":
         f_r = RegularGridInterpolator(
             (np.arange(im.shape[0]), np.arange(im.shape[1])),
-            im[:, :, 0], method='linear',
-            bounds_error=False, fill_value=0)
+            im[:, :, 0],
+            method="linear",
+            bounds_error=False,
+            fill_value=0,
+        )
         f_g = RegularGridInterpolator(
             (np.arange(im.shape[0]), np.arange(im.shape[1])),
-            im[:, :, 1], method='linear',
-            bounds_error=False, fill_value=0)
+            im[:, :, 1],
+            method="linear",
+            bounds_error=False,
+            fill_value=0,
+        )
         f_b = RegularGridInterpolator(
             (np.arange(im.shape[0]), np.arange(im.shape[1])),
-            im[:, :, 2], method='linear',
-            bounds_error=False, fill_value=0)
+            im[:, :, 2],
+            method="linear",
+            bounds_error=False,
+            fill_value=0,
+        )
 
         proj_r = f_r(projPts[:, ::-1])
         proj_g = f_g(projPts[:, ::-1])
@@ -113,9 +122,9 @@ def sample_grid(im, projPts, method='linear'):
     # Remember that projPts[:,0] is the "x" coordinate, i.e. the
     # column dimension, and projPts[:,1] is "y", indexing in the row
     # dimension, matrix-wise (i.e. from the top of the image)
-    elif method == 'nearest':
+    elif method == "nearest":
         # Now I could index an array with the values
-        projPts = np.round(projPts[:, ::-1]).astype('int')
+        projPts = np.round(projPts[:, ::-1]).astype("int")
 
         # But some of them could be rounded outside of the image
         projPts[projPts[:, 0] < 0, 0] = 0
@@ -134,9 +143,9 @@ def sample_grid(im, projPts, method='linear'):
 
     # Do nearest, but because the channel dimension can be arbitrarily large,
     # we put the final part of this in a loop
-    elif method == 'out2d':
+    elif method == "out2d":
         # Now I could index an array with the values
-        projPts = np.round(projPts[:, ::-1]).astype('int')
+        projPts = np.round(projPts[:, ::-1]).astype("int")
 
         # But some of them could be outside of the image
         projPts[projPts[:, 0] < 0, 0] = 0
@@ -156,7 +165,7 @@ def sample_grid(im, projPts, method='linear'):
     return proj_r, proj_g, proj_b
 
 
-def sample_grid_torch_nearest(im, projPts, device, method='bilinear'):
+def sample_grid_torch_nearest(im, projPts, device, method="bilinear"):
     """Unproject features."""
     # im_x, im_y are the x and y coordinates of each projected 3D position.
     # These are concatenated here for every image in each batch,
@@ -164,7 +173,7 @@ def sample_grid_torch_nearest(im, projPts, device, method='bilinear'):
 
     feats = torch.as_tensor(im, device=device)
     grid = projPts
-    c = int(round(projPts.shape[0]**(1/3.)))
+    c = int(round(projPts.shape[0] ** (1 / 3.0)))
 
     fh, fw, fdim = list(feats.shape)
 
@@ -180,7 +189,7 @@ def sample_grid_torch_nearest(im, projPts, device, method='bilinear'):
     return Ir.reshape((c, c, c, -1)).permute(3, 0, 1, 2).unsqueeze(0)
 
 
-def sample_grid_torch_linear(im, projPts, device, method='bilinear'):
+def sample_grid_torch_linear(im, projPts, device, method="bilinear"):
     """Unproject features."""
     # im_x, im_y are the x and y coordinates of each projected 3D position.
     # These are concatenated here for every image in each batch,
@@ -188,7 +197,7 @@ def sample_grid_torch_linear(im, projPts, device, method='bilinear'):
 
     feats = torch.as_tensor(im, device=device)
     grid = projPts
-    c = int(round(projPts.shape[0]**(1/3.)))
+    c = int(round(projPts.shape[0] ** (1 / 3.0)))
 
     fh, fw, fdim = list(feats.shape)
 
@@ -213,7 +222,7 @@ def sample_grid_torch_linear(im, projPts, device, method='bilinear'):
     # and their +1 counterparts. Stop at Ia for nearest neighbor interpolation.
 
     # need to clip the corner indices because they might be out of bounds...
-    # This could lead to different behavior compared to TF/numpy, which return 0 
+    # This could lead to different behavior compared to TF/numpy, which return 0
     # when an index is out of bounds
     im_x1_safe = torch.clamp(im_x1, 0, fw - 1)
     im_y1_safe = torch.clamp(im_y1, 0, fh - 1)
@@ -223,25 +232,29 @@ def sample_grid_torch_linear(im, projPts, device, method='bilinear'):
     Ic = feats[im_y1_safe, im_x0]
     Id = feats[im_y1_safe, im_x1_safe]
 
-    # o recaptiulate behavior  in numpy/TF, zero out values that fall outside bounds
-    Ib[im_x1 > fw-1] = 0
-    Ib[im_y1 > fh-1] = 0
-    Id[(im_x1 > fw-1) | (im_y1 > fh-1)] = 0
+    # To recaptiulate behavior  in numpy/TF, zero out values that fall outside bounds
+    Ib[im_x1 > fw - 1] = 0
+    Ic[im_y1 > fh - 1] = 0
+    Id[(im_x1 > fw - 1) | (im_y1 > fh - 1)] = 0
     # Calculate bilinear weights
     # We've now sampled the feature maps at corners around the projected values
-    # Here, the corners are weights by distance from the projected value
+    # Here, the corners are weighted by distance from the projected value
     wa = (im_x1_f - im_x) * (im_y1_f - im_y)
     wb = (im_x1_f - im_x) * (im_y - im_y0_f)
     wc = (im_x - im_x0_f) * (im_y1_f - im_y)
     wd = (im_x - im_x0_f) * (im_y - im_y0_f)
 
-    Ibilin = wa.unsqueeze(1) * Ia + wb.unsqueeze(1) * Ib + \
-        wc.unsqueeze(1) * Ic + wd.unsqueeze(1) * Id
+    Ibilin = (
+        wa.unsqueeze(1) * Ia
+        + wb.unsqueeze(1) * Ib
+        + wc.unsqueeze(1) * Ic
+        + wd.unsqueeze(1) * Id
+    )
 
     return Ibilin.reshape((c, c, c, -1)).permute(3, 0, 1, 2).unsqueeze(0)
 
 
-def sample_grid_torch(im, projPts, device, method='linear'):
+def sample_grid_torch(im, projPts, device, method="linear"):
     """Transfer 3d features to 2d by projecting down to 2d grid, using torch.
 
     Use 2d interpolation to transfer features to 3d points that have
@@ -249,9 +262,9 @@ def sample_grid_torch(im, projPts, device, method='linear'):
     Note that function expects proj_grid to be flattened, so results should be
     reshaped after being returned
     """
-    if method == 'nearest' or method == 'out2d':
+    if method == "nearest" or method == "out2d":
         proj_rgb = sample_grid_torch_nearest(im, projPts, device, method)
-    elif method == 'linear' or method == 'bilinear':
+    elif method == "linear" or method == "bilinear":
         proj_rgb = sample_grid_torch_linear(im, projPts, device, method)
     else:
         raise Exception("{} not a valid interpolation method".format(method))
@@ -259,7 +272,7 @@ def sample_grid_torch(im, projPts, device, method='linear'):
     return proj_rgb
 
 
-def sample_grid_tf(im, projPts, device, method='linear'):
+def sample_grid_tf(im, projPts, device, method="linear"):
     """Transfer 3d features to 2d by projecting down to 2d grid.
 
     Use 2d interpolation to transfer features to 3d points that have
@@ -269,16 +282,16 @@ def sample_grid_tf(im, projPts, device, method='linear'):
     """
     with tf.device(device):
         im = tf.constant(im)
-        im = tf.expand_dims(im,0)
-        if method == 'nearest':
-            projPts = tf.expand_dims(projPts,0)
+        im = tf.expand_dims(im, 0)
+        if method == "nearest":
+            projPts = tf.expand_dims(projPts, 0)
             proj_rgb = unproj_tf_nearest(im, projPts, 1)
-        elif method == 'linear':
-            im = tf.cast(im, 'float32')
-            projPts = tf.expand_dims(projPts,0)
-            projPts = tf.reverse(projPts,[1])
-            proj_rgb = tf.cast(unproj_tf_linear(im, projPts, 1), 'uint8')
-            proj_rgb = tf.reshape(proj_rgb, (tf.shape(projPts)[1],3))
+        elif method == "linear":
+            im = tf.cast(im, "float32")
+            projPts = tf.expand_dims(projPts, 0)
+            projPts = tf.reverse(projPts, [1])
+            proj_rgb = tf.cast(unproj_tf_linear(im, projPts, 1), "uint8")
+            proj_rgb = tf.reshape(proj_rgb, (tf.shape(projPts)[1], 3))
             proj_rgb = tf.reverse(proj_rgb, [0])
         else:
             raise Exception("not a valid interpolation method")
@@ -286,7 +299,7 @@ def sample_grid_tf(im, projPts, device, method='linear'):
         return proj_rgb
 
 
-def sample_grid_tf(im, projPts, device, method='linear'):
+def sample_grid_tf(im, projPts, device, method="linear"):
     """Transfer 3d features to 2d by projecting down to 2d grid.
 
     Use 2d interpolation to transfer features to 3d points that have
@@ -296,16 +309,16 @@ def sample_grid_tf(im, projPts, device, method='linear'):
     """
     with tf.device(device):
         im = tf.constant(im)
-        im = tf.expand_dims(im,0)
-        if method == 'nearest':
-            projPts = tf.expand_dims(projPts,0)
+        im = tf.expand_dims(im, 0)
+        if method == "nearest":
+            projPts = tf.expand_dims(projPts, 0)
             proj_rgb = unproj_tf_nearest(im, projPts, 1)
-        elif method == 'linear':
-            im = tf.cast(im, 'float32')
-            projPts = tf.expand_dims(projPts,0)
-            projPts = tf.reverse(projPts,[1])
-            proj_rgb = tf.cast(unproj_tf_linear(im, projPts, 1), 'uint8')
-            proj_rgb = tf.reshape(proj_rgb, (tf.shape(projPts)[1],3))
+        elif method == "linear":
+            im = tf.cast(im, "float32")
+            projPts = tf.expand_dims(projPts, 0)
+            projPts = tf.reverse(projPts, [1])
+            proj_rgb = tf.cast(unproj_tf_linear(im, projPts, 1), "uint8")
+            proj_rgb = tf.reshape(proj_rgb, (tf.shape(projPts)[1], 3))
             proj_rgb = tf.reverse(proj_rgb, [0])
         else:
             raise Exception("not a valid interpolation method")
@@ -339,8 +352,8 @@ def unproj_tf_nearest(feats, grid, batch_size):
     def _get_gather_inds(x, y):
         return tf.reshape(tf.stack([im_ind, y, x], axis=2), [-1, 3])
 
-    im_xr = tf.cast(tf.round(im_x), 'int32')
-    im_yr = tf.cast(tf.round(im_y), 'int32')
+    im_xr = tf.cast(tf.round(im_x), "int32")
+    im_yr = tf.cast(tf.round(im_y), "int32")
     Ir = tf.gather_nd(feats, _get_gather_inds(im_xr, im_yr))
     return Ir
 
@@ -359,16 +372,16 @@ def unproj_tf_linear(feats, grid, batch_size):
     im_y = tf.clip_by_value(grid[:, :, 1], 0, fh - 1)
 
     # round all indices
-    im_x0 = tf.cast(tf.floor(im_x), 'int32')
+    im_x0 = tf.cast(tf.floor(im_x), "int32")
     # new array with rounded projected indices + 1
     im_x1 = im_x0 + 1
-    im_y0 = tf.cast(tf.floor(im_y), 'int32')
+    im_y0 = tf.cast(tf.floor(im_y), "int32")
     im_y1 = im_y0 + 1
 
     # Convert from int to float -- but these are still round
     # numbers because of rounding step above
-    im_x0_f, im_x1_f = tf.cast(im_x0, 'float32'), tf.cast(im_x1, 'float32')
-    im_y0_f, im_y1_f = tf.cast(im_y0, 'float32'), tf.cast(im_y1, 'float32')
+    im_x0_f, im_x1_f = tf.cast(im_x0, "float32"), tf.cast(im_x1, "float32")
+    im_y0_f, im_y1_f = tf.cast(im_y0, "float32"), tf.cast(im_y1, "float32")
 
     # nR should be batch_size*num_cams
     # eg. [0,1,2,3,4,5] for 3 cams, batch_size=2
@@ -409,8 +422,15 @@ def unproj_tf_linear(feats, grid, batch_size):
 
     Ibilin = tf.reshape(
         Ibilin,
-        [batch_size, nR // batch_size, int((nV + 1)**(1 / 3)),
-            int((nV + 1)**(1 / 3)), int((nV + 1)**(1 / 3)), fdim])
+        [
+            batch_size,
+            nR // batch_size,
+            int((nV + 1) ** (1 / 3)),
+            int((nV + 1) ** (1 / 3)),
+            int((nV + 1) ** (1 / 3)),
+            fdim,
+        ],
+    )
     Ibilin = tf.transpose(Ibilin, [0, 1, 3, 2, 4, 5])
     return Ibilin
 
@@ -427,10 +447,10 @@ def unproj(feats, grid, batch_size):
     im_y = tf.clip_by_value(grid[:, :, 1], 0, fh - 1)
 
     # round all indices down?
-    im_x0 = tf.cast(tf.floor(im_x), 'int32')
+    im_x0 = tf.cast(tf.floor(im_x), "int32")
     # new array with rounded projected indices + 1
     im_x1 = im_x0 + 1
-    im_y0 = tf.cast(tf.floor(im_y), 'int32')
+    im_y0 = tf.cast(tf.floor(im_y), "int32")
     im_y1 = im_y0 + 1
 
     # Convert from int to float -- but these are still round
@@ -474,17 +494,27 @@ def unproj(feats, grid, batch_size):
 
     Ibilin = tf.reshape(
         Ibilin,
-        [batch_size, nR // batch_size, int((nV + 1)**(1 / 3)),
-            int((nV + 1)**(1 / 3)), int((nV + 1)**(1 / 3)), fdim])
+        [
+            batch_size,
+            nR // batch_size,
+            int((nV + 1) ** (1 / 3)),
+            int((nV + 1) ** (1 / 3)),
+            int((nV + 1) ** (1 / 3)),
+            fdim,
+        ],
+    )
     Ibilin = tf.transpose(Ibilin, [0, 1, 3, 2, 4, 5])
     return Ibilin
 
-def unDistortPoints(pts,
-                    intrinsicMatrix,
-                    radialDistortion,
-                    tangentDistortion,
-                    rotationMatrix,
-                    translationVector):
+
+def unDistortPoints(
+    pts,
+    intrinsicMatrix,
+    radialDistortion,
+    tangentDistortion,
+    rotationMatrix,
+    translationVector,
+):
     """Remove lens distortion from the input points.
 
     Input is size (M,2), where M is the number of points
@@ -497,14 +527,17 @@ def unDistortPoints(pts,
         dcoef = dcoef + [0]
 
     ts = time.time()
-    pts_u = cv2.undistortPoints(np.reshape(pts,(-1, 1, 2)).astype('float32'),
-                                intrinsicMatrix.T,
-                                np.array(dcoef),
-                                P=intrinsicMatrix.T)
+    pts_u = cv2.undistortPoints(
+        np.reshape(pts, (-1, 1, 2)).astype("float32"),
+        intrinsicMatrix.T,
+        np.array(dcoef),
+        P=intrinsicMatrix.T,
+    )
 
-    pts_u = np.reshape(pts_u, (-1,2))
+    pts_u = np.reshape(pts_u, (-1, 2))
 
     return pts_u
+
 
 def triangulate(pts1, pts2, cam1, cam2):
     """Return triangulated 3- coordinates.
@@ -524,8 +557,8 @@ def triangulate(pts1, pts2, cam1, cam2):
 
     for i in range(out_3d.shape[1]):
         if ~np.isnan(pts1[0, i]):
-            pt1 = pts1[:, i:i + 1]
-            pt2 = pts2[:, i:i + 1]
+            pt1 = pts1[:, i : i + 1]
+            pt2 = pts2[:, i : i + 1]
 
             A = np.zeros((4, 4))
             A[0:2, :] = pt1 @ cam1[2:3, :] - cam1[0:2, :]
@@ -570,24 +603,35 @@ def repeat_tensor(T, nrep, rep_dim=1):
 
 def nearest3(grid, idx, clip=False):
     """TODO(Describe): I'm having a hard time reading this one."""
-    with tf.variable_scope('NearestInterp'):
+    with tf.variable_scope("NearestInterp"):
         _, h, w, d, f = grid.get_shape().as_list()
         x, y, z = idx[:, 1], idx[:, 2], idx[:, 3]
-        g_val = tf.gather_nd(grid, tf.cast(tf.round(idx), 'int32'))
+        g_val = tf.gather_nd(grid, tf.cast(tf.round(idx), "int32"))
         if clip:
             x_inv = tf.logical_or(x < 0, x > h - 1)
             y_inv = tf.logical_or(y < 0, y > w - 1)
             z_inv = tf.logical_or(z < 0, x > d - 1)
-            valid_idx = 1 - \
-                tf.to_float(tf.logical_or(tf.logical_or(x_inv, y_inv), z_inv))
+            valid_idx = 1 - tf.to_float(
+                tf.logical_or(tf.logical_or(x_inv, y_inv), z_inv)
+            )
             g_val = g_val * valid_idx[..., tf.newaxis]
         return g_val
 
 
 # Todo(simplify): This function had many comments that could be condensed
 def proj_slice(
-    vmin, vmax, nvox, rs_grid, grid, K_, R, proj_size=512, samples=64,
-        min_z=1000.0, max_z=2100.0):
+    vmin,
+    vmax,
+    nvox,
+    rs_grid,
+    grid,
+    K_,
+    R,
+    proj_size=512,
+    samples=64,
+    min_z=1000.0,
+    max_z=2100.0,
+):
     """Project slice.
 
     grid = nv grids, R = nv x nr rotation matrices.
@@ -602,11 +646,10 @@ def proj_slice(
     K_shape = K.int_shape(K_)
 
     bs, im_bs, h, w, d, ch = K.int_shape(grid)
-    npix = proj_size**2
+    npix = proj_size ** 2
 
     # Compute Xc - points in camera frame
-    Xc = tf.matrix_triangular_solve(
-        K_, rs_grid, lower=False, name='KinvX')
+    Xc = tf.matrix_triangular_solve(K_, rs_grid, lower=False, name="KinvX")
 
     print(K.int_shape(Xc))
 
@@ -615,10 +658,8 @@ def proj_slice(
 
     # Transform Xc to Xw using transpose of rotation matrix
     Xc = repeat_tensor(Xc, samples, rep_dim=2)
-    Xc = Xc * z_samples[
-        tf.newaxis, tf.newaxis, :, tf.newaxis, tf.newaxis]
-    Xc = tf.concat(
-        [Xc, tf.ones([K_shape[0], K_shape[1], samples, 1, npix])], axis=-2)
+    Xc = Xc * z_samples[tf.newaxis, tf.newaxis, :, tf.newaxis, tf.newaxis]
+    Xc = tf.concat([Xc, tf.ones([K_shape[0], K_shape[1], samples, 1, npix])], axis=-2)
 
     # Construct [R^{T}|-R^{T}t]
     Rt = tf.matrix_transpose(R[:, :, :, :3])
@@ -649,9 +690,8 @@ def proj_slice(
     vox_idx = repeat_tensor(vox_idx, samples * npix, rep_dim=1)
     vox_idx = tf.reshape(vox_idx, [-1, 1])
     sample_idx = tf.concat(
-        [tf.to_float(vox_idx),
-         tf.reshape(sample_locs, [-1, 3])],
-        axis=1)
+        [tf.to_float(vox_idx), tf.reshape(sample_locs, [-1, 3])], axis=1
+    )
 
     # The first column indicates which "grid" should be sampled for each
     # x,y,z position. In my case, there should only be as many grids as there
@@ -662,8 +702,8 @@ def proj_slice(
     # batch1_grid1_allcam3sample_locs, batch1_grid2_allcam1samples_locs, ...]
     g_val = nearest3(sample_grid, sample_idx, clip=True)
     g_val = tf.reshape(
-        g_val,
-        [bs, im_bs, K_shape[1], samples, proj_size, proj_size, -1])
+        g_val, [bs, im_bs, K_shape[1], samples, proj_size, proj_size, -1]
+    )
     ray_slices = tf.transpose(g_val, [0, 1, 2, 4, 5, 6, 3])
     return K.max(ray_slices, axis=-1, keepdims=False)
 
@@ -711,10 +751,19 @@ class InstanceNormalization(Layer):
     """
 
     def __init__(
-            self, axis=None, epsilon=1e-3, center=True, scale=True,
-            beta_initializer='zeros', gamma_initializer='ones',
-            beta_regularizer=None, gamma_regularizer=None,
-            beta_constraint=None, gamma_constraint=None, **kwargs):
+        self,
+        axis=None,
+        epsilon=1e-3,
+        center=True,
+        scale=True,
+        beta_initializer="zeros",
+        gamma_initializer="ones",
+        beta_regularizer=None,
+        gamma_regularizer=None,
+        beta_constraint=None,
+        gamma_constraint=None,
+        **kwargs
+    ):
         """Initialize instance normalization."""
         super(InstanceNormalization, self).__init__(**kwargs)
         self.supports_masking = True
@@ -733,10 +782,10 @@ class InstanceNormalization(Layer):
         """Build instance normalization."""
         ndim = len(input_shape)
         if self.axis == 0:
-            raise ValueError('Axis cannot be zero')
+            raise ValueError("Axis cannot be zero")
 
         if (self.axis is not None) and (ndim == 2):
-            raise ValueError('Cannot specify axis for rank 1 tensor')
+            raise ValueError("Cannot specify axis for rank 1 tensor")
 
         self.input_spec = InputSpec(ndim=ndim)
 
@@ -746,19 +795,23 @@ class InstanceNormalization(Layer):
             shape = (input_shape[self.axis],)
 
         if self.scale:
-            self.gamma = self.add_weight(shape=shape,
-                                         name='gamma',
-                                         initializer=self.gamma_initializer,
-                                         regularizer=self.gamma_regularizer,
-                                         constraint=self.gamma_constraint)
+            self.gamma = self.add_weight(
+                shape=shape,
+                name="gamma",
+                initializer=self.gamma_initializer,
+                regularizer=self.gamma_regularizer,
+                constraint=self.gamma_constraint,
+            )
         else:
             self.gamma = None
         if self.center:
-            self.beta = self.add_weight(shape=shape,
-                                        name='beta',
-                                        initializer=self.beta_initializer,
-                                        regularizer=self.beta_regularizer,
-                                        constraint=self.beta_constraint)
+            self.beta = self.add_weight(
+                shape=shape,
+                name="beta",
+                initializer=self.beta_initializer,
+                regularizer=self.beta_regularizer,
+                constraint=self.beta_constraint,
+            )
         else:
             self.beta = None
         self.built = True
@@ -768,7 +821,7 @@ class InstanceNormalization(Layer):
         input_shape = K.int_shape(inputs)
         reduction_axes = list(range(0, len(input_shape)))
 
-        if (self.axis is not None):
+        if self.axis is not None:
             del reduction_axes[self.axis]
 
         del reduction_axes[0]
@@ -792,25 +845,23 @@ class InstanceNormalization(Layer):
     def get_config(self):
         """Reuturn configuration."""
         config = {
-            'axis': self.axis,
-            'epsilon': self.epsilon,
-            'center': self.center,
-            'scale': self.scale,
-            'beta_initializer': initializers.serialize(self.beta_initializer),
-            'gamma_initializer': initializers.serialize(
-                self.gamma_initializer),
-            'beta_regularizer': regularizers.serialize(self.beta_regularizer),
-            'gamma_regularizer': regularizers.serialize(
-                self.gamma_regularizer),
-            'beta_constraint': constraints.serialize(self.beta_constraint),
-            'gamma_constraint': constraints.serialize(self.gamma_constraint)
+            "axis": self.axis,
+            "epsilon": self.epsilon,
+            "center": self.center,
+            "scale": self.scale,
+            "beta_initializer": initializers.serialize(self.beta_initializer),
+            "gamma_initializer": initializers.serialize(self.gamma_initializer),
+            "beta_regularizer": regularizers.serialize(self.beta_regularizer),
+            "gamma_regularizer": regularizers.serialize(self.gamma_regularizer),
+            "beta_constraint": constraints.serialize(self.beta_constraint),
+            "gamma_constraint": constraints.serialize(self.gamma_constraint),
         }
         base_config = super(InstanceNormalization, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
 
 
 # TODO(comment): Reading requires knowledge of the get_custom_objects function
-get_custom_objects().update({'InstanceNormalization': InstanceNormalization})
+get_custom_objects().update({"InstanceNormalization": InstanceNormalization})
 
 
 def distortPoints(points, intrinsicMatrix, radialDistortion, tangentialDistortion):
@@ -834,7 +885,7 @@ def distortPoints(points, intrinsicMatrix, radialDistortion, tangentialDistortio
     xNorm = (centeredPoints[:, 0] - skew * yNorm) / fx
 
     # compute radial distortion
-    r2 = xNorm**2 + yNorm**2
+    r2 = xNorm ** 2 + yNorm ** 2
     r4 = r2 * r2
     r6 = r2 * r4
 
@@ -849,26 +900,32 @@ def distortPoints(points, intrinsicMatrix, radialDistortion, tangentialDistortio
     # compute tangential distortion
     p = tangentialDistortion
     xyProduct = xNorm * yNorm
-    dxTangential = 2 * p[0] * xyProduct + p[1] * (r2 + 2 * xNorm**2)
-    dyTangential = p[0] * (r2 + 2 * yNorm**2) + 2 * p[1] * xyProduct
+    dxTangential = 2 * p[0] * xyProduct + p[1] * (r2 + 2 * xNorm ** 2)
+    dyTangential = p[0] * (r2 + 2 * yNorm ** 2) + 2 * p[1] * xyProduct
 
     # apply the distortion to the points
     normalizedPoints = np.stack((xNorm, yNorm)).T
-    distortedNormalizedPoints = \
-        normalizedPoints + normalizedPoints * np.array(
-            [alpha, alpha]).T + np.stack((dxTangential, dyTangential)).T
+    distortedNormalizedPoints = (
+        normalizedPoints
+        + normalizedPoints * np.array([alpha, alpha]).T
+        + np.stack((dxTangential, dyTangential)).T
+    )
 
     # # convert back to pixels
-    distortedPointsX = \
-        (distortedNormalizedPoints[:, 0] * fx) + cx + (
-            skew * distortedNormalizedPoints[:, 1])
+    distortedPointsX = (
+        (distortedNormalizedPoints[:, 0] * fx)
+        + cx
+        + (skew * distortedNormalizedPoints[:, 1])
+    )
     distortedPointsY = distortedNormalizedPoints[:, 1] * fy + cy
     distortedPoints = np.stack((distortedPointsX, distortedPointsY))
 
     return distortedPoints
 
 
-def distortPoints_torch(points, intrinsicMatrix, radialDistortion, tangentialDistortion, device):
+def distortPoints_torch(
+    points, intrinsicMatrix, radialDistortion, tangentialDistortion, device
+):
     """Distort points according to camera parameters.
     Ported from Matlab 2018a
     """
@@ -882,7 +939,7 @@ def distortPoints_torch(points, intrinsicMatrix, radialDistortion, tangentialDis
     skew = intrinsicMatrix[1, 0]
 
     # center the points
-    center = torch.as_tensor((cx,cy), dtype = torch.float32, device = device)
+    center = torch.as_tensor((cx, cy), dtype=torch.float32, device=device)
     centeredPoints = points - center
 
     # normalize the pcenteredPoints[:, 1] / fyoints
@@ -890,7 +947,7 @@ def distortPoints_torch(points, intrinsicMatrix, radialDistortion, tangentialDis
     xNorm = (centeredPoints[:, 0] - skew * yNorm) / fx
 
     # compute radial distortion
-    r2 = xNorm**2 + yNorm**2
+    r2 = xNorm ** 2 + yNorm ** 2
     r4 = r2 * r2
     r6 = r2 * r4
 
@@ -905,21 +962,25 @@ def distortPoints_torch(points, intrinsicMatrix, radialDistortion, tangentialDis
     # compute tangential distortion
     p = tangentialDistortion
     xyProduct = xNorm * yNorm
-    dxTangential = 2 * p[0] * xyProduct + p[1] * (r2 + 2 * xNorm**2)
-    dyTangential = p[0] * (r2 + 2 * yNorm**2) + 2 * p[1] * xyProduct
+    dxTangential = 2 * p[0] * xyProduct + p[1] * (r2 + 2 * xNorm ** 2)
+    dyTangential = p[0] * (r2 + 2 * yNorm ** 2) + 2 * p[1] * xyProduct
 
     # apply the distortion to the points
-    normalizedPoints = torch.transpose(torch.stack((xNorm, yNorm)),0,1)
+    normalizedPoints = torch.transpose(torch.stack((xNorm, yNorm)), 0, 1)
 
-    distortedNormalizedPoints = normalizedPoints + \
-        normalizedPoints * torch.transpose(torch.stack((alpha, alpha)),0,1) + \
-            torch.transpose(torch.stack((dxTangential, dyTangential)),0,1)
+    distortedNormalizedPoints = (
+        normalizedPoints
+        + normalizedPoints * torch.transpose(torch.stack((alpha, alpha)), 0, 1)
+        + torch.transpose(torch.stack((dxTangential, dyTangential)), 0, 1)
+    )
 
-    distortedPointsX = \
-        distortedNormalizedPoints[:, 0]*fx + cx + skew*distortedNormalizedPoints[:, 1]
+    distortedPointsX = (
+        distortedNormalizedPoints[:, 0] * fx
+        + cx
+        + skew * distortedNormalizedPoints[:, 1]
+    )
 
-    distortedPointsY = \
-        distortedNormalizedPoints[:, 1]*fy + cy
+    distortedPointsY = distortedNormalizedPoints[:, 1] * fy + cy
 
     distortedPoints = torch.stack((distortedPointsX, distortedPointsY))
 
@@ -940,7 +1001,7 @@ def distortPoints_tf(points, intrinsicMatrix, radialDistortion, tangentialDistor
     skew = intrinsicMatrix[1, 0]
 
     # center the points
-    center = tf.stack((cx,cy))
+    center = tf.stack((cx, cy))
     p = tangentialDistortion
     centeredPoints = points - center
 
@@ -949,7 +1010,7 @@ def distortPoints_tf(points, intrinsicMatrix, radialDistortion, tangentialDistor
     xNorm = (centeredPoints[:, 0] - skew * yNorm) / fx
 
     # compute radial distortion
-    r2 = xNorm**2 + yNorm**2
+    r2 = xNorm ** 2 + yNorm ** 2
     r4 = r2 * r2
     r6 = r2 * r4
 
@@ -960,21 +1021,25 @@ def distortPoints_tf(points, intrinsicMatrix, radialDistortion, tangentialDistor
 
     # compute tangential distortion
     xyProduct = xNorm * yNorm
-    dxTangential = 2 * p[0] * xyProduct + p[1] * (r2 + 2 * xNorm**2)
-    dyTangential = p[0] * (r2 + 2 * yNorm**2) + 2 * p[1] * xyProduct
+    dxTangential = 2 * p[0] * xyProduct + p[1] * (r2 + 2 * xNorm ** 2)
+    dyTangential = p[0] * (r2 + 2 * yNorm ** 2) + 2 * p[1] * xyProduct
 
     # apply the distortion to the points
     normalizedPoints = tf.transpose(tf.stack((xNorm, yNorm)))
 
-    distortedNormalizedPoints = normalizedPoints + \
-        normalizedPoints * tf.transpose(tf.stack((alpha, alpha))) + \
-            tf.transpose(tf.stack((dxTangential, dyTangential)))
+    distortedNormalizedPoints = (
+        normalizedPoints
+        + normalizedPoints * tf.transpose(tf.stack((alpha, alpha)))
+        + tf.transpose(tf.stack((dxTangential, dyTangential)))
+    )
 
-    distortedPointsX = \
-        distortedNormalizedPoints[:, 0]*fx + cx + skew*distortedNormalizedPoints[:, 1]
+    distortedPointsX = (
+        distortedNormalizedPoints[:, 0] * fx
+        + cx
+        + skew * distortedNormalizedPoints[:, 1]
+    )
 
-    distortedPointsY = \
-        distortedNormalizedPoints[:, 1]*fy + cy
+    distortedPointsY = distortedNormalizedPoints[:, 1] * fy + cy
 
     distortedPoints = tf.stack((distortedPointsX, distortedPointsY))
 
@@ -994,14 +1059,12 @@ def expected_value_3d(prob_map, grid_centers):
 
     grid_centers = tf.reshape(grid_centers, [-1, 3])
 
-    weighted_centers = \
-        prob_map[:, tf.newaxis, :] * grid_centers[:, :, tf.newaxis]
+    weighted_centers = prob_map[:, tf.newaxis, :] * grid_centers[:, :, tf.newaxis]
 
     # weighted centers now (bs*h*w*d,3,channels).
     # So we now sum over the grid to get 3D coordinates
     # first reshape to put batch_size back on its own axis
-    weighted_centers = \
-        tf.reshape(weighted_centers, [-1, h * w * d, 3, channels])
+    weighted_centers = tf.reshape(weighted_centers, [-1, h * w * d, 3, channels])
     weighted_centers = tf.reduce_sum(weighted_centers, axis=1)
     return weighted_centers
 
@@ -1037,9 +1100,9 @@ def var_3d(prob_map, grid_centers, markerlocs):
     # we need the squared distance between all grid centers and
     # the mean for each channel grid dist now (bs, h*w*d,17)
     grid_dist = tf.reduce_sum(
-        (grid_centers[:, :, :, tf.newaxis] -
-            markerlocs[:, tf.newaxis, :, :])**2,
-        axis=2)
+        (grid_centers[:, :, :, tf.newaxis] - markerlocs[:, tf.newaxis, :, :]) ** 2,
+        axis=2,
+    )
     grid_dist = tf.reshape(grid_dist, [-1, channels])
     weighted_var = prob_map * grid_dist
     weighted_var = tf.reshape(weighted_var, [-1, h * w * d, channels])

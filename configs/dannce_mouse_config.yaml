@@ -1,0 +1,36 @@
+# File name of io.yaml file, which should exist in the directory from which you
+# call dannce functions
+io_config: io.yaml
+
+# New number of network output channels.
+new_n_channels_out: 22
+
+# Batch size for training and prediction
+batch_size: 4
+
+# DANNCE training option. Sets the number of epochs during training (default 1200)
+epochs: 1200
+
+# either 'AVG' or 'MAX'
+net_type: AVG
+
+# Options:
+# 'new': initializes and trains a network from scratch
+# 'finetune': loads in pre-trained weights and fine-tuned from there
+# 'continued': initializes a full model, including optimizer state, and continuous training from the last full model checkpoint
+train_mode: finetune
+
+# How many samples from each animal do you want to (randomly) set aside for a validation metric?
+num_validation_per_exp: 4
+
+# Size of 3D volume (in mm) anchored on animal
+vol_size: 120
+
+# Number of voxels along each spatial dimension
+nvox: 64
+
+# max. number of batches to evaluate during prediction. set to 'max' to evaluate over all data/video frames
+max_num_samples: 1000
+
+# By default, will load in the first hdf5 file at this location for fine-tuning. If training from scratch, set to None
+dannce_finetune_weights: ./DANNCE/weights/

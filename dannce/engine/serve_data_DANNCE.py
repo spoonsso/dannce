@@ -2,6 +2,7 @@
 import numpy as np
 import scipy.io as sio
 from dannce.engine import ops as ops
+from dannce.engine.io import load_camera_params, load_labels, load_sync
 import os
 from six.moves import cPickle
 from scipy.special import comb
@@ -9,7 +10,14 @@ import warnings
 from copy import deepcopy
 
 
-def prepare_data(CONFIG_PARAMS, com_flag=True, nanflag=True, multimode=False):
+def prepare_data(
+    CONFIG_PARAMS,
+    com_flag=True,
+    nanflag=True,
+    multimode=False,
+    prediction=False,
+    return_cammat=False,
+):
     """Assemble necessary data structures given a set of config params.
 
     Given a set of config params, assemble necessary data structures and
@@ -19,29 +27,32 @@ def prepare_data(CONFIG_PARAMS, com_flag=True, nanflag=True, multimode=False):
 
     multimode: when this True, we output all 2D markers AND their 2D COM
     """
-    data = sio.loadmat(
-        os.path.join(CONFIG_PARAMS['datadir'], CONFIG_PARAMS['datafile'][0]))
-    samples = np.squeeze(data['data_sampleID'])
+    if prediction:
+        labels = load_sync(CONFIG_PARAMS["label3d_file"])
+    else:
+        print(CONFIG_PARAMS["label3d_file"])
+        labels = load_labels(CONFIG_PARAMS["label3d_file"])
 
-    if data['data_sampleID'].shape == (1, 1):
+    samples = np.squeeze(labels[0]["data_sampleID"])
+
+    if labels[0]["data_sampleID"].shape == (1, 1):
         # Then the squeezed value is just a number, so we add to to a list so
         # that is can be iterated over downstream
         samples = [samples]
-        warnings.warn("Note: only 1 sample in labe file")
+        warnings.warn("Note: only 1 sample in label file")
 
     # Collect data labels and matched frames info. We will keep the 2d labels
     # here just because we could in theory use this for training later.
     # No need to collect 3d data but it useful for checking predictions
-    if len(CONFIG_PARAMS['CAMNAMES']) != len(CONFIG_PARAMS['datafile']):
-        raise Exception("need a datafile for every cameras")
+    if len(CONFIG_PARAMS["camnames"]) != len(labels):
+        raise Exception("need an entry in label3d_file for every camera")
 
     framedict = {}
     ddict = {}
-    for i in range(len(CONFIG_PARAMS['datafile'])):
-        fr = sio.loadmat(
-            os.path.join(CONFIG_PARAMS['datadir'], CONFIG_PARAMS['datafile'][i]))
-        framedict[CONFIG_PARAMS['CAMNAMES'][i]] = np.squeeze(fr['data_frame'])
-        data = fr['data_2d']
+
+    for i, label in enumerate(labels):
+        framedict[CONFIG_PARAMS["camnames"][i]] = np.squeeze(label["data_frame"])
+        data = label["data_2d"]
 
         # reshape data_2d so that it is shape (time points, 2, 20)
         data = np.transpose(np.reshape(data, [data.shape[0], -1, 2]), [0, 2, 1])
@@ -63,66 +74,45 @@ def prepare_data(CONFIG_PARAMS, com_flag=True, nanflag=True, multimode=False):
             else:
                 data = np.nanmean(data, axis=2)
             data = data[:, :, np.newaxis]
-        ddict[CONFIG_PARAMS['CAMNAMES'][i]] = data
+        ddict[CONFIG_PARAMS["camnames"][i]] = data
 
-    data_3d = fr['data_3d']
-    data_3d = np.transpose(
-        np.reshape(data_3d, [data_3d.shape[0], -1, 3]), [0, 2, 1])
+    data_3d = labels[0]["data_3d"]
+    data_3d = np.transpose(np.reshape(data_3d, [data_3d.shape[0], -1, 3]), [0, 2, 1])
 
     datadict = {}
     datadict_3d = {}
     for i in range(len(samples)):
         frames = {}
         data = {}
-        for j in range(len(CONFIG_PARAMS['CAMNAMES'])):
-            frames[CONFIG_PARAMS['CAMNAMES'][j]] = \
-                framedict[CONFIG_PARAMS['CAMNAMES'][j]][i]
-            data[CONFIG_PARAMS['CAMNAMES'][j]] = \
-                ddict[CONFIG_PARAMS['CAMNAMES'][j]][i]
-        datadict[samples[i]] = {'data': data, 'frames': frames}
+        for j in range(len(CONFIG_PARAMS["camnames"])):
+            frames[CONFIG_PARAMS["camnames"][j]] = framedict[
+                CONFIG_PARAMS["camnames"][j]
+            ][i]
+            data[CONFIG_PARAMS["camnames"][j]] = ddict[CONFIG_PARAMS["camnames"][j]][i]
+        datadict[samples[i]] = {"data": data, "frames": frames}
         datadict_3d[samples[i]] = data_3d[i]
 
-    if 'calib_file' in list(CONFIG_PARAMS.keys()):
-        cameras = {}
-        for i in range(len(CONFIG_PARAMS['CAMNAMES'])):
-            test = sio.loadmat(
-                os.path.join(CONFIG_PARAMS['CALIBDIR'], CONFIG_PARAMS['calib_file'][i]))
-            cameras[CONFIG_PARAMS['CAMNAMES'][i]] = {
-                'K': test['K'], 'R': test['r'], 't': test['t']}
-            if 'RDistort' in list(test.keys()):
-                # Added Distortion params on Dec. 19 2018
-                cameras[CONFIG_PARAMS['CAMNAMES'][i]]['RDistort'] = test['RDistort']
-                cameras[CONFIG_PARAMS['CAMNAMES'][i]]['TDistort'] = test['TDistort']
-
-        return samples, datadict, datadict_3d, fr['data_3d'], cameras
+    params = load_camera_params(CONFIG_PARAMS["label3d_file"])
+    cameras = {name: params[i] for i, name in enumerate(CONFIG_PARAMS["camnames"])}
+    if return_cammat:
+        camera_mats = {
+            name: ops.camera_matrix(cam["K"], cam["r"], cam["t"])
+            for name, cam in cameras.items()
+        }
+        return samples, datadict, datadict_3d, cameras, camera_mats
     else:
-        return samples, datadict, datadict_3d, fr['data_3d']
-
-
-def do_retriangulate(this_com, j, k, uCamnames, camera_mats):
-    """Retriangulate COM.
-
-    If cameras parameters have been updated since finding COM,
-    COM should be re-trianngulated
-    """
-    pts1 = this_com[uCamnames[j]]['COM']
-    pts2 = this_com[uCamnames[k]]['COM']
-    pts1 = pts1[np.newaxis, :]
-    pts2 = pts2[np.newaxis, :]
-
-    test = camera_mats[uCamnames[j]]
-    cam1 = ops.camera_matrix(test['K'], test['R'], test['t'])
-
-    test = camera_mats[uCamnames[k]]
-    cam2 = ops.camera_matrix(test['K'], test['R'], test['t'])
-
-    test3d = np.squeeze(ops.triangulate(pts1, pts2, cam1, cam2))
-    this_com['triangulation']['{}_{}'.format(uCamnames[j], uCamnames[k])] = test3d
+        return samples, datadict, datadict_3d, cameras
 
 
 def prepare_COM(
-    comfile, datadict, comthresh=0.01, weighted=True, retriangulate=False,
-    camera_mats=None, conf_rescale=None, method='mean', allcams=False, save_retriangulate=True):
+    comfile,
+    datadict,
+    comthresh=0.0,
+    weighted=False,
+    camera_mats=None,
+    conf_rescale=None,
+    method="median",
+):
     """Replace 2d coords with preprocessed COM coords, return 3d COM coords.
 
     Loads COM file, replaces 2D coordinates in datadict with the preprocessed
@@ -134,29 +124,23 @@ def prepare_COM(
     detected by the generator to return nans such that bad camera
     frames do not get averaged in to image data
     """
-    if camera_mats is None and retriangulate:
-        raise Exception("Need camera matrices to retriangulate")
 
-    with open(comfile, 'rb') as f:
+    with open(comfile, "rb") as f:
         com = cPickle.load(f)
     com3d_dict = {}
 
-    if method == 'mean':
-        print('using mean to get 3D COM')
+    if method == "mean":
+        print("using mean to get 3D COM")
 
-    elif method == 'median':
-        print('using median to get 3D COM')
-
+    elif method == "median":
+        print("using median to get 3D COM")
 
     firstkey = list(com.keys())[0]
 
-    if allcams: # Then use all possible cameras, for better COM
-        camnames = np.array([s for s in list(com[firstkey].keys()) if 'triangulation' not in s])
-    else:
-        camnames = np.array(list(datadict[list(datadict.keys())[0]]['data'].keys()))
+    camnames = np.array(list(datadict[list(datadict.keys())[0]]["data"].keys()))
 
-        # Because I repeat cameras to fill up 6 camera quota, I need grab only
-        # the unique names
+    # Because I repeat cameras to fill up 6 camera quota, I need grab only
+    # the unique names
     _, idx = np.unique(camnames, return_index=True)
     uCamnames = camnames[np.sort(idx)]
 
@@ -165,7 +149,7 @@ def prepare_COM(
     if isinstance(firstkey, str):
         com_ = {}
         for key in com.keys():
-            com_[int(key.split('_')[-1])] = com[key]
+            com_[int(float(key.split("_")[-1]))] = com[key]
         com = com_
 
     fcom = list(com.keys())[0]
@@ -174,46 +158,50 @@ def prepare_COM(
 
         if key in datadict.keys():
             for k in range(len(camnames)):
-                datadict[key]['data'][camnames[k]] = \
-                    this_com[camnames[k]]['COM'][:, np.newaxis].astype('float32')
+                datadict[key]["data"][camnames[k]] = this_com[camnames[k]]["COM"][
+                    :, np.newaxis
+                ].astype("float32")
 
                 # Quick & dirty way to dynamically scale the confidence map output
                 if conf_rescale is not None and camnames[k] in conf_rescale.keys():
-                    this_com[camnames[k]]['pred_max'] *= conf_rescale[camnames[k]]
+                    this_com[camnames[k]]["pred_max"] *= conf_rescale[camnames[k]]
 
                 # then, set to nan
-                if this_com[camnames[k]]['pred_max'] <= comthresh:
-                    datadict[key]['data'][camnames[k]][:] = np.nan
+                if this_com[camnames[k]]["pred_max"] <= comthresh:
+                    datadict[key]["data"][camnames[k]][:] = np.nan
 
             com3d = np.zeros((3, int(comb(len(uCamnames), 2)))) * np.nan
             weights = np.zeros((int(comb(len(uCamnames), 2)),))
             cnt = 0
             for j in range(len(uCamnames)):
                 for k in range(j + 1, len(uCamnames)):
-                    if retriangulate:
-
-                        #Verify retriangulation happened
-                        if key == fcom:
-                            dtemp = deepcopy(this_com)
-                            do_retriangulate(this_com, j, k, uCamnames, camera_mats)
-                            print("Verifying retriangulation")
-                            assert np.any(dtemp['triangulation']['{}_{}'.format(uCamnames[j], uCamnames[k])] != this_com['triangulation']['{}_{}'.format(uCamnames[j], uCamnames[k])])
-                            assert np.all(this_com['triangulation']['{}_{}'.format(uCamnames[j], uCamnames[k])] == this_com['triangulation']['{}_{}'.format(uCamnames[j], uCamnames[k])])
-                        
-                        do_retriangulate(this_com, j, k, uCamnames, camera_mats)
-
-                    if (this_com[uCamnames[j]]['pred_max'] > comthresh) and (
-                        this_com[uCamnames[k]]['pred_max'] > comthresh):
-                        if '{}_{}'.format(uCamnames[j], uCamnames[k]) in this_com['triangulation'].keys():
-                            com3d[:, cnt] = \
-                                this_com['triangulation']['{}_{}'.format(uCamnames[j], uCamnames[k])]
-                        elif '{}_{}'.format(uCamnames[k], uCamnames[j]) in this_com['triangulation'].keys():
-                            com3d[:, cnt] = \
-                                this_com['triangulation']['{}_{}'.format(uCamnames[k], uCamnames[j])]
+                    if (this_com[uCamnames[j]]["pred_max"] > comthresh) and (
+                        this_com[uCamnames[k]]["pred_max"] > comthresh
+                    ):
+                        if (
+                            "{}_{}".format(uCamnames[j], uCamnames[k])
+                            in this_com["triangulation"].keys()
+                        ):
+                            com3d[:, cnt] = this_com["triangulation"][
+                                "{}_{}".format(uCamnames[j], uCamnames[k])
+                            ]
+                        elif (
+                            "{}_{}".format(uCamnames[k], uCamnames[j])
+                            in this_com["triangulation"].keys()
+                        ):
+                            com3d[:, cnt] = this_com["triangulation"][
+                                "{}_{}".format(uCamnames[k], uCamnames[j])
+                            ]
                         else:
-                            raise Exception("Could not find this camera pair: {}".format('{}_{}'.format(uCamnames[k], uCamnames[j]) ))
-                        weights[cnt] = \
-                            this_com[uCamnames[j]]['pred_max'] * this_com[uCamnames[k]]['pred_max']
+                            raise Exception(
+                                "Could not find this camera pair: {}".format(
+                                    "{}_{}".format(uCamnames[k], uCamnames[j])
+                                )
+                            )
+                        weights[cnt] = (
+                            this_com[uCamnames[j]]["pred_max"]
+                            * this_com[uCamnames[k]]["pred_max"]
+                        )
                     cnt += 1
 
             # weigts produces a weighted average of COM based on our overall confidence
@@ -224,9 +212,9 @@ def prepare_COM(
                 else:
                     com3d = np.zeros((3,)) * np.nan
             else:
-                if method == 'mean':
+                if method == "mean":
                     com3d = np.nanmean(com3d, axis=1)
-                elif method == 'median':
+                elif method == "median":
                     com3d = np.nanmedian(com3d, axis=1)
                 else:
                     raise Exception("Uknown 3D COM method")
@@ -234,11 +222,6 @@ def prepare_COM(
             com3d_dict[key] = com3d
         else:
             warnings.warn("Key in COM file but not in datadict")
-
-    if retriangulate and save_retriangulate:
-        # Then save the retriangulated, undistorted COM pickle so that it doesn't need to be retriangulated in the future
-        with open('COM_undistorted_retriangulate.pickl','wb') as ff:
-            cPickle.dump(com, ff)
 
     return datadict, com3d_dict
 
@@ -269,7 +252,7 @@ def addCOM(d3d_dict, c3d_dict):
     return d3d_dict
 
 
-def remove_samples(s, d3d, mode='clean', auxmode=None):
+def remove_samples(s, d3d, mode="clean", auxmode=None):
     """Filter data structures for samples that meet inclusion criteria (mode).
 
     mode == 'clean' means only use samples in which all ground truth markers
@@ -281,19 +264,19 @@ def remove_samples(s, d3d, mode='clean', auxmode=None):
     but also the
     data_3d_ array that is used to for finding clusters
     """
-    sample_mask = np.ones((len(s),), dtype='bool')
+    sample_mask = np.ones((len(s),), dtype="bool")
 
-    if mode == 'clean':
+    if mode == "clean":
         for i in range(len(s)):
             if np.isnan(np.sum(d3d[i])):
                 sample_mask[i] = 0
-    elif mode == 'liberal':
+    elif mode == "liberal":
         for i in range(len(s)):
             if np.all(np.isnan(d3d[i])):
                 sample_mask[i] = 0
 
-    if auxmode == 'JDM52d2':
-        print('removing bad JDM52d2 frames')
+    if auxmode == "JDM52d2":
+        print("removing bad JDM52d2 frames")
         for i in range(len(s)):
             if s[i] >= 20000 and s[i] <= 32000:
                 sample_mask[i] = 0
@@ -308,47 +291,58 @@ def remove_samples(s, d3d, mode='clean', auxmode=None):
     return s, d3d
 
 
-def remove_samples_com(s, d3d, com3d_dict, cthresh=350, rmc=False):
+def remove_samples_com(s, com3d_dict, cthresh=350, rmc=False):
     """Remove any remaining samples in which the 3D COM estimates are nan.
 
     (i.e. no camera pair above threshold for a given frame)
     Also, let's remove any sample where abs(COM) is > 350
     """
-    sample_mask = np.ones((len(s),), dtype='bool')
+    sample_mask = np.ones((len(s),), dtype="bool")
 
     for i in range(len(s)):
-        if np.isnan(np.sum(com3d_dict[s[i]])):
+        if s[i] not in com3d_dict:
             sample_mask[i] = 0
-        if rmc:
-            if np.any(np.abs(com3d_dict[s[i]]) > cthresh):
+        else:
+            if np.isnan(np.sum(com3d_dict[s[i]])):
                 sample_mask[i] = 0
+            if rmc:
+                if np.any(np.abs(com3d_dict[s[i]]) > cthresh):
+                    sample_mask[i] = 0
 
     s = s[sample_mask]
-    d3d = d3d[sample_mask]
-    return s, d3d
+    return s
 
 
 def add_experiment(
-    experiment, samples_out, datadict_out, datadict_3d_out, com3d_dict_out,
-    samples_in, datadict_in, datadict_3d_in, com3d_dict_in):
+    experiment,
+    samples_out,
+    datadict_out,
+    datadict_3d_out,
+    com3d_dict_out,
+    samples_in,
+    datadict_in,
+    datadict_3d_in,
+    com3d_dict_in,
+):
     """Change variable names to satisfy naming convention.
 
     Append *_in variables to out variables, after appending the experiment
     number to the front of keys
     """
-    samples_in = [str(experiment) + '_' + str(int(x)) for x in samples_in]
+    samples_in = [str(experiment) + "_" + str(int(x)) for x in samples_in]
     samples_out = samples_out + samples_in
 
     for key in datadict_in.keys():
-        datadict_out[str(experiment) + '_' + str(int(key))] = datadict_in[key]
+        datadict_out[str(experiment) + "_" + str(int(key))] = datadict_in[key]
 
     for key in datadict_3d_in.keys():
-        datadict_3d_out[str(experiment) + '_' + str(int(key))] = datadict_3d_in[key]
+        datadict_3d_out[str(experiment) + "_" + str(int(key))] = datadict_3d_in[key]
 
     for key in com3d_dict_in.keys():
-        com3d_dict_out[str(experiment) + '_' + str(int(key))] = com3d_dict_in[key]
+        com3d_dict_out[str(experiment) + "_" + str(int(key))] = com3d_dict_in[key]
 
     return samples_out, datadict_out, datadict_3d_out, com3d_dict_out
+
 
 def prepend_experiment(CONFIG_PARAMS, datadict, num_experiments, camnames, cameras):
     """
@@ -361,20 +355,19 @@ def prepend_experiment(CONFIG_PARAMS, datadict, num_experiments, camnames, camer
         # Create a unique camname for each camera in each experiment
         cameras_[e] = {}
         for key in cameras[e]:
-            cameras_[e][str(e) + '_' + key] = cameras[e][key]
+            cameras_[e][str(e) + "_" + key] = cameras[e][key]
 
-        camnames[e] = [str(e) + '_' + f for f in camnames[e]]
+        camnames[e] = [str(e) + "_" + f for f in camnames[e]]
 
-        CONFIG_PARAMS['experiment'][e]['CAMNAMES'] = camnames[e]
+        CONFIG_PARAMS["experiment"][e]["camnames"] = camnames[e]
 
     for key in datadict.keys():
-        enum = key.split('_')[0]
+        enum = key.split("_")[0]
         datadict_[key] = {}
-        datadict_[key]['data'] = {}
-        datadict_[key]['frames'] = {}
-        for key_ in datadict[key]['data']:
-            datadict_[key]['data'][enum + '_' + key_] = datadict[key]['data'][key_]
-            datadict_[key]['frames'][enum + '_' + key_] =  \
-                datadict[key]['frames'][key_]
+        datadict_[key]["data"] = {}
+        datadict_[key]["frames"] = {}
+        for key_ in datadict[key]["data"]:
+            datadict_[key]["data"][enum + "_" + key_] = datadict[key]["data"][key_]
+            datadict_[key]["frames"][enum + "_" + key_] = datadict[key]["frames"][key_]
 
     return cameras_, datadict_, CONFIG_PARAMS
