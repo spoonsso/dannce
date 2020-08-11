@@ -263,11 +263,6 @@ def com_predict(params):
     com_predict_dir = os.path.join(params["com_predict_dir"])
     print(com_predict_dir)
 
-    # Copy the configs for reproducibility
-    # processing.copy_config(
-    #     com_predict_dir, sys.argv[1], params["io_config"],
-    # )
-
     if params["com_debug"] is not None:
         cmapdir = os.path.join(com_predict_dir, "cmap")
         overlaydir = os.path.join(com_predict_dir, "overlay")
@@ -420,10 +415,8 @@ def com_train(params):
 
     com_train_dir = params["com_train_dir"]
 
-    # Copy the configs into the for reproducibility
-    processing.copy_config(
-        com_train_dir, sys.argv[1], params["io_config"],
-    )
+    # Dump the params into file for reproducibility
+    processing.save_params(com_train_dir, params)
 
     # Additionally, to keep videos unique across experiments, need to add
     # experiment labels in other places. E.g. experiment 0 CameraE's "camname"
@@ -743,10 +736,8 @@ def dannce_train(params):
 
     dannce_train_dir = params["dannce_train_dir"]
 
-    # Copy the configs for reproducibility
-    # processing.copy_config(
-    #     dannce_train_dir, sys.argv[1], params["io_config"],
-    # )
+    # Dump the params into file for reproducibility
+    processing.save_params(dannce_train_dir, params)
 
     # Additionally, to keep videos unique across experiments, need to add
     # experiment labels in other places. E.g. experiment 0 CameraE's "camname"
@@ -1133,11 +1124,6 @@ def dannce_predict(params):
         params["predict_mode"] if params["predict_mode"] is not None else "numpy"
     )
     print("Using {} predict mode".format(predict_mode))
-
-    # Copy the configs into the dannce_predict_dir, for reproducibility
-    processing.copy_config(
-        dannce_predict_dir, sys.argv[1], params["io_config"],
-    )
 
     print("Using camnames: {}".format(params["camnames"]))
     # Also add parent params under the 'experiment' key for compatibility

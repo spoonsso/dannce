@@ -11,7 +11,7 @@ batch_size: 4
 # DANNCE training option. Sets the number of epochs during training (default 1200)
 epochs: 1200
 
-# name of the network architecture (see nets.py)
+# either 'AVG' or 'MAX'
 net_type: AVG
 
 # Options:

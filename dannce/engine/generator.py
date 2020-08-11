@@ -1763,7 +1763,7 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
             for n_cam in range(int(X.shape[-1] / self.chan_num)):
                 channel_ids = np.arange(n_cam * self.chan_num, n_cam * self.chan_num + self.chan_num)
                 X[..., channel_ids] = tf.image.random_hue(X[..., channel_ids], self.hue_val)
-        else:
+        elif self.augment_hue:
             warnings.warn("Trying to augment hue with an image that is not RGB. Skipping.")
 
         if self.augment_brightness:

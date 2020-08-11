@@ -9,9 +9,6 @@ batch_size: 4
 # DANNCE training option. Sets the number of epochs during training (default 1200)
 epochs: 3
 
-# name of the network architecture (see nets.py) 'unet3d_big' (from scratch?)
-net: finetune_AVG
-
 # Options:
 # 'new': initializes and trains a network from scratch
 # 'finetune': loads in pre-trained weights and fine-tuned from there

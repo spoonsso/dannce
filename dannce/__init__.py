@@ -7,7 +7,7 @@ _param_defaults_shared = {
     "loss": "mask_nan_keep_loss",
     "start_batch": 0,
     "exp": None,
-    "viddir": None,
+    "viddir": './videos/',
     "io_config": None,
     "crop_height": None,
     "crop_width": None,
@@ -66,6 +66,8 @@ _param_defaults_dannce = {
     "vol_size": None,
     "train_mode": None,
     "downfac": None,
+    "net_type": None,
+    "net": None,
 }
 _param_defaults_com = {
     "dsmode": "nn",
