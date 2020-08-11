@@ -1,0 +1,37 @@
+# File name of io.yaml file, which should exist in the directory from which you
+# call com functions
+io_config: io.yaml
+
+# batch_size*{num_cameras} should be <= 6 for most COM training applications
+batch_size: 2
+
+# COM training option. Sets the number of epochs during training
+epochs: 3
+
+# Degree of downsampling applied to image input. The demo COMfinder was trained
+# with downfac:2, but when fine-tuning your own COMfinder, we suggest using 
+# 4, which will greatly increase prediction speed. This of course depends on the
+# size of your raw images. If they are low resolution to begin with, you won't
+# need or want to use a large downfac value.
+downfac: 2
+
+# Learning rate for the Adam optimizer. Default 5e-5.
+lr: 5e-5
+
+# How many samples from each animal do you want to (randomly) set aside for a validation metric?
+num_validation_per_exp: 2
+
+# If true, saves plots of the training labels overlaid on images
+#debug: False
+
+# If present, write the confidence map output and image/COM overlays to disk during prediction
+#com_debug: Camera5
+
+# How many frames to you want to predict over? Set to 'max' for all video frames.
+max_num_samples: 100
+
+com_finetune_weights: ./COM/weights/
+
+# How to crop the input images. The U-Net expects each dimension size to be a multiple of 32.
+crop_height: [0, 1024]
+crop_width: [0, 1152]

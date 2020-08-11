@@ -1,0 +1,63 @@
+io_config: io.yaml
+
+# Number of channels for each input image (e.g. RGB == 3)
+n_channels_in: 3
+
+# Number of network output channels.
+n_channels_out: 1
+
+# batch_size*len(camnames) should be <= 6 for most COM training applications
+batch_size: 2
+
+# COM training option. Sets the size of the 3D Guassians (in pixels) used as labels for the MAX models
+sigma: 30
+
+# COM training option. Sets the number of epochs during training
+epochs: 3
+
+# DANNCE training option. Sets the verbosity of training output
+verbose: 1
+
+# Degree of downsampling applied to image input. Default 1, other values untested.
+downfac: 2
+
+# DANNCE training option. Loss function to be used. Default MSE.
+loss: mask_nan_keep_loss
+
+# DANNCE training option. Learning rate for the Adam optimizer. Default 1e-3.
+lr: 5e-5
+
+# name of the network architecture (see nets.py)
+net: unet2d_fullbn
+
+# Set the video extension
+extension: .mp4
+
+# How many samples from each animal do you want to (randomly) set aside for a validation metric?
+num_validation_per_exp: 2
+
+# If true, saves plots of the training labels overlaid on images
+debug: False
+
+# When using a system with multiple GPUs, we should just target one of them
+gpu_id: "0"
+
+# If present, write the confidence map output and image/COM overlays to disk during prediction
+#COMdebug: Camera5
+
+# How many frames to you want to predict over? Set to 'max' for all video frames.
+max_num_samples: 1000
+
+com_finetune_weights:
+
+# Test new augmentation
+augment_brightness: True
+augment_hue: True
+augment_shift: True
+augment_rotation: True
+augment_zoom: True
+augment_shear: True
+
+# How to crop the input images. The U-Net expects each dimension size to be a multiple of 32.
+crop_height: [0, 1024]
+crop_width: [0, 1152]

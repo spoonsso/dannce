@@ -106,22 +106,13 @@ Cameras tested:
 3. Basler ace aca1920-155uc, aca640-750um, aca720-510um
 
 
-### Data Formatting
-During training and evaluation, DANNCE requires a set of videos across multiple views, a camera calibration parameters file, and a "MatchedFrames" file that indexes the videos to ensure synchrony.
+## Formatting The Data
+DANNCE requires a set of videos across multiple views and a `*dannce.mat` file that contains camera calibration parameters, a structure that synchronizes frames across views, and in the case of training, the 3D labels. 
 
 We recommend setting up individual project folders for each video recording session, as in the dannce demos (`./demo`), although the dannce configuration files are flexible enough to support more custom file and directory organizations. The demo project folders also contain examples of all of the following formatting information.
 
-**Configuration files**.
+**video directories**.
 
-`DANNCE` uses 5 different types of configuration files
-
-- *main config*, e.g. `demo/markerless_mouse_1/config.yaml`. This file coordinates pathing to required files, including videos, camera calibrations, and synchronization files.
-- *COM config*, e.g. `demo/markerless_mouse_1/COM/config.yaml`. This file sets parameters for COMfinder training and prediction and sets output directories.
-- *DANNCE config*, e.g. `demo/markerless_mouse_1/DANNCE/config_AVG.yaml`. This file sets parameters for DANNCE training and prediction and sets output directories.
-- *COM experiment configs*, e.g. `demo/markerless_mouse_1/COM/exp1.yaml` and `demo/markerless_mouse_1/COM/exp2.yaml`. These files coordinate pathing to animal-specific files, including hand-labeled data, enabling COMfinder training over multiple animals.
-- *DANNCE experiment configs*, e.g. `demo/markerless_mouse_1/DANNCE/exp1.yaml` and `demo/markerless_mouse_1/DANNCE/exp2.yaml`. These files coordinate pathing to session-specific files, including hand-labeled data, enabling DANNCE training over multiple animals or recording sessions. In the default setup, `exp1.yaml` will refer to the files for the animal belonging to the base project folder (e.g. `markerless_mouse_1`), and `exp2.yaml`, while contained within the same folder as `exp1.yaml`, will refer to the files for the second animal (e.g. `markerless_mouse_2`, which is its own separate project folder). However, DANNCE's configuration is flexible enough to support your own custom file organization.
-
-**Video directories.**
 DANNCE requires a parent video directory with *n* sub-directories, one for each of *n* cameras. Within each subdirectory, videos must be named according the frame index of the first frame in the file. For example, for a three-camera system, the video directory must look like:
 
 ./videos/
@@ -138,59 +129,45 @@ DANNCE requires a parent video directory with *n* sub-directories, one for each 
 
 |\_\_+--0.mp4
 
-DANNCE can also accommodate an additional level of subdirectories if `vid_dir_flag` is set to `False` in the main configuration files.
 
-./videos/
+**configuration files**
 
-+-- Camera1
+`DANNCE` uses two configuration files and one data file. 
 
-|\_\_+--3503723726252562
+- *main config*, e.g. `configs/*.yaml`. This file defines data and model hyperparameters. It can be reused across experiments.  
+- *io config*, e.g. `demo/markerless_mouse_1/io.yaml`. This file defines input data and ouput directories. It is used for a single experiment. 
+- *dannce.mat*, e.g. `demo/markerless_mouse_1/label3d_dannce.mat`. This file contains three cell arrays of matlab structures. `params` stores the camera parameters for each camera. `sync` stores a vector that synchronizes all cameras. `labelData` stores the frame identities and 3d labels for hand-labeled frames. This file can be produced automatically with `Label3D.exportDannce()`.
 
-|\_\_\_\_\_+--0.mp4
+**camera calibration parameters**.
+Dannce requires structs for each camera containing the camera's rotation matrix, translation vector, intrinsic matrix, radial distortion, and tangential distortion. If you use our included calibration scripts, you can convert the output to the required format with `utils/convert_calibration.m`. 
 
-+-- Camera2
+A properly formatted calibration struct has the following fields, `['R','t','K','RDistort','TDistort']`. 
 
-|\_\_+--3503723999451111
-
-|\_\_\_\_\_+--0.mp4
-
-+-- Camera3
-
-|\_\_+--3503723711118999
-
-|\_\_\_\_\_+--0.mp4
-
-**Camera calibration parameters**.
-DANNCE requires a .mat file for each camera containing the camera's rotation matrix, translation vector, intrinsic matrix, radial distortion, and tangential distortion. If you use out included calibration scripts, you can convert the output fules to the required format, use `utils/convert_calibration.m`.
-
-A properly formatted calibration file has the following fields, `['R','t','K','RDistort','TDistort']`.
-
-**Synchronization files**.
-DANNCE requires a set of sync files, one for each camera, which define frame synchrony across the different cameras over time. If you know your cameras are reliably synchronized at all times (e.g. via hardware triggering), these files can be generated with the aid of `dannce/utils/makeSyncFiles.py`. Once your video directories are set up correctly, sync files can get generated by running `python dannce/utils/makeSyncFiles.py {path_to_videos} {acquisition_frame_rate} {number_tracked_landmarks}`, where {.} denotes variables you must replace with relevant values. See the `makeSyncFiles.py` docstring for more information.
+**synchronization files**.
+DANNCE requires a set of sync structs, one for each camera, which define frame synchrony across the different cameras over time. If you know your cameras are reliably synchronized at all times (e.g. via hardware triggering), these files can be generated with the aid of `dannce/utils/makeSyncFiles.py`. Once your video directories are set up correctly, sync files can get generated by running `python dannce/utils/makeSyncFiles.py {path_to_videos} {acquisition_frame_rate} {number_tracked_landmarks}`, where {.} denotes variables you must replace with relevant values. See the `makeSyncFiles.py` docstring for more information.
 
 If your cameras are not natively synchronized, but you can collect timestaps for each frame, sync files should be generated by `dannce/utils/preprocess_data.m`, which will generate sync files from a properly formatted `.mat` file listing the frameID for each camera at each timepoint. See `/dannce/utils/example_matchedframs.mat` file for how these timestamp data should be formatted before running `preprocess_data.m`.
 
-### Manual labeling
-For fine-tuning DANNCE to work with your animal and system, we developed a labeling GUI, which can be found in a separate repo: https://github.com/diegoaldarondo/Label3D. The `Label3D` repository should be cloned with DANNCE automatically as a submodule when using `git clone --recursive https://github.com/spoonsso/dannce`. When labeling is completed, the labels can be used to train DANNCE and the COMfinder network (see below) after converting the Label3D files to DANNCE format using `Label3D/wrappers/Label3DPostlabel_fromVideo.m`. These label files must live in the directories referred to in the `datadir` and `datafile` fields of your `exp*.yaml` files.
+## Hand-Labeling
+For fine-tuning DANNCE to work with your animal and system, we developed a labeling GUI, which can be found in a separate repo: https://github.com/diegoaldarondo/Label3D. The `Label3D` repository should be cloned with DANNCE automatically as a submodule when using `git clone --recursive https://github.com/spoonsso/dannce` When labeling is completed, the labels can be used to train DANNCE and the COMfinder network (see below) after converting the Label3D files to DANNCE format using `Label3D.exportDannce()`.
 
 ### Training and Predicting with the COMfinder U-Net
 DANNCE requires a reasonable estimate of the 3D position of the animal in each frame. We obtain this by triangulating the 2D center of mass (COM) of the animal in each frame. You can use your favorite method to find an estimate of the animal COM in each frame, but we trained a 2D U-Net to do it. Our U-Net is brittle and typically requires some additional training data to get it working on new views, new environments, and new species. If working with hand-labeled data, your same data structures can be used to train both the COMfinder network and the DANNCE network.
 
-Given formatted data, a properly organized directory structure, and a config file (see demo folder), navigate to your project folder and run 
-`python $my_path_to_DANNCE/train_COMfinder.py ./config.yaml` 
-where `$my_path_to_DANNCE` is a path to the root DANNCE directory.
+Given formatted data, a properly organized directory structure, and a config file (see config and demo folder, and wiki), navigate to your project folder and run 
+`com-train /path/to/main_com_config.yaml`
 
 After training, run 
-`python $my_path_to_DANNCE/predict_COMfinder.py ./config.yaml` 
+`com-predict /path/to/main_com_config.yaml`
 to generate center of mass predictions.
 
 ### Training and Predicting with DANNCE
 
 Once the COM is found, the main DANNCE network can be trained by running: 
-`python $my_path_to_DANNCE/train_DANNCE.py ./config.yaml`
+`dannce-train /path/to/main_config.yaml`
 
-After training, run 
-`python $my_path_to_DANNCE/predict_DANNCE.py ./config.yaml` 
-to make 3D predictions using the trained model.
+After training, run
 
-Consult the demo folder for directory and config file formatting examples.
+`dannce-predict /path/to/main_config.yaml` from within an experiment folder to make 3D predictions using the trained model.
+
+Consult the demo folder for directory and config file formatting examples
