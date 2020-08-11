@@ -104,12 +104,15 @@ def com_predict(params):
     params["experiment"] = {}
     params["experiment"][0] = params
 
+        # For real mono training
+    params["chan_num"] = 1 if params["mono"] else params["n_channels_in"]
+
     # Build net
     print("Initializing Network...")
     model = params["net"](
         params["loss"],
         float(params["lr"]),
-        params["n_channels_in"],
+        params["chan_num"],
         params["n_channels_out"],
         ["mse"],
         multigpu=False,
@@ -327,6 +330,7 @@ def com_predict(params):
         "shuffle": False,
         "dsmode": params["dsmode"],
         "preload": False,
+        "mono": params["mono"],
     }
 
     partition = {}
@@ -568,7 +572,7 @@ def com_train(params):
         y_valid[i * ncams : (i + 1) * ncams] = ims[1]
 
     train_generator = DataGenerator_downsample_frommem(
-        np.arange(len(partition["train_sampleIDs"])),
+        np.arange(ims_train.shape[0]),
         ims_train,
         y_train,
         batch_size=params["batch_size"]*ncams,
@@ -587,7 +591,7 @@ def com_train(params):
         chan_num=params["chan_num"]
     )
     valid_generator = DataGenerator_downsample_frommem(
-        np.arange(len(partition["valid_sampleIDs"])),
+        np.arange(ims_valid.shape[0]),
         ims_valid,
         y_valid,
         batch_size=ncams,
@@ -663,6 +667,8 @@ def com_train(params):
 
 def dannce_train(params):
     """Entrypoint for dannce training."""
+    # Depth disabled until next release.
+    params["depth"] = False
 
     # Make the training directory if it does not exist.
     make_folder("dannce_train_dir", params)
@@ -773,6 +779,9 @@ def dannce_train(params):
     else:
         cam3_train = False
 
+    # Used to initialize arrays for mono, and also in *frommem (the final generator)
+    params["chan_num"] = 1 if params["mono"] else params["n_channels_in"]
+
     valid_params = {
         "dim_in": (
             params["crop_height"][1] - params["crop_height"][0],
@@ -801,6 +810,7 @@ def dannce_train(params):
         "crop_im": False,
         "chunks": params["chunks"],
         "preload": False,
+        "mono": params["mono"]
     }
 
     # Setup a generator that will read videos and labels
@@ -837,7 +847,7 @@ def dannce_train(params):
         (
             len(partition["train_sampleIDs"]),
             *gridsize,
-            params["n_channels_in"] * len(camnames[0]),
+            params["chan_num"] * len(camnames[0]),
         ),
         dtype="float32",
     )
@@ -846,7 +856,7 @@ def dannce_train(params):
         (
             len(partition["valid_sampleIDs"]),
             *gridsize,
-            params["n_channels_in"] * len(camnames[0]),
+            params["chan_num"] * len(camnames[0]),
         ),
         dtype="float32",
     )
@@ -914,7 +924,7 @@ def dannce_train(params):
         print("Dump training volumes to {}".format(tifdir))
         for i in range(X_train.shape[0]):
             for j in range(len(camnames[0])):
-                im = X_train[i, :, :, :, j * 3 : (j + 1) * 3]
+                im = X_train[i, :, :, :, j * params["chan_num"] : (j + 1) * params["chan_num"]]
                 im = processing.norm_im(im) * 255
                 im = im.astype("uint8")
                 of = os.path.join(
@@ -951,10 +961,14 @@ def dannce_train(params):
         augment_hue=params["augment_hue"],
         augment_brightness=params["augment_brightness"],
         augment_continuous_rotation=params["augment_continuous_rotation"],
+        bright_val=params["augment_bright_val"],
+        hue_val=params["augment_hue_val"],
+        rotation_val=params["augment_rotation_val"],
         expval=params["expval"],
         xgrid=X_train_grid,
         nvox=params["nvox"],
         cam3_train=cam3_train,
+        chan_num=params["chan_num"]
     )
     valid_generator = DataGenerator_3Dconv_frommem(
         np.arange(len(partition["valid_sampleIDs"])),
@@ -971,6 +985,7 @@ def dannce_train(params):
         nvox=params["nvox"],
         shuffle=False,
         cam3_train=cam3_train,
+        chan_num=params["chan_num"]
     )
 
     # Build net
@@ -987,7 +1002,7 @@ def dannce_train(params):
         model = params["net"](
             params["loss"],
             float(params["lr"]),
-            params["n_channels_in"] + params["depth"],
+            params["chan_num"] + params["depth"],
             params["n_channels_out"],
             len(camnames[0]),
             batch_norm=False,
@@ -999,7 +1014,7 @@ def dannce_train(params):
         model = params["net"](
             params["loss"],
             float(params["lr"]),
-            params["n_channels_in"] + params["depth"],
+            params["chan_num"] + params["depth"],
             params["n_channels_out"],
             len(camnames[0]),
             params["new_last_kernel_size"],
@@ -1027,7 +1042,7 @@ def dannce_train(params):
         model = params["net"](
             params["loss"],
             float(params["lr"]),
-            params["n_channels_in"] + params["depth"],
+            params["chan_num"] + params["depth"],
             params["n_channels_out"],
             3 if cam3_train else len(camnames[0]),
             batch_norm=False,
@@ -1068,6 +1083,7 @@ def dannce_train(params):
         verbose=params["verbose"],
         epochs=params["epochs"],
         callbacks=[csvlog, model_checkpoint, tboard],
+        workers=6,
     )
 
     print("Renaming weights file with best epoch description")
@@ -1083,6 +1099,8 @@ def dannce_train(params):
 
 
 def dannce_predict(params):
+    # Depth disabled until next release.
+    params["depth"] = False
     # Make the prediction directory if it does not exist.
     make_folder("dannce_predict_dir", params)
 
@@ -1183,6 +1201,9 @@ def dannce_predict(params):
     )
 
     samples = np.array(samples)
+    
+    # For real mono prediction
+    params["chan_num"] = 1 if params["mono"] else params["n_channels_in"]
 
     # Initialize video dictionary. paths to videos only.
     # TODO: Remove this immode option if we decide not
@@ -1220,6 +1241,7 @@ def dannce_predict(params):
         "crop_im": False,
         "chunks": params["chunks"],
         "preload": False,
+        "mono": params["mono"],
     }
 
     # Datasets
@@ -1283,7 +1305,7 @@ def dannce_predict(params):
         model = params["net"](
             params["loss"],
             float(params["lr"]),
-            params["n_channels_in"] + params["depth"],
+            params["chan_num"] + params["depth"],
             params["n_channels_out"],
             len(camnames[0]),
             batch_norm=False,
@@ -1516,7 +1538,7 @@ def do_COM_load(exp, expdict, n_views, e, params, training=True):
         com3d_dict_ = deepcopy(datadict_3d_)
         for key in com3d_dict_.keys():
             com3d_dict_[key] = np.nanmean(datadict_3d_[key], axis=1, keepdims=True)
-    elif expdict["com_file"] is not None:
+    elif "com_file" in expdict and expdict["com_file"] is not None:
         exp["com_file"] = expdict["com_file"]
         if ".mat" in exp["com_file"]:
             c3dfile = sio.loadmat(exp["com_file"])
@@ -1552,9 +1574,11 @@ def do_COM_load(exp, expdict, n_views, e, params, training=True):
         )
 
     # Remove any 3D COMs that are beyond the confines off the 3D arena
+    do_cthresh = True if exp["cthresh"] is not None else False
+
     pre = len(samples_)
     samples_ = serve_data_DANNCE.remove_samples_com(
-        samples_, com3d_dict_, rmc=True, cthresh=exp["cthresh"],
+        samples_, com3d_dict_, rmc=do_cthresh, cthresh=exp["cthresh"],
     )
     msg = "Removed {} samples from the dataset because they either had COM positions over cthresh, or did not have matching sampleIDs in the COM file"
     print(msg.format(pre - len(samples_)))

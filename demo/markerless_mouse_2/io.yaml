@@ -15,15 +15,3 @@ dannce_predict_dir: ./DANNCE/predict_results/
 # Note that this must be a FULL MODEL file, not just weights.
 dannce_predict_model: ../markerless_mouse_1/DANNCE/train_results/AVG/weights.1200-12.77642.hdf5
 
-# path to folder contraining video sub directories. Used only for com and dannce PREDICTION
-viddir: ./videos/
-
-# path to folder contraining video sub directories. Used only for dannce PREDICTION
-com_file: './COM/predict_results/com3d.pickle'
-
-# How to crop the input images. The U-Net expects each dimension size to be a multiple of 32.
-crop_height: [0, 1024]
-crop_width: [0, 1152]
-
-camnames: ['Camera1', 'Camera2', 'Camera3', 'Camera4', 'Camera5', 'Camera6']
-

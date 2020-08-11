@@ -276,7 +276,15 @@ class DataGenerator_downsample(keras.utils.Sequence):
                     X[:, :, :, 1]*0.7154 + \
                     X[:, :, :, 2]*0.0721
 
-        return pp_vgg19(X), y
+            X = X[:, :, :, np.newaxis]
+
+        if self.mono:
+            # Just subtract the mean imagent BGR value, which is as close as we
+            # get to vgg19 normalization
+            X -= 114.67
+        else:
+            X = pp_vgg19(X)
+        return X, y
 
 class DataGenerator_downsample_frommem(keras.utils.Sequence):
     """Generate 3d conv data from memory."""
@@ -328,13 +336,31 @@ class DataGenerator_downsample_frommem(keras.utils.Sequence):
         """Denote the number of batches per epoch."""
         return int(np.floor(len(self.list_IDs) / self.batch_size))
 
+    def on_epoch_end(self):
+        """Update indexes after each epoch."""
+        self.indexes = np.arange(len(self.list_IDs))
+        if self.shuffle:
+            np.random.shuffle(self.indexes)
+
     def shift_im(self, im, lim, dim=2):
-        if lim < 0:
-            im[:, :, :(im.shape[dim]-np.abs(lim))] = im[:, :, np.abs(lim):]
-            im[:, :, (im.shape[dim]-np.abs(lim)):] = im[:, :, (im.shape[dim]-np.abs(lim))]
+        ulim = im.shape[dim]-np.abs(lim)
+
+        if dim == 2:
+            if lim < 0:
+                im[:, :, :ulim] = im[:, :, np.abs(lim):]
+                im[:, :, ulim:] = im[:, :, ulim:ulim+1]
+            else:
+                im[:, :, lim:] = im[:, :, :ulim]
+                im[:, :, :lim] = im[:, :, lim:lim+1]
+        elif dim == 1:
+            if lim < 0:
+                im[:, :ulim] = im[:, np.abs(lim):]
+                im[:, ulim:] = im[:, ulim:ulim+1]
+            else:
+                im[:, lim:] = im[:, :ulim]
+                im[:, :lim] = im[:, lim:lim+1]
         else:
-            im[:, :, lim:] = im[:, :, :(im.shape[dim]-lim)]
-            im[:, :, :lim] = im[:, :, lim]
+            raise Exception ("Not a valid dimension for shift indexing")
 
         return im
 
@@ -367,76 +393,78 @@ class DataGenerator_downsample_frommem(keras.utils.Sequence):
 
         return X, y
 
-        def __data_generation(self, list_IDs_temp):
-            """Generate data containing batch_size samples."""
-            # Initialization
+    def __data_generation(self, list_IDs_temp):
+        """Generate data containing batch_size samples."""
+        # Initialization
 
-            X = np.zeros((self.batch_size, *self.data.shape[1:]))
-            y_2d = np.zeros((self.batch_size, *self.labels.shape[1:]))
+        X = np.zeros((self.batch_size, *self.data.shape[1:]))
+        y_2d = np.zeros((self.batch_size, *self.labels.shape[1:]))
 
-            for i, ID in enumerate(list_IDs_temp):
-                X[i] = self.data[ID].copy()
-                y_2d[i] = self.labels[ID]
+        for i, ID in enumerate(list_IDs_temp):
+            X[i] = self.data[ID].copy()
+            y_2d[i] = self.labels[ID]
 
-                if self.augment_brightness:
-                    X = tf.image.random_brightness(X, self.bright_val)
+        if self.augment_rotation \
+            or self.augment_shear or self.augment_zoom:
 
-                if self.augment_hue:
-                    if self.chan_num == 3:
-                        X = tf.image.random_hue(X, self.hue_val)
-                    else:
-                        warnings.warn("Hue augmention set to True for mono. Ignoring.")
+            affine = {}
+            affine['zoom'] = 1
+            affine['rotation'] = 0
+            affine['shear'] = 0
 
-                if self.augment_shift:
-                    X, y_2d = self.random_shift(X, y_2d.copy(),
-                                             X.shape[1],
-                                             X.shape[2],
-                                             self.shift_val)
+            # Because we use views down below, 
+            # don't change the targets in memory.
+            # But also, don't deep copy y_2d unless necessary (that's
+            # why it's here and not above)
+            y_2d = y_2d.copy()
 
+            if self.augment_rotation:
+                affine['rotation'] = self.rotation_val*\
+                    (np.random.rand()*2-1)
+            if self.augment_zoom:
+                affine['zoom'] = self.zoom_val*\
+                    (np.random.rand()*2-1) + 1
+            if self.augment_shear:
+                affine['shear'] = self.shear_val*\
+                    (np.random.rand()*2-1)
 
-                if self.augment_rotatation \
-                    or self.augment_shear or self.augment_zoom:
+            for idx in range(X.shape[0]):
+                X[idx] = \
+                    tf.keras.preprocessing.image.apply_affine_transform(
+                        X[idx],
+                        theta=affine['rotation'],
+                        shear=affine['shear'],
+                        zx=affine['zoom'],
+                        zy=affine['zoom'],
+                        fill_mode='nearest')
+                y_2d[idx] = \
+                    tf.keras.preprocessing.image.apply_affine_transform(
+                        y_2d[idx],
+                        theta=affine['rotation'],
+                        shear=affine['shear'],
+                        zx=affine['zoom'],
+                        zy=affine['zoom'],
+                        fill_mode='nearest')
 
-                    affine = {}
-                    affine['zoom'] = 1
-                    affine['rotation'] = 0
-                    affine['shear'] = 0
+        if self.augment_shift:
+            X, y_2d = self.random_shift(X, y_2d.copy(),
+                                     X.shape[1],
+                                     X.shape[2],
+                                     self.shift_val)
 
-                    # Because we use views down below, 
-                    # don't change the targets in memory.
-                    # But also, don't deep copy y_2d unless necessary (that's
-                    # why it's here and not above)
-                    y_2d = y_2d.copy()
+        if self.augment_brightness:
+            X = tf.image.random_brightness(X, self.bright_val)
 
-                    if self.augment_rotation:
-                        affine['rotation'] = self.rotation_val*\
-                            (np.random.rand()*2-1)
-                    if self.augment_zoom:
-                        affine['zoom'] = self.zoom_val*\
-                            (np.random.rand()*2-1) + 1
-                    if self.shear:
-                        affine['shear'] = self.shear_val*\
-                            (np.random.rand()*2-1)
+        if self.augment_hue:
+            if self.chan_num == 3:
+                X = tf.image.random_hue(X, self.hue_val)
+            else:
+                warnings.warn("Hue augmention set to True for mono. Ignoring.")
 
-                    for idx in range(X.shape[0]):
-                        X[idx] = \
-                            tf.keras.preprocessing.image.apply_affine_transform(
-                                X[idx],
-                                theta=affine['rotation'],
-                                shear=affine['shear'],
-                                zx=affine['zoom'],
-                                zy=affine['zoom'],
-                                fill_mode='nearest')
-                        y_2d[idx] = \
-                            tf.keras.preprocessing.image.apply_affine_transform(
-                                y_2d[idx],
-                                theta=affine['rotation'],
-                                shear=affine['shear'],
-                                zx=affine['zoom'],
-                                zy=affine['zoom'],
-                                fill_mode='nearest')
+        if self.augment_brightness or self.augment_hue:
+            X = X.numpy()
 
-            return X.numpy(), y_2d.numpy()
+        return X, y_2d
 
 
     def save_for_dlc(self, imfolder, ext=".png", full_data=True, compress_level=9):

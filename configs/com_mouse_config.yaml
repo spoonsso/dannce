@@ -25,9 +25,13 @@ num_validation_per_exp: 2
 #debug: False
 
 # If present, write the confidence map output and image/COM overlays to disk during prediction
-#COMdebug: Camera5
+#com_debug: Camera5
 
 # How many frames to you want to predict over? Set to 'max' for all video frames.
 max_num_samples: 100
 
 com_finetune_weights: ./COM/weights/
+
+# How to crop the input images. The U-Net expects each dimension size to be a multiple of 32.
+crop_height: [0, 1024]
+crop_width: [0, 1152]

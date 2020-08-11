@@ -117,6 +117,14 @@ def add_shared_args(parser):
         "--gpu-id", dest="gpu_id", help="String identifying GPU to use."
     )
     parser.add_argument("--immode", dest="immode", help="Data format for images.")
+
+    parser.add_argument(
+        "--mono",
+        dest="mono",
+        type=ast.literal_eval,
+        help="If true, converts 3-channel video frames into mono grayscale using standard RGB->gray conversion formula (ref. scikit-image).",
+    )
+
     return parser
 
 
@@ -147,6 +155,38 @@ def add_shared_train_args(parser):
     )
 
     parser.add_argument("--lr", dest="lr", help="Learning rate.")
+
+    parser.add_argument(
+        "--augment-hue",
+        dest="augment_hue",
+        type=ast.literal_eval,
+        help="If True, randomly augment hue of each image in training set during training.",
+    )
+    parser.add_argument(
+        "--augment-brightness",
+        dest="augment_brightness",
+        type=ast.literal_eval,
+        help="If True, randomly augment brightness of each image in training set during training.",
+    )
+
+    parser.add_argument(
+        "--augment-hue-val",
+        dest="augment_hue_val",
+        type=float,
+        help="If hue augmentation is True, chooses random hue delta in [-augment_hue_val, augment_hue_val]. Range = [0,1].",
+    )
+    parser.add_argument(
+        "--augment-brightness-val",
+        dest="augment_bright_val",
+        type=float,
+        help="If brightness augmentation is True, chooses random brightness delta in [-augment_hue_val, augment_hue_val]. Range = [0,1].",
+    )
+    parser.add_argument(
+        "--augment-rotation-val",
+        dest="augment_rotation_val",
+        type=int,
+        help="If continuous rotation augmentation is True, chooses random rotation angle in degrees in [-augment_rotation_val, augment_rotation_val]",
+    )
     return parser
 
 
@@ -292,18 +332,6 @@ def add_dannce_train_args(parser):
         "MAX: DANNCE where joint locations are at the maximum of the 3D output distribution\n",
     )
     parser.add_argument(
-        "--augment-hue",
-        dest="augment_hue",
-        type=ast.literal_eval,
-        help="If True, randomly augment hue of each image in training set during training.",
-    )
-    parser.add_argument(
-        "--augment-brightness",
-        dest="augment_brightness",
-        type=ast.literal_eval,
-        help="If True, randomly augment brightness of each image in training set during training.",
-    )
-    parser.add_argument(
         "--augment-continuous-rotation",
         dest="augment_continuous_rotation",
         type=ast.literal_eval,
@@ -359,6 +387,48 @@ def add_com_train_args(parser):
         "--com-finetune-weights",
         dest="com_finetune_weights",
         help="Initial weights to use for COM finetuning.",
+    )
+    parser.add_argument(
+        "--augment-shift",
+        dest="augment_shift",
+        type=ast.literal_eval,
+        help="If True, shift all images in each sample of the training set by a random value during training.",
+    )
+    parser.add_argument(
+        "--augment-zoom",
+        dest="augment_zoom",
+        type=ast.literal_eval,
+        help="If True, zoom all images in each sample of the training set by a random value during training.",
+    )
+    parser.add_argument(
+        "--augment-shear",
+        dest="augment_shear",
+        type=ast.literal_eval,
+        help="If True, shear all images in each sample of the training set by a random value during training.",
+    )
+    parser.add_argument(
+        "--augment-rotation",
+        dest="augment_rotation",
+        type=ast.literal_eval,
+        help="If True, rotate all images in each sample of the training set by a random value during training.",
+    )
+    parser.add_argument(
+        "--augment-shear-val",
+        dest="augment_shear_val",
+        type=int,
+        help="If shear augmentation is True, chooses random shear angle in degrees in [-augment_shear_val, augment_shear_val]",
+    )
+    parser.add_argument(
+        "--augment-zoom-val",
+        dest="augment_zoom_val",
+        type=float,
+        help="If zoom augmentation is True, chooses random zoom factor in [1-augment_zoom_val, 1+augment_zoom_val]",
+    )
+    parser.add_argument(
+        "--augment-shift-val",
+        dest="augment_shift_val",
+        type=float,
+        help="If shift augmentation is True, chooses random offset for rows and columns in [im_size*augment_shift_val, im_size*augment_shift_val]. So augment_shift_val is a fraction of the image size (must be in range [0,1])",
     )
     return parser
 

@@ -48,4 +48,16 @@ gpu_id: "0"
 # How many frames to you want to predict over? Set to 'max' for all video frames.
 max_num_samples: 1000
 
-com_finetune_weights: ../../demo/markerless_mouse_1/COM/weights/
+com_finetune_weights:
+
+# Test new augmentation
+augment_brightness: True
+augment_hue: True
+augment_shift: True
+augment_rotation: True
+augment_zoom: True
+augment_shear: True
+
+# How to crop the input images. The U-Net expects each dimension size to be a multiple of 32.
+crop_height: [0, 1024]
+crop_width: [0, 1152]
