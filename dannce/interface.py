@@ -1540,6 +1540,8 @@ def do_COM_load(exp, expdict, n_views, e, params, training=True):
                 camera_mats=cameras_,
                 method=params["com_method"],
             )
+            if params["medfilt_window"] is not None:
+                raise Exception("Sorry, median filtering a com pickle is not yet supported. Please use a com3d.mat or *dannce.mat file instead")
         else:
             raise Exception("Not a valid com file format")
     else:
