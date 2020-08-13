@@ -15,6 +15,7 @@ import os
 import dannce.engine.processing as processing
 import dannce.engine.io as io
 import ast
+from dannce import _param_defaults_shared, _param_defaults_dannce, _param_defaults_com
 
 # Set up parameters
 PARENT_PARAMS = processing.read_config(sys.argv[1])
@@ -25,17 +26,12 @@ CONFIG_PARAMS = processing.inherit_config(CONFIG_PARAMS,
                                           PARENT_PARAMS,
                                           list(PARENT_PARAMS.keys()))
 
+defaults = {**_param_defaults_dannce,**_param_defaults_shared}
+CONFIG_PARAMS = processing.inherit_config(CONFIG_PARAMS,
+                                        defaults,
+                                        list(defaults.keys()))
+
 CONFIG_PARAMS["camnames"] = None
-if 'viddir' not in CONFIG_PARAMS:
-    CONFIG_PARAMS["viddir"] = "./videos/"
-if "net" not in CONFIG_PARAMS:
-    CONFIG_PARAMS["net"] = None
-if "crop_height" not in CONFIG_PARAMS:
-    CONFIG_PARAMS["crop_height"] = None
-if "crop_width" not in CONFIG_PARAMS:
-    CONFIG_PARAMS["crop_width"] = None
-if "start_sample" not in CONFIG_PARAMS:
-    CONFIG_PARAMS["start_sample"] = 0
 CONFIG_PARAMS = processing.infer_params(CONFIG_PARAMS, True, False)
 
 RESULTSDIR = CONFIG_PARAMS["dannce_predict_dir"]
