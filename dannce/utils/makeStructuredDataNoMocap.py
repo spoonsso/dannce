@@ -35,7 +35,7 @@ pred = sio.loadmat(pfile)
 meta = pred['metadata']
 CONFIG_PARAMS = {}
 for key in meta.dtype.names:
-    CONFIG_PARAMS[key] = _gf(meta)
+    CONFIG_PARAMS[key] = _gf(meta[key])
 
 # This is agnostic to the expval setting, i.e. MAX or AVG net
 # However, we will eventually add the COM back in only for MAX-type results
@@ -69,6 +69,7 @@ netname = CONFIG_PARAMS["net"]
 # Get the weights path, a useful piece of metadata
 if "dannce_predict_model" in CONFIG_PARAMS.keys():
     mdl_file = CONFIG_PARAMS["dannce_predict_model"]
+    print(mdl_file)
 else:
     wdir = CONFIG_PARAMS["dannce_train_dir"]
     weights = os.listdir(wdir)
@@ -82,7 +83,11 @@ weightspath = mdl_file
 
 # Load in markernames from skeleton file
 markernames = sio.loadmat(sys.argv[2])
-markernames = [r[0][0] for r in markernames['joint_names']]
+
+mm = markernames['joint_names']
+while mm.shape[1] == 1:
+    mm = mm[0]
+markernames = [r[0] for r in mm[0]]
 
 # In Matlab, we cannot keep parentheses in the marker names
 markernames = [m.replace("(", "_") for m in markernames]
