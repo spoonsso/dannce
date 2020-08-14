@@ -77,7 +77,7 @@ date = os.path.split(os.path.realpath("../"))[-1]
 netname = CONFIG_PARAMS["net"]
 
 # Get the weights path, a useful piece of metadata
-if "predict_model" in CONFIG_PARAMS.keys():
+if "dannce_predict_model" in CONFIG_PARAMS.keys():
     mdl_file = CONFIG_PARAMS["dannce_predict_model"]
 else:
     wdir = CONFIG_PARAMS["dannce_train_dir"]
