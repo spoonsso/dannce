@@ -4,7 +4,7 @@ structured data format, with meta data, that can be used easily by our
 downstream analysis pipeline
 
 Usage:
-python path_to_file/makeStructuredData.py path_to_config path_to_skeleton path_to_danncemat
+python path_to_file/makeStructuredDataNoMocap.py path_to_prediction_file path_to_skeleton_file path_to_label3d_file
 
 path_to_template is an optional parameter for times when I don't have any labeling directory
 """
@@ -17,41 +17,31 @@ import dannce.engine.io as io
 import ast
 from dannce import _param_defaults_shared, _param_defaults_dannce, _param_defaults_com
 
-# Set up parameters
-PARENT_PARAMS = processing.read_config(sys.argv[1])
-PARENT_PARAMS = processing.make_paths_safe(PARENT_PARAMS)
-CONFIG_PARAMS = processing.read_config(PARENT_PARAMS["io_config"])
-CONFIG_PARAMS = processing.make_paths_safe(CONFIG_PARAMS)
-CONFIG_PARAMS = processing.inherit_config(CONFIG_PARAMS,
-                                          PARENT_PARAMS,
-                                          list(PARENT_PARAMS.keys()))
+# get .mat into correct format
+def _gf(f):
+    g = f[0][0][0]
+    if isinstance(g, np.str):
+        g = str(g)
+    else:
+        g = g[0]
+    return g
 
-defaults = {**_param_defaults_dannce,**_param_defaults_shared}
-CONFIG_PARAMS = processing.inherit_config(CONFIG_PARAMS,
-                                        defaults,
-                                        list(defaults.keys()))
+# Read in predictions
+pfile = sys.argv[1]
+RESULTSDIR = os.path.dirname(pfile)
+print("Reading results from: " + pfile)
 
-CONFIG_PARAMS["camnames"] = None
-CONFIG_PARAMS = processing.infer_params(CONFIG_PARAMS, True, False)
-
-RESULTSDIR = CONFIG_PARAMS["dannce_predict_dir"]
-print("Reading results from: " + RESULTSDIR)
+pred = sio.loadmat(pfile)
+meta = pred['metadata']
+CONFIG_PARAMS = {}
+for key in meta.dtype.names:
+    CONFIG_PARAMS[key] = _gf(meta)
 
 # This is agnostic to the expval setting, i.e. MAX or AVG net
 # However, we will eventually add the COM back in only for MAX-type results
-dfiles = os.listdir(RESULTSDIR)
-sfile = [f for f in dfiles if "save_data" in f]
-sfile = sfile[0]
-
-pred = sio.loadmat(os.path.join(RESULTSDIR, sfile))
-
 pred["sampleID"] = np.squeeze(pred["sampleID"])
 
-istherexpval = "expval" in CONFIG_PARAMS and not CONFIG_PARAMS["expval"]
-istherenettype = "net_type" in CONFIG_PARAMS and CONFIG_PARAMS["net_type"] != "AVG"
-
-
-if istherexpval or istherenettype:
+if not CONFIG_PARAMS["expval"]:
     print("adding 3D COM back in")
     com3d = sio.loadmat(os.path.join(RESULTSDIR, "com3d_used.mat"))
     # We should make sure the sampleIDs match up
