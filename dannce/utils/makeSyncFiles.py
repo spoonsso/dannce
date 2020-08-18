@@ -86,7 +86,7 @@ if np.sum(framecount) // len(framecount) != framecount[0]:
 fp = 1000.0 / fps  # frame period in ms
 
 data_frame = np.arange(framecount[0]).astype("float64")
-data_sampleID = data_frame * fp + 1
+data_sampleID = np.round(data_frame * fp + 1)
 data_2d = np.zeros((framecount[0], 2 * num_landmarks))
 data_3d = np.zeros((framecount[0], 3 * num_landmarks))
 
