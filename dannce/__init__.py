@@ -7,7 +7,7 @@ _param_defaults_shared = {
     "loss": "mask_nan_keep_loss",
     "start_batch": 0,
     "exp": None,
-    "viddir": './videos/',
+    "viddir": 'videos',
     "io_config": None,
     "crop_height": None,
     "crop_width": None,
