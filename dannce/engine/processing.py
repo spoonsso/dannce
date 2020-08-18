@@ -108,7 +108,7 @@ def infer_params(params, dannce_net, prediction):
         video_files = sorted(video_files, key=lambda x: int(x.split(".")[0]))
         chunks = int(video_files[1].split(".")[0]) - int(video_files[0].split(".")[0])
     else:
-        chunks = 1e10
+        chunks = 10000000000000
     camf = os.path.join(viddir, video_files[0])
 
     print_and_set(params, "chunks", chunks)
