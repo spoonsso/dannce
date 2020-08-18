@@ -83,6 +83,9 @@ if np.sum(framecount) // len(framecount) != framecount[0]:
     raise Exception("Your videos are not the same length")
 
 
+if fps > 1000:
+    raise Exception("Acquisition rates over 1000 Hz not currently supported")
+    
 fp = 1000.0 / fps  # frame period in ms
 
 data_frame = np.arange(framecount[0]).astype("float64")
