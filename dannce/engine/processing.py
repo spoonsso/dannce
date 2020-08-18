@@ -203,8 +203,8 @@ def infer_params(params, dannce_net, prediction):
             print_and_set(params, "start_batch", 0)
 
         if params["vol_size"] is not None:
-            print_and_set(params, "vmin", -1 * params["vol_size"] // 2)
-            print_and_set(params, "vmax", params["vol_size"] // 2)
+            print_and_set(params, "vmin", -1 * params["vol_size"] / 2)
+            print_and_set(params, "vmax", params["vol_size"] / 2)
     return params
 
 
