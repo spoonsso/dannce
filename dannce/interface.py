@@ -1285,20 +1285,36 @@ def dannce_predict(params):
         netname == "unet3d_big_tiedfirstlayer_expectedvalue"
         or "from_weights" in params.keys()
     ):
-        # This network is too "custom" to be loaded in as a full model, until I
-        # figure out how to unroll the first tied weights layer
         gridsize = tuple([params["nvox"]] * 3)
-        model = params["net"](
-            params["loss"],
-            float(params["lr"]),
-            params["chan_num"] + params["depth"],
-            params["n_channels_out"],
-            len(camnames[0]),
-            batch_norm=False,
-            instance_norm=True,
-            include_top=True,
-            gridsize=gridsize,
-        )
+        if params["train_mode"] == "finetune":
+            model = params["net"](
+                params["loss"],
+                float(params["lr"]),
+                params["chan_num"] + params["depth"],
+                params["n_channels_out"],
+                len(camnames[0]),
+                params["new_last_kernel_size"],
+                params["new_n_channels_out"],
+                params["dannce_finetune_weights"],
+                params["n_layers_locked"],
+                batch_norm=False,
+                instance_norm=True,
+                gridsize=gridsize,
+            )
+        else:
+            # This network is too "custom" to be loaded in as a full model, until I
+            # figure out how to unroll the first tied weights layer
+            model = params["net"](
+                params["loss"],
+                float(params["lr"]),
+                params["chan_num"] + params["depth"],
+                params["n_channels_out"],
+                len(camnames[0]),
+                batch_norm=False,
+                instance_norm=True,
+                include_top=True,
+                gridsize=gridsize,
+            )
         model.load_weights(mdl_file)
     else:
         model = load_model(
