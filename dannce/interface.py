@@ -1283,7 +1283,7 @@ def dannce_predict(params):
 
     if (
         netname == "unet3d_big_tiedfirstlayer_expectedvalue"
-        or "from_weights" in params.keys()
+        or ("from_weights" in params.keys() and params["from_weights"])
     ):
         gridsize = tuple([params["nvox"]] * 3)
         if params["train_mode"] == "finetune":
