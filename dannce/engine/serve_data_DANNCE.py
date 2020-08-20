@@ -33,7 +33,7 @@ def prepare_data(
         print(CONFIG_PARAMS["label3d_file"])
         labels = load_labels(CONFIG_PARAMS["label3d_file"])
 
-    samples = np.round(np.squeeze(labels[0]["data_sampleID"])).astype('int')
+    samples = np.squeeze(labels[0]["data_sampleID"])
 
     if labels[0]["data_sampleID"].shape == (1, 1):
         # Then the squeezed value is just a number, so we add to to a list so
