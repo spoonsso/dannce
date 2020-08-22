@@ -238,6 +238,15 @@ def check_vmin_vmax(params):
                 )
             )
 
+def get_ft_wt(params):
+    if params["dannce_finetune_weights"] is not None:
+        weights = os.listdir(params["dannce_finetune_weights"])
+        weights = [f for f in weights if ".hdf5" in f]
+        weights = weights[0]
+
+        return os.path.join(
+            params["dannce_finetune_weights"], weights
+                )
 
 def check_camnames(camp):
     """

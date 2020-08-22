@@ -68,6 +68,7 @@ _param_defaults_dannce = {
     "downfac": None,
     "net_type": None,
     "net": None,
+    "from_weights": None,
 }
 _param_defaults_com = {
     "dsmode": "nn",
