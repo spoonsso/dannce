@@ -171,10 +171,20 @@ def infer_params(params, dannce_net, prediction):
     if dannce_net:
         #infer crop_height and crop_width if None. Just use max dims of video, as
         # DANNCE does not need to crop.
+        im_h = [im.shape[0]]
+        im_w = [im.shape[1]]
+        for i in range(1, len(video_files)):
+            camf = os.path.join(viddir, video_files[i])
+            v = imageio.get_reader(camf)
+            im = v.get_data(0)
+            v.close()
+            im_h.append(im.shape[0])
+            im_w.append(im.shape[1])
+
         if params["crop_height"] is None:
-            params["crop_height"] = [0, im.shape[0]]
+            print_and_set(params, "crop_height", [0, np.max(im_h)])
         if params["crop_width"] is None:
-            params["crop_width"] = [0, im.shape[1]]
+            print_and_set(params, "crop_width", [0, np.max(im_w)])
 
         if params["max_num_samples"] is not None:
             if params["max_num_samples"] == "max":
