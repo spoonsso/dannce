@@ -1417,10 +1417,7 @@ def dannce_predict(params):
                     )
 
             ims = valid_gen.__getitem__(i)
-            print(ims[0][0].shape)
             pred = model.predict(ims[0])
-            print(pred[0].shape)
-            #import pdb;pdb.set_trace()
 
             if params["expval"]:
                 probmap = pred[1]
