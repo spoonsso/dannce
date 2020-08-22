@@ -688,14 +688,7 @@ def dannce_train(params):
 
     # find the weights given config path
     if params["dannce_finetune_weights"] is not None:
-        weights = os.listdir(params["dannce_finetune_weights"])
-        weights = [f for f in weights if ".hdf5" in f]
-        weights = weights[0]
-
-        params["dannce_finetune_weights"] = os.path.join(
-            params["dannce_finetune_weights"], weights
-        )
-
+        params["dannce_finetune_weights"] = processing.get_ft_wt(params)
         print("Fine-tuning from {}".format(params["dannce_finetune_weights"]))
 
     samples = []
@@ -1063,8 +1056,48 @@ def dannce_train(params):
     )
     csvlog = CSVLogger(os.path.join(dannce_train_dir, "training.csv"))
     tboard = TensorBoard(
-        log_dir=dannce_train_dir + "logs", write_graph=False, update_freq=100
+        log_dir=os.path.join(dannce_train_dir,"logs"), write_graph=False, update_freq=100
     )
+
+    class savePredTargets(keras.callbacks.Callback):
+        def __init__(self, total_epochs, td, tgrid, vd, vgrid, tID, vID, odir, tlabel, vlabel):
+            self.td = td
+            self.vd = vd
+            self.tID = tID
+            self.vID = vID
+            self.total_epochs = total_epochs
+            self.val_loss = 1e10 
+            self.odir = odir
+            self.tgrid = tgrid
+            self.vgrid = vgrid
+            self.tlabel = tlabel
+            self.vlabel = vlabel
+        def on_epoch_end(self, epoch, logs=None):
+            if epoch == self.total_epochs-1 or logs['val_loss'] < self.val_loss:
+                print("Saving predictions on train and validation data, after epoch {}".format(epoch))
+                self.val_loss = logs['val_loss']
+                pred_t = model.predict([self.td, self.tgrid])
+                pred_v = model.predict([self.vd, self.vgrid])
+                ofile = os.path.join(self.odir,'checkpoint_predictions_e{}.mat'.format(epoch))
+                sio.savemat(ofile, {'pred_train': pred_t,
+                                    'pred_valid': pred_v,
+                                    'target_train': self.tlabel,
+                                    'target_valid': self.vlabel,
+                                    'train_sampleIDs': self.tID,
+                                    'valid_sampleIDs': self.vID})
+    callbacks = [csvlog, model_checkpoint, tboard]
+
+    if params['expval']:
+        save_callback = savePredTargets(params['epochs'],X_train,
+            X_train_grid,
+            X_valid,
+            X_valid_grid,
+            partition['train_sampleIDs'],
+            partition['valid_sampleIDs'],
+            params['dannce_train_dir'],
+            y_train,
+            y_valid)
+        callbacks = callbacks + [save_callback]
 
     model.fit(
         x=train_generator,
@@ -1073,7 +1106,7 @@ def dannce_train(params):
         validation_steps=len(valid_generator),
         verbose=params["verbose"],
         epochs=params["epochs"],
-        callbacks=[csvlog, model_checkpoint, tboard],
+        callbacks=callbacks,
         workers=6,
     )
 
@@ -1283,9 +1316,11 @@ def dannce_predict(params):
 
     if (
         netname == "unet3d_big_tiedfirstlayer_expectedvalue"
-        or ("from_weights" in params.keys() and params["from_weights"])
+        or params["from_weights"] is not None
     ):
         gridsize = tuple([params["nvox"]] * 3)
+        params["dannce_finetune_weights"] = processing.get_ft_wt(params)
+
         if params["train_mode"] == "finetune":
             model = params["net"](
                 params["loss"],
@@ -1382,7 +1417,10 @@ def dannce_predict(params):
                     )
 
             ims = valid_gen.__getitem__(i)
+            print(ims[0][0].shape)
             pred = model.predict(ims[0])
+            print(pred[0].shape)
+            #import pdb;pdb.set_trace()
 
             if params["expval"]:
                 probmap = pred[1]

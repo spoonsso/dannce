@@ -15,6 +15,7 @@ setup(
         "opencv-python",
         "tensorflow",
         "torch",
+        "numpy==1.18"
     ],
     entry_points={
         "console_scripts": [
