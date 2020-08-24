@@ -1076,8 +1076,8 @@ def dannce_train(params):
             if epoch == self.total_epochs-1 or logs['val_loss'] < self.val_loss:
                 print("Saving predictions on train and validation data, after epoch {}".format(epoch))
                 self.val_loss = logs['val_loss']
-                pred_t = model.predict([self.td, self.tgrid])
-                pred_v = model.predict([self.vd, self.vgrid])
+                pred_t = model.predict([self.td, self.tgrid], batch_size=1)
+                pred_v = model.predict([self.vd, self.vgrid], batch_size=1)
                 ofile = os.path.join(self.odir,'checkpoint_predictions_e{}.mat'.format(epoch))
                 sio.savemat(ofile, {'pred_train': pred_t,
                                     'pred_valid': pred_v,
