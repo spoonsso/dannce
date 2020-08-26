@@ -885,9 +885,9 @@ def dannce_train(params):
         )
 
     print(
-        "Loading training data into memory. This can take a while to seek through",
-        "large sets of video. This process is much faster if the frame indices",
-        "are sorted in ascending order in your label data file.",
+        "Loading training data into memory. This can take a while to seek throug for",
+        "large sets of video. This will be especially slow if your frame indices are not",
+        "sorted in ascending order in your label data file.",
     )
     for i in range(len(partition["train_sampleIDs"])):
         print(i, end="\r")
@@ -1419,15 +1419,15 @@ def dannce_predict(params):
             ims = valid_gen.__getitem__(i)
             pred = model.predict(ims[0])
 
-            if params["debug_volume_tifdir"] is not None:
+            if params["dannce_predict_vol_tifdir"] is not None:
                 # When this option is toggled in the config, rather than
                 # training, the image volumes are dumped to tif stacks.
                 # This can be used for debugging problems with calibration or
                 # COM estimation
-                tifdir = params["debug_volume_tifdir"]
+                tifdir = params["dannce_predict_vol_tifdir"]
                 if not os.path.exists(tifdir):
                     os.makedirs(tifdir)
-                print("Dump training volumes to {}".format(tifdir))
+                print("Dumping prediction volumes to {}".format(tifdir))
                 for ii in range(ims[0][0].shape[0]):
                     for jj in range(len(camnames[0])):
                         im = ims[0][0][ii, :, :, :, jj * params["chan_num"] : (jj + 1) * params["chan_num"]]
@@ -1438,7 +1438,6 @@ def dannce_predict(params):
                             tifdir, snum + "_cam" + str(jj) + ".tif"
                         )
                         imageio.mimwrite(of, np.transpose(im, [2, 0, 1, 3]))
-                #print("Done! Exiting.")
 
             if params["expval"]:
                 probmap = pred[1]
@@ -1446,7 +1445,6 @@ def dannce_predict(params):
                 for j in range(pred.shape[0]):
                     pred_max = probmap[j]
                     sampleID = partition["valid_sampleIDs"][i * pred.shape[0] + j]
-                    print("Saving {} sampleID to file".format(sampleID))
                     save_data[idx * pred.shape[0] + j] = {
                         "pred_max": pred_max,
                         "pred_coord": pred[j],

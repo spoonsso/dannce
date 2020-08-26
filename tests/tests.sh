@@ -56,8 +56,8 @@ cd tests/configs
 # echo "Testing DANNCE training, AVG MONO from scratch w/ augmentation"
 # dannce-train config_mousetest.yaml --net-type=AVG --train-mode=new --net=unet3d_big_expectedvalue --mono=True --n-channels-out=22 --augment-brightness=True --augment-continuous-rotation=True --augment-hue=True
 
-# echo "Testing DANNCE training, AVG MONO finetune"
-# dannce-train config_mousetest.yaml --net-type=AVG --mono=True --dannce-finetune-weights=../../demo/markerless_mouse_1/DANNCE/weights/weights.rat.AVG.MONO/
+echo "Testing DANNCE training, AVG MONO finetune"
+dannce-train config_mousetest.yaml --net-type=AVG --mono=True --dannce-finetune-weights=../../demo/markerless_mouse_1/DANNCE/weights/weights.rat.AVG.MONO/
 
 # echo "Testing DANNCE prediction, MONO"
 # dannce-predict config_mousetest.yaml --net-type=AVG --dannce-predict-model=../../demo/markerless_mouse_1/DANNCE/train_test/fullmodel_weights/fullmodel_end.hdf5 --mono=True

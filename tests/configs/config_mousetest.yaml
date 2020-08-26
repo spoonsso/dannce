@@ -30,3 +30,5 @@ max_num_samples: 1000
 start_batch: 0
 
 dannce_finetune_weights: ../../demo/markerless_mouse_1/DANNCE/weights/
+
+drop_landmark: [4, 9] 

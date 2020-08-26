@@ -340,6 +340,12 @@ def add_dannce_train_args(parser):
         type=ast.literal_eval,
         help="If True, rotate all images in each sample of the training set by a random value between [-5 and 5] degrees during training.",
     )
+    parser.add_argument(
+        "--drop-landmark",
+        dest="drop_landmark",
+        type=ast.literal_eval,
+        help="Pass a list of landmark indices to exclude these landmarks from training",
+    )
     return parser
 
 

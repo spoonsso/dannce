@@ -69,6 +69,8 @@ _param_defaults_dannce = {
     "net_type": None,
     "net": None,
     "from_weights": None,
+    "dannce_predict_vol_tifdir": None,
+    "drop_landmark": None,
 }
 _param_defaults_com = {
     "dsmode": "nn",
