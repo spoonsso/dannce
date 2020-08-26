@@ -519,7 +519,7 @@ def com_train(params):
     )
     csvlog = CSVLogger(os.path.join(com_train_dir, "training.csv"))
     tboard = TensorBoard(
-        log_dir=com_train_dir + "logs", write_graph=False, update_freq=100
+        log_dir=os.path.join(com_train_dir, "logs"), write_graph=False, update_freq=100
     )
 
     # Initialize data structures
@@ -1395,7 +1395,7 @@ def dannce_predict(params):
                 print("Saving checkpoint at {}th batch".format(i))
                 if params["expval"]:
                     p_n = savedata_expval(
-                        dannce_predict_dir + "save_data_AVG.mat",
+                        os.path.join(dannce_predict_dir, "save_data_AVG.mat"),
                         params,
                         write=True,
                         data=save_data,
@@ -1405,7 +1405,7 @@ def dannce_predict(params):
                     )
                 else:
                     p_n = savedata_tomat(
-                        dannce_predict_dir + "save_data_MAX.mat",
+                        os.path.join(dannce_predict_dir, "save_data_MAX.mat"),
                         params,
                         params["vmin"],
                         params["vmax"],
@@ -1419,12 +1419,34 @@ def dannce_predict(params):
             ims = valid_gen.__getitem__(i)
             pred = model.predict(ims[0])
 
+            if params["debug_volume_tifdir"] is not None:
+                # When this option is toggled in the config, rather than
+                # training, the image volumes are dumped to tif stacks.
+                # This can be used for debugging problems with calibration or
+                # COM estimation
+                tifdir = params["debug_volume_tifdir"]
+                if not os.path.exists(tifdir):
+                    os.makedirs(tifdir)
+                print("Dump training volumes to {}".format(tifdir))
+                for ii in range(ims[0][0].shape[0]):
+                    for jj in range(len(camnames[0])):
+                        im = ims[0][0][ii, :, :, :, jj * params["chan_num"] : (jj + 1) * params["chan_num"]]
+                        im = processing.norm_im(im) * 255
+                        im = im.astype("uint8")
+                        snum = partition["valid_sampleIDs"][i * pred[0].shape[0] + ii]
+                        of = os.path.join(
+                            tifdir, snum + "_cam" + str(jj) + ".tif"
+                        )
+                        imageio.mimwrite(of, np.transpose(im, [2, 0, 1, 3]))
+                #print("Done! Exiting.")
+
             if params["expval"]:
                 probmap = pred[1]
                 pred = pred[0]
                 for j in range(pred.shape[0]):
                     pred_max = probmap[j]
                     sampleID = partition["valid_sampleIDs"][i * pred.shape[0] + j]
+                    print("Saving {} sampleID to file".format(sampleID))
                     save_data[idx * pred.shape[0] + j] = {
                         "pred_max": pred_max,
                         "pred_coord": pred[j],

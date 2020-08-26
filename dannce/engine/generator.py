@@ -117,6 +117,7 @@ class DataGenerator(keras.utils.Sequence):
                     self.currvideo[camname].close()
                 self.currvideo[camname] = vid
 
+            print("Reading frame {} from vid {}".format(frame_num,thisvid_name))
             im = vid.get_data(frame_num).astype("uint8")
 
             return im
@@ -886,6 +887,10 @@ class DataGenerator_3Dconv_torch(DataGenerator):
             )
 
             # Create and project the grid here,
+
+            print("ID: {}".format(ID))
+            print("Frame: {}".format(self.labels[ID]["frames"]))
+            print("COM: {}".format(self.com3d[ID]))
 
             xgrid = self.torch.arange(
                 self.vmin + this_COM_3d[0] + self.vsize / 2,
