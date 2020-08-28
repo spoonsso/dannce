@@ -75,26 +75,26 @@ def identity_pred(y_true, y_pred):
 
 def K_nanmean(tensor):
     """
-    Returns the nanmean of the input tensor. If tensor is all NaN, returns 0
+    Returns the nanmean of the input tensor. If tensor is all NaN or inf, returns 0
     """
-    notnan = K.cast(~tf.math.is_nan(tensor), "float32")
+    notnan = K.cast((~tf.math.is_nan(tensor)) & (~tf.math.is_inf(tensor)), "float32")
     num_notnan = K.sum(K.flatten(notnan))
 
     nonan = K.cast(
-        tf.where(~tf.math.is_nan(tensor), tensor, tf.zeros_like(tensor)), "float32"
+        tf.where((~tf.math.is_nan(tensor)) & (~tf.math.is_inf(tensor)), tensor, tf.zeros_like(tensor)), "float32"
     )
 
     loss = K.sum(nonan) / num_notnan
 
-    return tf.where(~tf.math.is_inf(loss), loss, 0)
-
+    return tf.where((~tf.math.is_nan(loss)) & (~tf.math.is_inf(loss)), loss, 0)
 
 def euclidean_distance_3D(y_true, y_pred):
     """Get 3d Euclidean distance.
 
     Assumes predictions of shape (batch_size,3,num_markers)
 
-    Ignores NaN when necessary
+    Ignores NaN when necessary. But because K.sqrt(NaN) == inf, whenthere
+        are NaNs in the labels, the distance function returns inf
     """
     ed3D = K.flatten(K.sqrt(K.sum(K.pow(y_true - y_pred, 2), axis=1)))
     return K_nanmean(ed3D)
