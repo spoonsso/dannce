@@ -31,4 +31,6 @@ start_batch: 0
 
 dannce_finetune_weights: ../../demo/markerless_mouse_1/DANNCE/weights/
 
-drop_landmark: [4, 9] 
+drop_landmark: [4, 9]
+
+metric: [euclidean_distance_3D, centered_euclidean_distance_3D] 
