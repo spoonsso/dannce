@@ -8,7 +8,7 @@ setup(
     install_requires=[
         "six",
         "pyyaml",
-        "imageio==2.8.0",
+        "imageio>=2.2.0",
         "imageio-ffmpeg",
         "scikit-image",
         "matplotlib",
@@ -16,6 +16,10 @@ setup(
         "tensorflow",
         "torch",
     ],
+    scripts=['cluster/holy_dannce_train.sh',
+             'cluster/holy_com_train.sh',
+             'cluster/holy_dannce_predict.sh',
+             'cluster/holy_com_predict.sh'],
     entry_points={
         "console_scripts": [
             "dannce-train = dannce.cli:dannce_train_cli",
