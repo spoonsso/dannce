@@ -17,15 +17,24 @@ class MultiGpuHandler:
         n_samples_per_gpu=10000,
         only_unfinished=False,
         predict_path=None,
-        batch_param_file="_batch_params.p",
+        com_file=None,
+        # batch_param_file="_batch_params.p",
         verbose=True,
+        test=False,
+        dannce_file=None,
     ):
         self.config = config
         self.n_samples_per_gpu = n_samples_per_gpu
         self.only_unfinished = only_unfinished
         self.predict_path = predict_path
-        self.batch_param_file = batch_param_file
+        self.batch_param_file = "_batch_params.p"
         self.verbose = verbose
+        self.com_file = com_file
+        self.test = test
+        if dannce_file is None:
+            self.dannce_file = self.load_dannce_file()
+        else:
+            self.dannce_file = dannce_file
 
     def load_params(self, param_path):
         """Load a params file"""
@@ -52,6 +61,21 @@ class MultiGpuHandler:
             raise FileNotFoundError("No dannce.mat file found.")
         return dannce_file[0]
 
+    def load_com_length_from_file(self):
+        """Return the length of a com file."""
+        _, file_extension = os.path.splitext(self.com_file)
+
+        if file_extension == ".pickle":
+            with open(self.com_file, "rb") as file:
+                in_dict = pickle.load(file)
+            n_com_samples = len(in_dict.keys())
+        elif file_extension == ".mat":
+            com = loadmat(self.com_file)
+            n_com_samples = com["com"][:].shape[0]
+        else:
+            ValueError("com_file must be a .pickle or .mat file")
+        return n_com_samples
+
     def get_n_samples(self, dannce_file, use_com=False):
         """Get the number of samples in a project
         
@@ -61,19 +85,21 @@ class MultiGpuHandler:
         n_samples = len(sync[0]["data_frame"])
 
         if use_com:
-            # Try to use the com in the dannce .mat, otherwise fall back to default.
-            try:
-                com = load_com(dannce_file)
-                com_samples = len(com["sampleID"])
-            except KeyError:
-                raise KeyError("dannce.mat file needs com field.")
+            # If a com file is specified, use it
+            if self.com_file is not None:
+                com_samples = self.load_com_length_from_file()
+            else:
+                # Try to use the com in the dannce .mat, otherwise error.
+                try:
+                    com = load_com(dannce_file)
+                    com_samples = len(com["sampleID"][0])
+                except KeyError:
+                    raise KeyError("dannce.mat file needs com field.")
             n_samples = np.min([com_samples, n_samples])
 
         return n_samples
 
-    def generate_batch_params(
-        self, n_samples, only_unfinished=False, predict_path=None
-    ):
+    def generate_batch_params(self, n_samples):
         start_samples = np.arange(0, n_samples, self.n_samples_per_gpu, dtype=np.int)
         max_samples = start_samples + self.n_samples_per_gpu
         max_samples[-1] = n_samples
@@ -93,9 +119,10 @@ class MultiGpuHandler:
             ]
             pred_files = [f for f in pred_files if f != "save_data_AVG.mat"]
             if len(pred_files) > 1:
-                # TODO(Automate_batch_size)
+                params = self.load_params(self.config)
                 pred_ids = [
-                    int(f.split(".")[0].split("AVG")[1]) * 4 for f in pred_files
+                    int(f.split(".")[0].split("AVG")[1]) * params["batch_size"]
+                    for f in pred_files
                 ]
                 for i, batch_param in reversed(list(enumerate(batch_params))):
                     if batch_param["start_sample"] in pred_ids:
@@ -109,7 +136,8 @@ class MultiGpuHandler:
                 print("Start sample:", batch_param["start_sample"])
                 print("End sample:", batch_param["max_num_samples"])
             print("Command issued: ", cmd)
-        os.system(cmd)
+        if not self.test:
+            os.system(cmd)
 
     def submit_dannce_predict_multi_gpu(self):
         """Predict dannce over multiple gpus in parallel.
@@ -118,8 +146,7 @@ class MultiGpuHandler:
         that predicts over each chunk in parallel. 
 
         """
-        dannce_file = self.load_dannce_file()
-        n_samples = self.get_n_samples(dannce_file, use_com=True)
+        n_samples = self.get_n_samples(self.dannce_file, use_com=True)
         batch_params = self.generate_batch_params(n_samples)
         cmd = "sbatch --array=0-%d holy_dannce_predict_multi_gpu.sh %s" % (
             len(batch_params) - 1,
@@ -128,6 +155,7 @@ class MultiGpuHandler:
         if len(batch_params) > 0:
             self.save_batch_params(batch_params)
             self.submit_jobs(batch_params, cmd)
+        return batch_params, cmd
 
     def submit_com_predict_multi_gpu(self):
         """Predict com over multiple gpus in parallel.
@@ -136,8 +164,7 @@ class MultiGpuHandler:
         that predicts over each chunk in parallel. 
 
         """
-        dannce_file = self.load_dannce_file()
-        n_samples = self.get_n_samples(dannce_file, use_com=False)
+        n_samples = self.get_n_samples(self.dannce_file, use_com=False)
         batch_params = self.generate_batch_params(n_samples)
         cmd = "sbatch --array=0-%d holy_com_predict_multi_gpu.sh %s" % (
             len(batch_params) - 1,
@@ -146,24 +173,28 @@ class MultiGpuHandler:
         if len(batch_params) > 0:
             self.save_batch_params(batch_params)
             self.submit_jobs(batch_params, cmd)
-
+        return batch_params, cmd
 
 
 def build_params_from_config_and_batch(config, batch_param):
+    from dannce.interface import build_params
+    from dannce.engine.processing import infer_params
     # Build final parameter dictionary
     params = build_params(config, dannce_net=True)
-    for k, v in batch_param.items():
-        params[k] = v
-    for k, v in _param_defaults_dannce.items():
-        if k not in params:
-            params[k] = v
-    for k, v in _param_defaults_shared.items():
-        if k not in params:
-            params[k] = v
+    for key, value in batch_param.items():
+        params[key] = value
+    for key, value in _param_defaults_dannce.items():
+        if key not in params:
+            params[key] = value
+    for key, value in _param_defaults_shared.items():
+        if key not in params:
+            params[key] = value
     params = infer_params(params, dannce_net=True, prediction=True)
     return params
 
+
 def dannce_predict_single_batch():
+    from dannce.interface import dannce_predict
     # Load in parameters to modify
     config = sys.argv[1]
     handler = MultiGpuHandler(config)
@@ -176,10 +207,11 @@ def dannce_predict_single_batch():
     params = build_params_from_config_and_batch(config, batch_param)
 
     # Predict
-    from dannce.interface import dannce_predict
     dannce_predict(params)
 
+
 def com_predict_single_batch():
+    from dannce.interface import com_predict
     # Load in parameters to modify
     config = sys.argv[1]
     handler = MultiGpuHandler(config)
