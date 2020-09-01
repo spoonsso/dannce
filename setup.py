@@ -26,6 +26,10 @@ setup(
             "dannce-predict = dannce.cli:dannce_predict_cli",
             "com-train = dannce.cli:com_train_cli",
             "com-predict = dannce.cli:com_predict_cli",
+            "dannce-predict-multi-gpu = cluster.multi_gpu:dannce_predict_multi_gpu",
+            "com-predict-multi-gpu = cluster.multi_gpu:com_predict_multi_gpu",
+            "dannce-predict-single-batch = cluster.multi_gpu:dannce_predict_single_batch",
+            "com-predict-single-batch = cluster.multi_gpu:com_predict_single_batch",
         ]
     },
 )
