@@ -9,7 +9,6 @@ setup(
         "six",
         "pyyaml",
         "imageio>=2.2.0",
-        "imageio-ffmpeg",
         "scikit-image",
         "matplotlib",
         "opencv-python",
