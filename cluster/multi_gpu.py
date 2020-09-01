@@ -3,9 +3,10 @@ import sys
 import pickle
 import os
 import yaml
+import argparse
+import ast
+from scipy.io import loadmat
 from dannce.engine.io import load_sync, load_com
-from dannce.interface import build_params
-from dannce.engine.processing import infer_params
 from dannce import _param_defaults_shared, _param_defaults_dannce, _param_defaults_com
 
 
@@ -191,17 +192,81 @@ def com_predict_single_batch():
     params = build_params_from_config_and_batch(config, batch_param)
 
     # Predict
-    from dannce.interface import com_predict
     com_predict(params)
+
 
 def dannce_predict_multi_gpu():
     # Load in parameters to modify
-    config = sys.argv[1]
-    handler = MultiGpuHandler(config)
+    args = cmdline_args()
+    handler = MultiGpuHandler(**args.__dict__)
     handler.submit_dannce_predict_multi_gpu()
+
 
 def com_predict_multi_gpu():
     # Load in parameters to modify
-    config = sys.argv[1]
-    handler = MultiGpuHandler(config)
+    args = cmdline_args()
+    handler = MultiGpuHandler(**args.__dict__)
     handler.submit_com_predict_multi_gpu()
+
+
+def cmdline_args():
+    # Make parser object
+    p = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+
+    p.add_argument("config", help="Path to .yaml configuration file")
+    p.add_argument(
+        "--n-samples-per-gpu",
+        dest="n_samples_per_gpu",
+        type=int,
+        default=10000,
+        help="Number of samples for each GPU job to handle.",
+    )
+    p.add_argument(
+        "--only-unfinished",
+        dest="only_unfinished",
+        type=ast.literal_eval,
+        default=False,
+        help="If true, only predict chunks that have not been previously predicted.",
+    )
+    p.add_argument(
+        "--predict-path",
+        dest="predict_path",
+        default=None,
+        help="When using only_unfinished, check predict_path for previously predicted chunks.",
+    )
+    p.add_argument(
+        "--com-file",
+        dest="com_file",
+        default=None,
+        help="Use com-file to check the number of samples over which to predict rather than a dannce.mat file",
+    )
+    # p.add_argument(
+    #     "--batch-param-file",
+    #     dest="batch_param_file",
+    #     default="_batch_params.p",
+    #     help="Name of file in which to store submission params.",
+    # )
+    p.add_argument(
+        "--verbose",
+        dest="verbose",
+        type=ast.literal_eval,
+        default=True,
+        help="If True, print out submission command and info.",
+    )
+    p.add_argument(
+        "--test",
+        dest="test",
+        type=ast.literal_eval,
+        default=False,
+        help="If True, print out submission command and info, but do not submit jobs.",
+    )
+    p.add_argument(
+        "--dannce-file",
+        dest="dannce_file",
+        default=None,
+        help="Path to dannce.mat file to use for determining n total samples.",
+    )
+
+    return p.parse_args()
