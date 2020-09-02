@@ -95,7 +95,7 @@ class DataGenerator(keras.utils.Sequence):
         This is currently implemented for handling only one camera as input
         """
         chunks = self._N_VIDEO_FRAMES
-        cur_video_id = np.nonzero([c > ind for c in chunks])[0][0]
+        cur_video_id = np.nonzero([c >= ind for c in chunks])[0][0]
         prev_video_id = cur_video_id - 1
         cur_last_frame = chunks[cur_video_id]
         prev_last_frame = chunks[prev_video_id]
