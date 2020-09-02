@@ -95,15 +95,10 @@ class DataGenerator(keras.utils.Sequence):
         This is currently implemented for handling only one camera as input
         """
         chunks = self._N_VIDEO_FRAMES
-        cur_video_id = np.nonzero([c > ind for c in chunks])[0][0]
-        prev_video_id = cur_video_id - 1
-        cur_last_frame = chunks[cur_video_id]
-        prev_last_frame = chunks[prev_video_id]
-        fname = str(cur_last_frame) + extension
-        if prev_video_id == -1:
-            frame_num = int(ind)
-        else:
-            frame_num = int(ind - prev_last_frame)
+        cur_video_id = np.nonzero([c <= ind for c in chunks])[0][0]
+        cur_first_frame = chunks[cur_video_id]
+        fname = str(cur_first_frame) + extension
+        frame_num = int(ind - cur_first_frame)
 
         keyname = os.path.join(camname, fname)
         if preload:
