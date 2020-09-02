@@ -104,9 +104,10 @@ def infer_params(params, dannce_net, prediction):
     extension = ".mp4" if any([".mp4" in file for file in video_files]) else ".avi"
     print_and_set(params, "extension", extension)
     video_files = [file for file in video_files if extension in file]
+    
     if len(video_files) > 1:
         video_files = sorted(video_files, key=lambda x: int(x.split(".")[0]))
-        chunks = int(video_files[1].split(".")[0]) - int(video_files[0].split(".")[0])
+        chunks = [int(x.split(".")[0]) for x in video_files]
     else:
         chunks = 1e10
     camf = os.path.join(viddir, video_files[0])

@@ -76,6 +76,8 @@ class DataGenerator(keras.utils.Sequence):
                     self.currvideo[cc] = None
                     self.currvideo_name[cc] = None
 
+        self._N_VIDEO_FRAMES = np.cumsum(self._N_VIDEO_FRAMES)
+         
     def __len__(self):
         """Denote the number of batches per epoch."""
         return int(np.floor(len(self.list_IDs) / self.batch_size))
@@ -92,12 +94,17 @@ class DataGenerator(keras.utils.Sequence):
 
         This is currently implemented for handling only one camera as input
         """
+        chunks = self._N_VIDEO_FRAMES
+        cur_video_id = np.nonzero([c > ind for c in chunks])[0][0]
+        prev_video_id = cur_video_id - 1
+        cur_last_frame = chunks[cur_video_id]
+        prev_last_frame = chunks[prev_video_id]
+        fname = str(cur_last_frame) + extension
+        if prev_video_id == -1:
+            frame_num = int(ind)
+        else:
+            frame_num = int(ind - prev_last_frame)
 
-        fname = (
-            str(self._N_VIDEO_FRAMES * int(np.floor(ind / self._N_VIDEO_FRAMES)))
-            + extension
-        )
-        frame_num = int(ind % self._N_VIDEO_FRAMES)
         keyname = os.path.join(camname, fname)
         if preload:
             return self.vidreaders[camname][keyname].get_data(frame_num).astype("uint8")
