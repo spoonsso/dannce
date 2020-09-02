@@ -73,7 +73,7 @@ class DataGenerator_downsample(keras.utils.Sequence):
         # self.chunks = int(chunks)
         self.multimode = multimode
 
-        self._N_VIDEO_FRAMES = self.chunks
+        self._N_VIDEO_FRAMES = chunks
 
         self.mono = mono
 
