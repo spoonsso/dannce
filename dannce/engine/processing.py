@@ -704,7 +704,6 @@ def generate_readers(
     viddir, camname, minopt=0, maxopt=300000, pathonly=False, extension=".mp4"
 ):
     """Open all mp4 objects with imageio, and return them in a dictionary."""
-    print("NOTE: Ignoring mp4 files numbered above {}".format(maxopt))
     out = {}
     mp4files = [
         os.path.join(camname, f)
@@ -731,6 +730,7 @@ def generate_readers(
         if pathonly:
             out[mp4files_scrub[i]] = os.path.join(viddir, mp4files[i])
         else:
+            print("NOTE: Ignoring {} files numbered above {}".format(extensions,maxopt))
             out[mp4files_scrub[i]] = imageio.get_reader(
                 os.path.join(viddir, mp4files[i]),
                 pixelformat=pixelformat,

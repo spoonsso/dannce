@@ -758,10 +758,7 @@ def dannce_train(params):
 
     # When this true, the data generator will shuffle the cameras and then select the first 3,
     # to feed to a native 3 camera model
-    if params["cam3_train"]:
-        cam3_train = True
-    else:
-        cam3_train = False
+    cam3_train = params["cam3_train"]
 
     # Used to initialize arrays for mono, and also in *frommem (the final generator)
     params["chan_num"] = 1 if params["mono"] else params["n_channels_in"]
@@ -930,10 +927,7 @@ def dannce_train(params):
         y_valid[i] = rr[1]
 
     # Now we can generate from memory with shuffling, rotation, etc.
-    if params["channel_combo"] == "random":
-        randflag = True
-    else:
-        randflag = False
+    randflag = params["channel_combo"] == "random"
 
     train_generator = DataGenerator_3Dconv_frommem(
         np.arange(len(partition["train_sampleIDs"])),
@@ -1066,16 +1060,17 @@ def dannce_train(params):
             self.tID = tID
             self.vID = vID
             self.total_epochs = total_epochs
-            self.val_loss = 1e10 
+            self.val_loss = 1e10
             self.odir = odir
             self.tgrid = tgrid
             self.vgrid = vgrid
             self.tlabel = tlabel
             self.vlabel = vlabel
         def on_epoch_end(self, epoch, logs=None):
-            if epoch == self.total_epochs-1 or logs['val_loss'] < self.val_loss and epoch > 25:
+            lkey = 'val_loss' if 'val_loss' in logs else 'loss'
+            if epoch == self.total_epochs-1 or logs[lkey] < self.val_loss and epoch > 25:
                 print("Saving predictions on train and validation data, after epoch {}".format(epoch))
-                self.val_loss = logs['val_loss']
+                self.val_loss = logs[lkey]
                 pred_t = model.predict([self.td, self.tgrid], batch_size=1)
                 pred_v = model.predict([self.vd, self.vgrid], batch_size=1)
                 ofile = os.path.join(self.odir,'checkpoint_predictions_e{}.mat'.format(epoch))
@@ -1085,7 +1080,23 @@ def dannce_train(params):
                                     'target_valid': self.vlabel,
                                     'train_sampleIDs': self.tID,
                                     'valid_sampleIDs': self.vID})
-    callbacks = [csvlog, model_checkpoint, tboard]
+
+    class saveCheckPoint(keras.callbacks.Callback):
+        def __init__(self, odir, saveE=[1, 250, 500, 750, 1000]):
+            self.odir = odir
+            self.saveE = np.array(saveE)-1
+        def on_epoch_end(self, epoch, logs=None):
+            lkey = 'val_loss' if 'val_loss' in logs else 'loss'
+            val_loss = logs[lkey]
+            if epoch in self.saveE:
+                print("Saving checkpoint weights at epoch {}".format(epoch))
+                savename = 'weights.checkpoint.epoch{}.{}{:.5f}'.format(epoch,
+                                                                        lkey,
+                                                                        val_loss)
+                self.model.save(savename)
+
+                
+    callbacks = [csvlog, model_checkpoint, tboard, saveCheckPoint(params['dannce_train_dir'])]
 
     if params['expval']:
         save_callback = savePredTargets(params['epochs'],X_train,
