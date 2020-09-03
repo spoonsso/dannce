@@ -111,7 +111,7 @@ class DataGenerator_downsample(keras.utils.Sequence):
 
     def load_vid_frame(self, ind, camname, preload=True, extension=".mp4"):
         """Load the video frame from a single camera."""
-        chunks = self._N_VIDEO_FRAMES
+        chunks = self._N_VIDEO_FRAMES[camname]
         cur_video_id = np.nonzero([c <= ind for c in chunks])[0][-1]
         cur_first_frame = chunks[cur_video_id]
         fname = str(cur_first_frame) + extension
