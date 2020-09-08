@@ -351,7 +351,9 @@ def prepend_experiment(CONFIG_PARAMS, datadict, num_experiments, camnames, camer
     """
     cameras_ = {}
     datadict_ = {}
+    new_chunks = {}
     for e in range(num_experiments):
+        prev_chunk = CONFIG_PARAMS["experiment"][e]["chunks"][camnames[e]]
         # Create a unique camname for each camera in each experiment
         cameras_[e] = {}
         for key in cameras[e]:
@@ -360,6 +362,8 @@ def prepend_experiment(CONFIG_PARAMS, datadict, num_experiments, camnames, camer
         camnames[e] = [str(e) + "_" + f for f in camnames[e]]
 
         CONFIG_PARAMS["experiment"][e]["camnames"] = camnames[e]
+        new_chunks[camnames[e]] = prev_chunk
+    CONFIG_PARAMS["experiment"][e]["chunks"] = new_chunks
 
     for key in datadict.keys():
         enum = key.split("_")[0]
