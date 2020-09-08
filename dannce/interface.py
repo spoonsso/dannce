@@ -5,6 +5,7 @@ from copy import deepcopy
 import scipy.io as sio
 import imageio
 import time
+import gc
 
 import tensorflow as tf
 import tensorflow.keras as keras
@@ -1082,21 +1083,23 @@ def dannce_train(params):
                                     'valid_sampleIDs': self.vID})
 
     class saveCheckPoint(keras.callbacks.Callback):
-        def __init__(self, odir, saveE=[1, 250, 500, 750, 1000]):
+        def __init__(self, odir, total_epochs):
             self.odir = odir
-            self.saveE = np.array(saveE)-1
+            self.saveE = np.arange(0, total_epochs, 250)
         def on_epoch_end(self, epoch, logs=None):
             lkey = 'val_loss' if 'val_loss' in logs else 'loss'
             val_loss = logs[lkey]
             if epoch in self.saveE:
+                # Do a garbage collect to combat keras memory leak
+                gc.collect()
                 print("Saving checkpoint weights at epoch {}".format(epoch))
-                savename = 'weights.checkpoint.epoch{}.{}{:.5f}'.format(epoch,
+                savename = 'weights.checkpoint.epoch{}.{}{:.5f}.hdf5'.format(epoch,
                                                                         lkey,
                                                                         val_loss)
-                self.model.save(savename)
+                self.model.save(os.path.join(self.odir, savename))
 
                 
-    callbacks = [csvlog, model_checkpoint, tboard, saveCheckPoint(params['dannce_train_dir'])]
+    callbacks = [csvlog, model_checkpoint, tboard, saveCheckPoint(params['dannce_train_dir'], params["epochs"])]
 
     if params['expval']:
         save_callback = savePredTargets(params['epochs'],X_train,
