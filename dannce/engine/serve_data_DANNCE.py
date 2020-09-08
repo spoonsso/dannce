@@ -352,17 +352,18 @@ def prepend_experiment(CONFIG_PARAMS, datadict, num_experiments, camnames, camer
     cameras_ = {}
     datadict_ = {}
     new_chunks = {}
+    prev_camnames = camnames.copy()
     for e in range(num_experiments):
-        prev_chunk = CONFIG_PARAMS["experiment"][e]["chunks"][camnames[e]]
+
         # Create a unique camname for each camera in each experiment
         cameras_[e] = {}
         for key in cameras[e]:
             cameras_[e][str(e) + "_" + key] = cameras[e][key]
 
         camnames[e] = [str(e) + "_" + f for f in camnames[e]]
+        for e, name in enumerate(camnames[e]):
+            new_chunks[name] = CONFIG_PARAMS["experiment"][e]["chunks"][prev_camnames[e]]
 
-        CONFIG_PARAMS["experiment"][e]["camnames"] = camnames[e]
-        new_chunks[camnames[e]] = prev_chunk
     CONFIG_PARAMS["experiment"][e]["chunks"] = new_chunks
 
     for key in datadict.keys():
