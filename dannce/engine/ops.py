@@ -227,6 +227,13 @@ def sample_grid_torch_linear(im, projPts, device, method="bilinear"):
     im_x1_safe = torch.clamp(im_x1, 0, fw - 1)
     im_y1_safe = torch.clamp(im_y1, 0, fh - 1)
 
+    im_x1[im_x1 < 0] = 0
+    im_y1[im_y1 < 0] = 0
+    im_x0[im_x0 < 0] = 0
+    im_y0[im_y0 < 0] = 0
+    im_x1_safe[im_x1_safe < 0] = 0
+    im_y1_safe[im_y1_safe < 0] = 0
+
     Ia = feats[im_y0, im_x0]
     Ib = feats[im_y0, im_x1_safe]
     Ic = feats[im_y1_safe, im_x0]
