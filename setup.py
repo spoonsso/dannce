@@ -9,6 +9,7 @@ setup(
         "six",
         "pyyaml",
         "imageio>=2.2.0",
+	"numpy<1.19.0",
         "scikit-image",
         "matplotlib",
         "opencv-python",
@@ -18,7 +19,9 @@ setup(
     scripts=['cluster/holy_dannce_train.sh',
              'cluster/holy_com_train.sh',
              'cluster/holy_dannce_predict.sh',
-             'cluster/holy_com_predict.sh'],
+             'cluster/holy_com_predict.sh',
+             'cluster/holy_com_predict_multi_gpu.sh',
+             'cluster/holy_dannce_predict_multi_gpu.sh'],
     entry_points={
         "console_scripts": [
             "dannce-train = dannce.cli:dannce_train_cli",
