@@ -14,7 +14,7 @@ class MultiGpuHandler:
     def __init__(
         self,
         config,
-        n_samples_per_gpu=10000,
+        n_samples_per_gpu=5000,
         only_unfinished=False,
         predict_path=None,
         com_file=None,
@@ -83,6 +83,8 @@ class MultiGpuHandler:
         """
         sync = load_sync(dannce_file)
         n_samples = len(sync[0]["data_frame"])
+        if n_samples == 1:
+            n_samples = len(sync[0]["data_frame"][0])
 
         if use_com:
             # If a com file is specified, use it
@@ -165,6 +167,7 @@ class MultiGpuHandler:
 
         """
         n_samples = self.get_n_samples(self.dannce_file, use_com=False)
+        print(n_samples)
         batch_params = self.generate_batch_params(n_samples)
         cmd = "sbatch --array=0-%d holy_com_predict_multi_gpu.sh %s" % (
             len(batch_params) - 1,
@@ -176,20 +179,26 @@ class MultiGpuHandler:
         return batch_params, cmd
 
 
-def build_params_from_config_and_batch(config, batch_param):
+def build_params_from_config_and_batch(config, batch_param, dannce_net=True):
     from dannce.interface import build_params
     from dannce.engine.processing import infer_params
     # Build final parameter dictionary
-    params = build_params(config, dannce_net=True)
+    params = build_params(config, dannce_net=dannce_net)
     for key, value in batch_param.items():
         params[key] = value
-    for key, value in _param_defaults_dannce.items():
-        if key not in params:
-            params[key] = value
+    if dannce_net:
+        for key, value in _param_defaults_dannce.items():
+            if key not in params:
+                params[key] = value
+    else:
+        for key, value in _param_defaults_com.items():
+            if key not in params:
+                params[key] = value
     for key, value in _param_defaults_shared.items():
         if key not in params:
             params[key] = value
-    params = infer_params(params, dannce_net=True, prediction=True)
+    
+    params = infer_params(params, dannce_net=dannce_net, prediction=True)
     return params
 
 
@@ -217,11 +226,12 @@ def com_predict_single_batch():
     handler = MultiGpuHandler(config)
     batch_params = handler.load_batch_params()
     task_id = int(os.getenv("SLURM_ARRAY_TASK_ID"))
+    # task_id = 0
     batch_param = batch_params[task_id]
     print(batch_param)
 
     # Build final parameter dictionary
-    params = build_params_from_config_and_batch(config, batch_param)
+    params = build_params_from_config_and_batch(config, batch_param, dannce_net=False)
 
     # Predict
     com_predict(params)
@@ -252,7 +262,7 @@ def cmdline_args():
         "--n-samples-per-gpu",
         dest="n_samples_per_gpu",
         type=int,
-        default=10000,
+        default=5000,
         help="Number of samples for each GPU job to handle.",
     )
     p.add_argument(
