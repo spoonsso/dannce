@@ -21,7 +21,10 @@ setup(
              'cluster/holy_dannce_predict.sh',
              'cluster/holy_com_predict.sh',
              'cluster/holy_com_predict_multi_gpu.sh',
-             'cluster/holy_dannce_predict_multi_gpu.sh'],
+             'cluster/holy_dannce_predict_multi_gpu.sh',
+             'cluster/com_and_dannce.sh',
+             'cluster/dannce.sh',
+             'cluster/com.sh'],
     entry_points={
         "console_scripts": [
             "dannce-train = dannce.cli:dannce_train_cli",
