@@ -94,7 +94,7 @@ class DataGenerator(keras.utils.Sequence):
         """
 
         fname = (
-            str(self._N_VIDEO_FRAMES * int(np.floor(ind / self._N_VIDEO_FRAMES)))
+            str(int(self._N_VIDEO_FRAMES * int(np.floor(ind / self._N_VIDEO_FRAMES))))
             + extension
         )
         frame_num = int(ind % self._N_VIDEO_FRAMES)
