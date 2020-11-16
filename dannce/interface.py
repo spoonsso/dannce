@@ -104,7 +104,7 @@ def com_predict(params):
     params["experiment"] = {}
     params["experiment"][0] = params
 
-        # For real mono training
+    # For real mono training
     params["chan_num"] = 1 if params["mono"] else params["n_channels_in"]
 
     # Build net
@@ -386,6 +386,7 @@ def com_train(params):
         exps = params["exp"]
     num_experiments = len(exps)
     params["experiment"] = {}
+    total_chunks = {}
     for e, expdict in enumerate(exps):
 
         exp = processing.load_expdict(params, e, expdict, _DEFAULT_VIDDIR)
@@ -414,6 +415,8 @@ def com_train(params):
         )
         cameras[e] = cameras_
         camnames[e] = params["experiment"][e]["camnames"]
+        for name, chunk in exp["chunks"].items():
+            total_chunks[name] = chunk
 
     com_train_dir = params["com_train_dir"]
 
@@ -452,7 +455,7 @@ def com_train(params):
         "crop_height": params["crop_height"],
         "downsample": params["downfac"],
         "shuffle": False,
-        "chunks": params["chunks"],
+        "chunks": total_chunks,
         "dsmode": params["dsmode"],
         "preload": False,
         "mono": params["mono"]
@@ -709,6 +712,8 @@ def dannce_train(params):
     exps = params["exp"]
     num_experiments = len(exps)
     params["experiment"] = {}
+    total_chunks = {}
+
     for e, expdict in enumerate(exps):
 
         exp = processing.load_expdict(params, e, expdict, _DEFAULT_VIDDIR)
@@ -735,6 +740,8 @@ def dannce_train(params):
         camnames[e] = exp["camnames"]
         print("Using the following cameras: {}".format(camnames[e]))
         params["experiment"][e] = exp
+        for name, chunk in exp["chunks"].items():
+            total_chunks[name] = chunk
 
     dannce_train_dir = params["dannce_train_dir"]
 
@@ -801,7 +808,7 @@ def dannce_train(params):
         "distort": True,
         "expval": params["expval"],
         "crop_im": False,
-        "chunks": params["chunks"],
+        "chunks": total_chunks,
         "preload": False,
         "mono": params["mono"]
     }
