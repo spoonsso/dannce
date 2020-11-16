@@ -9,7 +9,7 @@ setup(
         "six",
         "pyyaml",
         "imageio>=2.2.0",
-	"numpy<1.19.0",
+	    "numpy<1.19.0",
         "scikit-image",
         "matplotlib",
         "opencv-python",
@@ -24,7 +24,10 @@ setup(
              'cluster/holy_dannce_predict_multi_gpu.sh',
              'cluster/com_and_dannce.sh',
              'cluster/dannce.sh',
-             'cluster/com.sh'],
+             'cluster/com.sh',
+             'cluster/com_and_dannce_multi_gpu.sh',
+             'cluster/dannce_multi_gpu.sh',
+             'cluster/com_multi_gpu.sh'],
     entry_points={
         "console_scripts": [
             "dannce-train = dannce.cli:dannce_train_cli",
@@ -35,6 +38,8 @@ setup(
             "com-predict-multi-gpu = cluster.multi_gpu:com_predict_multi_gpu",
             "dannce-predict-single-batch = cluster.multi_gpu:dannce_predict_single_batch",
             "com-predict-single-batch = cluster.multi_gpu:com_predict_single_batch",
+            "dannce-merge = cluster.multi_gpu:dannce_merge",
+            "com-merge = cluster.multi_gpu:com_merge",
         ]
     },
 )
