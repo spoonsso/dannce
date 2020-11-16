@@ -151,11 +151,11 @@ def com_predict(params):
                 )
                 end_time = time.time()
 
-            if (i - start_ind) % 1000 == 0 and i != start_ind:
-                print("Saving checkpoint at {}th sample".format(i))
-                processing.save_COM_checkpoint(
-                    save_data, com_predict_dir, datadict_, cameras, params
-                )
+            # if (i - start_ind) % 1000 == 0 and i != start_ind:
+            #     print("Saving checkpoint at {}th sample".format(i))
+            #     processing.save_COM_checkpoint(
+            #         save_data, com_predict_dir, datadict_, cameras, params
+            #     )
 
             pred_ = model.predict(valid_gen.__getitem__(i)[0])
 
@@ -339,16 +339,18 @@ def com_predict(params):
     )
 
     # If we just want to analyze a chunk of video...
-    st_ind = params["start_batch"]
+    st_ind = params["start_sample"]
     if params["max_num_samples"] == "max":
         evaluate_ondemand(st_ind, len(valid_generator), valid_generator)
+        processing.save_COM_checkpoint(
+        	save_data, com_predict_dir, datadict_, cameras, params
+    	)
     else:
         endIdx = np.min([st_ind + params["max_num_samples"], len(valid_generator)])
         evaluate_ondemand(st_ind, endIdx, valid_generator)
-
-    processing.save_COM_checkpoint(
-        save_data, com_predict_dir, datadict_, cameras, params
-    )
+        processing.save_COM_checkpoint(
+        	save_data, com_predict_dir, datadict_, cameras, params, file_name="com3d" + str(st_ind)
+    	)
 
     print("done!")
 
@@ -1060,6 +1062,7 @@ def dannce_train(params):
         monitor=mon,
         save_best_only=True,
         save_weights_only=True,
+        save_freq=450,
     )
     csvlog = CSVLogger(os.path.join(dannce_train_dir, "training.csv"))
     tboard = TensorBoard(
