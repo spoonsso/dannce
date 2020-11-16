@@ -5,10 +5,12 @@ import os
 import yaml
 import argparse
 import ast
-from scipy.io import loadmat
+from scipy.io import loadmat, savemat
 from dannce.engine.io import load_sync, load_com
 from dannce import _param_defaults_shared, _param_defaults_dannce, _param_defaults_com
 
+DANNCE_PRED_FILE_BASE_NAME = "save_data_AVG"
+COM_PRED_FILE_BASE_NAME = "com3d"
 
 class MultiGpuHandler:
     def __init__(
@@ -73,7 +75,7 @@ class MultiGpuHandler:
             com = loadmat(self.com_file)
             n_com_samples = com["com"][:].shape[0]
         else:
-            ValueError("com_file must be a .pickle or .mat file")
+            raise ValueError("com_file must be a .pickle or .mat file")
         return n_com_samples
 
     def get_n_samples(self, dannce_file, use_com=False):
@@ -96,12 +98,26 @@ class MultiGpuHandler:
                     com = load_com(dannce_file)
                     com_samples = len(com["sampleID"][0])
                 except KeyError:
-                    raise KeyError("dannce.mat file needs com field.")
+                    try:
+                        params = self.load_params("io.yaml")
+                        self.com_file = params["com_file"]
+                        com_samples = self.load_com_length_from_file()
+                    except:
+                        raise KeyError("dannce.mat file needs com field or com_file needs to be specified in io.yaml.")
             n_samples = np.min([com_samples, n_samples])
 
         return n_samples
+    
+    def generate_batch_params_com(self, n_samples):
+        start_samples = np.arange(0, n_samples, self.n_samples_per_gpu, dtype=np.int)
+        max_samples = start_samples + self.n_samples_per_gpu
+        batch_params = [
+            {"start_sample": sb, "max_num_samples": self.n_samples_per_gpu}
+            for sb, mb in zip(start_samples, max_samples)
+        ]
+        return batch_params
 
-    def generate_batch_params(self, n_samples):
+    def generate_batch_params_dannce(self, n_samples):
         start_samples = np.arange(0, n_samples, self.n_samples_per_gpu, dtype=np.int)
         max_samples = start_samples + self.n_samples_per_gpu
         max_samples[-1] = n_samples
@@ -113,13 +129,13 @@ class MultiGpuHandler:
         # Delete batch_params that were already finished
         if self.only_unfinished:
             if self.predict_path is None:
-                ValueError("Predict_path must be specified if only_unfinished is true")
+                raise ValueError("Predict_path must be specified if only_unfinished is true")
             if not os.path.exists(self.predict_path):
                 os.makedirs(self.predict_path)
             pred_files = [
-                f for f in os.listdir(self.predict_path) if "save_data_AVG" in f
+                f for f in os.listdir(self.predict_path) if DANNCE_PRED_FILE_BASE_NAME in f
             ]
-            pred_files = [f for f in pred_files if f != "save_data_AVG.mat"]
+            pred_files = [f for f in pred_files if f != (DANNCE_PRED_FILE_BASE_NAME + ".mat")]
             if len(pred_files) > 1:
                 params = self.load_params(self.config)
                 pred_ids = [
@@ -149,7 +165,7 @@ class MultiGpuHandler:
 
         """
         n_samples = self.get_n_samples(self.dannce_file, use_com=True)
-        batch_params = self.generate_batch_params(n_samples)
+        batch_params = self.generate_batch_params_dannce(n_samples)
         cmd = "sbatch --array=0-%d holy_dannce_predict_multi_gpu.sh %s" % (
             len(batch_params) - 1,
             self.config,
@@ -168,8 +184,8 @@ class MultiGpuHandler:
         """
         n_samples = self.get_n_samples(self.dannce_file, use_com=False)
         print(n_samples)
-        batch_params = self.generate_batch_params(n_samples)
-        cmd = "sbatch --array=0-%d holy_com_predict_multi_gpu.sh %s" % (
+        batch_params = self.generate_batch_params_com(n_samples)
+        cmd = "sbatch --wait --array=0-%d holy_com_predict_multi_gpu.sh %s" % (
             len(batch_params) - 1,
             self.config,
         )
@@ -177,6 +193,88 @@ class MultiGpuHandler:
             self.save_batch_params(batch_params)
             self.submit_jobs(batch_params, cmd)
         return batch_params, cmd
+
+    def com_merge(self):
+        # Get all of the paths
+        if self.predict_path is None:
+            # Try to get it from io.yaml
+            params = self.load_params("io.yaml")
+            if params["com_predict_dir"] is None:
+                raise ValueError("Either predict_path (clarg) or com_predict_dir (in io.yaml) must be specified for merge")
+            else:
+                self.predict_path = params["com_predict_dir"]
+        pred_files = [
+            f for f in os.listdir(self.predict_path) if COM_PRED_FILE_BASE_NAME in f and ".mat" in f
+        ]
+        pred_files = [f for f in pred_files if f != (COM_PRED_FILE_BASE_NAME + ".mat")]
+        pred_inds = [int(f.split(COM_PRED_FILE_BASE_NAME)[-1].split('.')[0]) for f in pred_files]
+        pred_files = [pred_files[i] for i in np.argsort(pred_inds)]
+
+        if len(pred_files) == 0:
+            raise FileNotFoundError("No prediction files were found.")
+
+        # Load all of the data and save to a single file. 
+        com, sampleID, metadata = [], [], []
+        for pred in pred_files:
+            M = loadmat(os.path.join(self.predict_path, pred))
+            com.append(M['com'][:])
+            sampleID.append(M['sampleID'][:])
+            metadata.append(M['metadata'][:])
+
+        com = np.concatenate(com, axis=0)
+        sampleID = np.concatenate(sampleID, axis=1)
+        metadata = metadata[0]
+        
+        # Update samples and max_num_samples
+        metadata['start_sample'] = 0
+        metadata['max_num_samples'] = 'max'
+
+        # save to a single file. 
+        fn = os.path.join(self.predict_path, COM_PRED_FILE_BASE_NAME + ".mat")
+        savemat(fn, {"com":com, "sampleID":sampleID, "metadata":metadata})
+
+    def dannce_merge(self):
+        # Get all of the paths
+        if self.predict_path is None:
+            # Try to get it from io.yaml
+            params = self.load_params("io.yaml")
+            if params["dannce_predict_dir"] is None:
+                raise ValueError("Either predict_path (clarg) or dannce_predict_dir (in io.yaml) must be specified for merge")
+            else:
+                self.predict_path = params["dannce_predict_dir"]
+        pred_files = [
+            f for f in os.listdir(self.predict_path) if DANNCE_PRED_FILE_BASE_NAME in f
+        ]
+        pred_files = [f for f in pred_files if f != (DANNCE_PRED_FILE_BASE_NAME + ".mat")]
+        pred_inds = [int(f.split(DANNCE_PRED_FILE_BASE_NAME)[-1].split('.')[0]) for f in pred_files]
+        pred_files = [pred_files[i] for i in np.argsort(pred_inds)]
+        if len(pred_files) == 0:
+            raise FileNotFoundError("No prediction files were found.")
+            
+        # Load all of the data
+        pred, data, p_max, sampleID, metadata = [], [], [], [], []
+        for file in pred_files:
+            M = loadmat(os.path.join(self.predict_path, file))
+            pred.append(M['pred'][:])
+            data.append(M['data'][:])
+            p_max.append(M['p_max'][:])
+            sampleID.append(M['sampleID'][:])
+            metadata.append(M['metadata'][:])
+        pred = np.concatenate(pred, axis=0)
+        data = np.concatenate(data, axis=0)
+        p_max = np.concatenate(p_max, axis=0)
+        sampleID = np.concatenate(sampleID, axis=1)
+        metadata = metadata[0]
+        
+        # Update samples and max_num_samples
+        metadata['start_sample'] = 0
+        metadata['max_num_samples'] = 'max'
+
+        # save to a single file. 
+        fn = os.path.join(self.predict_path, DANNCE_PRED_FILE_BASE_NAME + ".mat")
+        savemat(fn, {"pred":pred, "data":data, "p_max":p_max, "sampleID":sampleID, "metadata":metadata})
+
+
 
 
 def build_params_from_config_and_batch(config, batch_param, dannce_net=True):
@@ -234,7 +332,13 @@ def com_predict_single_batch():
     params = build_params_from_config_and_batch(config, batch_param, dannce_net=False)
 
     # Predict
-    com_predict(params)
+    try:
+        com_predict(params)
+    except OSError:
+        # If a job writes to the label3d file at the same time as another reads from it
+        # it throws an OSError.
+        com_predict(params)
+
 
 
 def dannce_predict_multi_gpu():
@@ -250,6 +354,15 @@ def com_predict_multi_gpu():
     handler = MultiGpuHandler(**args.__dict__)
     handler.submit_com_predict_multi_gpu()
 
+def com_merge():
+    args = cmdline_args()
+    handler = MultiGpuHandler(**args.__dict__)
+    handler.com_merge()
+
+def dannce_merge():
+    args = cmdline_args()
+    handler = MultiGpuHandler(**args.__dict__)
+    handler.dannce_merge()
 
 def cmdline_args():
     # Make parser object
