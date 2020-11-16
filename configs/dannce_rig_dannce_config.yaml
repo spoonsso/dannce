@@ -36,7 +36,7 @@ batch_size: 4
 sigma: 10
 
 # DANNCE training option. Sets the number of epochs during training
-epochs: 1000
+epochs: 500
 
 # DANNCE training option. Sets the verbosity of training output
 verbose: 1
