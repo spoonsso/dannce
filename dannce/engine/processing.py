@@ -455,13 +455,13 @@ def save_COM_dannce_mat(params, com3d, sampleID):
 
     os.remove(params["label3d_file"]+".temp")
 
-def save_COM_checkpoint(save_data, RESULTSDIR, datadict_, cameras, params):
+def save_COM_checkpoint(save_data, RESULTSDIR, datadict_, cameras, params, file_name="com3d"):
     """
     Saves COM pickle and matfiles
 
     """
     # Save undistorted 2D COMs and their 3D triangulations
-    f = open(os.path.join(RESULTSDIR, "com3d.pickle"), "wb")
+    f = open(os.path.join(RESULTSDIR, file_name + ".pickle"), "wb")
     cPickle.dump(save_data, f)
     f.close()
 
@@ -472,7 +472,7 @@ def save_COM_checkpoint(save_data, RESULTSDIR, datadict_, cameras, params):
         datadict_save[int(float(key.split("_")[-1]))] = datadict_[key]
 
     _, com3d_dict = serve_data_DANNCE.prepare_COM(
-        os.path.join(RESULTSDIR, "com3d.pickle"),
+        os.path.join(RESULTSDIR, file_name + ".pickle"),
         datadict_save,
         comthresh=0,
         weighted=False,
@@ -480,7 +480,7 @@ def save_COM_checkpoint(save_data, RESULTSDIR, datadict_, cameras, params):
         method="median",
     )
 
-    cfilename = os.path.join(RESULTSDIR, "com3d.mat")
+    cfilename = os.path.join(RESULTSDIR, file_name + ".mat")
     print("Saving 3D COM to {}".format(cfilename))
     samples_keys = list(com3d_dict.keys())
 
@@ -498,7 +498,7 @@ def save_COM_checkpoint(save_data, RESULTSDIR, datadict_, cameras, params):
     )
 
     # Also save a copy into the label3d file
-    save_COM_dannce_mat(params, c3d, samples_keys)
+    # save_COM_dannce_mat(params, c3d, samples_keys)
 
 
 def inherit_config(child, parent, keys):
