@@ -344,7 +344,7 @@ def add_experiment(
     return samples_out, datadict_out, datadict_3d_out, com3d_dict_out
 
 
-def prepend_experiment(CONFIG_PARAMS, datadict, num_experiments, camnames, cameras):
+def prepend_experiment(CONFIG_PARAMS, datadict, num_experiments, camnames, cameras, dannce_prediction=False):
     """
     Adds necessary experiment labels to data structures. E.g. experiment 0 CameraE's "camname"
         Becomes 0_CameraE.
@@ -364,7 +364,12 @@ def prepend_experiment(CONFIG_PARAMS, datadict, num_experiments, camnames, camer
         CONFIG_PARAMS["experiment"][e]["camnames"] = camnames[e]
 
         for n_cam, name in enumerate(camnames[e]):
-            new_chunks[name] = CONFIG_PARAMS["experiment"][e]["chunks"][prev_camnames[e][n_cam]]
+            # print(name)
+            # print(CONFIG_PARAMS["experiment"][e]["chunks"][name])
+            if dannce_prediction:
+                new_chunks[name] = CONFIG_PARAMS["experiment"][e]["chunks"][prev_camnames[e][n_cam]]
+            else:
+                new_chunks[name] = CONFIG_PARAMS["experiment"][e]["chunks"][name]
         CONFIG_PARAMS["experiment"][e]["chunks"] = new_chunks
 
     for key in datadict.keys():

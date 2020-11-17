@@ -183,7 +183,8 @@ def sample_grid_torch_nearest(im, projPts, device, method="bilinear"):
 
     im_xr = im_x.round().type(torch.long)
     im_yr = im_y.round().type(torch.long)
-
+    im_xr[im_xr < 0] = 0
+    im_yr[im_yr < 0] = 0
     Ir = feats[im_yr, im_xr]
 
     return Ir.reshape((c, c, c, -1)).permute(3, 0, 1, 2).unsqueeze(0)
