@@ -108,8 +108,8 @@ def infer_params(params, dannce_net, prediction):
     # Use the camnames to find the chunks for each video
     chunks = {}
     for name in params["camnames"]:
-        viddir = os.path.join(params["viddir"], name)
-        video_files = os.listdir(viddir)
+        camdir = os.path.join(viddir, name)
+        video_files = os.listdir(camdir)
         video_files = sorted(video_files, key=lambda x: int(x.split(".")[0]))
         chunks[name] = np.sort([int(x.split(".")[0]) for x in video_files])
         
