@@ -111,7 +111,7 @@ def infer_params(params, dannce_net, prediction):
         if params["vid_dir_flag"]:
             camdir = os.path.join(params["viddir"], name)
         else:
-            camdir = os.listdir(params["viddir"], name)
+            camdir = os.path.join(params["viddir"], name)
             intermediate_folder = os.listdir(camdir)
             camdir = os.path.join(camdir, intermediate_folder[0])
         video_files = os.listdir(camdir)
