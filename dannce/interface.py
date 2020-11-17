@@ -343,14 +343,14 @@ def com_predict(params):
     if params["max_num_samples"] == "max":
         evaluate_ondemand(st_ind, len(valid_generator), valid_generator)
         processing.save_COM_checkpoint(
-        	save_data, com_predict_dir, datadict_, cameras, params
-    	)
+            save_data, com_predict_dir, datadict_, cameras, params
+        )
     else:
         endIdx = np.min([st_ind + params["max_num_samples"], len(valid_generator)])
         evaluate_ondemand(st_ind, endIdx, valid_generator)
         processing.save_COM_checkpoint(
-        	save_data, com_predict_dir, datadict_, cameras, params, file_name="com3d" + str(st_ind)
-    	)
+            save_data, com_predict_dir, datadict_, cameras, params, file_name="com3d" + str(st_ind)
+        )
 
     print("done!")
 
@@ -1193,7 +1193,7 @@ def dannce_predict(params):
     # *NOTE* This function modified camnames in place
     # to add the appropriate experiment ID
     cameras, datadict, params = serve_data_DANNCE.prepend_experiment(
-        params, datadict, 1, camnames, cameras
+        params, datadict, 1, camnames, cameras, dannce_prediction=True
     )
 
     samples = np.array(samples)
