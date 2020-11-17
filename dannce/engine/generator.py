@@ -117,7 +117,12 @@ class DataGenerator(keras.utils.Sequence):
                     self.currvideo[camname].close()
                 self.currvideo[camname] = vid
 
-            im = vid.get_data(frame_num).astype("uint8")
+            # This deals with a strange indexing error in the pup data.
+            try:
+                im = vid.get_data(frame_num).astype("uint8")
+            except IndexError:
+                print("Indexing error using previous frame")
+                im = vid.get_data(frame_num - 1).astype("uint8")
 
             return im
 
