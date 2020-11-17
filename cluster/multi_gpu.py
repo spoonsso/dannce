@@ -5,12 +5,49 @@ import os
 import yaml
 import argparse
 import ast
-from scipy.io import loadmat, savemat
+from scipy.io import savemat
 from dannce.engine.io import load_sync, load_com
+from dannce.engine.processing import prepare_save_metadata
 from dannce import _param_defaults_shared, _param_defaults_dannce, _param_defaults_com
 
 DANNCE_PRED_FILE_BASE_NAME = "save_data_AVG"
 COM_PRED_FILE_BASE_NAME = "com3d"
+
+import scipy.io as spio
+
+def loadmat(filename):
+    '''
+    this function should be called instead of direct spio.loadmat
+    as it cures the problem of not properly recovering python dictionaries
+    from mat files. It calls the function check keys to cure all entries
+    which are still mat-objects
+    '''
+    data = spio.loadmat(filename, struct_as_record=False, squeeze_me=True)
+    return _check_keys(data)
+
+def _check_keys(dict):
+    '''
+    checks if entries in dictionary are mat-objects. If yes
+    todict is called to change them to nested dictionaries
+    '''
+    for key in dict:
+        if isinstance(dict[key], spio.matlab.mio5_params.mat_struct):
+            dict[key] = _todict(dict[key])
+    return dict        
+
+def _todict(matobj):
+    '''
+    A recursive function which constructs from matobjects nested dictionaries
+    '''
+    dict = {}
+    for strg in matobj._fieldnames:
+        elem = matobj.__dict__[strg]
+        if isinstance(elem, spio.matlab.mio5_params.mat_struct):
+            dict[strg] = _todict(elem)
+        else:
+            dict[strg] = elem
+    return dict
+
 
 class MultiGpuHandler:
     def __init__(
@@ -166,7 +203,7 @@ class MultiGpuHandler:
         """
         n_samples = self.get_n_samples(self.dannce_file, use_com=True)
         batch_params = self.generate_batch_params_dannce(n_samples)
-        cmd = "sbatch --array=0-%d holy_dannce_predict_multi_gpu.sh %s" % (
+        cmd = "sbatch --wait --array=0-%d holy_dannce_predict_multi_gpu.sh %s" % (
             len(batch_params) - 1,
             self.config,
         )
@@ -217,9 +254,9 @@ class MultiGpuHandler:
         com, sampleID, metadata = [], [], []
         for pred in pred_files:
             M = loadmat(os.path.join(self.predict_path, pred))
-            com.append(M['com'][:])
-            sampleID.append(M['sampleID'][:])
-            metadata.append(M['metadata'][:])
+            com.append(M['com'])
+            sampleID.append(M['sampleID'])
+            metadata.append(M['metadata'])
 
         com = np.concatenate(com, axis=0)
         sampleID = np.concatenate(sampleID, axis=1)
@@ -255,15 +292,15 @@ class MultiGpuHandler:
         pred, data, p_max, sampleID, metadata = [], [], [], [], []
         for file in pred_files:
             M = loadmat(os.path.join(self.predict_path, file))
-            pred.append(M['pred'][:])
-            data.append(M['data'][:])
-            p_max.append(M['p_max'][:])
-            sampleID.append(M['sampleID'][:])
-            metadata.append(M['metadata'][:])
+            pred.append(M['pred'])
+            data.append(M['data'])
+            p_max.append(M['p_max'])
+            sampleID.append(M['sampleID'])
+            metadata.append(M['metadata'])
         pred = np.concatenate(pred, axis=0)
         data = np.concatenate(data, axis=0)
         p_max = np.concatenate(p_max, axis=0)
-        sampleID = np.concatenate(sampleID, axis=1)
+        sampleID = np.concatenate(sampleID, axis=0)
         metadata = metadata[0]
         
         # Update samples and max_num_samples
