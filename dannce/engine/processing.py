@@ -115,6 +115,7 @@ def infer_params(params, dannce_net, prediction):
             intermediate_folder = os.listdir(camdir)
             camdir = os.path.join(camdir, intermediate_folder[0])
         video_files = os.listdir(camdir)
+        video_files = [f for f in video_files if ".mp4"  in f]
         video_files = sorted(video_files, key=lambda x: int(x.split(".")[0]))
         chunks[name] = np.sort([int(x.split(".")[0]) for x in video_files])
         

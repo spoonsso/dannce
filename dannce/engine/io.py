@@ -4,7 +4,7 @@ import scipy.io as sio
 
 def load_label3d_data(path, key):
     d = sio.loadmat(path)[key]
-    dataset = [f[:] for f in d]
+    dataset = [f[0] for f in d]
 
     # Data are loaded in this annoying structure where the array
     # we want is at dataset[i][key][0,0], as a nested array of arrays.
@@ -57,7 +57,10 @@ def load_camnames(path):
     label_3d_file = sio.loadmat(path)
     if "camnames" in label_3d_file:
         names = label_3d_file["camnames"][:]
-        camnames = [name[0][0] for name in names]
+        if len(camnames) != len(label_3d_file["sync"]):
+            camnames = [name[0] for name in names[0]]
+        else:
+            camnames = [name[0][0] for name in names]
     else:
         camnames = None
     return camnames
