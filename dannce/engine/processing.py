@@ -568,12 +568,17 @@ def load_expdict(params, e, expdict, _DEFAULT_VIDDIR):
         exp["camnames"] = l3d_camnames
     print("Experiment {} using camnames: {}".format(e, exp["camnames"]))
 
-
     # Use the camnames to find the chunks for each video
     chunks = {}
     for name in exp["camnames"]:
-        viddir = os.path.join(exp["viddir"], name)
-        video_files = os.listdir(viddir)
+        if exp["vid_dir_flag"]:
+            camdir = os.path.join(exp["viddir"], name)
+        else:
+            camdir = os.path.join(exp["viddir"], name)
+            intermediate_folder = os.listdir(camdir)
+            camdir = os.path.join(camdir, intermediate_folder[0])
+        video_files = os.listdir(camdir)
+        video_files = [f for f in video_files if ".mp4"  in f]
         video_files = sorted(video_files, key=lambda x: int(x.split(".")[0]))
         chunks[str(e) + '_' + name] = np.sort([int(x.split(".")[0]) for x in video_files])
     exp["chunks"] = chunks
