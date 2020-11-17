@@ -165,8 +165,13 @@ class MultiGpuHandler:
 
         # Delete batch_params that were already finished
         if self.only_unfinished:
+
             if self.predict_path is None:
-                raise ValueError("Predict_path must be specified if only_unfinished is true")
+                params = self.load_params("io.yaml")
+                if params["dannce_predict_dir"] is None:
+                    raise ValueError("Either predict_path (clarg) or com_predict_dir (in io.yaml) must be specified for merge")
+                else:
+                    self.predict_path = params["dannce_predict_dir"]
             if not os.path.exists(self.predict_path):
                 os.makedirs(self.predict_path)
             pred_files = [
