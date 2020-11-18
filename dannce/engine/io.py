@@ -57,7 +57,7 @@ def load_camnames(path):
     label_3d_file = sio.loadmat(path)
     if "camnames" in label_3d_file:
         names = label_3d_file["camnames"][:]
-        if len(names) != len(label_3d_file["sync"]):
+        if len(names) != len(label_3d_file["labelData"]):
             camnames = [name[0] for name in names[0]]
         else:
             camnames = [name[0][0] for name in names]
