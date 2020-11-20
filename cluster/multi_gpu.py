@@ -264,7 +264,7 @@ class MultiGpuHandler:
             metadata.append(M['metadata'])
 
         com = np.concatenate(com, axis=0)
-        sampleID = np.concatenate(sampleID, axis=1)
+        sampleID = np.concatenate(sampleID, axis=0)
         metadata = metadata[0]
         
         # Update samples and max_num_samples
