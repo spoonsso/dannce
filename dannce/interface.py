@@ -1069,7 +1069,6 @@ def dannce_train(params):
         monitor=mon,
         save_best_only=True,
         save_weights_only=True,
-        save_freq=450,
     )
     csvlog = CSVLogger(os.path.join(dannce_train_dir, "training.csv"))
     tboard = TensorBoard(
