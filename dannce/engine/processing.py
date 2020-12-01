@@ -432,6 +432,16 @@ def save_params(outdir, params):
 
     return True
 
+def make_none_safe(pdict):
+    if isinstance(pdict, dict):
+        for key in pdict:
+            pdict[key] = make_none_safe(pdict[key])
+    else:
+        if pdict is None or (isinstance(pdict, list) and None in pdict) or (isinstance(pdict, tuple) and None in pdict):
+            return "None"
+        else:
+            return pdict
+
 def prepare_save_metadata(params):
     """
     To save metadata, i.e. the prediction param values associated with COM or DANNCE
@@ -442,9 +452,6 @@ def prepare_save_metadata(params):
     # Need to convert None to string but still want to conserve the metadat structure
     # format, so we don't want to convert the whole dict to a string
     meta = params.copy()
-    for key in meta.keys():
-        if meta[key] is None:
-            meta[key] = "None"
 
     if "experiment" in meta:
         del meta["experiment"]
@@ -456,6 +463,8 @@ def prepare_save_metadata(params):
         meta["metric"] = [
             f.__name__ if not isinstance(f, str) else f for f in meta["metric"]
         ]
+
+    make_none_safe(meta)
 
     return meta
 
