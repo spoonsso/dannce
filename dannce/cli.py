@@ -306,6 +306,11 @@ def add_dannce_shared_args(parser):
         dest="predict_mode",
         help="Method for unprojection. Options: numpy, torch, or tensorflow.",
     )
+    parser.add_argument(
+        "--n-views",
+        dest="n_views",
+        type=int,
+        help="Sets the absolute number of views (when using fewer than 6 views only)")
     return parser
 
 
@@ -463,7 +468,7 @@ def add_com_shared_args(parser):
         help="Downsampling mode. Can be dsm (local average) or nn (nearest_neighbor).",
     )
     parser.add_argument(
-        "--downfac", dest="downfac", help="Downfactoring rate of images."
+        "--downfac", dest="downfac", type=int, help="Downfactoring rate of images."
     )
     parser.add_argument(
         "--debug",

@@ -1597,7 +1597,7 @@ def do_COM_load(exp, expdict, n_views, e, params, training=True):
     )
 
     # If len(exp['camnames']) divides evenly into n_views, duplicate here
-    # This must come after loading in this excperiment's data because there
+    # This must come after loading in this experiment's data because there
     # is an assertion that len(exp['camnames']) == the number of cameras
     # in the label files (which will not be duplicated)
     exp = processing.dupe_params(exp, ["camnames"], n_views)
