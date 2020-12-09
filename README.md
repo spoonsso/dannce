@@ -21,21 +21,27 @@ DANNCE (3-Dimensional Aligned Neural Network for Computational Ethology) is a co
 
 |      OS               | Python | TensorFlow | CUDA | cuDNN | PyTorch |
 |:---------------------:|:------:|:----------:|:----:|:-----:|:-------:|
-| Ubuntu 16.04 or 18.04 |  3.7.x |   2.2.0    | 10.1 |  7.6  |  1.5.0  |
-| Windows 10            |  3.7.x |   2.2.0    | 10.1 |  7.6  |  1.5.0  |
+| Ubuntu 16.04 or 18.04 |  3.7.x |   2.2.0 - 2.3.0  | 10.1 |  7.6  |  1.5.0 - 1.7.0  |
+| Windows 10            |  3.7.x |   2.2.0 - 2.3.0  | 10.1 |  7.6  |  1.5.0 - 1.7.0  |
 
 We recommend installing DANNCE using the following steps:
 
 1. If you do not already have it, install [Anaconda](https://www.anaconda.com/products/individual).
 
 2. Set up a new Anaconda environment with the following configuration: \
-`conda create -n dannce python=3.7 cudatoolkit=10.1 cudnn`
+`conda create -n dannce python=3.7 cudatoolkit=10.1 cudnn ffmpeg`
 
 3. Activate the new Anaconda environment: \
 `conda activate dannce`
 
-4. Install DANNCE with the included setup script from within the base repository directory: \
-`python setup.py install`
+4. Install PyTorch: \
+`conda install pytorch=1.7 -c pytorch`
+
+5. Update setuptools: \
+`pip install -U setuptools`
+
+6. Install DANNCE with the included setup script from within the base repository directory: \
+`pip install -e .`
 
 Then you should be ready to try the quickstart demo! \
 These installation steps were tested with Anaconda releases 4.7.12 and 2020.02, although we expect it to work for most conda installations.
@@ -76,7 +82,7 @@ rm -r vids2 vids2.zip
 Once the files are downloaded and placed, run: 
 ```
 cd demo/markerless_mouse_1/; 
-python ../../predict_DANNCE.py config.yaml 
+dannce-predict ../../configs/dannce_mouse_config.yaml
 ```
 
 This demo will run the `AVG` version of DANNCE over 1000 frames of mouse data and save the results to: \
@@ -103,7 +109,7 @@ When calibrating the mirror setup, we have used one intrinsic parameter calibrat
 Cameras tested:
 1. Point Grey Flea3
 2. Blackfly BFS-U3-162M/C-CS
-3. Basler ace aca1920-155uc, aca640-750um, aca720-510um
+3. Basler ace aca1920-155uc
 
 
 ## Formatting The Data
