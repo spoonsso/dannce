@@ -32,6 +32,14 @@ cd tests/configs
 # com-predict config_com_mousetest.yaml
 # python ../compare_predictions.py ../touchstones/COM3D_undistorted_masternn.mat ../../demo/markerless_mouse_1/COM/predict_test/com3d.mat 0.001
 
+# echo "Testing COMfinder prediction, 3 cams"
+# #cp ./label3d_temp_dannce_3cam.mat ./alabel3d_temp_dannce.mat
+# com-predict config_com_mousetest.yaml --downfac=4
+
+echo "Testing COMfinder prediction, 5 cams"
+cp ./label3d_temp_dannce_5cam.mat ./alabel3d_temp_dannce.mat
+com-predict config_com_mousetest.yaml --downfac=2
+
 # echo "Testing DANNCE training, finetune_MAX"
 # dannce-train config_mousetest.yaml --net-type=MAX --dannce-finetune-weights=../../demo/markerless_mouse_1/DANNCE/weights/weights.rat.MAX/
 
@@ -65,16 +73,35 @@ cd tests/configs
 # echo "Testing DANNCE prediction, MONO"
 # dannce-predict config_mousetest.yaml --net-type=AVG --dannce-predict-model=../../demo/markerless_mouse_1/DANNCE/train_test/fullmodel_weights/fullmodel_end.hdf5 --mono=True
 
-cp ./label3d_temp_dannce.mat ./alabel3d_temp_dannce.mat
-echo "Testing DANNCE AVG prediction"
-dannce-predict config_mousetest.yaml --net-type=AVG
-python ../compare_predictions.py ../touchstones/save_data_AVG_torch_nearest.mat ../../demo/markerless_mouse_1/DANNCE/predict_test/save_data_AVG0.mat 0.001
+# 32 NVOX --------- 
+#MONO
+# echo "Testing DANNCE training, AVG MONO from scratch, 32 voxels, 3 cameras"
+# dannce-train config_mousetest.yaml --net-type=AVG --train-mode=new --net=unet3d_big_expectedvalue --mono=True --n-channels-out=22 --nvox=32 --n-views=3
+
+# cp ./label3d_temp_dannce_3cam.mat ./alabel3d_temp_dannce.mat
+
+# echo "Testing DANNCE prediction, MONO, 32 voxels, 3 cameras"
+# dannce-predict config_mousetest.yaml --net-type=AVG --dannce-predict-model=../../demo/markerless_mouse_1/DANNCE/train_test/fullmodel_weights/fullmodel_end.hdf5 --mono=True --nvox=32 --n-views=3
+
+#RGB
+# echo "Testing DANNCE training, AVG net from scratch, 32 voxels, 3 cameras"
+# dannce-train config_mousetest.yaml --net=unet3d_big_expectedvalue --train-mode=new --n-channels-out=22 --nvox=32 --n-views=3
+
+# cp ./label3d_temp_dannce_3cam.mat ./alabel3d_temp_dannce.mat
+
+# echo "Testing DANNCE AVG prediction"
+# dannce-predict config_mousetest.yaml --net-type=AVG --nvox=32 --n-views=3 --dannce-predict-model=../../demo/markerless_mouse_1/DANNCE/train_test/fullmodel_weights/fullmodel_end.hdf5
+
+# -----------
+
+# cp ./label3d_temp_dannce.mat ./alabel3d_temp_dannce.mat
+# echo "Testing DANNCE AVG prediction"
+# dannce-predict config_mousetest.yaml --net-type=AVG
+# python ../compare_predictions.py ../touchstones/save_data_AVG_torch_nearest.mat ../../demo/markerless_mouse_1/DANNCE/predict_test/save_data_AVG0.mat 0.001
 
 # echo "Testing DANNCE MAX prediction"
 # dannce-predict config_mousetest.yaml --net-type=MAX --expval=False --dannce-predict-model=../../demo/markerless_mouse_1/DANNCE/train_results/weights.12000-0.00014.hdf5
 # python ../compare_predictions.py ../touchstones/save_data_MAX_torchnearest_newtfroutine.mat ../../demo/markerless_mouse_1/DANNCE/predict_test/save_data_MAX0.mat 0.001
 
-# Remove temporary folders containign weights, etc.
-# rm -rf ./DANNCE/
-# rm -rf ./COM/
+
 echo "PASSED WITHOUT ERROR"
