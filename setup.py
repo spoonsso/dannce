@@ -13,7 +13,7 @@ setup(
         "scikit-image",
         "matplotlib",
         "opencv-python",
-        "tensorflow==2.3.0",
+        "tensorflow==2.3.1",
         "torch",
         "numpy==1.18"
     ],
