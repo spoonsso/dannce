@@ -26,21 +26,27 @@ DANNCE (3-Dimensional Aligned Neural Network for Computational Ethology) is a co
 
 We recommend installing DANNCE using the following steps:
 
-1. If you do not already have it, install [Anaconda](https://www.anaconda.com/products/individual).
+1. Clone the github repository
+```
+git clone --recursive https://github.com/spoonsso/dannce
+cd dannce
+```
 
-2. Set up a new Anaconda environment with the following configuration: \
+2. If you do not already have it, install [Anaconda](https://www.anaconda.com/products/individual).
+
+3. Set up a new Anaconda environment with the following configuration: \
 `conda create -n dannce python=3.7 cudatoolkit=10.1 cudnn ffmpeg`
 
-3. Activate the new Anaconda environment: \
+4. Activate the new Anaconda environment: \
 `conda activate dannce`
 
-4. Install PyTorch: \
+5. Install PyTorch: \
 `conda install pytorch=1.7 -c pytorch`
 
-5. Update setuptools: \
+6. Update setuptools: \
 `pip install -U setuptools`
 
-6. Install DANNCE with the included setup script from within the base repository directory: \
+7. Install DANNCE with the included setup script from within the base repository directory: \
 `pip install -e .`
 
 Then you should be ready to try the quickstart demo! \
@@ -136,7 +142,7 @@ DANNCE requires a parent video directory with *n* sub-directories, one for each 
 |\_\_+--0.mp4
 
 
-**configuration files**
+**configuration files**.
 
 `DANNCE` uses two configuration files and one data file. 
 
@@ -158,7 +164,7 @@ If your cameras are not natively synchronized, but you can collect timestaps for
 For fine-tuning DANNCE to work with your animal and system, we developed a labeling GUI, which can be found in a separate repo: https://github.com/diegoaldarondo/Label3D. The `Label3D` repository should be cloned with DANNCE automatically as a submodule when using `git clone --recursive https://github.com/spoonsso/dannce` When labeling is completed, the labels can be used to train DANNCE and the COMfinder network (see below) after converting the Label3D files to DANNCE format using `Label3D.exportDannce()`.
 
 ### Training and Predicting with the COMfinder U-Net
-DANNCE requires a reasonable estimate of the 3D position of the animal in each frame. We obtain this by triangulating the 2D center of mass (COM) of the animal in each frame. You can use your favorite method to find an estimate of the animal COM in each frame, but we trained a 2D U-Net to do it. Our U-Net is brittle and typically requires some additional training data to get it working on new views, new environments, and new species. If working with hand-labeled data, your same data structures can be used to train both the COMfinder network and the DANNCE network.
+DANNCE requires a reasonable estimate of the 3D position of the animal in each frame. We obtain this by triangulating the 2D center of mass (COM) of the animal in each frame. You can use your favorite method to find an estimate of the animal COM in each frame, but we trained a 2D U-Net to do it. Our U-Net typically requires some additional training data to get it working on new views, new environments, and new species. If working with hand-labeled data, your same data structures can be used to train both the COMfinder network and the DANNCE network.
 
 Given formatted data, a properly organized directory structure, and a config file (see config and demo folder, and wiki), navigate to your project folder and run 
 `com-train /path/to/main_com_config.yaml`
