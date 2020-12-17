@@ -50,7 +50,7 @@ cd dannce
 `pip install -e .`
 
 Then you should be ready to try the quickstart demo! \
-These installation steps were tested with Anaconda releases 4.7.12 and 2020.02, although we expect it to work for most conda installations.
+These installation steps were tested with Anaconda releases 4.7.12 and 2020.02, although we expect it to work for most conda installations. After installing Anaconda, and presuming there are no issues with GPU drivers, the installation should take less than 5 minutes.
 
 A note on the PyTorch requirment.
 PyTorch is not required, but 3D volume generation is significantly faster when using PyTorch than with TensorFlow or NumPy. To use TensorFlow only, without having to install the PyTorch package, simply toggle the `predict_mode` field in the DANNCE configuration files to `tf`. To use NumPy volume generation (slowest), change `predict_mode` to `None`.
@@ -94,7 +94,9 @@ dannce-predict ../../configs/dannce_mouse_config.yaml
 This demo will run the `AVG` version of DANNCE over 1000 frames of mouse data and save the results to: \
 `demo/markerless_mouse_1/DANNCE/predict_results/save_data_AVG.mat`
 
-The `AVG` version of DANNCE generally produces smoother and more precise 3D tracking because it converts the final 3D probability map for each landmark into a continuous 3D coordinate by taking the spatial average over this volume. However, the `AVG` network can sometimes be tricky to fine tune. If you are having trouble getting the `AVG` network to converge to a satisfactory error level, consider trying the `MAX` version of the nerwork, which assigns each landmark the 3D coordinate of the voxel containing the maximum value over the final 3D probability map.
+The demo should take less than 2 minutes to run on an NVIDIA Titan X, Titan V, Titan RTX, or V100. Run times may be slightly longer on less powerful GPUs. The demo has not been tested using a CPU only.
+
+Please see the *Wiki* for more details on running DANNCE and customizing configuration files. 
 
 ## Using DANNCE on your data
 
