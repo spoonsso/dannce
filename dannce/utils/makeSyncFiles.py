@@ -87,7 +87,7 @@ if fps > 1000:
     raise Exception("Acquisition rates over 1000 Hz not currently supported")
 
 fp = 1000.0 / fps  # frame period in ms
-fp = fp.astype(int)
+fp = int(fp)
 
 data_frame = np.arange(framecount[0])
 data_sampleID = data_frame * fp + 1
