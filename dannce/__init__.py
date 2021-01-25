@@ -7,7 +7,7 @@ _param_defaults_shared = {
     "loss": "mask_nan_keep_loss",
     "start_batch": 0,
     "exp": None,
-    "viddir": './videos/',
+    "viddir": 'videos',
     "io_config": None,
     "crop_height": None,
     "crop_width": None,
@@ -28,6 +28,7 @@ _param_defaults_shared = {
     "augment_hue_val": 0.05,
     "augment_bright_val": 0.05,
     "augment_rotation_val": 5,
+    "drop_landmark": None,
 }
 _param_defaults_dannce = {
     "metric": ["euclidean_distance_3D"],
@@ -68,6 +69,8 @@ _param_defaults_dannce = {
     "downfac": None,
     "net_type": None,
     "net": None,
+    "from_weights": None,
+    "dannce_predict_vol_tifdir": None,
 }
 _param_defaults_com = {
     "dsmode": "nn",

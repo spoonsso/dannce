@@ -5,6 +5,7 @@ from copy import deepcopy
 import scipy.io as sio
 import imageio
 import time
+import gc
 
 import tensorflow as tf
 import tensorflow.keras as keras
@@ -519,7 +520,7 @@ def com_train(params):
     )
     csvlog = CSVLogger(os.path.join(com_train_dir, "training.csv"))
     tboard = TensorBoard(
-        log_dir=com_train_dir + "logs", write_graph=False, update_freq=100
+        log_dir=os.path.join(com_train_dir, "logs"), write_graph=False, update_freq=100
     )
 
     # Initialize data structures
@@ -688,14 +689,7 @@ def dannce_train(params):
 
     # find the weights given config path
     if params["dannce_finetune_weights"] is not None:
-        weights = os.listdir(params["dannce_finetune_weights"])
-        weights = [f for f in weights if ".hdf5" in f]
-        weights = weights[0]
-
-        params["dannce_finetune_weights"] = os.path.join(
-            params["dannce_finetune_weights"], weights
-        )
-
+        params["dannce_finetune_weights"] = processing.get_ft_wt(params)
         print("Fine-tuning from {}".format(params["dannce_finetune_weights"]))
 
     samples = []
@@ -765,10 +759,7 @@ def dannce_train(params):
 
     # When this true, the data generator will shuffle the cameras and then select the first 3,
     # to feed to a native 3 camera model
-    if params["cam3_train"]:
-        cam3_train = True
-    else:
-        cam3_train = False
+    cam3_train = params["cam3_train"]
 
     # Used to initialize arrays for mono, and also in *frommem (the final generator)
     params["chan_num"] = 1 if params["mono"] else params["n_channels_in"]
@@ -892,9 +883,9 @@ def dannce_train(params):
         )
 
     print(
-        "Loading training data into memory. This can take a while to seek through",
-        "large sets of video. This process is much faster if the frame indices",
-        "are sorted in ascending order in your label data file.",
+        "Loading training data into memory. This can take a while to seek throug for",
+        "large sets of video. This will be especially slow if your frame indices are not",
+        "sorted in ascending order in your label data file.",
     )
     for i in range(len(partition["train_sampleIDs"])):
         print(i, end="\r")
@@ -937,10 +928,7 @@ def dannce_train(params):
         y_valid[i] = rr[1]
 
     # Now we can generate from memory with shuffling, rotation, etc.
-    if params["channel_combo"] == "random":
-        randflag = True
-    else:
-        randflag = False
+    randflag = params["channel_combo"] == "random"
 
     train_generator = DataGenerator_3Dconv_frommem(
         np.arange(len(partition["train_sampleIDs"])),
@@ -1063,8 +1051,67 @@ def dannce_train(params):
     )
     csvlog = CSVLogger(os.path.join(dannce_train_dir, "training.csv"))
     tboard = TensorBoard(
-        log_dir=dannce_train_dir + "logs", write_graph=False, update_freq=100
+        log_dir=os.path.join(dannce_train_dir,"logs"), write_graph=False, update_freq=100
     )
+
+    class savePredTargets(keras.callbacks.Callback):
+        def __init__(self, total_epochs, td, tgrid, vd, vgrid, tID, vID, odir, tlabel, vlabel):
+            self.td = td
+            self.vd = vd
+            self.tID = tID
+            self.vID = vID
+            self.total_epochs = total_epochs
+            self.val_loss = 1e10
+            self.odir = odir
+            self.tgrid = tgrid
+            self.vgrid = vgrid
+            self.tlabel = tlabel
+            self.vlabel = vlabel
+        def on_epoch_end(self, epoch, logs=None):
+            lkey = 'val_loss' if 'val_loss' in logs else 'loss'
+            if epoch == self.total_epochs-1 or logs[lkey] < self.val_loss and epoch > 25:
+                print("Saving predictions on train and validation data, after epoch {}".format(epoch))
+                self.val_loss = logs[lkey]
+                pred_t = model.predict([self.td, self.tgrid], batch_size=1)
+                pred_v = model.predict([self.vd, self.vgrid], batch_size=1)
+                ofile = os.path.join(self.odir,'checkpoint_predictions_e{}.mat'.format(epoch))
+                sio.savemat(ofile, {'pred_train': pred_t,
+                                    'pred_valid': pred_v,
+                                    'target_train': self.tlabel,
+                                    'target_valid': self.vlabel,
+                                    'train_sampleIDs': self.tID,
+                                    'valid_sampleIDs': self.vID})
+
+    class saveCheckPoint(keras.callbacks.Callback):
+        def __init__(self, odir, total_epochs):
+            self.odir = odir
+            self.saveE = np.arange(0, total_epochs, 250)
+        def on_epoch_end(self, epoch, logs=None):
+            lkey = 'val_loss' if 'val_loss' in logs else 'loss'
+            val_loss = logs[lkey]
+            if epoch in self.saveE:
+                # Do a garbage collect to combat keras memory leak
+                gc.collect()
+                print("Saving checkpoint weights at epoch {}".format(epoch))
+                savename = 'weights.checkpoint.epoch{}.{}{:.5f}.hdf5'.format(epoch,
+                                                                        lkey,
+                                                                        val_loss)
+                self.model.save(os.path.join(self.odir, savename))
+
+                
+    callbacks = [csvlog, model_checkpoint, tboard, saveCheckPoint(params['dannce_train_dir'], params["epochs"])]
+
+    if params['expval']:
+        save_callback = savePredTargets(params['epochs'],X_train,
+            X_train_grid,
+            X_valid,
+            X_valid_grid,
+            partition['train_sampleIDs'],
+            partition['valid_sampleIDs'],
+            params['dannce_train_dir'],
+            y_train,
+            y_valid)
+        callbacks = callbacks + [save_callback]
 
     model.fit(
         x=train_generator,
@@ -1073,7 +1120,7 @@ def dannce_train(params):
         validation_steps=len(valid_generator),
         verbose=params["verbose"],
         epochs=params["epochs"],
-        callbacks=[csvlog, model_checkpoint, tboard],
+        callbacks=callbacks,
         workers=6,
     )
 
@@ -1283,22 +1330,40 @@ def dannce_predict(params):
 
     if (
         netname == "unet3d_big_tiedfirstlayer_expectedvalue"
-        or "from_weights" in params.keys()
+        or params["from_weights"] is not None
     ):
-        # This network is too "custom" to be loaded in as a full model, until I
-        # figure out how to unroll the first tied weights layer
         gridsize = tuple([params["nvox"]] * 3)
-        model = params["net"](
-            params["loss"],
-            float(params["lr"]),
-            params["chan_num"] + params["depth"],
-            params["n_channels_out"],
-            len(camnames[0]),
-            batch_norm=False,
-            instance_norm=True,
-            include_top=True,
-            gridsize=gridsize,
-        )
+        params["dannce_finetune_weights"] = processing.get_ft_wt(params)
+
+        if params["train_mode"] == "finetune":
+            model = params["net"](
+                params["loss"],
+                float(params["lr"]),
+                params["chan_num"] + params["depth"],
+                params["n_channels_out"],
+                len(camnames[0]),
+                params["new_last_kernel_size"],
+                params["new_n_channels_out"],
+                params["dannce_finetune_weights"],
+                params["n_layers_locked"],
+                batch_norm=False,
+                instance_norm=True,
+                gridsize=gridsize,
+            )
+        else:
+            # This network is too "custom" to be loaded in as a full model, until I
+            # figure out how to unroll the first tied weights layer
+            model = params["net"](
+                params["loss"],
+                float(params["lr"]),
+                params["chan_num"] + params["depth"],
+                params["n_channels_out"],
+                len(camnames[0]),
+                batch_norm=False,
+                instance_norm=True,
+                include_top=True,
+                gridsize=gridsize,
+            )
         model.load_weights(mdl_file)
     else:
         model = load_model(
@@ -1344,7 +1409,7 @@ def dannce_predict(params):
                 print("Saving checkpoint at {}th batch".format(i))
                 if params["expval"]:
                     p_n = savedata_expval(
-                        dannce_predict_dir + "save_data_AVG.mat",
+                        os.path.join(dannce_predict_dir, "save_data_AVG.mat"),
                         params,
                         write=True,
                         data=save_data,
@@ -1354,7 +1419,7 @@ def dannce_predict(params):
                     )
                 else:
                     p_n = savedata_tomat(
-                        dannce_predict_dir + "save_data_MAX.mat",
+                        os.path.join(dannce_predict_dir, "save_data_MAX.mat"),
                         params,
                         params["vmin"],
                         params["vmax"],
@@ -1367,6 +1432,26 @@ def dannce_predict(params):
 
             ims = valid_gen.__getitem__(i)
             pred = model.predict(ims[0])
+
+            if params["dannce_predict_vol_tifdir"] is not None:
+                # When this option is toggled in the config, rather than
+                # training, the image volumes are dumped to tif stacks.
+                # This can be used for debugging problems with calibration or
+                # COM estimation
+                tifdir = params["dannce_predict_vol_tifdir"]
+                if not os.path.exists(tifdir):
+                    os.makedirs(tifdir)
+                print("Dumping prediction volumes to {}".format(tifdir))
+                for ii in range(ims[0][0].shape[0]):
+                    for jj in range(len(camnames[0])):
+                        im = ims[0][0][ii, :, :, :, jj * params["chan_num"] : (jj + 1) * params["chan_num"]]
+                        im = processing.norm_im(im) * 255
+                        im = im.astype("uint8")
+                        snum = partition["valid_sampleIDs"][i * pred[0].shape[0] + ii]
+                        of = os.path.join(
+                            tifdir, snum + "_cam" + str(jj) + ".tif"
+                        )
+                        imageio.mimwrite(of, np.transpose(im, [2, 0, 1, 3]))
 
             if params["expval"]:
                 probmap = pred[1]
@@ -1512,7 +1597,7 @@ def do_COM_load(exp, expdict, n_views, e, params, training=True):
     )
 
     # If len(exp['camnames']) divides evenly into n_views, duplicate here
-    # This must come after loading in this excperiment's data because there
+    # This must come after loading in this experiment's data because there
     # is an assertion that len(exp['camnames']) == the number of cameras
     # in the label files (which will not be duplicated)
     exp = processing.dupe_params(exp, ["camnames"], n_views)
