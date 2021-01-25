@@ -79,6 +79,11 @@ def prepare_data(
     data_3d = labels[0]["data_3d"]
     data_3d = np.transpose(np.reshape(data_3d, [data_3d.shape[0], -1, 3]), [0, 2, 1])
 
+    #If specific markers are set to be excluded, set them to NaN here.
+    if CONFIG_PARAMS["drop_landmark"] is not None and not prediction:
+        print("Setting landmarks {} to NaN. These landmarks will not be included in loss or metric evaluations".format(CONFIG_PARAMS["drop_landmark"]))
+        data_3d[:, :, CONFIG_PARAMS["drop_landmark"]] = np.nan
+
     datadict = {}
     datadict_3d = {}
     for i in range(len(samples)):

@@ -108,7 +108,7 @@ def infer_params(params, dannce_net, prediction):
         video_files = sorted(video_files, key=lambda x: int(x.split(".")[0]))
         chunks = int(video_files[1].split(".")[0]) - int(video_files[0].split(".")[0])
     else:
-        chunks = 1e10
+        chunks = 10000000000000
     camf = os.path.join(viddir, video_files[0])
 
     print_and_set(params, "chunks", chunks)
@@ -171,10 +171,26 @@ def infer_params(params, dannce_net, prediction):
     if dannce_net:
         #infer crop_height and crop_width if None. Just use max dims of video, as
         # DANNCE does not need to crop.
-        if params["crop_height"] is None:
-            params["crop_height"] = [0, im.shape[0]]
-        if params["crop_width"] is None:
-            params["crop_width"] = [0, im.shape[1]]
+        if params["crop_height"] is None or params["crop_width"] is None:
+            im_h = []
+            im_w = []
+            for i in range(len(params["camnames"])):
+                viddir = os.path.join(params["viddir"], params["camnames"][i])
+                if not params["vid_dir_flag"]:
+                    # add intermediate directory to path
+                    viddir = os.path.join(params["viddir"], params["camnames"][i], os.listdir(viddir)[0])
+                video_files = os.listdir(viddir)
+                camf = os.path.join(viddir, video_files[0])
+                v = imageio.get_reader(camf)
+                im = v.get_data(0)
+                v.close()
+                im_h.append(im.shape[0])
+                im_w.append(im.shape[1])
+
+            if params["crop_height"] is None:
+                print_and_set(params, "crop_height", [0, np.max(im_h)])
+            if params["crop_width"] is None:
+                print_and_set(params, "crop_width", [0, np.max(im_w)])
 
         if params["max_num_samples"] is not None:
             if params["max_num_samples"] == "max":
@@ -203,8 +219,8 @@ def infer_params(params, dannce_net, prediction):
             print_and_set(params, "start_batch", 0)
 
         if params["vol_size"] is not None:
-            print_and_set(params, "vmin", -1 * params["vol_size"] // 2)
-            print_and_set(params, "vmax", params["vol_size"] // 2)
+            print_and_set(params, "vmin", -1 * params["vol_size"] / 2)
+            print_and_set(params, "vmax", params["vol_size"] / 2)
     return params
 
 
@@ -238,6 +254,15 @@ def check_vmin_vmax(params):
                 )
             )
 
+def get_ft_wt(params):
+    if params["dannce_finetune_weights"] is not None:
+        weights = os.listdir(params["dannce_finetune_weights"])
+        weights = [f for f in weights if ".hdf5" in f]
+        weights = weights[0]
+
+        return os.path.join(
+            params["dannce_finetune_weights"], weights
+                )
 
 def check_camnames(camp):
     """
@@ -336,10 +361,10 @@ def make_data_splits(samples, params, RESULTSDIR, num_experiments):
         partition["train_sampleIDs"] = samples[train_inds]
 
         # Save train/val inds
-        with open(RESULTSDIR + "val_samples.pickle", "wb") as f:
+        with open(os.path.join(RESULTSDIR, "val_samples.pickle"), "wb") as f:
             cPickle.dump(partition["valid_sampleIDs"], f)
 
-        with open(RESULTSDIR + "train_samples.pickle", "wb") as f:
+        with open(os.path.join(RESULTSDIR, "train_samples.pickle"), "wb") as f:
             cPickle.dump(partition["train_sampleIDs"], f)
     else:
         # Load validation samples from elsewhere
@@ -407,6 +432,16 @@ def save_params(outdir, params):
 
     return True
 
+def make_none_safe(pdict):
+    if isinstance(pdict, dict):
+        for key in pdict:
+            pdict[key] = make_none_safe(pdict[key])
+    else:
+        if pdict is None or (isinstance(pdict, list) and None in pdict) or (isinstance(pdict, tuple) and None in pdict):
+            return "None"
+        else:
+            return pdict
+
 def prepare_save_metadata(params):
     """
     To save metadata, i.e. the prediction param values associated with COM or DANNCE
@@ -417,9 +452,6 @@ def prepare_save_metadata(params):
     # Need to convert None to string but still want to conserve the metadat structure
     # format, so we don't want to convert the whole dict to a string
     meta = params.copy()
-    for key in meta.keys():
-        if meta[key] is None:
-            meta[key] = "None"
 
     if "experiment" in meta:
         del meta["experiment"]
@@ -431,6 +463,8 @@ def prepare_save_metadata(params):
         meta["metric"] = [
             f.__name__ if not isinstance(f, str) else f for f in meta["metric"]
         ]
+
+    make_none_safe(meta)
 
     return meta
 
@@ -679,7 +713,6 @@ def generate_readers(
     viddir, camname, minopt=0, maxopt=300000, pathonly=False, extension=".mp4"
 ):
     """Open all mp4 objects with imageio, and return them in a dictionary."""
-    print("NOTE: Ignoring mp4 files numbered above {}".format(maxopt))
     out = {}
     mp4files = [
         os.path.join(camname, f)
@@ -706,6 +739,7 @@ def generate_readers(
         if pathonly:
             out[mp4files_scrub[i]] = os.path.join(viddir, mp4files[i])
         else:
+            print("NOTE: Ignoring {} files numbered above {}".format(extensions,maxopt))
             out[mp4files_scrub[i]] = imageio.get_reader(
                 os.path.join(viddir, mp4files[i]),
                 pixelformat=pixelformat,
