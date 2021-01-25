@@ -34,17 +34,12 @@ cd dannce
 
 2. If you do not already have it, install [Anaconda](https://www.anaconda.com/products/individual).
 
-<<<<<<< HEAD
 3. Set up a new Anaconda environment with the following configuration: \
-=======
-2. Set up a new Anaconda environment with the following configuration: \
->>>>>>> sampleID_fix
 `conda create -n dannce python=3.7 cudatoolkit=10.1 cudnn ffmpeg`
 
 4. Activate the new Anaconda environment: \
 `conda activate dannce`
 
-<<<<<<< HEAD
 5. Install PyTorch: \
 `conda install pytorch=1.7 -c pytorch`
 
@@ -52,15 +47,6 @@ cd dannce
 `pip install -U setuptools`
 
 7. Install DANNCE with the included setup script from within the base repository directory: \
-=======
-4. Install PyTorch: \
-`conda install pytorch=1.7 -c pytorch`
-
-5. Update setuptools: \
-`pip install -U setuptools`
-
-6. Install DANNCE with the included setup script from within the base repository directory: \
->>>>>>> sampleID_fix
 `pip install -e .`
 
 Then you should be ready to try the quickstart demo! \
