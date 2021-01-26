@@ -33,6 +33,14 @@ def prepare_data(
         print(CONFIG_PARAMS["label3d_file"])
         labels = load_labels(CONFIG_PARAMS["label3d_file"])
 
+    params = load_camera_params(CONFIG_PARAMS["label3d_file"])
+    cameras = {name: params[i] for i, name in enumerate(CONFIG_PARAMS["camnames"])}
+
+    if "m" in params[0] and not CONFIG_PARAMS["mirror"]:
+        raise Exception("found mirror field in camera params, but the network is not set to run in mirror mode")
+    elif CONFIG_PARAMS["mirror"] and "m" not in params[0]:
+        raise Exception("network set to run in mirror mode, but cannot find mirror (m) field in camera params")
+
     samples = np.squeeze(labels[0]["data_sampleID"])
 
     if labels[0]["data_sampleID"].shape == (1, 1):
@@ -59,6 +67,10 @@ def prepare_data(
 
         # Correct for Matlab "1" indexing
         data = data - 1
+
+        if CONFIG_PARAMS["mirror"] and cameras[CONFIG_PARAMS["camnames"][i]]["m"] == 1:
+            # then we need to flip the 2D coords -- for now assuemd only horizontal flipping
+            data[:, 1] = CONFIG_PARAMS["raw_im_h"] - data[:, 1] - 1
 
         if multimode:
             print("Entering multi-mode with {} + 1 targets".format(data.shape[-1]))
@@ -97,8 +109,6 @@ def prepare_data(
         datadict[samples[i]] = {"data": data, "frames": frames}
         datadict_3d[samples[i]] = data_3d[i]
 
-    params = load_camera_params(CONFIG_PARAMS["label3d_file"])
-    cameras = {name: params[i] for i, name in enumerate(CONFIG_PARAMS["camnames"])}
     if return_cammat:
         camera_mats = {
             name: ops.camera_matrix(cam["K"], cam["r"], cam["t"])

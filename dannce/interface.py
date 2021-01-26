@@ -95,6 +95,9 @@ def com_predict(params):
     MULTI_MODE = params["n_channels_out"] > 1
     params["n_channels_out"] = params["n_channels_out"] + int(MULTI_MODE)
 
+    # channels out is equal to the number of views when using a single video stream with mirrors
+    eff_n_channels_out = int(params["n_views"]) if params["mirror"] else params["n_channels_out"]
+
     # Grab the input file for prediction
     params["label3d_file"] = processing.grab_predict_label3d_file()
 
@@ -114,7 +117,7 @@ def com_predict(params):
         params["loss"],
         float(params["lr"]),
         params["chan_num"],
-        params["n_channels_out"],
+        eff_n_channels_out,
         ["mse"],
         multigpu=False,
     )
@@ -141,6 +144,12 @@ def com_predict(params):
         """
         end_time = time.time()
         sample_save = 100
+
+        if params["mirror"]:
+            ncams = 1
+        else:
+            ncams = len(params["camnames"])
+
         for i in range(start_ind, end_ind):
             print("Predicting on sample {}".format(i), flush=True)
             if (i - start_ind) % sample_save == 0 and i != start_ind:
@@ -164,7 +173,7 @@ def com_predict(params):
                 pred_,
                 [
                     -1,
-                    len(params["camnames"]),
+                    ncams,
                     pred_.shape[1],
                     pred_.shape[2],
                     pred_.shape[3],
@@ -176,7 +185,14 @@ def com_predict(params):
                 # By selecting -1 for the last axis, we get the COM index for a
                 # normal COM network, and also the COM index for a multi_mode COM network,
                 # as in multimode the COM label is put at the end
-                pred = pred_[m, :, :, :, -1]
+                if params["mirror"]:
+                    # for mirror we need to reshape pred so that the cams are in front,
+                    # so it works with the downstream code
+                    pred = pred_[m, 0]
+                    pred = np.transpose(pred, (2, 0, 1))
+                else:
+                    pred = pred_[m, :, :, :, -1]
+                
                 sampleID_ = partition["valid_sampleIDs"][i * pred_.shape[0] + m]
                 save_data[sampleID_] = {}
                 save_data[sampleID_]["triangulation"] = {}
@@ -195,6 +211,10 @@ def com_predict(params):
                     # now, the center of mass is (x,y) instead of (i,j)
                     # now, we need to use camera calibration to triangulate
                     # from 2D to 3D
+
+                    # now we need to mirror flip each coord if indicated
+                    if params["mirror"] and cameras[params["camnames"][j]]["m"] == 1:
+                        ind[1] = params["raw_im_h"] - ind[1] - 1
 
                     if params["com_debug"] is not None and j == cnum:
                         # Write preds
@@ -327,6 +347,7 @@ def com_predict(params):
         "dsmode": params["dsmode"],
         "preload": False,
         "mono": params["mono"],
+        "mirror": params["mirror"],
     }
 
     partition = {}
@@ -454,7 +475,8 @@ def com_train(params):
         "chunks": params["chunks"],
         "dsmode": params["dsmode"],
         "preload": False,
-        "mono": params["mono"]
+        "mono": params["mono"],
+        "mirror": params["mirror"],
     }
 
     valid_params = deepcopy(train_params)
@@ -468,6 +490,10 @@ def com_train(params):
 
     # For real mono training
     params["chan_num"] = 1 if params["mono"] else params["n_channels_in"]
+
+    # effective n_channels, which is different if using a mirror arena configuration
+    eff_n_channels_out = len(camnames[0]) if params["mirror"] else params["n_channels_out"]
+
     # Build net
     print("Initializing Network...")
 
@@ -475,7 +501,7 @@ def com_train(params):
         params["loss"],
         float(params["lr"]),
         params["chan_num"],
-        params["n_channels_out"],
+        eff_n_channels_out,
         ["mse"],
         multigpu=False,
     )
@@ -524,15 +550,21 @@ def com_train(params):
     )
 
     # Initialize data structures
-    ncams = len(camnames[0])
+    if params["mirror"]:
+        ncams = 1 # Effectively, for the purpose of batch indexing
+    else:
+        ncams = len(camnames[0])
+
     dh = (params["crop_height"][1] - params["crop_height"][0]) // params["downfac"]
     dw = (params["crop_width"][1] - params["crop_width"][0]) // params["downfac"]
+
+
     ims_train = np.zeros(
         (ncams * len(partition["train_sampleIDs"]), dh, dw, params["chan_num"]), 
         dtype="float32"
     )
     y_train = np.zeros(
-        (ncams * len(partition["train_sampleIDs"]), dh, dw, params["n_channels_out"]),
+        (ncams * len(partition["train_sampleIDs"]), dh, dw, eff_n_channels_out),
         dtype="float32",
     )
     ims_valid = np.zeros(
@@ -540,7 +572,7 @@ def com_train(params):
         dtype="float32"
     )
     y_valid = np.zeros(
-        (ncams * len(partition["valid_sampleIDs"]), dh, dw, params["n_channels_out"]),
+        (ncams * len(partition["valid_sampleIDs"]), dh, dw, eff_n_channels_out),
         dtype="float32",
     )
 
@@ -600,6 +632,17 @@ def com_train(params):
         Writes training or validation images to an output directory, together
         with the ground truth COM labels and predicted COM labels, respectively.
         """
+        def plot_out(imo, lo, imn):
+            processing.plot_markers_2d(
+                processing.norm_im(imo), lo, newfig=False
+            )
+            plt.gca().xaxis.set_major_locator(plt.NullLocator())
+            plt.gca().yaxis.set_major_locator(plt.NullLocator())
+
+            imname = imn
+            plt.savefig(
+                os.path.join(debugdir, imname), bbox_inches="tight", pad_inches=0
+            )
 
         if params["debug"] and not MULTI_MODE:
 
@@ -611,6 +654,7 @@ def com_train(params):
                 outdir = "debug_im_out_valid"
                 ims_out = ims_valid
                 label_out = model.predict(ims_valid, batch_size=1)
+
             # Plot all training images and save
             # create new directory for images if necessary
             debugdir = os.path.join(params["com_train_dir"], outdir)
@@ -619,18 +663,17 @@ def com_train(params):
                 os.makedirs(debugdir)
 
             plt.figure()
+
             for i in range(ims_out.shape[0]):
                 plt.cla()
-                processing.plot_markers_2d(
-                    processing.norm_im(ims_out[i]), label_out[i], newfig=False
-                )
-                plt.gca().xaxis.set_major_locator(plt.NullLocator())
-                plt.gca().yaxis.set_major_locator(plt.NullLocator())
+                if params["mirror"]:
+                    for j in range(label_out.shape[-1]):
+                        plt.cla()
+                        plot_out(ims_out[i], label_out[i, :, :, j:j+1],
+                                 str(i) + "_cam_" + str(j) + ".png")
+                else:
+                    plot_out(ims_out[i], label_out[i], str(i) + ".png")
 
-                imname = str(i) + ".png"
-                plt.savefig(
-                    os.path.join(debugdir, imname), bbox_inches="tight", pad_inches=0
-                )
         elif params["debug"] and MULTI_MODE:
             print("Note: Cannot output debug information in COM multi-mode")
 
@@ -646,6 +689,8 @@ def com_train(params):
         workers=6,
         callbacks=[csvlog, model_checkpoint, tboard],
     )
+
+    import pdb; pdb.set_trace()
 
     write_debug(trainData=False)
 
@@ -792,7 +837,8 @@ def dannce_train(params):
         "crop_im": False,
         "chunks": params["chunks"],
         "preload": False,
-        "mono": params["mono"]
+        "mono": params["mono"],
+        "mirror": params["mirror"],
     }
 
     # Setup a generator that will read videos and labels
@@ -883,8 +929,8 @@ def dannce_train(params):
         )
 
     print(
-        "Loading training data into memory. This can take a while to seek throug for",
-        "large sets of video. This will be especially slow if your frame indices are not",
+        "Loading training data into memory. This can take a while to seek through for",
+        "long recordings. This will be especially slow if your frame indices are not",
         "sorted in ascending order in your label data file.",
     )
     for i in range(len(partition["train_sampleIDs"])):
@@ -1047,7 +1093,7 @@ def dannce_train(params):
         os.path.join(dannce_train_dir, kkey),
         monitor=mon,
         save_best_only=True,
-        save_weights_only=True,
+        save_weights_only=False,
     )
     csvlog = CSVLogger(os.path.join(dannce_train_dir, "training.csv"))
     tboard = TensorBoard(
@@ -1275,6 +1321,7 @@ def dannce_predict(params):
         "chunks": params["chunks"],
         "preload": False,
         "mono": params["mono"],
+        "mirror": params["mirror"]
     }
 
     # Datasets

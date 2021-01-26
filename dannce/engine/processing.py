@@ -11,6 +11,7 @@ import scipy.io as sio
 
 from dannce.engine import io
 import matplotlib
+import warnings
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -119,6 +120,10 @@ def infer_params(params, dannce_net, prediction):
     v.close()
     print_and_set(params, "n_channels_in", im.shape[-1])
 
+    # set the raw im height and width
+    print_and_set(params, "raw_im_h", im.shape[0])
+    print_and_set(params, "raw_im_w", im.shape[1])
+
     if dannce_net and params["net"] is None:
         # Here we assume that if the network and expval are specified by the user
         # then there is no reason to infer anything. net + expval compatibility
@@ -221,6 +226,13 @@ def infer_params(params, dannce_net, prediction):
         if params["vol_size"] is not None:
             print_and_set(params, "vmin", -1 * params["vol_size"] / 2)
             print_and_set(params, "vmax", params["vol_size"] / 2)
+
+    # There will be straneg behavior if using a mirror acquisition system and are cropping images
+    if params["mirror"] and params["crop_height"][-1] != params["raw_im_h"]:
+        msg = "Note: You are using a mirror acquisition system with image cropping."
+        msg = msg + " All coordinates will be flipped relative to the raw image height, so ensure that your labels are also in that reference frame."
+        warnings.warn(msg)
+
     return params
 
 
