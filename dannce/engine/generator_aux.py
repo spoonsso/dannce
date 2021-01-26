@@ -39,6 +39,7 @@ class DataGenerator_downsample(keras.utils.Sequence):
         chunks=3500,
         multimode=False,
         mono=False,
+        mirror=False,
     ):
         """Initialize generator.
 
@@ -61,6 +62,7 @@ class DataGenerator_downsample(keras.utils.Sequence):
         self.downsample = downsample
         self.preload = preload
         self.dsmode = dsmode
+        self.mirror = mirror
         self.on_epoch_end()
 
         if immode == "video":
@@ -152,10 +154,16 @@ class DataGenerator_downsample(keras.utils.Sequence):
         # X : (n_samples, *dim, n_channels)
         """
         # Initialization
-        X = np.empty(
-            (self.batch_size * len(self.camnames[0]), *self.dim_in, self.n_channels_in),
-            dtype="uint8",
-        )
+        if self.mirror:
+            X = np.empty(
+                (self.batch_size, *self.dim_in, self.n_channels_in),
+                dtype="uint8",
+            )            
+        else:
+            X = np.empty(
+                (self.batch_size * len(self.camnames[0]), *self.dim_in, self.n_channels_in),
+                dtype="uint8",
+            )
 
         # We'll need to transpose this later such that channels are last,
         # but initializaing the array this ways gives us
@@ -188,28 +196,30 @@ class DataGenerator_downsample(keras.utils.Sequence):
             else:
                 # Then we only have one experiment
                 experimentID = 0
-            for camname in self.camnames[experimentID]:
+            for _ci, camname in enumerate(self.camnames[experimentID]):
                 # Store sample
                 # TODO(Refactor): This section is tricky to read
-                if self.immode == "video":
-                    X[cnt] = self.load_vid_frame(
-                        self.labels[ID]["frames"][camname],
-                        camname,
-                        self.preload,
-                        self.extension,
-                    )[
-                        self.crop_height[0] : self.crop_height[1],
-                        self.crop_width[0] : self.crop_width[1],
-                    ]
-                elif self.immode == "tif":
-                    X[cnt] = self.load_tif_frame(
-                        self.labels[ID]["frames"][camname], camname
-                    )[
-                        self.crop_height[0] : self.crop_height[1],
-                        self.crop_width[0] : self.crop_width[1],
-                    ]
-                else:
-                    raise Exception("Not a valid image reading mode")
+
+                if not self.mirror or _ci == 0:
+                    if self.immode == "video":
+                        X[cnt] = self.load_vid_frame(
+                            self.labels[ID]["frames"][camname],
+                            camname,
+                            self.preload,
+                            self.extension,
+                        )[
+                            self.crop_height[0] : self.crop_height[1],
+                            self.crop_width[0] : self.crop_width[1],
+                        ]
+                    elif self.immode == "tif":
+                        X[cnt] = self.load_tif_frame(
+                            self.labels[ID]["frames"][camname], camname
+                        )[
+                            self.crop_height[0] : self.crop_height[1],
+                            self.crop_width[0] : self.crop_width[1],
+                        ]
+                    else:
+                        raise Exception("Not a valid image reading mode")
 
                 # Labels will now be the pixel positions of each joint.
                 # Here, we convert them to
@@ -257,6 +267,12 @@ class DataGenerator_downsample(keras.utils.Sequence):
         # Move channels last
         if self.labelmode == "prob":
             y = np.transpose(y, [0, 2, 3, 1])
+
+            if self.mirror:
+                # separate the batches from the cameras, and use the cameras as the numebr of channels 
+                # to make a single-shot multi-target prediction from a single image
+                y = np.reshape(y, (self.batch_size, len(self.camnames[0]), y.shape[1], y.shape[2]))
+                y = np.transpose(y, [0, 2, 3, 1])
         else:
             # One less dimension when not training with probability map targets
             y = np.transpose(y, [0, 2, 1])

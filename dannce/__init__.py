@@ -29,6 +29,10 @@ _param_defaults_shared = {
     "augment_bright_val": 0.05,
     "augment_rotation_val": 5,
     "drop_landmark": None,
+    "raw_im_h": None,
+    "raw_im_w": None,
+    "mirror": False,
+    "max_num_samples": None,
 }
 _param_defaults_dannce = {
     "metric": ["euclidean_distance_3D"],
@@ -59,7 +63,6 @@ _param_defaults_dannce = {
     "nvox": None,
     "expval": None,
     "com_thresh": None,
-    "max_num_samples": None,
     "start_sample": None,
     "new_n_channels_out": None,
     "cam3_train": None,
