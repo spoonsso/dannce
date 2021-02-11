@@ -75,7 +75,6 @@ _param_defaults_com = {
     "debug": False,
     "lr": 5e-5,
     "net": "unet2d_fullbn",
-    "n_channels_out": 1,
     "com_train_dir": None,
     "com_predict_dir": None,
     "com_finetune_weights": None,
