@@ -1,7 +1,7 @@
 # Names for each of the camera subdirectories in the video folder. Order should match the datafiles above.
 # camnames: ['CameraLmouse', 'CameraRmouse', 'CameraSmouse']
 # Degree of downsampling applied to image input. Default 1.
-downfac: 4
+downfac: 8
 # Video file extension
 extension: '.mp4'
 io_config: 'io.yaml'
