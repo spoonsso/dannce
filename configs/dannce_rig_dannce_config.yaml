@@ -30,13 +30,13 @@ new_n_channels_out: 23
 new_last_kernel_size: [3,3,3]
 
 # batch_size
-batch_size: 4
+batch_size: 2
 
 # DANNCE training option. Sets the size of the 3D Guassians (in mm) used as labels for the MAX models
 sigma: 10
 
 # DANNCE training option. Sets the number of epochs during training
-epochs: 500
+epochs: 250
 
 # DANNCE training option. Sets the verbosity of training output
 verbose: 1
@@ -73,10 +73,10 @@ num_validation_per_exp: 0
 gpu_id: "0"
 
 # Limits (in mm) to 3D volumes anchored on subject
-vmin: -180
-vmax: 180
+vmin: -120
+vmax: 120
 # Number of voxels along each spatial dimension
-nvox: 64
+nvox: 80
 
 # Interpolation mode.
 interp: nearest
@@ -103,7 +103,7 @@ weighted: False
 com_method: 'median'
 
 # If the 3D COM has a coordinate beyond this value (in mm), discard it as an error. How large is your arena?
-cthresh: 600
+cthresh: 10000000
 # Dictates whether or not to randomly shuffle the camera order when processing volumes. Options: None, 'random'
 channel_combo: 'None'
 
