@@ -8,37 +8,42 @@ import ast
 from scipy.io import savemat
 from dannce.engine.io import load_sync, load_com
 from dannce.engine.processing import prepare_save_metadata
-from dannce import _param_defaults_shared, _param_defaults_dannce, _param_defaults_com
-
+from dannce import (
+    _param_defaults_shared,
+    _param_defaults_dannce,
+    _param_defaults_com,
+)
+import scipy.io as spio
 DANNCE_PRED_FILE_BASE_NAME = "save_data_AVG"
 COM_PRED_FILE_BASE_NAME = "com3d"
 
-import scipy.io as spio
 
 def loadmat(filename):
-    '''
+    """
     this function should be called instead of direct spio.loadmat
     as it cures the problem of not properly recovering python dictionaries
     from mat files. It calls the function check keys to cure all entries
     which are still mat-objects
-    '''
+    """
     data = spio.loadmat(filename, struct_as_record=False, squeeze_me=True)
     return _check_keys(data)
 
+
 def _check_keys(dict):
-    '''
+    """
     checks if entries in dictionary are mat-objects. If yes
     todict is called to change them to nested dictionaries
-    '''
+    """
     for key in dict:
         if isinstance(dict[key], spio.matlab.mio5_params.mat_struct):
             dict[key] = _todict(dict[key])
-    return dict        
+    return dict
+
 
 def _todict(matobj):
-    '''
+    """
     A recursive function which constructs from matobjects nested dictionaries
-    '''
+    """
     dict = {}
     for strg in matobj._fieldnames:
         elem = matobj.__dict__[strg]
@@ -117,8 +122,8 @@ class MultiGpuHandler:
 
     def get_n_samples(self, dannce_file, use_com=False):
         """Get the number of samples in a project
-        
-        :param dannce_file: Path to dannce.mat file containing sync and com for current project. 
+
+        :param dannce_file: Path to dannce.mat file containing sync and com for current project.
         """
         sync = load_sync(dannce_file)
         n_samples = len(sync[0]["data_frame"])
@@ -140,22 +145,60 @@ class MultiGpuHandler:
                         self.com_file = params["com_file"]
                         com_samples = self.load_com_length_from_file()
                     except:
-                        raise KeyError("dannce.mat file needs com field or com_file needs to be specified in io.yaml.")
+                        raise KeyError(
+                            "dannce.mat file needs com field or com_file needs to be specified in io.yaml."
+                        )
             n_samples = np.min([com_samples, n_samples])
 
         return n_samples
-    
+
     def generate_batch_params_com(self, n_samples):
-        start_samples = np.arange(0, n_samples, self.n_samples_per_gpu, dtype=np.int)
+        start_samples = np.arange(
+            0, n_samples, self.n_samples_per_gpu, dtype=np.int
+        )
         max_samples = start_samples + self.n_samples_per_gpu
         batch_params = [
             {"start_sample": sb, "max_num_samples": self.n_samples_per_gpu}
             for sb, mb in zip(start_samples, max_samples)
         ]
+
+        if self.only_unfinished:
+
+            if self.predict_path is None:
+                params = self.load_params("io.yaml")
+                if params["com_predict_dir"] is None:
+                    raise ValueError(
+                        "Either predict_path (clarg) or com_predict_dir (in io.yaml) must be specified for merge"
+                    )
+                else:
+                    self.predict_path = params["com_predict_dir"]
+            if not os.path.exists(self.predict_path):
+                os.makedirs(self.predict_path)
+            pred_files = [
+                f
+                for f in os.listdir(self.predict_path)
+                if COM_PRED_FILE_BASE_NAME in f
+            ]
+            pred_files = [
+                f
+                for f in pred_files
+                if f != (COM_PRED_FILE_BASE_NAME + ".mat")
+            ]
+            if len(pred_files) > 1:
+                params = self.load_params(self.config)
+                pred_ids = [
+                    int(f.split(".")[0].split("3d")[1])
+                    for f in pred_files
+                ]
+                for i, batch_param in reversed(list(enumerate(batch_params))):
+                    if batch_param["start_sample"] in pred_ids:
+                        del batch_params[i]
         return batch_params
 
     def generate_batch_params_dannce(self, n_samples):
-        start_samples = np.arange(0, n_samples, self.n_samples_per_gpu, dtype=np.int)
+        start_samples = np.arange(
+            0, n_samples, self.n_samples_per_gpu, dtype=np.int
+        )
         max_samples = start_samples + self.n_samples_per_gpu
         max_samples[-1] = n_samples
         batch_params = [
@@ -169,15 +212,23 @@ class MultiGpuHandler:
             if self.predict_path is None:
                 params = self.load_params("io.yaml")
                 if params["dannce_predict_dir"] is None:
-                    raise ValueError("Either predict_path (clarg) or com_predict_dir (in io.yaml) must be specified for merge")
+                    raise ValueError(
+                        "Either predict_path (clarg) or dannce_predict_dir (in io.yaml) must be specified for merge"
+                    )
                 else:
                     self.predict_path = params["dannce_predict_dir"]
             if not os.path.exists(self.predict_path):
                 os.makedirs(self.predict_path)
             pred_files = [
-                f for f in os.listdir(self.predict_path) if DANNCE_PRED_FILE_BASE_NAME in f
+                f
+                for f in os.listdir(self.predict_path)
+                if DANNCE_PRED_FILE_BASE_NAME in f
             ]
-            pred_files = [f for f in pred_files if f != (DANNCE_PRED_FILE_BASE_NAME + ".mat")]
+            pred_files = [
+                f
+                for f in pred_files
+                if f != (DANNCE_PRED_FILE_BASE_NAME + ".mat")
+            ]
             if len(pred_files) > 1:
                 params = self.load_params(self.config)
                 pred_ids = [
@@ -197,20 +248,23 @@ class MultiGpuHandler:
                 print("End sample:", batch_param["max_num_samples"])
             print("Command issued: ", cmd)
         if not self.test:
-            os.system(cmd)
-
+            sys.exit(os.WEXITSTATUS(os.system(cmd)))
+            
     def submit_dannce_predict_multi_gpu(self):
         """Predict dannce over multiple gpus in parallel.
-        
-        Divide project into equal chunks of n_samples_per_gpu samples. Submit an array job 
-        that predicts over each chunk in parallel. 
+
+        Divide project into equal chunks of n_samples_per_gpu samples. Submit an array job
+        that predicts over each chunk in parallel.
 
         """
         n_samples = self.get_n_samples(self.dannce_file, use_com=True)
         batch_params = self.generate_batch_params_dannce(n_samples)
-        cmd = "sbatch --wait --array=0-%d holy_dannce_predict_multi_gpu.sh %s" % (
-            len(batch_params) - 1,
-            self.config,
+        cmd = (
+            "sbatch --wait --array=0-%d holy_dannce_predict_multi_gpu.sh %s"
+            % (
+                len(batch_params) - 1,
+                self.config,
+            )
         )
         if len(batch_params) > 0:
             self.save_batch_params(batch_params)
@@ -219,9 +273,9 @@ class MultiGpuHandler:
 
     def submit_com_predict_multi_gpu(self):
         """Predict com over multiple gpus in parallel.
-        
-        Divide project into equal chunks of n_samples_per_gpu samples. Submit an array job 
-        that predicts over each chunk in parallel. 
+
+        Divide project into equal chunks of n_samples_per_gpu samples. Submit an array job
+        that predicts over each chunk in parallel.
 
         """
         n_samples = self.get_n_samples(self.dannce_file, use_com=False)
@@ -242,38 +296,47 @@ class MultiGpuHandler:
             # Try to get it from io.yaml
             params = self.load_params("io.yaml")
             if params["com_predict_dir"] is None:
-                raise ValueError("Either predict_path (clarg) or com_predict_dir (in io.yaml) must be specified for merge")
+                raise ValueError(
+                    "Either predict_path (clarg) or com_predict_dir (in io.yaml) must be specified for merge"
+                )
             else:
                 self.predict_path = params["com_predict_dir"]
         pred_files = [
-            f for f in os.listdir(self.predict_path) if COM_PRED_FILE_BASE_NAME in f and ".mat" in f
+            f
+            for f in os.listdir(self.predict_path)
+            if COM_PRED_FILE_BASE_NAME in f and ".mat" in f
         ]
-        pred_files = [f for f in pred_files if f != (COM_PRED_FILE_BASE_NAME + ".mat")]
-        pred_inds = [int(f.split(COM_PRED_FILE_BASE_NAME)[-1].split('.')[0]) for f in pred_files]
+        pred_files = [
+            f for f in pred_files if f != (COM_PRED_FILE_BASE_NAME + ".mat")
+        ]
+        pred_inds = [
+            int(f.split(COM_PRED_FILE_BASE_NAME)[-1].split(".")[0])
+            for f in pred_files
+        ]
         pred_files = [pred_files[i] for i in np.argsort(pred_inds)]
 
         if len(pred_files) == 0:
             raise FileNotFoundError("No prediction files were found.")
 
-        # Load all of the data and save to a single file. 
+        # Load all of the data and save to a single file.
         com, sampleID, metadata = [], [], []
         for pred in pred_files:
             M = loadmat(os.path.join(self.predict_path, pred))
-            com.append(M['com'])
-            sampleID.append(M['sampleID'])
-            metadata.append(M['metadata'])
+            com.append(M["com"])
+            sampleID.append(M["sampleID"])
+            metadata.append(M["metadata"])
 
         com = np.concatenate(com, axis=0)
         sampleID = np.concatenate(sampleID, axis=0)
         metadata = metadata[0]
-        
-        # Update samples and max_num_samples
-        metadata['start_sample'] = 0
-        metadata['max_num_samples'] = 'max'
 
-        # save to a single file. 
+        # Update samples and max_num_samples
+        metadata["start_sample"] = 0
+        metadata["max_num_samples"] = "max"
+
+        # save to a single file.
         fn = os.path.join(self.predict_path, COM_PRED_FILE_BASE_NAME + ".mat")
-        savemat(fn, {"com":com, "sampleID":sampleID, "metadata":metadata})
+        savemat(fn, {"com": com, "sampleID": sampleID, "metadata": metadata})
 
     def dannce_merge(self):
         # Get all of the paths
@@ -281,47 +344,66 @@ class MultiGpuHandler:
             # Try to get it from io.yaml
             params = self.load_params("io.yaml")
             if params["dannce_predict_dir"] is None:
-                raise ValueError("Either predict_path (clarg) or dannce_predict_dir (in io.yaml) must be specified for merge")
+                raise ValueError(
+                    "Either predict_path (clarg) or dannce_predict_dir (in io.yaml) must be specified for merge"
+                )
             else:
                 self.predict_path = params["dannce_predict_dir"]
         pred_files = [
-            f for f in os.listdir(self.predict_path) if DANNCE_PRED_FILE_BASE_NAME in f
+            f
+            for f in os.listdir(self.predict_path)
+            if DANNCE_PRED_FILE_BASE_NAME in f
         ]
-        pred_files = [f for f in pred_files if f != (DANNCE_PRED_FILE_BASE_NAME + ".mat")]
-        pred_inds = [int(f.split(DANNCE_PRED_FILE_BASE_NAME)[-1].split('.')[0]) for f in pred_files]
+        pred_files = [
+            f for f in pred_files if f != (DANNCE_PRED_FILE_BASE_NAME + ".mat")
+        ]
+        pred_inds = [
+            int(f.split(DANNCE_PRED_FILE_BASE_NAME)[-1].split(".")[0])
+            for f in pred_files
+        ]
         pred_files = [pred_files[i] for i in np.argsort(pred_inds)]
         if len(pred_files) == 0:
             raise FileNotFoundError("No prediction files were found.")
-            
+
         # Load all of the data
         pred, data, p_max, sampleID, metadata = [], [], [], [], []
         for file in pred_files:
             M = loadmat(os.path.join(self.predict_path, file))
-            pred.append(M['pred'])
-            data.append(M['data'])
-            p_max.append(M['p_max'])
-            sampleID.append(M['sampleID'])
-            metadata.append(M['metadata'])
+            pred.append(M["pred"])
+            data.append(M["data"])
+            p_max.append(M["p_max"])
+            sampleID.append(M["sampleID"])
+            metadata.append(M["metadata"])
         pred = np.concatenate(pred, axis=0)
         data = np.concatenate(data, axis=0)
         p_max = np.concatenate(p_max, axis=0)
         sampleID = np.concatenate(sampleID, axis=0)
         metadata = metadata[0]
-        
+
         # Update samples and max_num_samples
-        metadata['start_sample'] = 0
-        metadata['max_num_samples'] = 'max'
+        metadata["start_sample"] = 0
+        metadata["max_num_samples"] = "max"
 
-        # save to a single file. 
-        fn = os.path.join(self.predict_path, DANNCE_PRED_FILE_BASE_NAME + ".mat")
-        savemat(fn, {"pred":pred, "data":data, "p_max":p_max, "sampleID":sampleID, "metadata":metadata})
-
-
+        # save to a single file.
+        fn = os.path.join(
+            self.predict_path, DANNCE_PRED_FILE_BASE_NAME + ".mat"
+        )
+        savemat(
+            fn,
+            {
+                "pred": pred,
+                "data": data,
+                "p_max": p_max,
+                "sampleID": sampleID,
+                "metadata": metadata,
+            },
+        )
 
 
 def build_params_from_config_and_batch(config, batch_param, dannce_net=True):
     from dannce.interface import build_params
     from dannce.engine.processing import infer_params
+
     # Build final parameter dictionary
     params = build_params(config, dannce_net=dannce_net)
     for key, value in batch_param.items():
@@ -337,13 +419,14 @@ def build_params_from_config_and_batch(config, batch_param, dannce_net=True):
     for key, value in _param_defaults_shared.items():
         if key not in params:
             params[key] = value
-    
+
     params = infer_params(params, dannce_net=dannce_net, prediction=True)
     return params
 
 
 def dannce_predict_single_batch():
     from dannce.interface import dannce_predict
+
     # Load in parameters to modify
     config = sys.argv[1]
     handler = MultiGpuHandler(config)
@@ -361,6 +444,7 @@ def dannce_predict_single_batch():
 
 def com_predict_single_batch():
     from dannce.interface import com_predict
+
     # Load in parameters to modify
     config = sys.argv[1]
     handler = MultiGpuHandler(config)
@@ -371,7 +455,9 @@ def com_predict_single_batch():
     print(batch_param)
 
     # Build final parameter dictionary
-    params = build_params_from_config_and_batch(config, batch_param, dannce_net=False)
+    params = build_params_from_config_and_batch(
+        config, batch_param, dannce_net=False
+    )
 
     # Predict
     try:
@@ -380,7 +466,6 @@ def com_predict_single_batch():
         # If a job writes to the label3d file at the same time as another reads from it
         # it throws an OSError.
         com_predict(params)
-
 
 
 def dannce_predict_multi_gpu():
@@ -396,20 +481,24 @@ def com_predict_multi_gpu():
     handler = MultiGpuHandler(**args.__dict__)
     handler.submit_com_predict_multi_gpu()
 
+
 def com_merge():
     args = cmdline_args()
     handler = MultiGpuHandler(**args.__dict__)
     handler.com_merge()
+
 
 def dannce_merge():
     args = cmdline_args()
     handler = MultiGpuHandler(**args.__dict__)
     handler.dannce_merge()
 
+
 def cmdline_args():
     # Make parser object
     p = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
     p.add_argument("config", help="Path to .yaml configuration file")
