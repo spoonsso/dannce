@@ -29,6 +29,16 @@ def prepare_data(
     """
     if prediction:
         labels = load_sync(CONFIG_PARAMS["label3d_file"])
+        nFrames = labels[0]["data_frame"].shape[1]
+        nKeypoints = CONFIG_PARAMS["n_channels_out"]
+        if "new_n_channels_out" in CONFIG_PARAMS.keys():
+            if CONFIG_PARAMS["new_n_channels_out"] is not None:
+                nKeypoints = CONFIG_PARAMS["new_n_channels_out"]
+        for i in range(len(labels)):
+            labels[i]["data_3d"] = np.zeros((nFrames, 3*nKeypoints))
+            labels[i]["data_2d"] = np.zeros((nFrames, 2*nKeypoints))
+        # import pdb
+        # pdb.set_trace()
     else:
         print(CONFIG_PARAMS["label3d_file"])
         labels = load_labels(CONFIG_PARAMS["label3d_file"])
