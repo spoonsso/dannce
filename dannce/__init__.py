@@ -28,6 +28,7 @@ _param_defaults_shared = {
     "augment_hue_val": 0.05,
     "augment_bright_val": 0.05,
     "augment_rotation_val": 5,
+    "n_instances": 1,
 }
 _param_defaults_dannce = {
     "metric": ["euclidean_distance_3D"],
