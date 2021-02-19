@@ -309,6 +309,315 @@ class DataGenerator_downsample(keras.utils.Sequence):
             X = pp_vgg19(X)
         return X, y
 
+
+class DataGenerator_downsample_multi_instance(keras.utils.Sequence):
+    """Generate data for Keras."""
+    def __init__(
+        self,
+        n_instances,
+        list_IDs,
+        labels,
+        vidreaders,
+        batch_size=32,
+        dim_in=(1024, 1280),
+        n_channels_in=1,
+        n_channels_out=1,
+        out_scale=5,
+        shuffle=True,
+        camnames=_DEFAULT_CAM_NAMES,
+        crop_width=(0, 1024),
+        crop_height=(20, 1300),
+        downsample=1,
+        immode="video",
+        labelmode="prob",
+        preload=True,
+        dsmode="dsm",
+        chunks=3500,
+        multimode=False,
+        mono=False,
+    ):
+        """Initialize generator.
+
+        TODO(params_definitions)
+        """
+        self.n_instances = n_instances
+        self.dim_in = dim_in
+        self.dim_out = dim_in
+        self.batch_size = batch_size
+        self.labels = labels
+        self.vidreaders = vidreaders
+        self.list_IDs = list_IDs
+        self.n_channels_in = n_channels_in
+        self.n_channels_out = n_channels_out
+        self.shuffle = shuffle
+        # sigma for the ground truth joint probability map Gaussians
+        self.out_scale = out_scale
+        self.camnames = camnames
+        self.crop_width = crop_width
+        self.crop_height = crop_height
+        self.downsample = downsample
+        self.preload = preload
+        self.dsmode = dsmode
+        self.on_epoch_end()
+
+        if immode == "video":
+            self.extension = (
+                "."
+                + list(vidreaders[camnames[0][0]].keys())[0].rsplit(".")[-1]
+            )
+
+        self.immode = immode
+        self.labelmode = labelmode
+        # self.chunks = int(chunks)
+        self.multimode = multimode
+
+        self._N_VIDEO_FRAMES = chunks
+
+        self.mono = mono
+
+        if not self.preload:
+            # then we keep a running video object so at least we don't open a new one every time
+            self.currvideo = {}
+            self.currvideo_name = {}
+            for dd in camnames.keys():
+                for cc in camnames[dd]:
+                    self.currvideo[cc] = None
+                    self.currvideo_name[cc] = None
+
+    def __len__(self):
+        """Denote the number of batches per epoch."""
+        return int(np.floor(len(self.list_IDs) / self.batch_size))
+
+    def __getitem__(self, index):
+        """Generate one batch of data."""
+        # Generate indexes of the batch
+        indexes = self.indexes[
+            index * self.batch_size : (index + 1) * self.batch_size
+        ]
+
+        # Find list of IDs
+        list_IDs_temp = [self.list_IDs[k] for k in indexes]
+
+        # Generate data
+        X, y = self.__data_generation(list_IDs_temp)
+
+        return X, y
+
+    def on_epoch_end(self):
+        """Update indexes after each epoch."""
+        self.indexes = np.arange(len(self.list_IDs))
+        if self.shuffle:
+            np.random.shuffle(self.indexes)
+
+    def load_vid_frame(self, ind, camname, preload=True, extension=".mp4"):
+        """Load the video frame from a single camera."""
+        chunks = self._N_VIDEO_FRAMES[camname]
+        cur_video_id = np.nonzero([c <= ind for c in chunks])[0][-1]
+        cur_first_frame = chunks[cur_video_id]
+        fname = str(cur_first_frame) + extension
+        frame_num = int(ind - cur_first_frame)
+
+        keyname = os.path.join(camname, fname)
+
+        if preload:
+            # return self.vidreaders[camname][keyname].get_data(frame_num)
+            return self.vidreaders[camname][keyname].get_frame(frame_num)
+        else:
+            thisvid_name = self.vidreaders[camname][keyname]
+            abname = thisvid_name.split("/")[-1]
+            if abname == self.currvideo_name[camname]:
+                vid = self.currvideo[camname]
+            else:
+                # vid = imageio.get_reader(thisvid_name)
+                vid = MediaVideo(thisvid_name, grayscale=False)
+                print("Loading new video: {} for {}".format(abname, camname))
+                self.currvideo_name[camname] = abname
+                # close current vid
+                # Without a sleep here, ffmpeg can hang on video close
+                time.sleep(0.25)
+                if self.currvideo[camname] is not None:
+                    self.currvideo[camname].close()
+                self.currvideo[camname] = vid
+
+            # im = vid.get_data(frame_num)
+            im = vid.get_frame(frame_num)
+
+            return im
+
+    def load_tif_frame(self, ind, camname):
+        """Load frames in tif mode."""
+        # In tif mode, vidreaders should just be paths to the tif directory
+        return imageio.imread(
+            os.path.join(self.vidreaders[camname], "{}.tif".format(ind))
+        )
+
+    def __data_generation(self, list_IDs_temp):
+        """Generate data containing batch_size samples.
+
+        # X : (n_samples, *dim, n_channels)
+        """
+        # Initialization
+        X = np.empty(
+            (
+                self.batch_size * len(self.camnames[0]),
+                *self.dim_in,
+                self.n_channels_in,
+            ),
+            dtype="uint8",
+        )
+
+        # We'll need to transpose this later such that channels are last,
+        # but initializaing the array this ways gives us
+        # more flexibility in terms of user-defined array sizes\
+        if self.labelmode == "prob":
+            y = np.empty(
+                (
+                    self.batch_size * len(self.camnames[0]),
+                    self.n_channels_out,
+                    *self.dim_out,
+                ),
+                dtype="float32",
+            )
+        else:
+            # Just return the targets, without making a meshgrid later
+            y = np.empty(
+                (
+                    self.batch_size * len(self.camnames[0]),
+                    self.n_channels_out,
+                    len(self.dim_out),
+                ),
+                dtype="float32",
+            )
+
+        # Generate data
+        cnt = 0
+        for i, ID in enumerate(list_IDs_temp):
+            if "_" in ID:
+                experimentID = int(ID.split("_")[0])
+            else:
+                # Then we only have one experiment
+                experimentID = 0
+            for camname in self.camnames[experimentID]:
+                # Store sample
+                # TODO(Refactor): This section is tricky to read
+                if self.immode == "video":
+                    X[cnt] = self.load_vid_frame(
+                        self.labels[ID]["frames"][camname],
+                        camname,
+                        self.preload,
+                        self.extension,
+                    )[
+                        self.crop_height[0] : self.crop_height[1],
+                        self.crop_width[0] : self.crop_width[1],
+                    ]
+                elif self.immode == "tif":
+                    X[cnt] = self.load_tif_frame(
+                        self.labels[ID]["frames"][camname], camname
+                    )[
+                        self.crop_height[0] : self.crop_height[1],
+                        self.crop_width[0] : self.crop_width[1],
+                    ]
+                else:
+                    raise Exception("Not a valid image reading mode")
+
+                # Labels will now be the pixel positions of each joint.
+                # Here, we convert them to
+                # probability maps with a numpy meshgrid operation
+                this_y = np.round(self.labels[ID]["data"][camname])
+                if self.immode == "video":
+                    this_y[0, :] = this_y[0, :] - self.crop_width[0]
+                    this_y[1, :] = this_y[1, :] - self.crop_height[0]
+                else:
+                    raise Exception(
+                        "Unsupported image format. Needs to be video files."
+                    )
+                # if this_y.shape[1] != self.n_channels_out:
+                #     # TODO(shape_exception):This should probably be its own
+                #     # class that inherits from base exception
+                #     raise Exception(_EXEP_MSG)
+
+                if self.labelmode == "prob":
+                    # Only do this if we actually need the labels --
+                    # this is too slow otherwise
+                    (x_coord, y_coord) = np.meshgrid(
+                        np.arange(self.dim_out[1]), np.arange(self.dim_out[0])
+                    )
+                    for j in range(self.n_channels_out):
+                        # I tested a version of this with numpy broadcasting,
+                        # and looping was ~100ms seconds faster for making
+                        # 20 maps
+                        # In the future, a shortcut might be to "stamp" a
+                        # truncated Gaussian pdf onto the images, centered
+                        # at the peak
+
+                        # For now, instances are represented as multiple copies
+                        # of channels. For example, the order in the label
+                        # file will be COM1, COM2 or Head1 Head2 Ear1 Ear2,
+                        # etc.
+                        instance_prob = []
+                        for instance in range(self.n_instances):
+                            label_idx = (
+                                self.n_channels_out - 1
+                            ) * self.n_instances + instance
+                            instance_prob.append(
+                                np.exp(
+                                    -(
+                                        (y_coord - this_y[1, label_idx]) ** 2
+                                        + (x_coord - this_y[0, label_idx]) ** 2
+                                    )
+                                    / (2 * self.out_scale ** 2)
+                                )
+                            )
+                        y[cnt, j] = np.max(
+                            np.stack(instance_prob, axis=2), axis=2
+                        )
+                else:
+                    y[cnt] = this_y.T
+                # plt.imshow(np.squeeze(y[0,:,:,:]))
+                # plt.show()
+                # import pdb
+                # pdb.set_trace()
+                cnt = cnt + 1
+
+        # Move channels last
+        if self.labelmode == "prob":
+            y = np.transpose(y, [0, 2, 3, 1])
+        else:
+            # One less dimension when not training with probability map targets
+            y = np.transpose(y, [0, 2, 1])
+
+        if self.downsample > 1:
+            X = processing.downsample_batch(
+                X, fac=self.downsample, method=self.dsmode
+            )
+            if self.labelmode == "prob":
+                y = processing.downsample_batch(
+                    y, fac=self.downsample, method=self.dsmode
+                )
+                y /= np.max(np.max(y, axis=1), axis=1)[
+                    :, np.newaxis, np.newaxis, :
+                ]
+
+        if self.mono and self.n_channels_in == 3:
+            # Go from 3 to 1 channel using RGB conversion. This will also
+            # work fine if there are just 3 channel grayscale
+            X = (
+                X[:, :, :, 0] * 0.2125
+                + X[:, :, :, 1] * 0.7154
+                + X[:, :, :, 2] * 0.0721
+            )
+
+            X = X[:, :, :, np.newaxis]
+
+        if self.mono:
+            # Just subtract the mean imagent BGR value, which is as close as we
+            # get to vgg19 normalization
+            X -= 114.67
+        else:
+            X = pp_vgg19(X)
+        return X, y
+
+
 class DataGenerator_downsample_frommem(keras.utils.Sequence):
     """Generate 3d conv data from memory."""
 
