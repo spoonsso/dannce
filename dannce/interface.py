@@ -278,8 +278,206 @@ def com_predict(params):
                         ).squeeze()
 
                         save_data[sampleID_]["triangulation"][
-                            "{}_{}".format(params["camnames"][j], params["camnames"][k])
+                            "{}_{}".format(
+                                params["camnames"][j], params["camnames"][k]
+                            )
                         ] = test3d
+
+    def evaluate_ondemand_multi_instance(start_ind, end_ind, valid_gen):
+        """Perform COM detection over a set of frames.
+
+        :param start_ind: Starting frame index
+        :param end_ind: Ending frame index
+        :param steps: Subsample every steps frames
+        """
+        end_time = time.time()
+        sample_save = 100
+        for i in range(start_ind, end_ind):
+            print("Predicting on sample {}".format(i), flush=True)
+            if (i - start_ind) % sample_save == 0 and i != start_ind:
+                print(i)
+                print(
+                    "{} samples took {} seconds".format(
+                        sample_save, time.time() - end_time
+                    )
+                )
+                end_time = time.time()
+
+            pred_ = model.predict(valid_gen.__getitem__(i)[0])
+
+            pred_ = np.reshape(
+                pred_,
+                [
+                    -1,
+                    len(params["camnames"]),
+                    pred_.shape[1],
+                    pred_.shape[2],
+                    pred_.shape[3],
+                ],
+            )
+            for m in range(pred_.shape[0]):
+
+                # By selecting -1 for the last axis, we get the COM index for a
+                # normal COM network, and also the COM index for a multi_mode COM network,
+                # as in multimode the COM label is put at the end
+                pred = pred_[m, :, :, :, -1]
+                sampleID_ = partition["valid_sampleIDs"][
+                    i * pred_.shape[0] + m
+                ]
+                save_data[sampleID_] = {}
+                save_data[sampleID_]["triangulation"] = {}
+
+                for j in range(pred.shape[0]):  # this loops over all cameras
+                    # get coords for each map. This assumes that image are coming
+                    # out in pred in the same order as CONFIG_PARAMS['camnames']
+                    pred_max = np.max(np.squeeze(pred[j]))
+                    ind = (
+                        np.array(
+                            processing.get_peak_inds_multi_instance(
+                                np.squeeze(pred[j]),
+                                params["n_instances"],
+                                window_size=3,
+                            )
+                        )
+                        * params["downfac"]
+                    )
+                    for instance in range(params["n_instances"]):
+                        ind[instance, 0] += params["crop_height"][0]
+                        ind[instance, 1] += params["crop_width"][0]
+                        ind[instance, :] = ind[instance, ::-1]
+                    # now, the center of mass is (x,y) instead of (i,j)
+                    # now, we need to use camera calibration to triangulate
+                    # from 2D to 3D
+                    if params["com_debug"] is not None and j == cnum:
+                        # Write preds
+                        plt.figure(0)
+                        plt.cla()
+                        plt.imshow(np.squeeze(pred[j]))
+                        plt.savefig(
+                            os.path.join(
+                                cmapdir,
+                                params["com_debug"] + str(i + m) + ".png",
+                            )
+                        )
+
+                        plt.figure(1)
+                        plt.cla()
+                        im = valid_gen.__getitem__(i * pred_.shape[0] + m)
+                        plt.imshow(processing.norm_im(im[0][j]))
+                        plt.plot(
+                            (ind[0, 0] - params["crop_width"][0])
+                            / params["downfac"],
+                            (ind[0, 1] - params["crop_height"][0])
+                            / params["downfac"],
+                            "or",
+                        )
+                        plt.savefig(
+                            os.path.join(
+                                overlaydir,
+                                params["com_debug"] + str(i + m) + ".png",
+                            )
+                        )
+
+                    save_data[sampleID_][params["camnames"][j]] = {
+                        "pred_max": pred_max,
+                        "COM": ind,
+                    }
+
+                    # Undistort this COM here.
+                    for instance in range(params["n_instances"]):
+                        pts1 = np.squeeze(
+                            save_data[sampleID_][params["camnames"][j]]["COM"][
+                                instance, :
+                            ]
+                        )
+                        pts1 = pts1[np.newaxis, :]
+                        pts1 = ops.unDistortPoints(
+                            pts1,
+                            cameras[params["camnames"][j]]["K"],
+                            cameras[params["camnames"][j]]["RDistort"],
+                            cameras[params["camnames"][j]]["TDistort"],
+                            cameras[params["camnames"][j]]["R"],
+                            cameras[params["camnames"][j]]["t"],
+                        )
+                        save_data[sampleID_][params["camnames"][j]]["COM"][
+                            instance, :
+                        ] = np.squeeze(pts1)
+
+                ncams = pred.shape[0]
+                cams = [
+                    camera_mats[params["camnames"][ncam]]
+                    for ncam in range(ncams)
+                ]
+                # Go through the instances, adding the most parsimonious
+                # points of the n_instances available points at each camera.
+                best_pts = []
+                best_pts_inds = []
+                for instance in range(params["n_instances"]):
+                    pts = []
+                    pts_inds = []
+
+                    # Build the initial list of points
+                    for n_cam in range(ncams):
+                        pt = save_data[sampleID_][params["camnames"][n_cam]][
+                            "COM"
+                        ][instance, :]
+                        pt = pt[np.newaxis, :]
+                        pts.append(pt)
+                        pts_inds.append(instance)
+
+                    # Go through each camera (other than the first) and test
+                    # each instance
+                    for n_cam in range(1, ncams):
+                        candidate_errors = []
+                        for n_point in range(params["n_instances"]):
+                            if len(best_pts_inds) >= 1:
+                                if any(
+                                    n_point == p[n_cam] for p in best_pts_inds
+                                ):
+                                    candidate_errors.append(np.Inf)
+                                    continue
+
+                            pt = save_data[sampleID_][
+                                params["camnames"][n_cam]
+                            ]["COM"][n_point, :]
+                            pt = pt[np.newaxis, :]
+                            pts[n_cam] = pt
+                            pts_inds[n_cam] = n_point
+                            pts3d = ops.triangulate_multi_instance(pts, cams)
+
+                            # Loop through each camera, reproject the point
+                            # into image coordinates, and save the error.
+                            error = 0
+                            for n_proj in range(ncams):
+                                K = cameras[params["camnames"][n_proj]]["K"]
+                                R = cameras[params["camnames"][n_proj]]["R"]
+                                t = cameras[params["camnames"][n_proj]]["t"]
+                                proj = ops.project_to2d(pts3d.T, K, R, t)
+                                proj = proj[:, :2]
+                                ref = save_data[sampleID_][
+                                    params["camnames"][n_proj]
+                                ]["COM"][pts_inds[n_proj], :]
+                                error += np.sqrt(np.sum((proj - ref) ** 2))
+                            candidate_errors.append(error)
+
+                        # Keep the best instance combinations across cameras
+                        best_candidate = np.argmin(candidate_errors)
+                        pt = save_data[sampleID_][params["camnames"][n_cam]][
+                            "COM"
+                        ][best_candidate, :]
+                        pt = pt[np.newaxis, :]
+                        pts[n_cam] = pt
+                        pts_inds[n_cam] = best_candidate
+
+                    best_pts.append(pts)
+                    best_pts_inds.append(pts_inds)
+
+                # Do one final triangulation
+                final3d = [
+                    ops.triangulate_multi_instance(best_pts[k], cams)
+                    for k in range(params["n_instances"])
+                ]
+                save_data[sampleID_]["triangulation"]["instances"] = final3d
 
     com_predict_dir = os.path.join(params["com_predict_dir"])
     print(com_predict_dir)
@@ -362,22 +560,44 @@ def com_predict(params):
 
     save_data = {}
 
-    valid_generator = DataGenerator_downsample(
-        partition["valid_sampleIDs"], labels, vids, **valid_params
-    )
+    # If multi-instance mode is on, use the correct generator 
+    # and eval function. 
+    if params["n_instances"] > 1:
+        valid_generator = DataGenerator_downsample_multi_instance(
+            params["n_instances"],
+            partition["valid_sampleIDs"],
+            labels,
+            vids,
+            **valid_params
+        )
+        eval_func = evaluate_ondemand_multi_instance
+    else:
+        valid_generator = DataGenerator_downsample(
+            partition["valid_sampleIDs"], labels, vids, **valid_params
+        )
+        eval_func = evaluate_ondemand
 
     # If we just want to analyze a chunk of video...
     st_ind = params["start_sample"]
     if params["max_num_samples"] == "max":
-        evaluate_ondemand(st_ind, len(valid_generator), valid_generator)
+        eval_func(
+            st_ind, len(valid_generator), valid_generator
+        )
         processing.save_COM_checkpoint(
             save_data, com_predict_dir, datadict_, cameras, params
         )
     else:
-        endIdx = np.min([st_ind + params["max_num_samples"], len(valid_generator)])
-        evaluate_ondemand(st_ind, endIdx, valid_generator)
+        endIdx = np.min(
+            [st_ind + params["max_num_samples"], len(valid_generator)]
+        )
+        eval_func(st_ind, endIdx, valid_generator)
         processing.save_COM_checkpoint(
-            save_data, com_predict_dir, datadict_, cameras, params, file_name="com3d" + str(st_ind)
+            save_data,
+            com_predict_dir,
+            datadict_,
+            cameras,
+            params,
+            file_name="com3d" + str(st_ind),
         )
 
     print("done!")
@@ -568,32 +788,72 @@ def com_train(params):
 
     # Initialize data structures
     ncams = len(camnames[0])
-    dh = (params["crop_height"][1] - params["crop_height"][0]) // params["downfac"]
-    dw = (params["crop_width"][1] - params["crop_width"][0]) // params["downfac"]
+    dh = (params["crop_height"][1] - params["crop_height"][0]) // params[
+        "downfac"
+    ]
+    dw = (params["crop_width"][1] - params["crop_width"][0]) // params[
+        "downfac"
+    ]
     ims_train = np.zeros(
-        (ncams * len(partition["train_sampleIDs"]), dh, dw, params["chan_num"]), 
-        dtype="float32"
+        (
+            ncams * len(partition["train_sampleIDs"]),
+            dh,
+            dw,
+            params["chan_num"],
+        ),
+        dtype="float32",
     )
     y_train = np.zeros(
-        (ncams * len(partition["train_sampleIDs"]), dh, dw, params["n_channels_out"]),
+        (
+            ncams * len(partition["train_sampleIDs"]),
+            dh,
+            dw,
+            params["n_channels_out"],
+        ),
         dtype="float32",
     )
     ims_valid = np.zeros(
-        (ncams * len(partition["valid_sampleIDs"]), dh, dw, params["chan_num"]), 
-        dtype="float32"
+        (
+            ncams * len(partition["valid_sampleIDs"]),
+            dh,
+            dw,
+            params["chan_num"],
+        ),
+        dtype="float32",
     )
     y_valid = np.zeros(
-        (ncams * len(partition["valid_sampleIDs"]), dh, dw, params["n_channels_out"]),
+        (
+            ncams * len(partition["valid_sampleIDs"]),
+            dh,
+            dw,
+            params["n_channels_out"],
+        ),
         dtype="float32",
     )
 
     # Set up generators
-    train_generator = DataGenerator_downsample(
-        partition["train_sampleIDs"], labels, vids, **train_params
-    )
-    valid_generator = DataGenerator_downsample(
-        partition["valid_sampleIDs"], labels, vids, **valid_params
-    )
+    if params["n_instances"] > 1:
+        train_generator = DataGenerator_downsample_multi_instance(
+            params["n_instances"],
+            partition["train_sampleIDs"],
+            labels,
+            vids,
+            **train_params
+        )
+        valid_generator = DataGenerator_downsample_multi_instance(
+            params["n_instances"],
+            partition["valid_sampleIDs"],
+            labels,
+            vids,
+            **valid_params
+        )
+    else:
+        train_generator = DataGenerator_downsample(
+            partition["train_sampleIDs"], labels, vids, **train_params
+        )
+        valid_generator = DataGenerator_downsample(
+            partition["valid_sampleIDs"], labels, vids, **valid_params
+        )
 
     print("Loading data")
     for i in range(len(partition["train_sampleIDs"])):
