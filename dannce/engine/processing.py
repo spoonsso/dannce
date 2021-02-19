@@ -8,11 +8,12 @@ import dannce.engine.serve_data_DANNCE as serve_data_DANNCE
 import PIL
 from six.moves import cPickle
 import scipy.io as sio
+from scipy.ndimage.filters import maximum_filter
 
 from dannce.engine import io
 import matplotlib
 
-matplotlib.use("Agg")
+# matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 import yaml
@@ -481,7 +482,11 @@ def save_COM_checkpoint(save_data, RESULTSDIR, datadict_, cameras, params, file_
     for key in datadict_:
         datadict_save[int(float(key.split("_")[-1]))] = datadict_[key]
 
-    _, com3d_dict = serve_data_DANNCE.prepare_COM(
+    if params["n_instances"] > 1:
+        prepare_func = serve_data_DANNCE.prepare_COM_multi_instance
+    else:
+        prepare_func = serve_data_DANNCE.prepare_COM
+    _, com3d_dict = prepare_func(
         os.path.join(RESULTSDIR, file_name + ".pickle"),
         datadict_save,
         comthresh=0,
@@ -494,7 +499,11 @@ def save_COM_checkpoint(save_data, RESULTSDIR, datadict_, cameras, params, file_
     print("Saving 3D COM to {}".format(cfilename))
     samples_keys = list(com3d_dict.keys())
 
-    c3d = np.zeros((len(samples_keys), 3))
+    if params["n_instances"] > 1:
+        c3d = np.zeros((len(samples_keys), 3, params["n_instances"]))
+    else:
+        c3d = np.zeros((len(samples_keys), 3))
+
     for i in range(len(samples_keys)):
         c3d[i] = com3d_dict[samples_keys[i]]
 
@@ -945,6 +954,13 @@ def get_peak_inds(map_):
     """Return the indices of the peak value of an n-d map."""
     return np.unravel_index(np.argmax(map_, axis=None), map_.shape)
 
+def get_peak_inds_multi_instance(im, n_instances, window_size=10):
+    """Return top n_instances local peaks through non-max suppression."""
+    bw = (im == maximum_filter(im, footprint=np.ones((window_size, window_size))))
+    inds = np.argwhere(bw)
+    vals = im[inds[:, 0], inds[:, 1]]
+    idx = np.argsort(vals)[::-1]
+    return inds[idx[:n_instances], :]
 
 def get_marker_peaks_2d(stack):
     """Return the concatenated coordinates of all peaks for each map/marker."""
