@@ -6,6 +6,7 @@ from dannce.engine.io import load_camera_params, load_labels, load_sync
 import os
 from six.moves import cPickle
 from scipy.special import comb
+from scipy.ndimage import median_filter
 import warnings
 from copy import deepcopy
 
@@ -127,6 +128,92 @@ def prepare_data(
         return samples, datadict, datadict_3d, cameras, camera_mats
     else:
         return samples, datadict, datadict_3d, cameras
+
+
+def prepare_COM_multi_instance(
+    comfile,
+    datadict,
+    comthresh=0.0,
+    weighted=False,
+    camera_mats=None,
+    conf_rescale=None,
+    method="median",
+):
+    """Replace 2d coords with preprocessed COM coords, return 3d COM coords.
+
+    Loads COM file, replaces 2D coordinates in datadict with the preprocessed
+    COM coordinates, returns dict of 3d COM coordinates
+
+    Thresholds COM predictions at comthresh w.r.t. saved pred_max values.
+    Averages only the 3d coords for camera pairs that both meet thresh.
+    Returns nan for 2d COM if camera does not reach thresh. This should be
+    detected by the generator to return nans such that bad camera
+    frames do not get averaged in to image data
+    """
+
+    with open(comfile, "rb") as f:
+        com = cPickle.load(f)
+    com3d_dict = {}
+
+    if method == "mean":
+        print("using mean to get 3D COM")
+
+    elif method == "median":
+        print("using median to get 3D COM")
+
+    firstkey = list(com.keys())[0]
+
+    camnames = np.array(
+        list(datadict[list(datadict.keys())[0]]["data"].keys())
+    )
+
+    # Because I repeat cameras to fill up 6 camera quota, I need grab only
+    # the unique names
+    _, idx = np.unique(camnames, return_index=True)
+    uCamnames = camnames[np.sort(idx)]
+
+    # It's possible that the keys in the COM dict are strings with an experiment ID
+    # prepended in front. We need to handle this appropriately.
+    if isinstance(firstkey, str):
+        com_ = {}
+        for key in com.keys():
+            com_[int(float(key.split("_")[-1]))] = com[key]
+        com = com_
+
+    fcom = list(com.keys())[0]
+
+    # Grab the multi-instance predictions and store in single matrix
+    coms = [v["triangulation"]["instances"] for v in com.values()]
+    coms = [np.concatenate(v, axis=1) for v in coms]
+    coms = np.stack(coms, axis=2).transpose([2, 0, 1])
+
+    # Use a 1-frame euclidean distance metric to string together identities.
+    # Currently just for 2 instances
+    for n_sample in range(1, coms.shape[0]):
+        same_dist1 = np.sqrt(
+            np.sum((coms[n_sample, :, 0] - coms[n_sample - 1, :, 0]) ** 2)
+        )
+        diff_dist1 = np.sqrt(
+            np.sum((coms[n_sample, :, 0] - coms[n_sample - 1, :, 1]) ** 2)
+        )
+        same_dist2 = np.sqrt(
+            np.sum((coms[n_sample, :, 1] - coms[n_sample - 1, :, 1]) ** 2)
+        )
+        diff_dist2 = np.sqrt(
+            np.sum((coms[n_sample, :, 1] - coms[n_sample - 1, :, 0]) ** 2)
+        )
+        same = np.mean([same_dist1, same_dist2])
+        diff = np.mean([diff_dist1, diff_dist2])
+        if diff < same:
+            temp = coms[n_sample, :, 0].copy()
+            coms[n_sample, :, 0] = coms[n_sample, :, 1]
+            coms[n_sample, :, 1] = temp
+
+    # Return to com3d_dict format.
+    for i, key in enumerate(com.keys()):
+        com3d_dict[key] = coms[i, :, :]
+
+    return None, com3d_dict
 
 
 def prepare_COM(
