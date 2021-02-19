@@ -9,8 +9,16 @@ from dannce.engine import processing as processing
 import scipy.io as sio
 import warnings
 import time
-
-_DEFAULT_CAM_NAMES = ["CameraR", "CameraL", "CameraU", "CameraU2", "CameraS", "CameraE"]
+import matplotlib.pyplot as plt
+from dannce.engine.video import MediaVideo
+_DEFAULT_CAM_NAMES = [
+    "CameraR",
+    "CameraL",
+    "CameraU",
+    "CameraU2",
+    "CameraS",
+    "CameraE",
+]
 _EXEP_MSG = "Desired Label channels and ground truth channels do not agree"
 
 
@@ -65,7 +73,8 @@ class DataGenerator_downsample(keras.utils.Sequence):
 
         if immode == "video":
             self.extension = (
-                "." + list(vidreaders[camnames[0][0]].keys())[0].rsplit(".")[-1]
+                "."
+                + list(vidreaders[camnames[0][0]].keys())[0].rsplit(".")[-1]
             )
 
         self.immode = immode
@@ -93,7 +102,9 @@ class DataGenerator_downsample(keras.utils.Sequence):
     def __getitem__(self, index):
         """Generate one batch of data."""
         # Generate indexes of the batch
-        indexes = self.indexes[index * self.batch_size : (index + 1) * self.batch_size]
+        indexes = self.indexes[
+            index * self.batch_size : (index + 1) * self.batch_size
+        ]
 
         # Find list of IDs
         list_IDs_temp = [self.list_IDs[k] for k in indexes]
@@ -155,7 +166,11 @@ class DataGenerator_downsample(keras.utils.Sequence):
         """
         # Initialization
         X = np.empty(
-            (self.batch_size * len(self.camnames[0]), *self.dim_in, self.n_channels_in),
+            (
+                self.batch_size * len(self.camnames[0]),
+                *self.dim_in,
+                self.n_channels_in,
+            ),
             dtype="uint8",
         )
 
@@ -264,19 +279,25 @@ class DataGenerator_downsample(keras.utils.Sequence):
             y = np.transpose(y, [0, 2, 1])
 
         if self.downsample > 1:
-            X = processing.downsample_batch(X, fac=self.downsample, method=self.dsmode)
+            X = processing.downsample_batch(
+                X, fac=self.downsample, method=self.dsmode
+            )
             if self.labelmode == "prob":
                 y = processing.downsample_batch(
                     y, fac=self.downsample, method=self.dsmode
                 )
-                y /= np.max(np.max(y, axis=1), axis=1)[:, np.newaxis, np.newaxis, :]
+                y /= np.max(np.max(y, axis=1), axis=1)[
+                    :, np.newaxis, np.newaxis, :
+                ]
 
         if self.mono and self.n_channels_in == 3:
             # Go from 3 to 1 channel using RGB conversion. This will also
             # work fine if there are just 3 channel grayscale
-            X = X[:, :, :, 0]*0.2125 + \
-                    X[:, :, :, 1]*0.7154 + \
-                    X[:, :, :, 2]*0.0721
+            X = (
+                X[:, :, :, 0] * 0.2125
+                + X[:, :, :, 1] * 0.7154
+                + X[:, :, :, 2] * 0.0721
+            )
 
             X = X[:, :, :, np.newaxis]
 
@@ -310,7 +331,7 @@ class DataGenerator_downsample_frommem(keras.utils.Sequence):
         shift_val=0.05,
         rotation_val=5,
         shear_val=5,
-        zoom_val=0.05
+        zoom_val=0.05,
     ):
         """Initialize data generator."""
         self.list_IDs = list_IDs
@@ -345,24 +366,24 @@ class DataGenerator_downsample_frommem(keras.utils.Sequence):
             np.random.shuffle(self.indexes)
 
     def shift_im(self, im, lim, dim=2):
-        ulim = im.shape[dim]-np.abs(lim)
+        ulim = im.shape[dim] - np.abs(lim)
 
         if dim == 2:
             if lim < 0:
-                im[:, :, :ulim] = im[:, :, np.abs(lim):]
-                im[:, :, ulim:] = im[:, :, ulim:ulim+1]
+                im[:, :, :ulim] = im[:, :, np.abs(lim) :]
+                im[:, :, ulim:] = im[:, :, ulim : ulim + 1]
             else:
                 im[:, :, lim:] = im[:, :, :ulim]
-                im[:, :, :lim] = im[:, :, lim:lim+1]
+                im[:, :, :lim] = im[:, :, lim : lim + 1]
         elif dim == 1:
             if lim < 0:
-                im[:, :ulim] = im[:, np.abs(lim):]
-                im[:, ulim:] = im[:, ulim:ulim+1]
+                im[:, :ulim] = im[:, np.abs(lim) :]
+                im[:, ulim:] = im[:, ulim : ulim + 1]
             else:
                 im[:, lim:] = im[:, :ulim]
-                im[:, :lim] = im[:, lim:lim+1]
+                im[:, :lim] = im[:, lim : lim + 1]
         else:
-            raise Exception ("Not a valid dimension for shift indexing")
+            raise Exception("Not a valid dimension for shift indexing")
 
         return im
 
@@ -371,8 +392,8 @@ class DataGenerator_downsample_frommem(keras.utils.Sequence):
         Randomly shifts all images in batch, in the range [-im_w*scale, im_w*scale]
             and [im_h*scale, im_h*scale]
         """
-        wrng = np.random.randint(-int(im_w*scale), int(im_w*scale))
-        hrng = np.random.randint(-int(im_h*scale), int(im_h*scale))
+        wrng = np.random.randint(-int(im_w * scale), int(im_w * scale))
+        hrng = np.random.randint(-int(im_h * scale), int(im_h * scale))
 
         X = self.shift_im(X, wrng)
         X = self.shift_im(X, hrng, dim=1)
@@ -385,7 +406,9 @@ class DataGenerator_downsample_frommem(keras.utils.Sequence):
     def __getitem__(self, index):
         """Generate one batch of data."""
         # Generate indexes of the batch
-        indexes = self.indexes[index * self.batch_size : (index + 1) * self.batch_size]
+        indexes = self.indexes[
+            index * self.batch_size : (index + 1) * self.batch_size
+        ]
 
         # Find list of IDs
         list_IDs_temp = [self.list_IDs[k] for k in indexes]
@@ -406,53 +429,52 @@ class DataGenerator_downsample_frommem(keras.utils.Sequence):
             X[i] = self.data[ID].copy()
             y_2d[i] = self.labels[ID]
 
-        if self.augment_rotation \
-            or self.augment_shear or self.augment_zoom:
+        if self.augment_rotation or self.augment_shear or self.augment_zoom:
 
             affine = {}
-            affine['zoom'] = 1
-            affine['rotation'] = 0
-            affine['shear'] = 0
+            affine["zoom"] = 1
+            affine["rotation"] = 0
+            affine["shear"] = 0
 
-            # Because we use views down below, 
+            # Because we use views down below,
             # don't change the targets in memory.
             # But also, don't deep copy y_2d unless necessary (that's
             # why it's here and not above)
             y_2d = y_2d.copy()
 
             if self.augment_rotation:
-                affine['rotation'] = self.rotation_val*\
-                    (np.random.rand()*2-1)
+                affine["rotation"] = self.rotation_val * (
+                    np.random.rand() * 2 - 1
+                )
             if self.augment_zoom:
-                affine['zoom'] = self.zoom_val*\
-                    (np.random.rand()*2-1) + 1
+                affine["zoom"] = self.zoom_val * (np.random.rand() * 2 - 1) + 1
             if self.augment_shear:
-                affine['shear'] = self.shear_val*\
-                    (np.random.rand()*2-1)
+                affine["shear"] = self.shear_val * (np.random.rand() * 2 - 1)
 
             for idx in range(X.shape[0]):
-                X[idx] = \
-                    tf.keras.preprocessing.image.apply_affine_transform(
-                        X[idx],
-                        theta=affine['rotation'],
-                        shear=affine['shear'],
-                        zx=affine['zoom'],
-                        zy=affine['zoom'],
-                        fill_mode='nearest')
-                y_2d[idx] = \
-                    tf.keras.preprocessing.image.apply_affine_transform(
-                        y_2d[idx],
-                        theta=affine['rotation'],
-                        shear=affine['shear'],
-                        zx=affine['zoom'],
-                        zy=affine['zoom'],
-                        fill_mode='nearest')
+                X[idx] = tf.keras.preprocessing.image.apply_affine_transform(
+                    X[idx],
+                    theta=affine["rotation"],
+                    shear=affine["shear"],
+                    zx=affine["zoom"],
+                    zy=affine["zoom"],
+                    fill_mode="nearest",
+                )
+                y_2d[
+                    idx
+                ] = tf.keras.preprocessing.image.apply_affine_transform(
+                    y_2d[idx],
+                    theta=affine["rotation"],
+                    shear=affine["shear"],
+                    zx=affine["zoom"],
+                    zy=affine["zoom"],
+                    fill_mode="nearest",
+                )
 
         if self.augment_shift:
-            X, y_2d = self.random_shift(X, y_2d.copy(),
-                                     X.shape[1],
-                                     X.shape[2],
-                                     self.shift_val)
+            X, y_2d = self.random_shift(
+                X, y_2d.copy(), X.shape[1], X.shape[2], self.shift_val
+            )
 
         if self.augment_brightness:
             X = tf.image.random_brightness(X, self.bright_val)
@@ -468,8 +490,9 @@ class DataGenerator_downsample_frommem(keras.utils.Sequence):
 
         return X, y_2d
 
-
-    def save_for_dlc(self, imfolder, ext=".png", full_data=True, compress_level=9):
+    def save_for_dlc(
+        self, imfolder, ext=".png", full_data=True, compress_level=9
+    ):
         """Generate data.
 
         # The full_data flag is used so that one can
@@ -524,7 +547,9 @@ class DataGenerator_downsample_frommem(keras.utils.Sequence):
 
                 if self.downsample > 1:
                     X = processing.downsample_batch(
-                        X[np.newaxis, :, :, :], fac=self.downsample, method="dsm"
+                        X[np.newaxis, :, :, :],
+                        fac=self.downsample,
+                        method="dsm",
                     )
                     this_y = np.round(this_y / 2).astype("int")
                     if full_data:
