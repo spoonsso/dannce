@@ -585,6 +585,42 @@ def triangulate(pts1, pts2, cam1, cam2):
     return out_3d
 
 
+def triangulate_multi_instance(pts, cams):
+    """Return triangulated 3- coordinates.
+
+    Following Matlab convetion, given lists of matching points, and their
+    respective camera matrices, returns the triangulated 3- coordinates.
+    pts1 and pts2 must be Mx2, where M is the number of points with
+    (x,y) positions. M 3-D points will be returned after triangulation
+    """
+    pts = [pt.T for pt in pts]
+    cams = [c.T for c in cams]
+    out_3d = np.zeros((3, pts[0].shape[1]))
+    # traces = np.zeros((out_3d.shape[1],))
+
+    for i in range(out_3d.shape[1]):
+        if ~np.isnan(pts[0][0, i]):
+            p = [p[:, i: i + 1] for p in pts]
+
+            A = np.zeros((2*len(cams), 4))
+            for j in range(len(cams)):
+                A[(j)*2:(j+1)*2] = p[j] @ cams[j][2:3, :] - cams[j][0:2, :]
+
+            u, s, vh = np.linalg.svd(A)
+            v = vh.T
+
+            X = v[:, -1]
+            X = X / X[-1]
+
+            out_3d[:, i] = X[0:3].T
+            # traces[i] = np.sum(s[0:3])
+
+        else:
+            out_3d[:, i] = np.nan
+
+    return out_3d
+
+
 def ravel_multi_index(I, J, shape):
     """Create an array of flat indices from coordinate arrays.
 
