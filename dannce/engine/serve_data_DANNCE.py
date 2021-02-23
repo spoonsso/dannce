@@ -37,7 +37,7 @@ def prepare_data(
     cameras = {name: params[i] for i, name in enumerate(CONFIG_PARAMS["camnames"])}
 
     if "m" in params[0] and not CONFIG_PARAMS["mirror"]:
-        raise Exception("found mirror field in camera params, but the network is not set to run in mirror mode")
+        warnings.warn("found mirror field in camera params, but the network is not set to run in mirror mode")
     elif CONFIG_PARAMS["mirror"] and "m" not in params[0]:
         raise Exception("network set to run in mirror mode, but cannot find mirror (m) field in camera params")
 

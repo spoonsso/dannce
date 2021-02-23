@@ -143,7 +143,8 @@ def com_predict(params):
         :param steps: Subsample every steps frames
         """
         end_time = time.time()
-        sample_save = 100
+        sample_clock = 100
+        sample_save = 100000
 
         if params["mirror"]:
             ncams = 1
@@ -152,16 +153,16 @@ def com_predict(params):
 
         for i in range(start_ind, end_ind):
             print("Predicting on sample {}".format(i), flush=True)
-            if (i - start_ind) % sample_save == 0 and i != start_ind:
+            if (i - start_ind) % sample_clock == 0 and i != start_ind:
                 print(i)
                 print(
                     "{} samples took {} seconds".format(
-                        sample_save, time.time() - end_time
+                        sample_clock, time.time() - end_time
                     )
                 )
                 end_time = time.time()
 
-            if (i - start_ind) % 1000 == 0 and i != start_ind:
+            if (i - start_ind) % sample_save == 0 and i != start_ind:
                 print("Saving checkpoint at {}th sample".format(i))
                 processing.save_COM_checkpoint(
                     save_data, com_predict_dir, datadict_, cameras, params
@@ -689,8 +690,6 @@ def com_train(params):
         workers=6,
         callbacks=[csvlog, model_checkpoint, tboard],
     )
-
-    import pdb; pdb.set_trace()
 
     write_debug(trainData=False)
 
@@ -1336,10 +1335,11 @@ def dannce_predict(params):
     if predict_mode == "torch":
         import torch
 
-        device = "cuda:" + gpu_id
+        # Because CUDA_VISBILE_DEVICES is already set to a single GPU, the gpu_id here should be "0"
+        device = "cuda:0"
         genfunc = DataGenerator_3Dconv_torch
     elif predict_mode == "tf":
-        device = "/GPU:" + gpu_id
+        device = "/GPU:0"
         genfunc = DataGenerator_3Dconv_tf
     else:
         genfunc = DataGenerator_3Dconv
@@ -1372,6 +1372,9 @@ def dannce_predict(params):
         weights = weights[-1]
 
         mdl_file = os.path.join(wdir, weights)
+        # if not using dannce_predict model (thus taking the final weights in train_results),
+        # set this file to dannce_predict_model so that it will still get saved with metadata
+        params["dannce_predict_model"] = mdl_file
 
     print("Loading model from " + mdl_file)
 
@@ -1383,6 +1386,9 @@ def dannce_predict(params):
         params["dannce_finetune_weights"] = processing.get_ft_wt(params)
 
         if params["train_mode"] == "finetune":
+
+            print("Initializing a finetune network from {}, into which weights from {} will be loaded.".format(
+                params["dannce_finetune_weights"], mdl_file))
             model = params["net"](
                 params["loss"],
                 float(params["lr"]),
