@@ -143,29 +143,25 @@ def infer_params(params, dannce_net, prediction):
 
         if params["net_type"] == "AVG":
             print_and_set(params, "expval", True)
-            if prediction:
-                print_and_set(params, "net", "unet3d_big_expectedvalue")
         elif params["net_type"] == "MAX":
             print_and_set(params, "expval", False)
-            if prediction:
-                print_and_set(params, "net", "unet3d_big")
         else:
             raise Exception("{} not a valid net_type".format(params["net_type"]))
 
-        if not prediction:
-            if params["net_type"] == "AVG" and params["train_mode"] == "finetune":
-                print_and_set(params, "net", "finetune_AVG")
-            elif params["net_type"] == "AVG":
-                # This is the network for training from scratch.
-                # This will also set the network for "continued", but that network
-                # will be ignored, as for continued training the full model file
-                # is loaded in without a call to construct the network. However, a value
-                # for params['net'] is still required for initialization
-                print_and_set(params, "net", "unet3d_big_expectedvalue")
-            elif params["net_type"] == "MAX" and params["train_mode"] == "finetune":
-                print_and_set(params, "net", "finetune_MAX")
-            elif params["net_type"] == "MAX":
-                print_and_set(params, "net", "unet3d_big")
+        # if not prediction:
+        if params["net_type"] == "AVG" and params["train_mode"] == "finetune":
+            print_and_set(params, "net", "finetune_AVG")
+        elif params["net_type"] == "AVG":
+            # This is the network for training from scratch.
+            # This will also set the network for "continued", but that network
+            # will be ignored, as for continued training the full model file
+            # is loaded in without a call to construct the network. However, a value
+            # for params['net'] is still required for initialization
+            print_and_set(params, "net", "unet3d_big_expectedvalue")
+        elif params["net_type"] == "MAX" and params["train_mode"] == "finetune":
+            print_and_set(params, "net", "finetune_MAX")
+        elif params["net_type"] == "MAX":
+            print_and_set(params, "net", "unet3d_big")
 
     elif dannce_net and params["expval"] is None:
         if "AVG" in params["net"] or "expected" in params["net"]:
@@ -1128,11 +1124,25 @@ def dupe_params(exp, dupes, n_views):
         if n_views % len(val) == 0:
             num_reps = n_views // len(val)
             exp[d] = val * num_reps
+
         else:
-            raise Exception(
-                "The length of the {} list must divide evenly into {}.".format(
+            prompt = "The length of the {} list must divide evenly into {}. Duplicate a subset of the views starting from the first camera (y/n)?".format(
                     d, n_views
                 )
-            )
+            val_in = input(prompt)
+            if val_in == 'y':
+                num_reps = n_views // len(val)
+                num_extra = n_views % len(val)
+                duped = val * num_reps
+                for i in range(num_extra):
+                    duped.append(duped[i])
+                print("Duping {}. Changed from {} to {}".format(d, val, duped))
+                exp[d] = duped
+            else:
+                raise Exception(
+                    "The length of the {} list must divide evenly into {}. Exiting".format(
+                        d, n_views
+                    )
+                )
 
     return exp
