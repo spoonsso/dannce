@@ -125,6 +125,13 @@ def add_shared_args(parser):
         help="If true, converts 3-channel video frames into mono grayscale using standard RGB->gray conversion formula (ref. scikit-image).",
     )
 
+    parser.add_argument(
+        "--mirror",
+        dest="mirror",
+        type=ast.literal_eval,
+        help="If true, uses a single video file for multiple views.",
+    )
+
     return parser
 
 
@@ -197,7 +204,20 @@ def add_shared_predict_args(parser):
     parser.add_argument(
         "--max-num-samples",
         dest="max_num_samples",
+        type=int,
         help="Maximum number of samples to predict during COM or DANNCE prediction.",
+    )
+    parser.add_argument(
+        "--start-batch",
+        dest="start_batch",
+        type=int,
+        help="Starting batch number during dannce prediction.",
+    )
+    parser.add_argument(
+        "--start-sample",
+        dest="start_sample",
+        type=int,
+        help="Starting sample number during dannce prediction.",
     )
     return parser
 
@@ -311,6 +331,19 @@ def add_dannce_shared_args(parser):
         dest="n_views",
         type=int,
         help="Sets the absolute number of views (when using fewer than 6 views only)")
+    parser.add_argument(
+        "--train-mode",
+        dest="train_mode",
+        help="Training modes can be:\n"
+        "new: initializes and trains a network from scratch\n"
+        "finetune: loads in pre-trained weights and fine-tuned from there\n"
+        "continued: initializes a full model, including optimizer state, and continuous training from the last full model checkpoint",
+    )
+    parser.add_argument(
+        "--dannce-finetune-weights",
+        dest="dannce_finetune_weights",
+        help="Path to weights of initial model for dannce fine tuning.",
+    )
     return parser
 
 
@@ -325,19 +358,6 @@ def add_dannce_train_args(parser):
         dest="rotate",
         type=ast.literal_eval,
         help="If True, use rotation augmentation for dannce training.",
-    )
-    parser.add_argument(
-        "--dannce-finetune-weights",
-        dest="dannce_finetune_weights",
-        help="Path to weights of initial model for dannce fine tuning.",
-    )
-    parser.add_argument(
-        "--train-mode",
-        dest="train_mode",
-        help="Training modes can be:\n"
-        "new: initializes and trains a network from scratch\n"
-        "finetune: loads in pre-trained weights and fine-tuned from there\n"
-        "continued: initializes a full model, including optimizer state, and continuous training from the last full model checkpoint",
     )
     parser.add_argument(
         "--augment-continuous-rotation",
@@ -366,18 +386,6 @@ def add_dannce_predict_args(parser):
         help="Path to model to use for dannce prediction.",
     )
     parser.add_argument(
-        "--start-batch",
-        dest="start_batch",
-        type=int,
-        help="Starting batch number during dannce prediction.",
-    )
-    parser.add_argument(
-        "--start-sample",
-        dest="start_sample",
-        type=int,
-        help="Starting sample number during dannce prediction.",
-    )
-    parser.add_argument(
         "--predict-model",
         dest="predict_model",
         help="Path to model to use for dannce prediction.",
@@ -387,6 +395,12 @@ def add_dannce_predict_args(parser):
         dest="expval",
         type=ast.literal_eval,
         help="If True, use expected value network. This is normally inferred from the network name. But because prediction can be decoupled from the net param, expval can be set independently if desired.",
+    )
+    parser.add_argument(
+        "--from-weights",
+        dest="from_weights",
+        type=ast.literal_eval,
+        help="If True, attempt to load in a prediction model without requiring a full model file (i.e. just using weights). May fail for some model types.",
     )
     return parser
 
