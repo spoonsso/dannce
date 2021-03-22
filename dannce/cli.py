@@ -7,13 +7,19 @@ from dannce.interface import (
     build_params,
 )
 from dannce.engine.processing import check_config, infer_params
-from dannce import _param_defaults_dannce, _param_defaults_shared, _param_defaults_com
+from dannce import (
+    _param_defaults_dannce,
+    _param_defaults_shared,
+    _param_defaults_com,
+)
 import sys
 import ast
 import argparse
+from typing import Dict, Text
 
 
 def com_predict_cli():
+    """Entrypoint for com prediction."""
     parser = argparse.ArgumentParser(
         description="Com predict CLI",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -25,6 +31,7 @@ def com_predict_cli():
 
 
 def com_train_cli():
+    """Entrypoint for com training."""
     parser = argparse.ArgumentParser(
         description="Com train CLI",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -36,6 +43,7 @@ def com_train_cli():
 
 
 def dannce_predict_cli():
+    """Entrypoint for dannce prediction."""
     parser = argparse.ArgumentParser(
         description="Dannce predict CLI",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -47,6 +55,7 @@ def dannce_predict_cli():
 
 
 def dannce_train_cli():
+    """Entrypoint for dannce training."""
     parser = argparse.ArgumentParser(
         description="Dannce train CLI",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -57,7 +66,19 @@ def dannce_train_cli():
     dannce_train(params)
 
 
-def build_clarg_params(args, dannce_net, prediction):
+def build_clarg_params(
+    args: argparse.Namespace, dannce_net: bool, prediction: bool
+) -> Dict:
+    """Build command line argument parameters
+
+    Args:
+        args (argparse.Namespace): Command line arguments parsed by argparse.
+        dannce_net (bool): If true, use dannce net defaults.
+        prediction (bool): If true, use prediction defaults.
+
+    No Longer Returned:
+        Dict: Parameters dictionary.
+    """
     # Get the params specified in base config and io.yaml
     params = build_params(args.base_config, dannce_net)
 
@@ -68,12 +89,24 @@ def build_clarg_params(args, dannce_net, prediction):
     return params
 
 
-def add_shared_args(parser):
+def add_shared_args(
+    parser: argparse.ArgumentParser,
+) -> argparse.ArgumentParser:
+    """Add arguments shared by all modes.
+
+    Args:
+        parser (argparse.ArgumentParser): Command line argument parser.
+
+    No Longer Returned:
+        argparse.ArgumentParser: Parser with added arguments.
+    """
     # Parse shared args for all conditions
     parser.add_argument(
         "base_config", metavar="base_config", help="Path to base config."
     )
-    parser.add_argument("--viddir", dest="viddir", help="Directory containing videos.")
+    parser.add_argument(
+        "--viddir", dest="viddir", help="Directory containing videos."
+    )
     parser.add_argument(
         "--crop-height",
         dest="crop_height",
@@ -93,7 +126,9 @@ def add_shared_args(parser):
         help="List of ordered camera names.",
     )
 
-    parser.add_argument("--io-config", dest="io_config", help="Path to io.yaml file.")
+    parser.add_argument(
+        "--io-config", dest="io_config", help="Path to io.yaml file."
+    )
 
     parser.add_argument(
         "--n-channels-out",
@@ -102,21 +137,31 @@ def add_shared_args(parser):
         help="Number of keypoints to output. For COM, this is typically 1, but can be equal to the number of points tracked to run in MULTI_MODE.",
     )
     parser.add_argument(
-        "--batch-size", dest="batch_size", type=int, help="Number of images per batch."
+        "--batch-size",
+        dest="batch_size",
+        type=int,
+        help="Number of images per batch.",
     )
     parser.add_argument(
-        "--sigma", dest="sigma", type=int, help="Standard deviation of confidence maps."
+        "--sigma",
+        dest="sigma",
+        type=int,
+        help="Standard deviation of confidence maps.",
     )
     parser.add_argument(
         "--verbose",
         dest="verbose",
         help="verbose=0 prints nothing to std out. verbose=1 prints training summary to std out.",
     )
-    parser.add_argument("--net", dest="net", help="Network architecture. See nets.py")
+    parser.add_argument(
+        "--net", dest="net", help="Network architecture. See nets.py"
+    )
     parser.add_argument(
         "--gpu-id", dest="gpu_id", help="String identifying GPU to use."
     )
-    parser.add_argument("--immode", dest="immode", help="Data format for images.")
+    parser.add_argument(
+        "--immode", dest="immode", help="Data format for images."
+    )
 
     parser.add_argument(
         "--mono",
@@ -128,7 +173,17 @@ def add_shared_args(parser):
     return parser
 
 
-def add_shared_train_args(parser):
+def add_shared_train_args(
+    parser: argparse.ArgumentParser,
+) -> argparse.ArgumentParser:
+    """Add arguments shared by all train modes.
+
+    Args:
+        parser (argparse.ArgumentParser): Command line argument parser.
+
+    No Longer Returned:
+        argparse.ArgumentParser: Parser with added arguments.
+    """
     parser.add_argument(
         "--exp",
         dest="exp",
@@ -140,10 +195,9 @@ def add_shared_train_args(parser):
         dest="loss",
         help="Loss function to use during training. See losses.py.",
     )
-    parser.add_argument("--epochs",
-        dest="epochs",
-        type=int,
-        help="Number of epochs to train.")
+    parser.add_argument(
+        "--epochs", dest="epochs", type=int, help="Number of epochs to train."
+    )
     parser.add_argument(
         "--num-validation-per-exp",
         dest="num_validation_per_exp",
@@ -193,7 +247,17 @@ def add_shared_train_args(parser):
     return parser
 
 
-def add_shared_predict_args(parser):
+def add_shared_predict_args(
+    parser: argparse.ArgumentParser,
+) -> argparse.ArgumentParser:
+    """Add arguments shared by all predict modes.
+
+    Args:
+        parser (argparse.ArgumentParser): Command line argument parser.
+
+    No Longer Returned:
+        argparse.ArgumentParser: Parser with added arguments.
+    """
     parser.add_argument(
         "--max-num-samples",
         dest="max_num_samples",
@@ -202,7 +266,17 @@ def add_shared_predict_args(parser):
     return parser
 
 
-def add_dannce_shared_args(parser):
+def add_dannce_shared_args(
+    parser: argparse.ArgumentParser,
+) -> argparse.ArgumentParser:
+    """Add arguments shared by all dannce modes.
+
+    Args:
+        parser (argparse.ArgumentParser): Command line argument parser.
+
+    No Longer Returned:
+        argparse.ArgumentParser: Parser with added arguments.
+    """
     parser.add_argument(
         "--net-type",
         dest="net_type",
@@ -309,7 +383,17 @@ def add_dannce_shared_args(parser):
     return parser
 
 
-def add_dannce_train_args(parser):
+def add_dannce_train_args(
+    parser: argparse.ArgumentParser,
+) -> argparse.ArgumentParser:
+    """Add arguments specific to dannce training.
+
+    Args:
+        parser (argparse.ArgumentParser): Command line argument parser.
+
+    No Longer Returned:
+        argparse.ArgumentParser: Parser with added arguments.
+    """
     parser.add_argument(
         "--dannce-train-dir",
         dest="dannce_train_dir",
@@ -343,7 +427,17 @@ def add_dannce_train_args(parser):
     return parser
 
 
-def add_dannce_predict_args(parser):
+def add_dannce_predict_args(
+    parser: argparse.ArgumentParser,
+) -> argparse.ArgumentParser:
+    """Add arguments specific to dannce prediction.
+
+    Args:
+        parser (argparse.ArgumentParser): Command line argument parser.
+
+    No Longer Returned:
+        argparse.ArgumentParser: Parser with added arguments.
+    """
     parser.add_argument(
         "--dannce-predict-dir",
         dest="dannce_predict_dir",
@@ -380,7 +474,17 @@ def add_dannce_predict_args(parser):
     return parser
 
 
-def add_com_train_args(parser):
+def add_com_train_args(
+    parser: argparse.ArgumentParser,
+) -> argparse.ArgumentParser:
+    """Add arguments specific to COM training.
+
+    Args:
+        parser (argparse.ArgumentParser): Command line argument parser.
+
+    No Longer Returned:
+        argparse.ArgumentParser: Parser with added arguments.
+    """
     parser.add_argument(
         "--com-train-dir",
         dest="com_train_dir",
@@ -436,7 +540,17 @@ def add_com_train_args(parser):
     return parser
 
 
-def add_com_predict_args(parser):
+def add_com_predict_args(
+    parser: argparse.ArgumentParser,
+) -> argparse.ArgumentParser:
+    """Add arguments specific to COM prediction.
+
+    Args:
+        parser (argparse.ArgumentParser): Command line argument parser.
+
+    No Longer Returned:
+        argparse.ArgumentParser: Parser with added arguments.
+    """
     parser.add_argument(
         "--com-predict-dir",
         dest="com_predict_dir",
@@ -450,7 +564,17 @@ def add_com_predict_args(parser):
     return parser
 
 
-def add_com_shared_args(parser):
+def add_com_shared_args(
+    parser: argparse.ArgumentParser,
+) -> argparse.ArgumentParser:
+    """Add arguments shared by all COM modes.
+
+    Args:
+        parser (argparse.ArgumentParser): Command line argument parser.
+
+    No Longer Returned:
+        argparse.ArgumentParser: Parser with added arguments.
+    """
     parser.add_argument(
         "--dsmode",
         dest="dsmode",
@@ -468,7 +592,19 @@ def add_com_shared_args(parser):
     return parser
 
 
-def parse_clargs(parser, model_type, prediction):
+def parse_clargs(
+    parser: argparse.ArgumentParser, model_type: Text, prediction: bool
+) -> argparse.Namespace:
+    """Parse command line arguments.
+
+    Args:
+        parser (argparse.ArgumentParser): Command line argument parser
+        model_type (Text): Type of model. E.g. "dannce"
+        prediction (bool): If true, use prediction arg parsers.
+
+    No Longer Returned:
+        argparse.Namespace: Namespace object with parsed clargs and defaults.
+    """
     # Handle shared arguments between all models.
     parser = add_shared_args(parser)
 
@@ -495,7 +631,19 @@ def parse_clargs(parser, model_type, prediction):
     return parser.parse_args()
 
 
-def combine(base_params, clargs, dannce_net):
+def combine(
+    base_params: Dict, clargs: argparse.Namespace, dannce_net: bool
+) -> Dict:
+    """Combine command line, io, and base configurations.
+
+    Args:
+        base_params (Dict): Parameters dictionary.
+        clargs (argparse.Namespace): Command line argument namespace.
+        dannce_net (bool): Description
+
+    Returns:
+        Dict: Parameters dictionary.
+    """
     if dannce_net:
         alldefaults = {**_param_defaults_shared, **_param_defaults_dannce}
     else:
