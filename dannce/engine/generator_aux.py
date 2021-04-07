@@ -131,14 +131,17 @@ class DataGenerator_downsample(keras.utils.Sequence):
         keyname = os.path.join(camname, fname)
 
         if preload:
-            return self.vidreaders[camname][keyname].get_data(frame_num)
+            # return self.vidreaders[camname][keyname].get_data(frame_num)
+            return self.vidreaders[camname][keyname].get_frame(frame_num)
+
         else:
             thisvid_name = self.vidreaders[camname][keyname]
             abname = thisvid_name.split("/")[-1]
             if abname == self.currvideo_name[camname]:
                 vid = self.currvideo[camname]
             else:
-                vid = imageio.get_reader(thisvid_name)
+                # vid = imageio.get_reader(thisvid_name)
+                vid = MediaVideo(thisvid_name, grayscale=False)
                 print("Loading new video: {} for {}".format(abname, camname))
                 self.currvideo_name[camname] = abname
                 # close current vid
@@ -148,7 +151,8 @@ class DataGenerator_downsample(keras.utils.Sequence):
                     self.currvideo[camname].close()
                 self.currvideo[camname] = vid
 
-            im = vid.get_data(frame_num)
+            # im = vid.get_data(frame_num)
+            im = vid.get_frame(frame_num)
 
             return im
 
