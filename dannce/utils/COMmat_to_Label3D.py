@@ -10,20 +10,21 @@ import scipy.io as sio
 from six.moves import cPickle
 import os
 
-ifile = sio.loadmat(sys.argv[1])
-ofile = sio.loadmat(sys.argv[2])
+if __name__ == "__main__":
+    ifile = sio.loadmat(sys.argv[1])
+    ofile = sio.loadmat(sys.argv[2])
 
-# save temp backup, will be deleted later
-sio.savemat(sys.argv[2]+".temp", ofile)
+    # save temp backup, will be deleted later
+    sio.savemat(sys.argv[2]+".temp", ofile)
 
-com = {}
-com["com3d"] = ifile["com"]
-com["sampleID"] = ifile["sampleID"]
+    com = {}
+    com["com3d"] = ifile["com"]
+    com["sampleID"] = ifile["sampleID"]
 
-ofile["com"] = com
+    ofile["com"] = com
 
-sio.savemat(sys.argv[2], ofile)
+    sio.savemat(sys.argv[2], ofile)
 
-print("Removing temp file...")
-os.remove(sys.argv[2]+".temp")
-print("Removed temp file.")
+    print("Removing temp file...")
+    os.remove(sys.argv[2]+".temp")
+    print("Removed temp file.")

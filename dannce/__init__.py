@@ -1,4 +1,4 @@
-"""Dannce module initialization and default params."""
+"""Dannce module and default parameters"""
 # Default parameters, which can be superseded by CL arguments or
 # config files
 _param_defaults_shared = {
