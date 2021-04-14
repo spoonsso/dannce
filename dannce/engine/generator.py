@@ -232,29 +232,29 @@ class DataGenerator_3Dconv(DataGenerator):
     """Update generator class to handle multiple experiments.
 
     Attributes:
-        camera_params (TYPE): Description
+        camera_params (Dict): Camera parameters dictionary.
         channel_combo (TYPE): Description
-        com3d (TYPE): Description
-        COM_aug (TYPE): Description
-        crop_im (TYPE): Description
+        com3d (Dict): Dictionary of com3d data.
+        COM_aug (bool): If True, augment the COM.
+        crop_im (bool): If True, crop images.
         depth (TYPE): Description
         dim_out_3d (TYPE): Description
-        distort (TYPE): Description
-        expval (TYPE): Description
-        gpu_id (TYPE): Description
+        distort (bool): If true, apply camera undistortion.
+        expval (bool): If True, process an expected value network (AVG)
+        gpu_id (Text): Identity of GPU to use.
         immode (TYPE): Description
-        interp (TYPE): Description
+        interp (Text): Interpolation method.
         labels_3d (TYPE): Description
         mode (TYPE): Description
         multicam (TYPE): Description
-        norm_im (TYPE): Description
-        nvox (TYPE): Description
-        rotation (TYPE): Description
-        tifdirs (TYPE): Description
+        norm_im (bool): If True, normalize images.
+        nvox (int): Number of voxels per box side
+        rotation (bool): If True, use simple rotation augmentation.
+        tifdirs (List): Directories of .tifs
         var_reg (TYPE): Description
-        vmax (TYPE): Description
-        vmin (TYPE): Description
-        vsize (TYPE): Description
+        vmax (int): Maximum box dim (relative to the COM)
+        vmin (int): Minimum box dim (relative to the COM)
+        vsize (TYPE): Size of the box
     """
 
     def __init__(
@@ -303,7 +303,7 @@ class DataGenerator_3Dconv(DataGenerator):
         Args:
             list_IDs (List): List of sample Ids
             labels (Dict): Dictionary of labels
-            labels_3d (Dict): Dictionary of 3d labels. 
+            labels_3d (Dict): Dictionary of 3d labels.
             camera_params (Dict): Camera parameters dictionary.
             clusterIDs (List): List of sample Ids
             com3d (Dict): Dictionary of com3d data.
@@ -312,20 +312,20 @@ class DataGenerator_3Dconv(DataGenerator):
             dim_in (Tuple, optional): Input dimension
             n_channels_in (int, optional): Number of input channels
             n_channels_out (int, optional): Number of output channels
-            out_scale (float, optional): Scale of the output gaussians.
+            out_scale (int, optional): Scale of the output gaussians.
             shuffle (bool, optional): If True, shuffle the samples.
             camnames (List, optional): List of camera names.
-            crop_height (Tuple, optional): (first, last) pixels in image height
             crop_width (Tuple, optional): (first, last) pixels in image width
+            crop_height (Tuple, optional): (first, last) pixels in image height
             vmin (int, optional): Minimum box dim (relative to the COM)
             vmax (int, optional): Maximum box dim (relative to the COM)
             nvox (int, optional): Number of voxels per box side
-            gpu_id (Text, optional): Identity of GPU to use. 
-            interp (Text, optional): Interpolation method. 
+            gpu_id (Text, optional): Identity of GPU to use.
+            interp (Text, optional): Interpolation method.
             depth (bool, optional): Description
             channel_combo (None, optional): Description
             mode (Text, optional): Description
-            preload (bool, optional): If True, load using preloaded vidreaders. 
+            preload (bool, optional): If True, load using preloaded vidreaders.
             samples_per_cluster (int, optional): Samples per cluster
             immode (Text, optional): Description
             rotation (bool, optional): If True, use simple rotation augmentation.
@@ -386,14 +386,16 @@ class DataGenerator_3Dconv(DataGenerator):
         self.norm_im = norm_im
         self.gpu_id = gpu_id
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: int) -> Tuple[np.ndarray, np.ndarray]:
         """Generate one batch of data.
 
         Args:
-            index (TYPE): Description
+            index (int): Frame index
 
         Returns:
-            TYPE: Description
+            Tuple[np.ndarray, np.ndarray]: One batch of data
+                X (np.ndarray): Input volume
+                y (np.ndarray): Target
         """
         # Generate indexes of the batch
         indexes = self.indexes[index * self.batch_size : (index + 1) * self.batch_size]
@@ -406,14 +408,14 @@ class DataGenerator_3Dconv(DataGenerator):
 
         return X, y
 
-    def rot90(self, X):
+    def rot90(self, X: np.ndarray) -> np.ndarray:
         """Rotate X by 90 degrees CCW.
 
         Args:
-            X (TYPE): Description
+            X (np.ndarray): Input volume.
 
         Returns:
-            TYPE: Description
+            np.ndarray: Rotated volume
         """
         X = np.transpose(X, [1, 0, 2, 3])
         X = X[:, ::-1, :, :]
@@ -423,31 +425,29 @@ class DataGenerator_3Dconv(DataGenerator):
         """Rotate X by 180 degrees.
 
         Args:
-            X (TYPE): Description
+            X (np.ndarray): Input volume.
 
         Returns:
-            TYPE: Description
+            np.ndarray: Rotated volume
         """
         X = X[::-1, ::-1, :, :]
         return X
 
-    # TODO(this vs self): The this_* naming convention is hard to read.
-    # Consider revising
-    # TODO(nesting): There is pretty deep locigal nesting in this function,
-    # might be useful to break apart
-    def __data_generation(self, list_IDs_temp):
+    def __data_generation(self, list_IDs_temp: List) -> Tuple:
         """Generate data containing batch_size samples.
 
         X : (n_samples, *dim, n_channels)
 
         Args:
-            list_IDs_temp (TYPE): Description
+            list_IDs_temp (List): List of experiment Ids
 
         Returns:
-            TYPE: Description
-
+            Tuple: Batch_size training samples
+                X: Input volumes
+                y_3d: Targets
+                rotangle: Rotation angle
         Raises:
-            Exception: Description
+            Exception: Invalid generator mode specified.
         """
         # Initialization
         first_exp = int(self.list_IDs[0].split("_")[0])
@@ -800,33 +800,33 @@ class DataGenerator_3Dconv_torch(DataGenerator):
     Also handles data across multiple experiments
 
     Attributes:
-        camera_params (TYPE): Description
+            camera_params (Dict): Camera parameters dictionary.
         channel_combo (TYPE): Description
-        com3d (TYPE): Description
-        COM_aug (TYPE): Description
-        crop_im (TYPE): Description
+        com3d (Dict): Dictionary of com3d data.
+        COM_aug (bool): If True, augment the COM.
+        crop_im (bool): If True, crop images.
         depth (TYPE): Description
         device (TYPE): Description
         dim_out_3d (TYPE): Description
-        distort (TYPE): Description
-        expval (TYPE): Description
-        gpu_id (TYPE): Description
+        distort (bool): If true, apply camera undistortion.
+        expval (bool): If True, process an expected value network (AVG)
+        gpu_id (Text): Identity of GPU to use.
         immode (TYPE): Description
-        interp (TYPE): Description
+        interp (Text): Interpolation method.
         labels_3d (TYPE): Description
         mode (TYPE): Description
         multicam (TYPE): Description
-        norm_im (TYPE): Description
-        nvox (TYPE): Description
-        rotation (TYPE): Description
+        norm_im (bool): If True, normalize images.
+        nvox (int): Number of voxels per box side
+        rotation (bool): If True, use simple rotation augmentation.
         session (TYPE): Description
         threadpool (TYPE): Description
-        tifdirs (TYPE): Description
+        tifdirs (List): Directories of .tifs
         torch (TYPE): Description
         var_reg (TYPE): Description
-        vmax (TYPE): Description
-        vmin (TYPE): Description
-        vsize (TYPE): Description
+        vmax (int): Maximum box dim (relative to the COM)
+        vmin (int): Minimum box dim (relative to the COM)
+        vsize (TYPE): Size of the box
     """
 
     def __init__(
