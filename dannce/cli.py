@@ -76,7 +76,7 @@ def build_clarg_params(
         dannce_net (bool): If true, use dannce net defaults.
         prediction (bool): If true, use prediction defaults.
 
-    No Longer Returned:
+    Returns:
         Dict: Parameters dictionary.
     """
     # Get the params specified in base config and io.yaml
@@ -97,7 +97,7 @@ def add_shared_args(
     Args:
         parser (argparse.ArgumentParser): Command line argument parser.
 
-    No Longer Returned:
+    Returns:
         argparse.ArgumentParser: Parser with added arguments.
     """
     # Parse shared args for all conditions
@@ -181,7 +181,7 @@ def add_shared_train_args(
     Args:
         parser (argparse.ArgumentParser): Command line argument parser.
 
-    No Longer Returned:
+    Returns:
         argparse.ArgumentParser: Parser with added arguments.
     """
     parser.add_argument(
@@ -255,7 +255,7 @@ def add_shared_predict_args(
     Args:
         parser (argparse.ArgumentParser): Command line argument parser.
 
-    No Longer Returned:
+    Returns:
         argparse.ArgumentParser: Parser with added arguments.
     """
     parser.add_argument(
@@ -274,7 +274,7 @@ def add_dannce_shared_args(
     Args:
         parser (argparse.ArgumentParser): Command line argument parser.
 
-    No Longer Returned:
+    Returns:
         argparse.ArgumentParser: Parser with added arguments.
     """
     parser.add_argument(
@@ -391,7 +391,7 @@ def add_dannce_train_args(
     Args:
         parser (argparse.ArgumentParser): Command line argument parser.
 
-    No Longer Returned:
+    Returns:
         argparse.ArgumentParser: Parser with added arguments.
     """
     parser.add_argument(
@@ -435,7 +435,7 @@ def add_dannce_predict_args(
     Args:
         parser (argparse.ArgumentParser): Command line argument parser.
 
-    No Longer Returned:
+    Returns:
         argparse.ArgumentParser: Parser with added arguments.
     """
     parser.add_argument(
@@ -482,7 +482,7 @@ def add_com_train_args(
     Args:
         parser (argparse.ArgumentParser): Command line argument parser.
 
-    No Longer Returned:
+    Returns:
         argparse.ArgumentParser: Parser with added arguments.
     """
     parser.add_argument(
@@ -548,7 +548,7 @@ def add_com_predict_args(
     Args:
         parser (argparse.ArgumentParser): Command line argument parser.
 
-    No Longer Returned:
+    Returns:
         argparse.ArgumentParser: Parser with added arguments.
     """
     parser.add_argument(
@@ -572,7 +572,7 @@ def add_com_shared_args(
     Args:
         parser (argparse.ArgumentParser): Command line argument parser.
 
-    No Longer Returned:
+    Returns:
         argparse.ArgumentParser: Parser with added arguments.
     """
     parser.add_argument(
@@ -602,7 +602,7 @@ def parse_clargs(
         model_type (Text): Type of model. E.g. "dannce"
         prediction (bool): If true, use prediction arg parsers.
 
-    No Longer Returned:
+    Returns:
         argparse.Namespace: Namespace object with parsed clargs and defaults.
     """
     # Handle shared arguments between all models.
