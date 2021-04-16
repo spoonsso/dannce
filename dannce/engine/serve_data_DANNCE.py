@@ -87,13 +87,13 @@ def prepare_data(
                 dcom = np.nanmean(data, axis=2, keepdims=True)
             data = np.concatenate((data, dcom), axis=-1)
         elif com_flag:
-            data = data
-            # # Convert to COM only
-            # if nanflag:
-            #     data = np.mean(data, axis=2)
-            # else:
-            #     data = np.nanmean(data, axis=2)
-            # data = data[:, :, np.newaxis]
+            # Convert to COM only if not already
+            if len(data.shape) == 3:
+                if nanflag:
+                    data = np.mean(data, axis=2)
+                else:
+                    data = np.nanmean(data, axis=2)
+                data = data[:, :, np.newaxis]
         ddict[CONFIG_PARAMS["camnames"][i]] = data
 
     data_3d = labels[0]["data_3d"]
