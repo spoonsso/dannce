@@ -30,7 +30,7 @@ def prepare_data(
     """
     if prediction:
         labels = load_sync(CONFIG_PARAMS["label3d_file"])
-        nFrames = labels[0]["data_frame"].shape[1]
+        nFrames = np.max(labels[0]["data_frame"].shape)
         nKeypoints = CONFIG_PARAMS["n_channels_out"]
         if "new_n_channels_out" in CONFIG_PARAMS.keys():
             if CONFIG_PARAMS["new_n_channels_out"] is not None:
