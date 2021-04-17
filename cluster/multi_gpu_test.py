@@ -1,5 +1,5 @@
 """Tests for locomotion.tasks.two_tap."""
-import cluster.multi_gpu
+import cluster.multi_gpu as multi_gpu
 
 import functools
 from absl.testing import absltest
