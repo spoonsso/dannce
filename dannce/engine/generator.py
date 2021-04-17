@@ -149,7 +149,7 @@ class DataGenerator(keras.utils.Sequence):
             preload (bool, optional): If true load from the existing video readers.
             extension (Text, optional): Video extension
 
-        No Longer Returned:
+        Returns:
             np.ndarray: Video frame as w x h x c numpy ndarray
         """
         chunks = self._N_VIDEO_FRAMES[camname]
@@ -800,7 +800,7 @@ class DataGenerator_3Dconv_torch(DataGenerator):
     Also handles data across multiple experiments
 
     Attributes:
-            camera_params (Dict): Camera parameters dictionary.
+        camera_params (Dict): Camera parameters dictionary.
         channel_combo (TYPE): Description
         com3d (Dict): Dictionary of com3d data.
         COM_aug (bool): If True, augment the COM.
