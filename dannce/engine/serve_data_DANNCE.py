@@ -88,7 +88,7 @@ def prepare_data(
             data = np.concatenate((data, dcom), axis=-1)
         elif com_flag:
             # Convert to COM only if not already
-            if len(data.shape) == 3:
+            if len(data.shape) == 3 and CONFIG_PARAMS["n_instances"] == 1:
                 if nanflag:
                     data = np.mean(data, axis=2)
                 else:
@@ -137,7 +137,7 @@ def prepare_COM_multi_instance(
     weighted=False,
     camera_mats=None,
     conf_rescale=None,
-    method="median",
+    linking_method="euclidean",
 ):
     """Replace 2d coords with preprocessed COM coords, return 3d COM coords.
 
@@ -154,12 +154,6 @@ def prepare_COM_multi_instance(
     with open(comfile, "rb") as f:
         com = cPickle.load(f)
     com3d_dict = {}
-
-    if method == "mean":
-        print("using mean to get 3D COM")
-
-    elif method == "median":
-        print("using median to get 3D COM")
 
     firstkey = list(com.keys())[0]
 
@@ -187,27 +181,34 @@ def prepare_COM_multi_instance(
     coms = [np.concatenate(v, axis=1) for v in coms]
     coms = np.stack(coms, axis=2).transpose([2, 0, 1])
 
-    # Use a 1-frame euclidean distance metric to string together identities.
-    # Currently just for 2 instances
-    for n_sample in range(1, coms.shape[0]):
-        same_dist1 = np.sqrt(
-            np.sum((coms[n_sample, :, 0] - coms[n_sample - 1, :, 0]) ** 2)
-        )
-        diff_dist1 = np.sqrt(
-            np.sum((coms[n_sample, :, 0] - coms[n_sample - 1, :, 1]) ** 2)
-        )
-        same_dist2 = np.sqrt(
-            np.sum((coms[n_sample, :, 1] - coms[n_sample - 1, :, 1]) ** 2)
-        )
-        diff_dist2 = np.sqrt(
-            np.sum((coms[n_sample, :, 1] - coms[n_sample - 1, :, 0]) ** 2)
-        )
-        same = np.mean([same_dist1, same_dist2])
-        diff = np.mean([diff_dist1, diff_dist2])
-        if diff < same:
-            temp = coms[n_sample, :, 0].copy()
-            coms[n_sample, :, 0] = coms[n_sample, :, 1]
-            coms[n_sample, :, 1] = temp
+    if linking_method == "euclidean":
+        # Use a 1-frame euclidean distance metric to string together identities.
+        # Currently just for 2 instances
+        for n_sample in range(1, coms.shape[0]):
+            same_dist1 = np.sqrt(
+                np.sum((coms[n_sample, :, 0] - coms[n_sample - 1, :, 0]) ** 2)
+            )
+            diff_dist1 = np.sqrt(
+                np.sum((coms[n_sample, :, 0] - coms[n_sample - 1, :, 1]) ** 2)
+            )
+            same_dist2 = np.sqrt(
+                np.sum((coms[n_sample, :, 1] - coms[n_sample - 1, :, 1]) ** 2)
+            )
+            diff_dist2 = np.sqrt(
+                np.sum((coms[n_sample, :, 1] - coms[n_sample - 1, :, 0]) ** 2)
+            )
+            same = np.mean([same_dist1, same_dist2])
+            diff = np.mean([diff_dist1, diff_dist2])
+            if diff < same:
+                temp = coms[n_sample, :, 0].copy()
+                coms[n_sample, :, 0] = coms[n_sample, :, 1]
+                coms[n_sample, :, 1] = temp
+    elif linking_method == "kalman":
+        pass
+    elif linking_method == "multi_channel":
+        a = []
+    else:
+        raise Exception("Invalid linking method.")
 
     # Return to com3d_dict format.
     for i, key in enumerate(com.keys()):
