@@ -520,46 +520,42 @@ class DataGenerator_downsample_multi_instance(keras.utils.Sequence):
                     raise Exception(
                         "Unsupported image format. Needs to be video files."
                     )
-                # if this_y.shape[1] != self.n_channels_out:
-                #     # TODO(shape_exception):This should probably be its own
-                #     # class that inherits from base exception
-                #     raise Exception(_EXEP_MSG)
-
+                # import pdb
+                # pdb.set_trace()
                 if self.labelmode == "prob":
-                    # Only do this if we actually need the labels --
-                    # this is too slow otherwise
                     (x_coord, y_coord) = np.meshgrid(
                         np.arange(self.dim_out[1]), np.arange(self.dim_out[0])
                     )
-                    for j in range(self.n_channels_out):
-                        # I tested a version of this with numpy broadcasting,
-                        # and looping was ~100ms seconds faster for making
-                        # 20 maps
-                        # In the future, a shortcut might be to "stamp" a
-                        # truncated Gaussian pdf onto the images, centered
-                        # at the peak
 
-                        # For now, instances are represented as multiple copies
-                        # of channels. For example, the order in the label
-                        # file will be COM1, COM2 or Head1 Head2 Ear1 Ear2,
-                        # etc.
-                        instance_prob = []
-                        for instance in range(self.n_instances):
-                            label_idx = (
-                                self.n_channels_out - 1
-                            ) * self.n_instances + instance
-                            instance_prob.append(
-                                np.exp(
-                                    -(
-                                        (y_coord - this_y[1, label_idx]) ** 2
-                                        + (x_coord - this_y[0, label_idx]) ** 2
-                                    )
-                                    / (2 * self.out_scale ** 2)
+                    # Get the probability maps for all instances
+                    instance_prob = []
+                    for instance in range(self.n_instances):
+                        # label_idx = (
+                        #     self.n_channels_out - 1
+                        # ) * self.n_instances + instance
+                        # print(this_y.shape)
+                        instance_prob.append(
+                            np.exp(
+                                -(
+                                    (y_coord - this_y[1, instance]) ** 2
+                                    + (x_coord - this_y[0, instance]) ** 2
                                 )
+                                / (2 * self.out_scale ** 2)
                             )
-                        y[cnt, j] = np.max(
-                            np.stack(instance_prob, axis=2), axis=2
                         )
+
+                    # If using single-channel multi_instance take the max
+                    # across probability maps. Otherwise assign a probability
+                    # map to each channel.
+                    if self.n_channels_out == 1:
+                        y[cnt, 0] = np.max(np.stack(instance_prob, axis=2), axis=2)
+                    else:
+                        if len(instance_prob) != self.n_channels_out:
+                            raise ValueError(
+                                "n_channels_out != n_instances. This is necessary for multi-channel multi-instance tracking."
+                            )
+                        for j, instance in enumerate(instance_prob):
+                            y[cnt, j] = instance
                 else:
                     y[cnt] = this_y.T
                 # plt.imshow(np.squeeze(y[0,:,:,:]))
