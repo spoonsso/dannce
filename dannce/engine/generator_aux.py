@@ -11,6 +11,8 @@ import warnings
 import time
 import matplotlib.pyplot as plt
 from dannce.engine.video import MediaVideo
+from typing import Text, Tuple, List, Union, Dict
+
 _DEFAULT_CAM_NAMES = [
     "CameraR",
     "CameraL",
@@ -73,8 +75,7 @@ class DataGenerator_downsample(keras.utils.Sequence):
 
         if immode == "video":
             self.extension = (
-                "."
-                + list(vidreaders[camnames[0][0]].keys())[0].rsplit(".")[-1]
+                "." + list(vidreaders[camnames[0][0]].keys())[0].rsplit(".")[-1]
             )
 
         self.immode = immode
@@ -102,9 +103,7 @@ class DataGenerator_downsample(keras.utils.Sequence):
     def __getitem__(self, index):
         """Generate one batch of data."""
         # Generate indexes of the batch
-        indexes = self.indexes[
-            index * self.batch_size : (index + 1) * self.batch_size
-        ]
+        indexes = self.indexes[index * self.batch_size : (index + 1) * self.batch_size]
 
         # Find list of IDs
         list_IDs_temp = [self.list_IDs[k] for k in indexes]
@@ -279,25 +278,17 @@ class DataGenerator_downsample(keras.utils.Sequence):
             y = np.transpose(y, [0, 2, 1])
 
         if self.downsample > 1:
-            X = processing.downsample_batch(
-                X, fac=self.downsample, method=self.dsmode
-            )
+            X = processing.downsample_batch(X, fac=self.downsample, method=self.dsmode)
             if self.labelmode == "prob":
                 y = processing.downsample_batch(
                     y, fac=self.downsample, method=self.dsmode
                 )
-                y /= np.max(np.max(y, axis=1), axis=1)[
-                    :, np.newaxis, np.newaxis, :
-                ]
+                y /= np.max(np.max(y, axis=1), axis=1)[:, np.newaxis, np.newaxis, :]
 
         if self.mono and self.n_channels_in == 3:
             # Go from 3 to 1 channel using RGB conversion. This will also
             # work fine if there are just 3 channel grayscale
-            X = (
-                X[:, :, :, 0] * 0.2125
-                + X[:, :, :, 1] * 0.7154
-                + X[:, :, :, 2] * 0.0721
-            )
+            X = X[:, :, :, 0] * 0.2125 + X[:, :, :, 1] * 0.7154 + X[:, :, :, 2] * 0.0721
 
             X = X[:, :, :, np.newaxis]
 
@@ -312,29 +303,30 @@ class DataGenerator_downsample(keras.utils.Sequence):
 
 class DataGenerator_downsample_multi_instance(keras.utils.Sequence):
     """Generate data for Keras."""
+
     def __init__(
         self,
         n_instances,
         list_IDs,
         labels,
         vidreaders,
-        batch_size=32,
-        dim_in=(1024, 1280),
-        n_channels_in=1,
-        n_channels_out=1,
-        out_scale=5,
+        batch_size: int = 32,
+        dim_in: Tuple = (1024, 1280),
+        n_channels_in: int = 1,
+        n_channels_out: int = 1,
+        out_scale: int = 5,
         shuffle=True,
-        camnames=_DEFAULT_CAM_NAMES,
-        crop_width=(0, 1024),
-        crop_height=(20, 1300),
-        downsample=1,
-        immode="video",
-        labelmode="prob",
-        preload=True,
-        dsmode="dsm",
-        chunks=3500,
-        multimode=False,
-        mono=False,
+        camnames: List = _DEFAULT_CAM_NAMES,
+        crop_width: Tuple = (0, 1024),
+        crop_height: Tuple = (20, 1300),
+        downsample: int = 1,
+        immode: Text = "video",
+        labelmode: Text = "prob",
+        preload: bool = True,
+        dsmode: Text = "dsm",
+        chunks: int = 3500,
+        multimode: bool = False,
+        mono: bool = False,
     ):
         """Initialize generator.
 
@@ -362,8 +354,7 @@ class DataGenerator_downsample_multi_instance(keras.utils.Sequence):
 
         if immode == "video":
             self.extension = (
-                "."
-                + list(vidreaders[camnames[0][0]].keys())[0].rsplit(".")[-1]
+                "." + list(vidreaders[camnames[0][0]].keys())[0].rsplit(".")[-1]
             )
 
         self.immode = immode
@@ -391,9 +382,7 @@ class DataGenerator_downsample_multi_instance(keras.utils.Sequence):
     def __getitem__(self, index):
         """Generate one batch of data."""
         # Generate indexes of the batch
-        indexes = self.indexes[
-            index * self.batch_size : (index + 1) * self.batch_size
-        ]
+        indexes = self.indexes[index * self.batch_size : (index + 1) * self.batch_size]
 
         # Find list of IDs
         list_IDs_temp = [self.list_IDs[k] for k in indexes]
@@ -587,25 +576,17 @@ class DataGenerator_downsample_multi_instance(keras.utils.Sequence):
             y = np.transpose(y, [0, 2, 1])
 
         if self.downsample > 1:
-            X = processing.downsample_batch(
-                X, fac=self.downsample, method=self.dsmode
-            )
+            X = processing.downsample_batch(X, fac=self.downsample, method=self.dsmode)
             if self.labelmode == "prob":
                 y = processing.downsample_batch(
                     y, fac=self.downsample, method=self.dsmode
                 )
-                y /= np.max(np.max(y, axis=1), axis=1)[
-                    :, np.newaxis, np.newaxis, :
-                ]
+                y /= np.max(np.max(y, axis=1), axis=1)[:, np.newaxis, np.newaxis, :]
 
         if self.mono and self.n_channels_in == 3:
             # Go from 3 to 1 channel using RGB conversion. This will also
             # work fine if there are just 3 channel grayscale
-            X = (
-                X[:, :, :, 0] * 0.2125
-                + X[:, :, :, 1] * 0.7154
-                + X[:, :, :, 2] * 0.0721
-            )
+            X = X[:, :, :, 0] * 0.2125 + X[:, :, :, 1] * 0.7154 + X[:, :, :, 2] * 0.0721
 
             X = X[:, :, :, np.newaxis]
 
@@ -715,9 +696,7 @@ class DataGenerator_downsample_frommem(keras.utils.Sequence):
     def __getitem__(self, index):
         """Generate one batch of data."""
         # Generate indexes of the batch
-        indexes = self.indexes[
-            index * self.batch_size : (index + 1) * self.batch_size
-        ]
+        indexes = self.indexes[index * self.batch_size : (index + 1) * self.batch_size]
 
         # Find list of IDs
         list_IDs_temp = [self.list_IDs[k] for k in indexes]
@@ -752,9 +731,7 @@ class DataGenerator_downsample_frommem(keras.utils.Sequence):
             y_2d = y_2d.copy()
 
             if self.augment_rotation:
-                affine["rotation"] = self.rotation_val * (
-                    np.random.rand() * 2 - 1
-                )
+                affine["rotation"] = self.rotation_val * (np.random.rand() * 2 - 1)
             if self.augment_zoom:
                 affine["zoom"] = self.zoom_val * (np.random.rand() * 2 - 1) + 1
             if self.augment_shear:
@@ -769,9 +746,7 @@ class DataGenerator_downsample_frommem(keras.utils.Sequence):
                     zy=affine["zoom"],
                     fill_mode="nearest",
                 )
-                y_2d[
-                    idx
-                ] = tf.keras.preprocessing.image.apply_affine_transform(
+                y_2d[idx] = tf.keras.preprocessing.image.apply_affine_transform(
                     y_2d[idx],
                     theta=affine["rotation"],
                     shear=affine["shear"],
@@ -799,9 +774,7 @@ class DataGenerator_downsample_frommem(keras.utils.Sequence):
 
         return X, y_2d
 
-    def save_for_dlc(
-        self, imfolder, ext=".png", full_data=True, compress_level=9
-    ):
+    def save_for_dlc(self, imfolder, ext=".png", full_data=True, compress_level=9):
         """Generate data.
 
         # The full_data flag is used so that one can
