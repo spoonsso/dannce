@@ -90,7 +90,7 @@ def build_params(base_config: Text, dannce_net: bool):
 
 
 def make_folder(key: Text, params: Dict):
-    """Summary
+    """Make the prediction or training directories.
 
     Args:
         key (Text): Folder descriptor.
@@ -1161,10 +1161,7 @@ def dannce_predict(params: Dict):
     # for prediction we use the base data files present in the main config
     # Grab the input file for prediction
     params["label3d_file"] = processing.grab_predict_label3d_file()
-
     params["base_exp_folder"] = os.path.dirname(params["label3d_file"])
-
-    dannce_predict_dir = params["dannce_predict_dir"]
 
     # default to slow numpy backend if there is no predict_mode in config file. I.e. legacy support
     predict_mode = (
@@ -1198,7 +1195,7 @@ def dannce_predict(params: Dict):
 
     # Write 3D COM to file. This might be different from the input com3d file
     # if arena thresholding was applied.
-    cfilename = os.path.join(dannce_predict_dir, "com3d_used.mat")
+    cfilename = os.path.join(params["dannce_predict_dir"], "com3d_used.mat")
     print("Saving 3D COM to {}".format(cfilename))
     c3d = np.zeros((len(samples_), 3))
     for i in range(len(samples_)):
