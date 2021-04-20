@@ -1,3 +1,4 @@
+"""Dannce module and default parameters"""
 # Default parameters, which can be superseded by CL arguments or
 # config files
 _param_defaults_shared = {
@@ -33,6 +34,8 @@ _param_defaults_shared = {
     "raw_im_w": None,
     "mirror": False,
     "max_num_samples": None,
+    "n_instances": 1,
+    "start_sample": 0,
 }
 _param_defaults_dannce = {
     "metric": ["euclidean_distance_3D"],
@@ -64,6 +67,7 @@ _param_defaults_dannce = {
     "expval": None,
     "com_thresh": None,
     "start_sample": None,
+    "max_num_samples": None,
     "new_n_channels_out": None,
     "cam3_train": None,
     "debug_volume_tifdir": None,

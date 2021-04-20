@@ -8,12 +8,13 @@ import dannce.engine.serve_data_DANNCE as serve_data_DANNCE
 import PIL
 from six.moves import cPickle
 import scipy.io as sio
+from scipy.ndimage.filters import maximum_filter
 
 from dannce.engine import io
 import matplotlib
 import warnings
 
-matplotlib.use("Agg")
+# matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 import yaml
@@ -84,7 +85,7 @@ def infer_params(params, dannce_net, prediction):
         params["camnames"] = io.load_camnames(f)
         if params["camnames"] is None:
             raise Exception("No camnames in config or in *dannce.mat")
-        
+
     # Infer vid_dir_flag and extension and n_channels_in and chunks
     # from the videos and video folder organization.
     # Look into the video directory / camnames[0]. Is there a video file?
@@ -105,14 +106,24 @@ def infer_params(params, dannce_net, prediction):
     extension = ".mp4" if any([".mp4" in file for file in video_files]) else ".avi"
     print_and_set(params, "extension", extension)
     video_files = [file for file in video_files if extension in file]
-    if len(video_files) > 1:
-        video_files = sorted(video_files, key=lambda x: int(x.split(".")[0]))
-        chunks = int(video_files[1].split(".")[0]) - int(video_files[0].split(".")[0])
-    else:
-        chunks = 10000000000000
-    camf = os.path.join(viddir, video_files[0])
 
+    # Use the camnames to find the chunks for each video
+    chunks = {}
+    for name in params["camnames"]:
+        if params["vid_dir_flag"]:
+            camdir = os.path.join(params["viddir"], name)
+        else:
+            camdir = os.path.join(params["viddir"], name)
+            intermediate_folder = os.listdir(camdir)
+            camdir = os.path.join(camdir, intermediate_folder[0])
+        video_files = os.listdir(camdir)
+        video_files = [f for f in video_files if ".mp4"  in f]
+        video_files = sorted(video_files, key=lambda x: int(x.split(".")[0]))
+        chunks[name] = np.sort([int(x.split(".")[0]) for x in video_files])
+        
     print_and_set(params, "chunks", chunks)
+
+    camf = os.path.join(viddir, video_files[0])
 
     # Infer n_channels_in from the video info
     v = imageio.get_reader(camf)
@@ -134,9 +145,7 @@ def infer_params(params, dannce_net, prediction):
         # During prediction, the train_mode might be missing, and in any case only the
         # expval needs to be set.
         if params["net_type"] is None:
-            raise Exception(
-                "Without a net name, net_type must be specified"
-            )
+            raise Exception("Without a net name, net_type must be specified")
 
         if not prediction and params["train_mode"] is None:
             raise Exception("Need to specific train_mode for DANNCE training")
@@ -170,7 +179,7 @@ def infer_params(params, dannce_net, prediction):
             print_and_set(params, "expval", False)
 
     if dannce_net:
-        #infer crop_height and crop_width if None. Just use max dims of video, as
+        # infer crop_height and crop_width if None. Just use max dims of video, as
         # DANNCE does not need to crop.
         if params["crop_height"] is None or params["crop_width"] is None:
             im_h = []
@@ -290,18 +299,18 @@ def check_net_expval(params):
         raise Exception("net is None. You must set either net or net_type.")
     if params["net_type"] is not None:
         if (
-            params["net_type"] == 'AVG'
+            params["net_type"] == "AVG"
             and "AVG" not in params["net"]
             and "expected" not in params["net"]
         ):
             raise Exception("net_type is set to AVG, but you are using a MAX network")
         if (
-            params["net_type"] == 'MAX'
+            params["net_type"] == "MAX"
             and "MAX" not in params["net"]
             and params["net"] != "unet3d_big"
         ):
             raise Exception("net_type is set to MAX, but you are using a AVG network")
-        
+
     if (
         params["expval"]
         and "AVG" not in params["net"]
@@ -431,12 +440,12 @@ def trim_COM_pickle(fpath, start_sample, end_sample, opath=None):
         cPickle.dump(sd, f)
     return sd
 
+
 def save_params(outdir, params):
     """
     Save copy of params to outdir as .mat file
     """
-    sio.savemat(os.path.join(outdir, 'copy_params.mat'),
-                prepare_save_metadata(params))
+    sio.savemat(os.path.join(outdir, "copy_params.mat"), prepare_save_metadata(params))
 
     return True
 
@@ -491,19 +500,20 @@ def save_COM_dannce_mat(params, com3d, sampleID):
     print("Saving COM predictions to " + params["label3d_file"])
     rr = sio.loadmat(params["label3d_file"])
     # For safety, save old file to temp and delete it at the end
-    sio.savemat(params["label3d_file"]+".temp", rr)
+    sio.savemat(params["label3d_file"] + ".temp", rr)
     rr["com"] = com
     sio.savemat(params["label3d_file"], rr)
 
-    os.remove(params["label3d_file"]+".temp")
+    os.remove(params["label3d_file"] + ".temp")
+    
 
-def save_COM_checkpoint(save_data, RESULTSDIR, datadict_, cameras, params):
+def save_COM_checkpoint(save_data, RESULTSDIR, datadict_, cameras, params, file_name="com3d"):
     """
     Saves COM pickle and matfiles
 
     """
     # Save undistorted 2D COMs and their 3D triangulations
-    f = open(os.path.join(RESULTSDIR, "com3d.pickle"), "wb")
+    f = open(os.path.join(RESULTSDIR, file_name + ".pickle"), "wb")
     cPickle.dump(save_data, f)
     f.close()
 
@@ -513,20 +523,39 @@ def save_COM_checkpoint(save_data, RESULTSDIR, datadict_, cameras, params):
     for key in datadict_:
         datadict_save[int(float(key.split("_")[-1]))] = datadict_[key]
 
-    _, com3d_dict = serve_data_DANNCE.prepare_COM(
-        os.path.join(RESULTSDIR, "com3d.pickle"),
-        datadict_save,
-        comthresh=0,
-        weighted=False,
-        camera_mats=cameras,
-        method="median",
-    )
+    if params["n_instances"] > 1:
+        if params["n_channels_out"] > 1:
+            linking_method = "multi_channel"
+        else:
+            linking_method = "euclidean"
+        _, com3d_dict = serve_data_DANNCE.prepare_COM_multi_instance(
+            os.path.join(RESULTSDIR, file_name + ".pickle"),
+            datadict_save,
+            comthresh=0,
+            weighted=False,
+            camera_mats=cameras,
+            linking_method=linking_method,
+        )
+    else:
+        prepare_func = serve_data_DANNCE.prepare_COM
+        _, com3d_dict = serve_data_DANNCE.prepare_COM(
+            os.path.join(RESULTSDIR, file_name + ".pickle"),
+            datadict_save,
+            comthresh=0,
+            weighted=False,
+            camera_mats=cameras,
+            method="median",
+        )
 
-    cfilename = os.path.join(RESULTSDIR, "com3d.mat")
+    cfilename = os.path.join(RESULTSDIR, file_name + ".mat")
     print("Saving 3D COM to {}".format(cfilename))
     samples_keys = list(com3d_dict.keys())
 
-    c3d = np.zeros((len(samples_keys), 3))
+    if params["n_instances"] > 1:
+        c3d = np.zeros((len(samples_keys), 3, params["n_instances"]))
+    else:
+        c3d = np.zeros((len(samples_keys), 3))
+
     for i in range(len(samples_keys)):
         c3d[i] = com3d_dict[samples_keys[i]]
 
@@ -540,7 +569,7 @@ def save_COM_checkpoint(save_data, RESULTSDIR, datadict_, cameras, params):
     )
 
     # Also save a copy into the label3d file
-    save_COM_dannce_mat(params, c3d, samples_keys)
+    # save_COM_dannce_mat(params, c3d, samples_keys)
 
 
 def inherit_config(child, parent, keys):
@@ -556,6 +585,7 @@ def inherit_config(child, parent, keys):
             )
 
     return child
+
 
 def grab_predict_label3d_file(defaultdir=""):
     """
@@ -583,7 +613,7 @@ def load_expdict(params, e, expdict, _DEFAULT_VIDDIR):
     exp = make_paths_safe(exp)
     exp["label3d_file"] = expdict["label3d_file"]
     exp["base_exp_folder"] = os.path.dirname(exp["label3d_file"])
-    
+
     if "viddir" not in expdict:
         # if the videos are not at the _DEFAULT_VIDDIR, then it must
         # be specified in the io.yaml experiment portion
@@ -597,9 +627,23 @@ def load_expdict(params, e, expdict, _DEFAULT_VIDDIR):
         exp["camnames"] = expdict["camnames"]
     elif l3d_camnames is not None:
         exp["camnames"] = l3d_camnames
-
     print("Experiment {} using camnames: {}".format(e, exp["camnames"]))
 
+    # Use the camnames to find the chunks for each video
+    chunks = {}
+    for name in exp["camnames"]:
+        if exp["vid_dir_flag"]:
+            camdir = os.path.join(exp["viddir"], name)
+        else:
+            camdir = os.path.join(exp["viddir"], name)
+            intermediate_folder = os.listdir(camdir)
+            camdir = os.path.join(camdir, intermediate_folder[0])
+        video_files = os.listdir(camdir)
+        video_files = [f for f in video_files if ".mp4"  in f]
+        video_files = sorted(video_files, key=lambda x: int(x.split(".")[0]))
+        chunks[str(e) + '_' + name] = np.sort([int(x.split(".")[0]) for x in video_files])
+    exp["chunks"] = chunks
+    print(chunks)
     return exp
 
 
@@ -962,6 +1006,13 @@ def get_peak_inds(map_):
     """Return the indices of the peak value of an n-d map."""
     return np.unravel_index(np.argmax(map_, axis=None), map_.shape)
 
+def get_peak_inds_multi_instance(im, n_instances, window_size=10):
+    """Return top n_instances local peaks through non-max suppression."""
+    bw = (im == maximum_filter(im, footprint=np.ones((window_size, window_size))))
+    inds = np.argwhere(bw)
+    vals = im[inds[:, 0], inds[:, 1]]
+    idx = np.argsort(vals)[::-1]
+    return inds[idx[:n_instances], :]
 
 def get_marker_peaks_2d(stack):
     """Return the concatenated coordinates of all peaks for each map/marker."""
