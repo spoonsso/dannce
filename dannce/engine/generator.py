@@ -31,7 +31,7 @@ class DataGenerator(keras.utils.Sequence):
         dim_in (tuple): Input dimension
         dim_out (tuple): Output dimension
         extension (Text): Video extension
-        indexes (TYPE): Description
+        indexes (np.ndarray): sample indices used for batch generation
         labels (Dict): Label dictionary
         list_IDs (List): List of sampleIDs
         mono (bool): If True, use grayscale image.
@@ -41,7 +41,7 @@ class DataGenerator(keras.utils.Sequence):
         preload (bool): If true, preload the data.
         samples_per_cluster (int): Samples per cluster
         shuffle (bool): If True, shuffle the samples.
-        vidreaders (None): Dict containing video readers.
+        vidreaders (Dict): Dict containing video readers.
     """
 
     def __init__(
@@ -242,28 +242,28 @@ class DataGenerator_3Dconv(DataGenerator):
 
     Attributes:
         camera_params (Dict): Camera parameters dictionary.
-        channel_combo (TYPE): Description
+        channel_combo (Text): Method for shuffling camera input order
         com3d (Dict): Dictionary of com3d data.
         COM_aug (bool): If True, augment the COM.
         crop_im (bool): If True, crop images.
-        depth (TYPE): Description
-        dim_out_3d (TYPE): Description
+        depth (bool): If True, appends voxel depth to sampled image features [DEPRECATED]
+        dim_out_3d (Tuple): Dimensions of the 3D volume, in voxels
         distort (bool): If true, apply camera undistortion.
         expval (bool): If True, process an expected value network (AVG)
         gpu_id (Text): Identity of GPU to use.
-        immode (TYPE): Description
+        immode (Text): Toggles using 'video' or 'tif' files as image input [DEPRECATED]
         interp (Text): Interpolation method.
-        labels_3d (TYPE): Description
-        mode (TYPE): Description
-        multicam (TYPE): Description
+        labels_3d (Dict): Contains ground-truth 3D label coordinates.
+        mode (Text): Toggles output label format to match MAX vs. AVG network requirements.
+        multicam (bool): If True, formats data to work with multiple cameras as input.
         norm_im (bool): If True, normalize images.
         nvox (int): Number of voxels per box side
         rotation (bool): If True, use simple rotation augmentation.
         tifdirs (List): Directories of .tifs
-        var_reg (TYPE): Description
+        var_reg (bool): If True, adds a variance regularization term to the loss function.
         vmax (int): Maximum box dim (relative to the COM)
         vmin (int): Minimum box dim (relative to the COM)
-        vsize (TYPE): Size of the box
+        vsize (float): Side length of one voxel
     """
 
     def __init__(
@@ -331,18 +331,18 @@ class DataGenerator_3Dconv(DataGenerator):
             nvox (int, optional): Number of voxels per box side
             gpu_id (Text, optional): Identity of GPU to use.
             interp (Text, optional): Interpolation method.
-            depth (bool, optional): Description
-            channel_combo (None, optional): Description
-            mode (Text, optional): Description
+            depth (bool): If True, appends voxel depth to sampled image features [DEPRECATED]
+            channel_combo (Text): Method for shuffling camera input order
+            mode (Text): Toggles output label format to match MAX vs. AVG network requirements.
             preload (bool, optional): If True, load using preloaded vidreaders.
             samples_per_cluster (int, optional): Samples per cluster
-            immode (Text, optional): Description
+            immode (Text): Toggles using 'video' or 'tif' files as image input [DEPRECATED]
             rotation (bool, optional): If True, use simple rotation augmentation.
             vidreaders (Dict, optional): Dict containing video readers.
             distort (bool, optional): If true, apply camera undistortion.
             expval (bool, optional): If True, process an expected value network (AVG)
-            multicam (bool, optional): Description
-            var_reg (bool, optional): Description
+            multicam (bool): If True, formats data to work with multiple cameras as input.
+            var_reg (bool): If True, adds a variance regularization term to the loss function.
             COM_aug (bool, optional): If True, augment the COM.
             crop_im (bool, optional): If True, crop images.
             norm_im (bool, optional): If True, normalize images.
@@ -810,32 +810,31 @@ class DataGenerator_3Dconv_torch(DataGenerator):
 
     Attributes:
         camera_params (Dict): Camera parameters dictionary.
-        channel_combo (TYPE): Description
+        channel_combo (Text): Method for shuffling camera input order
         com3d (Dict): Dictionary of com3d data.
         COM_aug (bool): If True, augment the COM.
         crop_im (bool): If True, crop images.
-        depth (TYPE): Description
-        device (TYPE): Description
-        dim_out_3d (TYPE): Description
+        depth (bool): If True, appends voxel depth to sampled image features [DEPRECATED]
+        device (torch.device): GPU device identifier
+        dim_out_3d (Tuple): Dimensions of the 3D volume, in voxels
         distort (bool): If true, apply camera undistortion.
         expval (bool): If True, process an expected value network (AVG)
         gpu_id (Text): Identity of GPU to use.
-        immode (TYPE): Description
+        immode (Text): Toggles using 'video' or 'tif' files as image input [DEPRECATED]
         interp (Text): Interpolation method.
-        labels_3d (TYPE): Description
-        mode (TYPE): Description
-        multicam (TYPE): Description
+        labels_3d (Dict): Contains ground-truth 3D label coordinates.
+        mode (Text): Toggles output label format to match MAX vs. AVG network requirements.
+        multicam (bool): If True, formats data to work with multiple cameras as input.
         norm_im (bool): If True, normalize images.
         nvox (int): Number of voxels per box side
         rotation (bool): If True, use simple rotation augmentation.
-        session (TYPE): Description
-        threadpool (TYPE): Description
+        session (tf.compat.v1.InteractiveSession): tensorflow session.
+        threadpool (Threadpool): threadpool object for parallelizing video loading
         tifdirs (List): Directories of .tifs
-        torch (TYPE): Description
-        var_reg (TYPE): Description
+        var_reg (bool): If True, adds a variance regularization term to the loss function.
         vmax (int): Maximum box dim (relative to the COM)
         vmin (int): Minimum box dim (relative to the COM)
-        vsize (TYPE): Size of the box
+        vsize (float): Side length of one voxel
     """
 
     def __init__(
@@ -994,14 +993,16 @@ class DataGenerator_3Dconv_torch(DataGenerator):
 
         print("Init took {} sec.".format(time.time() - ts))
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: int):
         """Generate one batch of data.
 
         Args:
-            index (TYPE): Description
+            index (int): Frame index
 
         Returns:
-            TYPE: Description
+            Tuple[np.ndarray, np.ndarray]: One batch of data X
+                (np.ndarray): Input volume y 
+                (np.ndarray): Target
         """
         # Generate indexes of the batch
         indexes = self.indexes[index * self.batch_size : (index + 1) * self.batch_size]
@@ -1043,13 +1044,13 @@ class DataGenerator_3Dconv_torch(DataGenerator):
         """Summary
 
         Args:
-            X_grid (TYPE): Description
-            camname (TYPE): Description
-            ID (TYPE): Description
-            experimentID (TYPE): Description
+            X_grid (np.ndarray): 3-D array containing center coordinates of each voxel.
+            camname (Text): camera name
+            ID (Text): string denoting a sample ID
+            experimentID (int): identifier for a video recording session.
 
         Returns:
-            TYPE: Description
+            np.ndarray: projected voxel centers, now in 2D pixels
         """
         ts = time.time()
         # Need this copy so that this_y does not change
@@ -2194,11 +2195,11 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         return X, y_3d
 
     def visualize(self, original, augmented):
-        """Summary
+        """Plots example image after augmentation
 
         Args:
-            original (TYPE): Description
-            augmented (TYPE): Description
+            original (np.ndarray): image before augmentation
+            augmented (np.ndarray): image after augmentation.
         """
         import matplotlib.pyplot as plt
 
@@ -2214,12 +2215,12 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         input("Press Enter to continue...")
 
     def random_continuous_rotation(self, X, y_3d, max_delta=5):
-        """Summary
+        """Rotates X and y_3d a random amount around z-axis.
 
         Args:
-            X (TYPE): Description
-            y_3d (TYPE): Description
-            max_delta (int, optional): Description
+            X (np.ndarray): input image volume
+            y_3d (np.ndarray): 3d target (for MAX network) or voxel center grid (for AVG network)
+            max_delta (int, optional): maximum range for rotation angle.
 
         Returns:
             TYPE: Description
