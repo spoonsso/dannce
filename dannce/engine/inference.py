@@ -9,6 +9,7 @@ from tensorflow.keras.models import Model
 import dannce.engine.processing as processing
 from dannce.engine import ops
 from typing import List, Dict, Text, Tuple, Union
+import torch
 import matplotlib
 from dannce.engine.processing import savedata_tomat, savedata_expval
 
@@ -692,6 +693,11 @@ def infer_dannce(
                     "sampleID": sampleID,
                 }
         else:
+            predict_mode = (
+                params["predict_mode"]
+                if params["predict_mode"] is not None
+                else "numpy"
+            )
             if predict_mode == "torch":
                 for j in range(pred.shape[0]):
                     preds = torch.as_tensor(pred[j], dtype=torch.float32, device=device)
