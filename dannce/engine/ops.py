@@ -1,21 +1,20 @@
 """Operations for dannce."""
 import tensorflow as tf
-
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator
-
 import tensorflow.keras.backend as K
 import tensorflow.keras.initializers as initializers
 import tensorflow.keras.constraints as constraints
 import tensorflow.keras.regularizers as regularizers
 from tensorflow.keras.layers import Layer, InputSpec
 from tensorflow.keras.utils import get_custom_objects
-
 import cv2
 import time
+from typing import Text, List, Dict, Tuple, Union
+import torch
 
 
-def camera_matrix(K, R, t):
+def camera_matrix(K: np.ndarray, R: np.ndarray, t: np.ndarray) -> np.ndarray:
     """Derive the camera matrix.
 
     Derive the camera matrix from the camera intrinsic matrix (K),
@@ -28,7 +27,9 @@ def camera_matrix(K, R, t):
     return np.concatenate((R, t), axis=0) @ K
 
 
-def project_to2d(pts, K, R, t):
+def project_to2d(
+    pts: np.ndarray, K: np.ndarray, R: np.ndarray, t: np.ndarray
+) -> np.ndarray:
     """Project 3d points to 2d.
 
     Projects a set of 3-D points, pts, into 2-D using the camera intrinsic
@@ -45,7 +46,7 @@ def project_to2d(pts, K, R, t):
     return projPts
 
 
-def project_to2d_torch(pts, M, device):
+def project_to2d_torch(pts, M: np.ndarray, device: Text) -> torch.Tensor:
     """Project 3d points to 2d.
 
     Projects a set of 3-D points, pts, into 2-D using the camera intrinsic
@@ -82,7 +83,7 @@ def project_to2d_tf(projPts, M):
     return projPts
 
 
-def sample_grid(im, projPts, method="linear"):
+def sample_grid(im: np.ndarray, projPts: np.ndarray, method: Text = "linear"):
     """Transfer 3d features to 2d by projecting down to 2d grid.
 
     Use 2d interpolation to transfer features to 3d points that have
@@ -90,7 +91,6 @@ def sample_grid(im, projPts, method="linear"):
     Note that function expects proj_grid to be flattened, so results should be
     reshaped after being returned
     """
-
     if method == "linear":
         f_r = RegularGridInterpolator(
             (np.arange(im.shape[0]), np.arange(im.shape[1])),
@@ -165,13 +165,15 @@ def sample_grid(im, projPts, method="linear"):
     return proj_r, proj_g, proj_b
 
 
-def sample_grid_torch_nearest(im, projPts, device, method="bilinear"):
+def sample_grid_torch_nearest(
+    im: np.ndarray, projPts: np.ndarray, device: Text, method: Text = "bilinear"
+) -> torch.Tensor:
     """Unproject features."""
     # im_x, im_y are the x and y coordinates of each projected 3D position.
     # These are concatenated here for every image in each batch,
     import torch
 
-    feats = torch.as_tensor(im, device=device)
+    feats = torch.as_tensor(im.copy(), device=device)
     grid = projPts
     c = int(round(projPts.shape[0] ** (1 / 3.0)))
 
@@ -183,13 +185,16 @@ def sample_grid_torch_nearest(im, projPts, device, method="bilinear"):
 
     im_xr = im_x.round().type(torch.long)
     im_yr = im_y.round().type(torch.long)
-
+    im_xr[im_xr < 0] = 0
+    im_yr[im_yr < 0] = 0
     Ir = feats[im_yr, im_xr]
 
     return Ir.reshape((c, c, c, -1)).permute(3, 0, 1, 2).unsqueeze(0)
 
 
-def sample_grid_torch_linear(im, projPts, device, method="bilinear"):
+def sample_grid_torch_linear(
+    im: np.ndarray, projPts: np.ndarray, device: Text, method: Text = "bilinear"
+) -> torch.Tensor:
     """Unproject features."""
     # im_x, im_y are the x and y coordinates of each projected 3D position.
     # These are concatenated here for every image in each batch,
@@ -227,6 +232,13 @@ def sample_grid_torch_linear(im, projPts, device, method="bilinear"):
     im_x1_safe = torch.clamp(im_x1, 0, fw - 1)
     im_y1_safe = torch.clamp(im_y1, 0, fh - 1)
 
+    im_x1[im_x1 < 0] = 0
+    im_y1[im_y1 < 0] = 0
+    im_x0[im_x0 < 0] = 0
+    im_y0[im_y0 < 0] = 0
+    im_x1_safe[im_x1_safe < 0] = 0
+    im_y1_safe[im_y1_safe < 0] = 0
+
     Ia = feats[im_y0, im_x0]
     Ib = feats[im_y0, im_x1_safe]
     Ic = feats[im_y1_safe, im_x0]
@@ -254,7 +266,7 @@ def sample_grid_torch_linear(im, projPts, device, method="bilinear"):
     return Ibilin.reshape((c, c, c, -1)).permute(3, 0, 1, 2).unsqueeze(0)
 
 
-def sample_grid_torch(im, projPts, device, method="linear"):
+def sample_grid_torch(im: np.ndarray, projPts: np.ndarray, device: Text, method: Text = "linear"):
     """Transfer 3d features to 2d by projecting down to 2d grid, using torch.
 
     Use 2d interpolation to transfer features to 3d points that have
@@ -571,6 +583,42 @@ def triangulate(pts1, pts2, cam1, cam2):
             X = X / X[-1]
 
             out_3d[:, i] = X[0:3].T
+        else:
+            out_3d[:, i] = np.nan
+
+    return out_3d
+
+
+def triangulate_multi_instance(pts, cams):
+    """Return triangulated 3- coordinates.
+
+    Following Matlab convetion, given lists of matching points, and their
+    respective camera matrices, returns the triangulated 3- coordinates.
+    pts1 and pts2 must be Mx2, where M is the number of points with
+    (x,y) positions. M 3-D points will be returned after triangulation
+    """
+    pts = [pt.T for pt in pts]
+    cams = [c.T for c in cams]
+    out_3d = np.zeros((3, pts[0].shape[1]))
+    # traces = np.zeros((out_3d.shape[1],))
+
+    for i in range(out_3d.shape[1]):
+        if ~np.isnan(pts[0][0, i]):
+            p = [p[:, i : i + 1] for p in pts]
+
+            A = np.zeros((2 * len(cams), 4))
+            for j in range(len(cams)):
+                A[(j) * 2 : (j + 1) * 2] = p[j] @ cams[j][2:3, :] - cams[j][0:2, :]
+
+            u, s, vh = np.linalg.svd(A)
+            v = vh.T
+
+            X = v[:, -1]
+            X = X / X[-1]
+
+            out_3d[:, i] = X[0:3].T
+            # traces[i] = np.sum(s[0:3])
+
         else:
             out_3d[:, i] = np.nan
 
