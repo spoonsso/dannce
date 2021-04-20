@@ -1,21 +1,20 @@
 """Operations for dannce."""
 import tensorflow as tf
-
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator
-
 import tensorflow.keras.backend as K
 import tensorflow.keras.initializers as initializers
 import tensorflow.keras.constraints as constraints
 import tensorflow.keras.regularizers as regularizers
 from tensorflow.keras.layers import Layer, InputSpec
 from tensorflow.keras.utils import get_custom_objects
-
 import cv2
 import time
+from typing import Text, List, Dict, Tuple, Union
+import torch
 
 
-def camera_matrix(K, R, t):
+def camera_matrix(K: np.ndarray, R: np.ndarray, t: np.ndarray) -> np.ndarray:
     """Derive the camera matrix.
 
     Derive the camera matrix from the camera intrinsic matrix (K),
@@ -28,7 +27,9 @@ def camera_matrix(K, R, t):
     return np.concatenate((R, t), axis=0) @ K
 
 
-def project_to2d(pts, K, R, t):
+def project_to2d(
+    pts: np.ndarray, K: np.ndarray, R: np.ndarray, t: np.ndarray
+) -> np.ndarray:
     """Project 3d points to 2d.
 
     Projects a set of 3-D points, pts, into 2-D using the camera intrinsic
@@ -45,7 +46,7 @@ def project_to2d(pts, K, R, t):
     return projPts
 
 
-def project_to2d_torch(pts, M, device):
+def project_to2d_torch(pts, M: np.ndarray, device: Text) -> torch.Tensor:
     """Project 3d points to 2d.
 
     Projects a set of 3-D points, pts, into 2-D using the camera intrinsic
@@ -82,7 +83,7 @@ def project_to2d_tf(projPts, M):
     return projPts
 
 
-def sample_grid(im, projPts, method="linear"):
+def sample_grid(im: np.ndarray, projPts: np.ndarray, method: Text = "linear"):
     """Transfer 3d features to 2d by projecting down to 2d grid.
 
     Use 2d interpolation to transfer features to 3d points that have
@@ -90,7 +91,6 @@ def sample_grid(im, projPts, method="linear"):
     Note that function expects proj_grid to be flattened, so results should be
     reshaped after being returned
     """
-
     if method == "linear":
         f_r = RegularGridInterpolator(
             (np.arange(im.shape[0]), np.arange(im.shape[1])),
@@ -165,7 +165,9 @@ def sample_grid(im, projPts, method="linear"):
     return proj_r, proj_g, proj_b
 
 
-def sample_grid_torch_nearest(im, projPts, device, method="bilinear"):
+def sample_grid_torch_nearest(
+    im: np.ndarray, projPts: np.ndarray, device: Text, method: Text = "bilinear"
+) -> torch.Tensor:
     """Unproject features."""
     # im_x, im_y are the x and y coordinates of each projected 3D position.
     # These are concatenated here for every image in each batch,
@@ -190,7 +192,9 @@ def sample_grid_torch_nearest(im, projPts, device, method="bilinear"):
     return Ir.reshape((c, c, c, -1)).permute(3, 0, 1, 2).unsqueeze(0)
 
 
-def sample_grid_torch_linear(im, projPts, device, method="bilinear"):
+def sample_grid_torch_linear(
+    im: np.ndarray, projPts: np.ndarray, device: Text, method: Text = "bilinear"
+) -> torch.Tensor:
     """Unproject features."""
     # im_x, im_y are the x and y coordinates of each projected 3D position.
     # These are concatenated here for every image in each batch,
@@ -262,7 +266,7 @@ def sample_grid_torch_linear(im, projPts, device, method="bilinear"):
     return Ibilin.reshape((c, c, c, -1)).permute(3, 0, 1, 2).unsqueeze(0)
 
 
-def sample_grid_torch(im, projPts, device, method="linear"):
+def sample_grid_torch(im: np.ndarray, projPts: np.ndarray, device: Text, method: Text = "linear"):
     """Transfer 3d features to 2d by projecting down to 2d grid, using torch.
 
     Use 2d interpolation to transfer features to 3d points that have
@@ -600,11 +604,11 @@ def triangulate_multi_instance(pts, cams):
 
     for i in range(out_3d.shape[1]):
         if ~np.isnan(pts[0][0, i]):
-            p = [p[:, i: i + 1] for p in pts]
+            p = [p[:, i : i + 1] for p in pts]
 
-            A = np.zeros((2*len(cams), 4))
+            A = np.zeros((2 * len(cams), 4))
             for j in range(len(cams)):
-                A[(j)*2:(j+1)*2] = p[j] @ cams[j][2:3, :] - cams[j][0:2, :]
+                A[(j) * 2 : (j + 1) * 2] = p[j] @ cams[j][2:3, :] - cams[j][0:2, :]
 
             u, s, vh = np.linalg.svd(A)
             v = vh.T

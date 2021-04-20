@@ -30,7 +30,7 @@ def prepare_data(
     """
     if prediction:
         labels = load_sync(CONFIG_PARAMS["label3d_file"])
-        nFrames = labels[0]["data_frame"].shape[1]
+        nFrames = np.max(labels[0]["data_frame"].shape)
         nKeypoints = CONFIG_PARAMS["n_channels_out"]
         if "new_n_channels_out" in CONFIG_PARAMS.keys():
             if CONFIG_PARAMS["new_n_channels_out"] is not None:
@@ -87,13 +87,13 @@ def prepare_data(
                 dcom = np.nanmean(data, axis=2, keepdims=True)
             data = np.concatenate((data, dcom), axis=-1)
         elif com_flag:
-            data = data
-            # # Convert to COM only
-            # if nanflag:
-            #     data = np.mean(data, axis=2)
-            # else:
-            #     data = np.nanmean(data, axis=2)
-            # data = data[:, :, np.newaxis]
+            # Convert to COM only if not already
+            if len(data.shape) == 3:
+                if nanflag:
+                    data = np.mean(data, axis=2)
+                else:
+                    data = np.nanmean(data, axis=2)
+                data = data[:, :, np.newaxis]
         ddict[CONFIG_PARAMS["camnames"][i]] = data
 
     data_3d = labels[0]["data_3d"]

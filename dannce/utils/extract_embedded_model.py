@@ -9,26 +9,27 @@ Usage: python extracted_embedded_model path_to_full_model
 """
 
 # from keras.models import model_from_json
-from keras.models import load_model
+from tensorflow.keras.models import load_model
 import dannce.engine.ops as ops
 import dannce.engine.nets as nets
 import dannce.engine.losses as losses
 import sys
 
-mdl = sys.argv[1]
-newmdl = mdl.split(".hdf5")[0] + "_coremodel.hdf5"
+if __name__ == "__main__":
+    mdl = sys.argv[1]
+    newmdl = mdl.split(".hdf5")[0] + "_coremodel.hdf5"
 
-model = load_model(
-    mdl,
-    custom_objects={
-        "ops": ops,
-        "slice_input": nets.slice_input,
-        "mask_nan_keep_loss": losses.mask_nan_keep_loss,
-        "euclidean_distance_3D": losses.euclidean_distance_3D,
-        "centered_euclidean_distance_3D": losses.centered_euclidean_distance_3D,
-    },
-)
+    model = load_model(
+        mdl,
+        custom_objects={
+            "ops": ops,
+            "slice_input": nets.slice_input,
+            "mask_nan_keep_loss": losses.mask_nan_keep_loss,
+            "euclidean_distance_3D": losses.euclidean_distance_3D,
+            "centered_euclidean_distance_3D": losses.centered_euclidean_distance_3D,
+        },
+    )
 
-model.layers[1].save_weights(newmdl)
+    model.layers[1].save_weights(newmdl)
 
-print("Extracted and wrote new model to: " + newmdl)
+    print("Extracted and wrote new model to: " + newmdl)
