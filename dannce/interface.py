@@ -1,3 +1,4 @@
+"""Handle training and prediction for DANNCE and COM networks."""
 import sys
 import numpy as np
 import os
@@ -5,16 +6,13 @@ from copy import deepcopy
 import scipy.io as sio
 import imageio
 import time
-
 import tensorflow as tf
 import tensorflow.keras as keras
 import tensorflow.keras.losses as keras_losses
 from tensorflow.keras.models import load_model, Model
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import ModelCheckpoint, CSVLogger, TensorBoard
-
 import dannce.engine.serve_data_DANNCE as serve_data_DANNCE
-
 from dannce.engine.generator import DataGenerator_3Dconv
 from dannce.engine.generator import DataGenerator_3Dconv_frommem
 from dannce.engine.generator import DataGenerator_3Dconv_torch
@@ -32,21 +30,27 @@ from dannce import (
     _param_defaults_shared,
     _param_defaults_com,
 )
-
 import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from typing import List, Dict, Text
 
 _DEFAULT_VIDDIR = "videos"
 _DEFAULT_COMSTRING = "COM"
 _DEFAULT_COMFILENAME = "com3d.mat"
-
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"
 
 
-def check_unrecognized_params(params):
-    """Check for invalid keys in the params dict against param defaults."""
+def check_unrecognized_params(params: Dict):
+    """Check for invalid keys in the params dict against param defaults.
+
+    Args:
+        params (Dict): Parameters dictionary.
+
+    Raises:
+        ValueError: Error if there are unrecognized keys in the configs.
+    """
     # Check if key in any of the defaults
     invalid_keys = []
     for key in params:
@@ -63,7 +67,16 @@ def check_unrecognized_params(params):
         raise ValueError(msg)
 
 
-def build_params(base_config, dannce_net):
+def build_params(base_config: Text, dannce_net: bool):
+    """Build parameters dictionary from base config and io.yaml
+
+    Args:
+        base_config (Text): Path to base configuration .yaml.
+        dannce_net (bool): If True, use dannce net defaults.
+
+    Returns:
+        Dict: Parameters dictionary.
+    """
     base_params = processing.read_config(base_config)
     base_params = processing.make_paths_safe(base_params)
     params = processing.read_config(base_params["io_config"])
@@ -75,7 +88,16 @@ def build_params(base_config, dannce_net):
     return params
 
 
-def make_folder(key, params):
+def make_folder(key: Text, params: Dict):
+    """Summary
+
+    Args:
+        key (Text): Folder descriptor.
+        params (Dict): Parameters dictionary.
+
+    Raises:
+        ValueError: Error if key is not defined.
+    """
     # Make the prediction directory if it does not exist.
     if params[key] is not None:
         if not os.path.exists(params[key]):
@@ -84,8 +106,13 @@ def make_folder(key, params):
         raise ValueError(key + " must be defined.")
 
 
-def com_predict(params):
+def com_predict(params: Dict):
+    """Predict the COM for a given parameters dictionary.
 
+    Args:
+        params (Dict): Parameters dictionary.
+
+    """
     # Make the prediction directory if it does not exist.
     make_folder("com_predict_dir", params)
 
@@ -142,12 +169,15 @@ def com_predict(params):
 
     print("COMPLETE\n")
 
-    def evaluate_ondemand(start_ind, end_ind, valid_gen):
+    def evaluate_ondemand(
+        start_ind: int, end_ind: int, valid_gen: keras.utils.Sequence
+    ):
         """Perform COM detection over a set of frames.
 
-        :param start_ind: Starting frame index
-        :param end_ind: Ending frame index
-        :param steps: Subsample every steps frames
+        Args:
+            start_ind (int): Starting frame index
+            end_ind (int): Ending frame index
+            valid_gen (keras.utils.Sequence): Keras data generator
         """
         end_time = time.time()
         sample_save = 100
@@ -284,11 +314,12 @@ def com_predict(params):
                         ] = test3d
 
     def evaluate_ondemand_multi_instance(start_ind, end_ind, valid_gen):
-        """Perform COM detection over a set of frames.
+        """Perform COM detection over a set of frames with multiple instances.
 
-        :param start_ind: Starting frame index
-        :param end_ind: Ending frame index
-        :param steps: Subsample every steps frames
+        Args:
+            start_ind (TYPE): Starting frame index
+            end_ind (TYPE): Ending frame index
+            valid_gen (keras.utils.Sequence): Keras data generator
         """
         end_time = time.time()
         sample_save = 100
@@ -560,8 +591,8 @@ def com_predict(params):
 
     save_data = {}
 
-    # If multi-instance mode is on, use the correct generator 
-    # and eval function. 
+    # If multi-instance mode is on, use the correct generator
+    # and eval function.
     if params["n_instances"] > 1:
         valid_generator = DataGenerator_downsample_multi_instance(
             params["n_instances"],
@@ -580,9 +611,7 @@ def com_predict(params):
     # If we just want to analyze a chunk of video...
     st_ind = params["start_sample"]
     if params["max_num_samples"] == "max":
-        eval_func(
-            st_ind, len(valid_generator), valid_generator
-        )
+        eval_func(st_ind, len(valid_generator), valid_generator)
         processing.save_COM_checkpoint(
             save_data, com_predict_dir, datadict_, cameras, params
         )
@@ -603,8 +632,12 @@ def com_predict(params):
     print("done!")
 
 
-def com_train(params):
+def com_train(params: Dict):
+    """Train COM network
 
+    Args:
+        params (Dict): Parameters dictionary.
+    """
     # Make the train directory if it does not exist.
     make_folder("com_train_dir", params)
 
@@ -897,11 +930,13 @@ def com_train(params):
     )
 
     def write_debug(trainData=True):
-        """
-        Factoring re-used debug output code.
+        """Factoring re-used debug output code.
 
         Writes training or validation images to an output directory, together
         with the ground truth COM labels and predicted COM labels, respectively.
+
+        Args:
+            trainData (bool, optional): If True use training data for debug.
         """
 
         if params["debug"] and not MULTI_MODE:
@@ -964,8 +999,15 @@ def com_train(params):
     model.save(os.path.join(sdir, "fullmodel_end.hdf5"))
 
 
-def dannce_train(params):
-    """Entrypoint for dannce training."""
+def dannce_train(params: Dict):
+    """Train dannce network.
+
+    Args:
+        params (Dict): Parameters dictionary.
+
+    Raises:
+        Exception: Error if training mode is invalid.
+    """
     # Depth disabled until next release.
     params["depth"] = False
 
@@ -975,9 +1017,10 @@ def dannce_train(params):
     params["loss"] = getattr(losses, params["loss"])
     params["net"] = getattr(nets, params["net"])
 
-    # Default to 6 views but a smaller number of views can be specified in the DANNCE config.
-    # If the legnth of the camera files list is smaller than n_views, relevant lists will be
-    # duplicated in order to match n_views, if possible.
+    # Default to 6 views but a smaller number of views can be specified in the
+    # DANNCE config. If the legnth of the camera files list is smaller than
+    # n_views, relevant lists will be duplicated in order to match n_views, if
+    # possible.
     n_views = int(params["n_views"])
 
     # Convert all metric strings to objects
@@ -1428,7 +1471,12 @@ def dannce_train(params):
     print("done!")
 
 
-def dannce_predict(params):
+def dannce_predict(params: Dict):
+    """Predict with dannce network
+
+    Args:
+        params (Dict): Paremeters dictionary.
+    """
     # Depth disabled until next release.
     params["depth"] = False
     # Make the prediction directory if it does not exist.
@@ -1677,10 +1725,12 @@ def dannce_predict(params):
     save_data = {}
 
     def evaluate_ondemand(start_ind, end_ind, valid_gen):
-        """Evaluate experiment.
-        :param start_ind: Starting frame
-        :param end_ind: Ending frame
-        :param valid_gen: Generator
+        """Perform dannce detection over a set of frames.
+
+        Args:
+            start_ind (TYPE): Starting frame index
+            end_ind (TYPE): Ending frame index
+            valid_gen (keras.utils.Sequence): Keras data generator
         """
         end_time = time.time()
         for idx, i in enumerate(range(start_ind, end_ind)):
@@ -1870,10 +1920,25 @@ def dannce_predict(params):
         )
 
 
-def do_COM_load(exp, expdict, n_views, e, params, training=True):
-    """
-    Factors COM loading and processing code, which is shared by
-    dannce_train() and dannce_predict()
+def do_COM_load(
+    exp: Dict, expdict: Dict, n_views: int, e, params: Dict, training=True
+):
+    """Load and process COMs.
+
+    Args:
+        exp (Dict): Parameters dictionary for experiment
+        expdict (Dict): Experiment specific overrides (e.g. com_file, vid_dir)
+        n_views (int): Number of views
+        e (TYPE): Description
+        params (Dict): Parameters dictionary.
+        training (bool, optional): If true, load COM for training frames.
+
+    Returns:
+        TYPE: Description
+        exp, samples_, datadict_, datadict_3d_, cameras_, com3d_dict_
+
+    Raises:
+        Exception: Exception when invalid com file format.
     """
     (
         samples_,
@@ -1954,8 +2019,18 @@ def do_COM_load(exp, expdict, n_views, e, params, training=True):
     return exp, samples_, datadict_, datadict_3d_, cameras_, com3d_dict_
 
 
-def check_COM_load(c3dfile, kkey, datadict_, wsize):
+def check_COM_load(c3dfile: Dict, kkey: Text, datadict_: Dict, wsize: int):
+    """Check that the COM file is of the appropriate format, and filter it.
 
+    Args:
+        c3dfile (Dict): Loaded com3d dictionary.
+        kkey (Text): Key to use for extracting com.
+        datadict_ (Dict): Dictionary containing data.
+        wsize (int): Window size.
+
+    Returns:
+        Dict: Dictionary containing com data.
+    """
     c3d = c3dfile[kkey]
 
     # do a median filter on the COM traces if indicated

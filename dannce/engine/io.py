@@ -1,8 +1,19 @@
+"""Data loading and saving operations."""
 import numpy as np
 import scipy.io as sio
+from typing import List, Dict, Text, Union
 
 
-def load_label3d_data(path, key):
+def load_label3d_data(path: Text, key: Text):
+    """Load Label3D data
+
+    Args:
+        path (Text): Path to Label3D file
+        key (Text): Field to access
+
+    Returns:
+        TYPE: Data from field
+    """
     d = sio.loadmat(path)[key]
     dataset = [f[0] for f in d]
 
@@ -17,11 +28,18 @@ def load_label3d_data(path, key):
         for key in d.dtype.names:
             d_[key] = d[key][0, 0]
         data.append(d_)
-
     return data
 
 
-def load_camera_params(path):
+def load_camera_params(path: Text) -> List[Dict]:
+    """Load camera parameters from Label3D file.
+
+    Args:
+        path (Text): Path to Label3D file
+
+    Returns:
+        List[Dict]: List of camera parameter dictionaries.
+    """
     params = load_label3d_data(path, "params")
     for p in params:
         if "r" in p:
@@ -29,7 +47,15 @@ def load_camera_params(path):
     return params
 
 
-def load_sync(path):
+def load_sync(path: Text) -> List[Dict]:
+    """Load synchronization data from Label3D file.
+
+    Args:
+        path (Text): Path to Label3D file.
+
+    Returns:
+        List[Dict]: List of synchronization dictionaries.
+    """
     dataset = load_label3d_data(path, "sync")
     for d in dataset:
         d["data_frame"] = d["data_frame"].astype(int)
@@ -37,7 +63,15 @@ def load_sync(path):
     return dataset
 
 
-def load_labels(path):
+def load_labels(path: Text) -> List[Dict]:
+    """Load labelData from Label3D file.
+
+    Args:
+        path (Text): Path to Label3D file.
+
+    Returns:
+        List[Dict]: List of labelData dictionaries.
+    """
     dataset = load_label3d_data(path, "labelData")
     for d in dataset:
         d["data_frame"] = d["data_frame"].astype(int)
@@ -45,7 +79,15 @@ def load_labels(path):
     return dataset
 
 
-def load_com(path):
+def load_com(path: Text) -> Dict:
+    """Load COM from .mat file.
+
+    Args:
+        path (Text): Path to .mat file with "com" field
+
+    Returns:
+        Dict: Dictionary with com data
+    """
     d = sio.loadmat(path)["com"]
     data = {}
     data["com3d"] = d["com3d"][0, 0]
@@ -53,7 +95,15 @@ def load_com(path):
     return data
 
 
-def load_camnames(path):
+def load_camnames(path: Text) -> Union[List, None]:
+    """Load camera names from .mat file.
+
+    Args:
+        path (Text): Path to .mat file with "camnames" field
+
+    Returns:
+        Union[List, None]: List of cameranames
+    """
     label_3d_file = sio.loadmat(path)
     if "camnames" in label_3d_file:
         names = label_3d_file["camnames"][:]
