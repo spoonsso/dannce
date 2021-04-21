@@ -534,10 +534,6 @@ class DataGenerator_downsample_multi_instance(keras.utils.Sequence):
                     # Get the probability maps for all instances
                     instance_prob = []
                     for instance in range(self.n_instances):
-                        # label_idx = (
-                        #     self.n_channels_out - 1
-                        # ) * self.n_instances + instance
-                        # print(this_y.shape)
                         instance_prob.append(
                             np.exp(
                                 -(
