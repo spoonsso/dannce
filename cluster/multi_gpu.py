@@ -14,6 +14,7 @@ from dannce import (
     _param_defaults_com,
 )
 import scipy.io as spio
+
 DANNCE_PRED_FILE_BASE_NAME = "save_data_AVG"
 COM_PRED_FILE_BASE_NAME = "com3d"
 
@@ -187,8 +188,7 @@ class MultiGpuHandler:
             if len(pred_files) > 1:
                 params = self.load_params(self.config)
                 pred_ids = [
-                    int(f.split(".")[0].split("3d")[1])
-                    for f in pred_files
+                    int(f.split(".")[0].split("3d")[1]) for f in pred_files
                 ]
                 for i, batch_param in reversed(list(enumerate(batch_params))):
                     if batch_param["start_sample"] in pred_ids:
@@ -249,7 +249,7 @@ class MultiGpuHandler:
             print("Command issued: ", cmd)
         if not self.test:
             sys.exit(os.WEXITSTATUS(os.system(cmd)))
-            
+
     def submit_dannce_predict_multi_gpu(self):
         """Predict dannce over multiple gpus in parallel.
 
@@ -307,7 +307,9 @@ class MultiGpuHandler:
             if COM_PRED_FILE_BASE_NAME in f and ".mat" in f
         ]
         pred_files = [
-            f for f in pred_files if f != (COM_PRED_FILE_BASE_NAME + ".mat")
+            f
+            for f in pred_files
+            if f != (COM_PRED_FILE_BASE_NAME + ".mat") and "instance" not in f
         ]
         pred_inds = [
             int(f.split(COM_PRED_FILE_BASE_NAME)[-1].split(".")[0])
@@ -334,9 +336,31 @@ class MultiGpuHandler:
         metadata["start_sample"] = 0
         metadata["max_num_samples"] = "max"
 
+        if len(com.shape) == 3:
+            for n_instance in range(com.shape[2]):
+                fn = os.path.join(
+                    self.predict_path,
+                    "instance"
+                    + str(n_instance)
+                    + COM_PRED_FILE_BASE_NAME
+                    + ".mat",
+                )
+                savemat(
+                    fn,
+                    {
+                        "com": com[..., n_instance].squeeze(),
+                        "sampleID": sampleID,
+                        "metadata": metadata,
+                    },
+                )
         # save to a single file.
-        fn = os.path.join(self.predict_path, COM_PRED_FILE_BASE_NAME + ".mat")
-        savemat(fn, {"com": com, "sampleID": sampleID, "metadata": metadata})
+        else:
+            fn = os.path.join(
+                self.predict_path, COM_PRED_FILE_BASE_NAME + ".mat"
+            )
+            savemat(
+                fn, {"com": com, "sampleID": sampleID, "metadata": metadata}
+            )
 
     def dannce_merge(self):
         # Get all of the paths
