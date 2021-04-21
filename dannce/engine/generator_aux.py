@@ -11,6 +11,8 @@ import warnings
 import time
 import matplotlib.pyplot as plt
 from dannce.engine.video import MediaVideo
+from typing import Text, Tuple, List, Union, Dict
+
 _DEFAULT_CAM_NAMES = [
     "CameraR",
     "CameraL",
@@ -73,8 +75,7 @@ class DataGenerator_downsample(keras.utils.Sequence):
 
         if immode == "video":
             self.extension = (
-                "."
-                + list(vidreaders[camnames[0][0]].keys())[0].rsplit(".")[-1]
+                "." + list(vidreaders[camnames[0][0]].keys())[0].rsplit(".")[-1]
             )
 
         self.immode = immode
@@ -102,9 +103,7 @@ class DataGenerator_downsample(keras.utils.Sequence):
     def __getitem__(self, index):
         """Generate one batch of data."""
         # Generate indexes of the batch
-        indexes = self.indexes[
-            index * self.batch_size : (index + 1) * self.batch_size
-        ]
+        indexes = self.indexes[index * self.batch_size : (index + 1) * self.batch_size]
 
         # Find list of IDs
         list_IDs_temp = [self.list_IDs[k] for k in indexes]
@@ -131,14 +130,17 @@ class DataGenerator_downsample(keras.utils.Sequence):
         keyname = os.path.join(camname, fname)
 
         if preload:
-            return self.vidreaders[camname][keyname].get_data(frame_num)
+            # return self.vidreaders[camname][keyname].get_data(frame_num)
+            return self.vidreaders[camname][keyname].get_frame(frame_num)
+
         else:
             thisvid_name = self.vidreaders[camname][keyname]
             abname = thisvid_name.split("/")[-1]
             if abname == self.currvideo_name[camname]:
                 vid = self.currvideo[camname]
             else:
-                vid = imageio.get_reader(thisvid_name)
+                # vid = imageio.get_reader(thisvid_name)
+                vid = MediaVideo(thisvid_name, grayscale=False)
                 print("Loading new video: {} for {}".format(abname, camname))
                 self.currvideo_name[camname] = abname
                 # close current vid
@@ -148,7 +150,8 @@ class DataGenerator_downsample(keras.utils.Sequence):
                     self.currvideo[camname].close()
                 self.currvideo[camname] = vid
 
-            im = vid.get_data(frame_num)
+            # im = vid.get_data(frame_num)
+            im = vid.get_frame(frame_num)
 
             return im
 
@@ -279,25 +282,17 @@ class DataGenerator_downsample(keras.utils.Sequence):
             y = np.transpose(y, [0, 2, 1])
 
         if self.downsample > 1:
-            X = processing.downsample_batch(
-                X, fac=self.downsample, method=self.dsmode
-            )
+            X = processing.downsample_batch(X, fac=self.downsample, method=self.dsmode)
             if self.labelmode == "prob":
                 y = processing.downsample_batch(
                     y, fac=self.downsample, method=self.dsmode
                 )
-                y /= np.max(np.max(y, axis=1), axis=1)[
-                    :, np.newaxis, np.newaxis, :
-                ]
+                y /= np.max(np.max(y, axis=1), axis=1)[:, np.newaxis, np.newaxis, :]
 
         if self.mono and self.n_channels_in == 3:
             # Go from 3 to 1 channel using RGB conversion. This will also
             # work fine if there are just 3 channel grayscale
-            X = (
-                X[:, :, :, 0] * 0.2125
-                + X[:, :, :, 1] * 0.7154
-                + X[:, :, :, 2] * 0.0721
-            )
+            X = X[:, :, :, 0] * 0.2125 + X[:, :, :, 1] * 0.7154 + X[:, :, :, 2] * 0.0721
 
             X = X[:, :, :, np.newaxis]
 
@@ -312,29 +307,30 @@ class DataGenerator_downsample(keras.utils.Sequence):
 
 class DataGenerator_downsample_multi_instance(keras.utils.Sequence):
     """Generate data for Keras."""
+
     def __init__(
         self,
         n_instances,
         list_IDs,
         labels,
         vidreaders,
-        batch_size=32,
-        dim_in=(1024, 1280),
-        n_channels_in=1,
-        n_channels_out=1,
-        out_scale=5,
+        batch_size: int = 32,
+        dim_in: Tuple = (1024, 1280),
+        n_channels_in: int = 1,
+        n_channels_out: int = 1,
+        out_scale: int = 5,
         shuffle=True,
-        camnames=_DEFAULT_CAM_NAMES,
-        crop_width=(0, 1024),
-        crop_height=(20, 1300),
-        downsample=1,
-        immode="video",
-        labelmode="prob",
-        preload=True,
-        dsmode="dsm",
-        chunks=3500,
-        multimode=False,
-        mono=False,
+        camnames: List = _DEFAULT_CAM_NAMES,
+        crop_width: Tuple = (0, 1024),
+        crop_height: Tuple = (20, 1300),
+        downsample: int = 1,
+        immode: Text = "video",
+        labelmode: Text = "prob",
+        preload: bool = True,
+        dsmode: Text = "dsm",
+        chunks: int = 3500,
+        multimode: bool = False,
+        mono: bool = False,
     ):
         """Initialize generator.
 
@@ -362,8 +358,7 @@ class DataGenerator_downsample_multi_instance(keras.utils.Sequence):
 
         if immode == "video":
             self.extension = (
-                "."
-                + list(vidreaders[camnames[0][0]].keys())[0].rsplit(".")[-1]
+                "." + list(vidreaders[camnames[0][0]].keys())[0].rsplit(".")[-1]
             )
 
         self.immode = immode
@@ -391,9 +386,7 @@ class DataGenerator_downsample_multi_instance(keras.utils.Sequence):
     def __getitem__(self, index):
         """Generate one batch of data."""
         # Generate indexes of the batch
-        indexes = self.indexes[
-            index * self.batch_size : (index + 1) * self.batch_size
-        ]
+        indexes = self.indexes[index * self.batch_size : (index + 1) * self.batch_size]
 
         # Find list of IDs
         list_IDs_temp = [self.list_IDs[k] for k in indexes]
@@ -531,46 +524,38 @@ class DataGenerator_downsample_multi_instance(keras.utils.Sequence):
                     raise Exception(
                         "Unsupported image format. Needs to be video files."
                     )
-                # if this_y.shape[1] != self.n_channels_out:
-                #     # TODO(shape_exception):This should probably be its own
-                #     # class that inherits from base exception
-                #     raise Exception(_EXEP_MSG)
-
+                # import pdb
+                # pdb.set_trace()
                 if self.labelmode == "prob":
-                    # Only do this if we actually need the labels --
-                    # this is too slow otherwise
                     (x_coord, y_coord) = np.meshgrid(
                         np.arange(self.dim_out[1]), np.arange(self.dim_out[0])
                     )
-                    for j in range(self.n_channels_out):
-                        # I tested a version of this with numpy broadcasting,
-                        # and looping was ~100ms seconds faster for making
-                        # 20 maps
-                        # In the future, a shortcut might be to "stamp" a
-                        # truncated Gaussian pdf onto the images, centered
-                        # at the peak
 
-                        # For now, instances are represented as multiple copies
-                        # of channels. For example, the order in the label
-                        # file will be COM1, COM2 or Head1 Head2 Ear1 Ear2,
-                        # etc.
-                        instance_prob = []
-                        for instance in range(self.n_instances):
-                            label_idx = (
-                                self.n_channels_out - 1
-                            ) * self.n_instances + instance
-                            instance_prob.append(
-                                np.exp(
-                                    -(
-                                        (y_coord - this_y[1, label_idx]) ** 2
-                                        + (x_coord - this_y[0, label_idx]) ** 2
-                                    )
-                                    / (2 * self.out_scale ** 2)
+                    # Get the probability maps for all instances
+                    instance_prob = []
+                    for instance in range(self.n_instances):
+                        instance_prob.append(
+                            np.exp(
+                                -(
+                                    (y_coord - this_y[1, instance]) ** 2
+                                    + (x_coord - this_y[0, instance]) ** 2
                                 )
+                                / (2 * self.out_scale ** 2)
                             )
-                        y[cnt, j] = np.max(
-                            np.stack(instance_prob, axis=2), axis=2
                         )
+
+                    # If using single-channel multi_instance take the max
+                    # across probability maps. Otherwise assign a probability
+                    # map to each channel.
+                    if self.n_channels_out == 1:
+                        y[cnt, 0] = np.max(np.stack(instance_prob, axis=2), axis=2)
+                    else:
+                        if len(instance_prob) != self.n_channels_out:
+                            raise ValueError(
+                                "n_channels_out != n_instances. This is necessary for multi-channel multi-instance tracking."
+                            )
+                        for j, instance in enumerate(instance_prob):
+                            y[cnt, j] = instance
                 else:
                     y[cnt] = this_y.T
                 # plt.imshow(np.squeeze(y[0,:,:,:]))
@@ -587,25 +572,17 @@ class DataGenerator_downsample_multi_instance(keras.utils.Sequence):
             y = np.transpose(y, [0, 2, 1])
 
         if self.downsample > 1:
-            X = processing.downsample_batch(
-                X, fac=self.downsample, method=self.dsmode
-            )
+            X = processing.downsample_batch(X, fac=self.downsample, method=self.dsmode)
             if self.labelmode == "prob":
                 y = processing.downsample_batch(
                     y, fac=self.downsample, method=self.dsmode
                 )
-                y /= np.max(np.max(y, axis=1), axis=1)[
-                    :, np.newaxis, np.newaxis, :
-                ]
+                y /= np.max(np.max(y, axis=1), axis=1)[:, np.newaxis, np.newaxis, :]
 
         if self.mono and self.n_channels_in == 3:
             # Go from 3 to 1 channel using RGB conversion. This will also
             # work fine if there are just 3 channel grayscale
-            X = (
-                X[:, :, :, 0] * 0.2125
-                + X[:, :, :, 1] * 0.7154
-                + X[:, :, :, 2] * 0.0721
-            )
+            X = X[:, :, :, 0] * 0.2125 + X[:, :, :, 1] * 0.7154 + X[:, :, :, 2] * 0.0721
 
             X = X[:, :, :, np.newaxis]
 
@@ -715,9 +692,7 @@ class DataGenerator_downsample_frommem(keras.utils.Sequence):
     def __getitem__(self, index):
         """Generate one batch of data."""
         # Generate indexes of the batch
-        indexes = self.indexes[
-            index * self.batch_size : (index + 1) * self.batch_size
-        ]
+        indexes = self.indexes[index * self.batch_size : (index + 1) * self.batch_size]
 
         # Find list of IDs
         list_IDs_temp = [self.list_IDs[k] for k in indexes]
@@ -752,9 +727,7 @@ class DataGenerator_downsample_frommem(keras.utils.Sequence):
             y_2d = y_2d.copy()
 
             if self.augment_rotation:
-                affine["rotation"] = self.rotation_val * (
-                    np.random.rand() * 2 - 1
-                )
+                affine["rotation"] = self.rotation_val * (np.random.rand() * 2 - 1)
             if self.augment_zoom:
                 affine["zoom"] = self.zoom_val * (np.random.rand() * 2 - 1) + 1
             if self.augment_shear:
@@ -769,9 +742,7 @@ class DataGenerator_downsample_frommem(keras.utils.Sequence):
                     zy=affine["zoom"],
                     fill_mode="nearest",
                 )
-                y_2d[
-                    idx
-                ] = tf.keras.preprocessing.image.apply_affine_transform(
+                y_2d[idx] = tf.keras.preprocessing.image.apply_affine_transform(
                     y_2d[idx],
                     theta=affine["rotation"],
                     shear=affine["shear"],
@@ -799,9 +770,7 @@ class DataGenerator_downsample_frommem(keras.utils.Sequence):
 
         return X, y_2d
 
-    def save_for_dlc(
-        self, imfolder, ext=".png", full_data=True, compress_level=9
-    ):
+    def save_for_dlc(self, imfolder, ext=".png", full_data=True, compress_level=9):
         """Generate data.
 
         # The full_data flag is used so that one can

@@ -5,6 +5,7 @@ import numpy as np
 from tensorflow import keras
 from dannce.engine import processing as processing
 from dannce.engine import ops as ops
+from dannce.engine.video import MediaVideo
 import imageio
 import warnings
 import time
@@ -160,14 +161,20 @@ class DataGenerator(keras.utils.Sequence):
 
         keyname = os.path.join(camname, fname)
         if preload:
-            return self.vidreaders[camname][keyname].get_data(frame_num).astype("uint8")
+            # return (
+            #     self.vidreaders[camname][keyname]
+            #     .get_data(frame_num)
+            #     .astype("uint8")
+            # )
+            return self.vidreaders[camname][keyname].get_frame(frame_num)
         else:
             thisvid_name = self.vidreaders[camname][keyname]
             abname = thisvid_name.split("/")[-1]
             if abname == self.currvideo_name[camname]:
                 vid = self.currvideo[camname]
             else:
-                vid = imageio.get_reader(thisvid_name)
+                # vid = imageio.get_reader(thisvid_name)
+                vid = MediaVideo(thisvid_name, grayscale=False)
                 print("Loading new video: {} for {}".format(abname, camname))
                 self.currvideo_name[camname] = abname
                 # close current vid
@@ -179,10 +186,12 @@ class DataGenerator(keras.utils.Sequence):
 
             # This deals with a strange indexing error in the pup data.
             try:
-                im = vid.get_data(frame_num).astype("uint8")
+                # im = vid.get_data(frame_num).astype("uint8")
+                im = vid.get_frame(frame_num)
             except IndexError:
                 print("Indexing error using previous frame")
-                im = vid.get_data(frame_num - 1).astype("uint8")
+                # im = vid.get_data(frame_num - 1).astype("uint8")
+                im = vid.get_frame(frame_num)
 
             return im
 

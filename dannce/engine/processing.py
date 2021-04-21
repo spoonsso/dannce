@@ -483,17 +483,28 @@ def save_COM_checkpoint(save_data, RESULTSDIR, datadict_, cameras, params, file_
         datadict_save[int(float(key.split("_")[-1]))] = datadict_[key]
 
     if params["n_instances"] > 1:
-        prepare_func = serve_data_DANNCE.prepare_COM_multi_instance
+        if params["n_channels_out"] > 1:
+            linking_method = "multi_channel"
+        else:
+            linking_method = "euclidean"
+        _, com3d_dict = serve_data_DANNCE.prepare_COM_multi_instance(
+            os.path.join(RESULTSDIR, file_name + ".pickle"),
+            datadict_save,
+            comthresh=0,
+            weighted=False,
+            camera_mats=cameras,
+            linking_method=linking_method,
+        )
     else:
         prepare_func = serve_data_DANNCE.prepare_COM
-    _, com3d_dict = prepare_func(
-        os.path.join(RESULTSDIR, file_name + ".pickle"),
-        datadict_save,
-        comthresh=0,
-        weighted=False,
-        camera_mats=cameras,
-        method="median",
-    )
+        _, com3d_dict = serve_data_DANNCE.prepare_COM(
+            os.path.join(RESULTSDIR, file_name + ".pickle"),
+            datadict_save,
+            comthresh=0,
+            weighted=False,
+            camera_mats=cameras,
+            method="median",
+        )
 
     cfilename = os.path.join(RESULTSDIR, file_name + ".mat")
     print("Saving 3D COM to {}".format(cfilename))

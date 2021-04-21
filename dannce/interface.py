@@ -30,6 +30,7 @@ from dannce import (
     _param_defaults_shared,
     _param_defaults_com,
 )
+import dannce.engine.inference as inference
 import matplotlib
 
 matplotlib.use("Agg")
@@ -89,7 +90,7 @@ def build_params(base_config: Text, dannce_net: bool):
 
 
 def make_folder(key: Text, params: Dict):
-    """Summary
+    """Make the prediction or training directories.
 
     Args:
         key (Text): Folder descriptor.
@@ -127,7 +128,7 @@ def com_predict(params: Dict):
 
     # If params['n_channels_out'] is greater than one, we enter a mode in
     # which we predict all available labels + the COM
-    MULTI_MODE = params["n_channels_out"] > 1
+    MULTI_MODE = params["n_channels_out"] > 1 & params["n_instances"] == 1
     params["n_channels_out"] = params["n_channels_out"] + int(MULTI_MODE)
 
     # Grab the input file for prediction
@@ -154,6 +155,7 @@ def com_predict(params: Dict):
         multigpu=False,
     )
 
+    # If the weights are not specified, use the train directory.
     if params["com_predict_weights"] is None:
         wdir = params["com_train_dir"]
         weights = os.listdir(wdir)
@@ -168,368 +170,6 @@ def com_predict(params: Dict):
     model.load_weights(params["com_predict_weights"])
 
     print("COMPLETE\n")
-
-    def evaluate_ondemand(
-        start_ind: int, end_ind: int, valid_gen: keras.utils.Sequence
-    ):
-        """Perform COM detection over a set of frames.
-
-        Args:
-            start_ind (int): Starting frame index
-            end_ind (int): Ending frame index
-            valid_gen (keras.utils.Sequence): Keras data generator
-        """
-        end_time = time.time()
-        sample_save = 100
-        for i in range(start_ind, end_ind):
-            print("Predicting on sample {}".format(i), flush=True)
-            if (i - start_ind) % sample_save == 0 and i != start_ind:
-                print(i)
-                print(
-                    "{} samples took {} seconds".format(
-                        sample_save, time.time() - end_time
-                    )
-                )
-                end_time = time.time()
-
-            # if (i - start_ind) % 1000 == 0 and i != start_ind:
-            #     print("Saving checkpoint at {}th sample".format(i))
-            #     processing.save_COM_checkpoint(
-            #         save_data, com_predict_dir, datadict_, cameras, params
-            #     )
-
-            pred_ = model.predict(valid_gen.__getitem__(i)[0])
-
-            pred_ = np.reshape(
-                pred_,
-                [
-                    -1,
-                    len(params["camnames"]),
-                    pred_.shape[1],
-                    pred_.shape[2],
-                    pred_.shape[3],
-                ],
-            )
-
-            for m in range(pred_.shape[0]):
-
-                # By selecting -1 for the last axis, we get the COM index for a
-                # normal COM network, and also the COM index for a multi_mode COM network,
-                # as in multimode the COM label is put at the end
-                pred = pred_[m, :, :, :, -1]
-                sampleID_ = partition["valid_sampleIDs"][
-                    i * pred_.shape[0] + m
-                ]
-                save_data[sampleID_] = {}
-                save_data[sampleID_]["triangulation"] = {}
-
-                for j in range(pred.shape[0]):  # this loops over all cameras
-                    # get coords for each map. This assumes that image are coming
-                    # out in pred in the same order as CONFIG_PARAMS['camnames']
-                    pred_max = np.max(np.squeeze(pred[j]))
-                    ind = (
-                        np.array(processing.get_peak_inds(np.squeeze(pred[j])))
-                        * params["downfac"]
-                    )
-                    ind[0] += params["crop_height"][0]
-                    ind[1] += params["crop_width"][0]
-                    ind = ind[::-1]
-                    # now, the center of mass is (x,y) instead of (i,j)
-                    # now, we need to use camera calibration to triangulate
-                    # from 2D to 3D
-
-                    if params["com_debug"] is not None and j == cnum:
-                        # Write preds
-                        plt.figure(0)
-                        plt.cla()
-                        plt.imshow(np.squeeze(pred[j]))
-                        plt.savefig(
-                            os.path.join(
-                                cmapdir,
-                                params["com_debug"] + str(i + m) + ".png",
-                            )
-                        )
-
-                        plt.figure(1)
-                        plt.cla()
-                        im = valid_gen.__getitem__(i * pred_.shape[0] + m)
-                        plt.imshow(processing.norm_im(im[0][j]))
-                        plt.plot(
-                            (ind[0] - params["crop_width"][0])
-                            / params["downfac"],
-                            (ind[1] - params["crop_height"][0])
-                            / params["downfac"],
-                            "or",
-                        )
-                        plt.savefig(
-                            os.path.join(
-                                overlaydir,
-                                params["com_debug"] + str(i + m) + ".png",
-                            )
-                        )
-
-                    save_data[sampleID_][params["camnames"][j]] = {
-                        "pred_max": pred_max,
-                        "COM": ind,
-                    }
-
-                    # Undistort this COM here.
-                    pts1 = save_data[sampleID_][params["camnames"][j]]["COM"]
-                    pts1 = pts1[np.newaxis, :]
-                    pts1 = ops.unDistortPoints(
-                        pts1,
-                        cameras[params["camnames"][j]]["K"],
-                        cameras[params["camnames"][j]]["RDistort"],
-                        cameras[params["camnames"][j]]["TDistort"],
-                        cameras[params["camnames"][j]]["R"],
-                        cameras[params["camnames"][j]]["t"],
-                    )
-                    save_data[sampleID_][params["camnames"][j]][
-                        "COM"
-                    ] = np.squeeze(pts1)
-
-                # Triangulate for all unique pairs
-                for j in range(pred.shape[0]):
-                    for k in range(j + 1, pred.shape[0]):
-                        pts1 = save_data[sampleID_][params["camnames"][j]][
-                            "COM"
-                        ]
-                        pts2 = save_data[sampleID_][params["camnames"][k]][
-                            "COM"
-                        ]
-                        pts1 = pts1[np.newaxis, :]
-                        pts2 = pts2[np.newaxis, :]
-
-                        test3d = ops.triangulate(
-                            pts1,
-                            pts2,
-                            camera_mats[params["camnames"][j]],
-                            camera_mats[params["camnames"][k]],
-                        ).squeeze()
-
-                        save_data[sampleID_]["triangulation"][
-                            "{}_{}".format(
-                                params["camnames"][j], params["camnames"][k]
-                            )
-                        ] = test3d
-
-    def evaluate_ondemand_multi_instance(start_ind, end_ind, valid_gen):
-        """Perform COM detection over a set of frames with multiple instances.
-
-        Args:
-            start_ind (TYPE): Starting frame index
-            end_ind (TYPE): Ending frame index
-            valid_gen (keras.utils.Sequence): Keras data generator
-        """
-        end_time = time.time()
-        sample_save = 100
-        for i in range(start_ind, end_ind):
-            print("Predicting on sample {}".format(i), flush=True)
-            if (i - start_ind) % sample_save == 0 and i != start_ind:
-                print(i)
-                print(
-                    "{} samples took {} seconds".format(
-                        sample_save, time.time() - end_time
-                    )
-                )
-                end_time = time.time()
-
-            pred_ = model.predict(valid_gen.__getitem__(i)[0])
-
-            pred_ = np.reshape(
-                pred_,
-                [
-                    -1,
-                    len(params["camnames"]),
-                    pred_.shape[1],
-                    pred_.shape[2],
-                    pred_.shape[3],
-                ],
-            )
-            for m in range(pred_.shape[0]):
-
-                # By selecting -1 for the last axis, we get the COM index for a
-                # normal COM network, and also the COM index for a multi_mode COM network,
-                # as in multimode the COM label is put at the end
-                pred = pred_[m, :, :, :, -1]
-                sampleID_ = partition["valid_sampleIDs"][
-                    i * pred_.shape[0] + m
-                ]
-                save_data[sampleID_] = {}
-                save_data[sampleID_]["triangulation"] = {}
-
-                for j in range(pred.shape[0]):  # this loops over all cameras
-                    # get coords for each map. This assumes that image are coming
-                    # out in pred in the same order as CONFIG_PARAMS['camnames']
-                    pred_max = np.max(np.squeeze(pred[j]))
-                    ind = (
-                        np.array(
-                            processing.get_peak_inds_multi_instance(
-                                np.squeeze(pred[j]),
-                                params["n_instances"],
-                                window_size=3,
-                            )
-                        )
-                        * params["downfac"]
-                    )
-                    for instance in range(params["n_instances"]):
-                        ind[instance, 0] += params["crop_height"][0]
-                        ind[instance, 1] += params["crop_width"][0]
-                        ind[instance, :] = ind[instance, ::-1]
-                    # now, the center of mass is (x,y) instead of (i,j)
-                    # now, we need to use camera calibration to triangulate
-                    # from 2D to 3D
-                    if params["com_debug"] is not None and j == cnum:
-                        # Write preds
-                        plt.figure(0)
-                        plt.cla()
-                        plt.imshow(np.squeeze(pred[j]))
-                        plt.savefig(
-                            os.path.join(
-                                cmapdir,
-                                params["com_debug"] + str(i + m) + ".png",
-                            )
-                        )
-
-                        plt.figure(1)
-                        plt.cla()
-                        im = valid_gen.__getitem__(i * pred_.shape[0] + m)
-                        plt.imshow(processing.norm_im(im[0][j]))
-                        plt.plot(
-                            (ind[0, 0] - params["crop_width"][0])
-                            / params["downfac"],
-                            (ind[0, 1] - params["crop_height"][0])
-                            / params["downfac"],
-                            "or",
-                        )
-                        plt.savefig(
-                            os.path.join(
-                                overlaydir,
-                                params["com_debug"] + str(i + m) + ".png",
-                            )
-                        )
-
-                    save_data[sampleID_][params["camnames"][j]] = {
-                        "pred_max": pred_max,
-                        "COM": ind,
-                    }
-
-                    # Undistort this COM here.
-                    for instance in range(params["n_instances"]):
-                        pts1 = np.squeeze(
-                            save_data[sampleID_][params["camnames"][j]]["COM"][
-                                instance, :
-                            ]
-                        )
-                        pts1 = pts1[np.newaxis, :]
-                        pts1 = ops.unDistortPoints(
-                            pts1,
-                            cameras[params["camnames"][j]]["K"],
-                            cameras[params["camnames"][j]]["RDistort"],
-                            cameras[params["camnames"][j]]["TDistort"],
-                            cameras[params["camnames"][j]]["R"],
-                            cameras[params["camnames"][j]]["t"],
-                        )
-                        save_data[sampleID_][params["camnames"][j]]["COM"][
-                            instance, :
-                        ] = np.squeeze(pts1)
-
-                ncams = pred.shape[0]
-                cams = [
-                    camera_mats[params["camnames"][ncam]]
-                    for ncam in range(ncams)
-                ]
-                # Go through the instances, adding the most parsimonious
-                # points of the n_instances available points at each camera.
-                best_pts = []
-                best_pts_inds = []
-                for instance in range(params["n_instances"]):
-                    pts = []
-                    pts_inds = []
-
-                    # Build the initial list of points
-                    for n_cam in range(ncams):
-                        pt = save_data[sampleID_][params["camnames"][n_cam]][
-                            "COM"
-                        ][instance, :]
-                        pt = pt[np.newaxis, :]
-                        pts.append(pt)
-                        pts_inds.append(instance)
-
-                    # Go through each camera (other than the first) and test
-                    # each instance
-                    for n_cam in range(1, ncams):
-                        candidate_errors = []
-                        for n_point in range(params["n_instances"]):
-                            if len(best_pts_inds) >= 1:
-                                if any(
-                                    n_point == p[n_cam] for p in best_pts_inds
-                                ):
-                                    candidate_errors.append(np.Inf)
-                                    continue
-
-                            pt = save_data[sampleID_][
-                                params["camnames"][n_cam]
-                            ]["COM"][n_point, :]
-                            pt = pt[np.newaxis, :]
-                            pts[n_cam] = pt
-                            pts_inds[n_cam] = n_point
-                            pts3d = ops.triangulate_multi_instance(pts, cams)
-
-                            # Loop through each camera, reproject the point
-                            # into image coordinates, and save the error.
-                            error = 0
-                            for n_proj in range(ncams):
-                                K = cameras[params["camnames"][n_proj]]["K"]
-                                R = cameras[params["camnames"][n_proj]]["R"]
-                                t = cameras[params["camnames"][n_proj]]["t"]
-                                proj = ops.project_to2d(pts3d.T, K, R, t)
-                                proj = proj[:, :2]
-                                ref = save_data[sampleID_][
-                                    params["camnames"][n_proj]
-                                ]["COM"][pts_inds[n_proj], :]
-                                error += np.sqrt(np.sum((proj - ref) ** 2))
-                            candidate_errors.append(error)
-
-                        # Keep the best instance combinations across cameras
-                        best_candidate = np.argmin(candidate_errors)
-                        pt = save_data[sampleID_][params["camnames"][n_cam]][
-                            "COM"
-                        ][best_candidate, :]
-                        pt = pt[np.newaxis, :]
-                        pts[n_cam] = pt
-                        pts_inds[n_cam] = best_candidate
-
-                    best_pts.append(pts)
-                    best_pts_inds.append(pts_inds)
-
-                # Do one final triangulation
-                final3d = [
-                    ops.triangulate_multi_instance(best_pts[k], cams)
-                    for k in range(params["n_instances"])
-                ]
-                save_data[sampleID_]["triangulation"]["instances"] = final3d
-
-    com_predict_dir = os.path.join(params["com_predict_dir"])
-    print(com_predict_dir)
-
-    if params["com_debug"] is not None:
-        cmapdir = os.path.join(com_predict_dir, "cmap")
-        overlaydir = os.path.join(com_predict_dir, "overlay")
-        if not os.path.exists(cmapdir):
-            os.makedirs(cmapdir)
-        if not os.path.exists(overlaydir):
-            os.makedirs(overlaydir)
-        cnum = params["camnames"].index(params["com_debug"])
-        print(
-            "Writing " + params["com_debug"] + " confidence maps to " + cmapdir
-        )
-        print(
-            "Writing "
-            + params["com_debug"]
-            + "COM-image overlays to "
-            + overlaydir
-        )
 
     (
         samples,
@@ -564,7 +204,7 @@ def com_predict(params: Dict):
     vids = processing.initialize_vids(params, datadict, 0, vids, pathonly=True)
 
     # Parameters
-    valid_params = {
+    predict_params = {
         "dim_in": (
             params["crop_height"][1] - params["crop_height"][0],
             params["crop_width"][1] - params["crop_width"][0],
@@ -594,39 +234,59 @@ def com_predict(params: Dict):
     # If multi-instance mode is on, use the correct generator
     # and eval function.
     if params["n_instances"] > 1:
-        valid_generator = DataGenerator_downsample_multi_instance(
+        predict_generator = DataGenerator_downsample_multi_instance(
             params["n_instances"],
             partition["valid_sampleIDs"],
             labels,
             vids,
-            **valid_params
+            **predict_params
         )
-        eval_func = evaluate_ondemand_multi_instance
     else:
-        valid_generator = DataGenerator_downsample(
-            partition["valid_sampleIDs"], labels, vids, **valid_params
+        predict_generator = DataGenerator_downsample(
+            partition["valid_sampleIDs"], labels, vids, **predict_params
         )
-        eval_func = evaluate_ondemand
 
     # If we just want to analyze a chunk of video...
-    st_ind = params["start_sample"]
     if params["max_num_samples"] == "max":
-        eval_func(st_ind, len(valid_generator), valid_generator)
+        save_data = inference.infer_com(
+            params["start_sample"],
+            len(predict_generator),
+            predict_generator,
+            params,
+            model,
+            partition,
+            save_data,
+            camera_mats,
+            cameras,
+        )
         processing.save_COM_checkpoint(
-            save_data, com_predict_dir, datadict_, cameras, params
+            save_data, params["com_predict_dir"], datadict_, cameras, params
         )
     else:
         endIdx = np.min(
-            [st_ind + params["max_num_samples"], len(valid_generator)]
+            [
+                params["start_sample"] + params["max_num_samples"],
+                len(predict_generator),
+            ]
         )
-        eval_func(st_ind, endIdx, valid_generator)
+        save_data = inference.infer_com(
+            params["start_sample"],
+            endIdx,
+            predict_generator,
+            params,
+            model,
+            partition,
+            save_data,
+            camera_mats,
+            cameras,
+        )
         processing.save_COM_checkpoint(
             save_data,
-            com_predict_dir,
+            params["com_predict_dir"],
             datadict_,
             cameras,
             params,
-            file_name="com3d" + str(st_ind),
+            file_name="com3d%d" % (params["start_sample"]),
         )
 
     print("done!")
@@ -648,7 +308,7 @@ def com_train(params: Dict):
 
     # MULTI_MODE is where the full set of markers is trained on, rather than
     # the COM only. In some cases, this can help improve COMfinder performance.
-    MULTI_MODE = params["n_channels_out"] > 1
+    MULTI_MODE = params["n_channels_out"] > 1 & params["n_instances"] == 1
     params["n_channels_out"] = params["n_channels_out"] + int(MULTI_MODE)
 
     samples = []
@@ -1501,10 +1161,7 @@ def dannce_predict(params: Dict):
     # for prediction we use the base data files present in the main config
     # Grab the input file for prediction
     params["label3d_file"] = processing.grab_predict_label3d_file()
-
     params["base_exp_folder"] = os.path.dirname(params["label3d_file"])
-
-    dannce_predict_dir = params["dannce_predict_dir"]
 
     # default to slow numpy backend if there is no predict_mode in config file. I.e. legacy support
     predict_mode = (
@@ -1538,7 +1195,7 @@ def dannce_predict(params: Dict):
 
     # Write 3D COM to file. This might be different from the input com3d file
     # if arena thresholding was applied.
-    cfilename = os.path.join(dannce_predict_dir, "com3d_used.mat")
+    cfilename = os.path.join(params["dannce_predict_dir"], "com3d_used.mat")
     print("Saving 3D COM to {}".format(cfilename))
     c3d = np.zeros((len(samples_), 3))
     for i in range(len(samples_)):
@@ -1724,148 +1381,6 @@ def dannce_predict(params: Dict):
 
     save_data = {}
 
-    def evaluate_ondemand(start_ind, end_ind, valid_gen):
-        """Perform dannce detection over a set of frames.
-
-        Args:
-            start_ind (TYPE): Starting frame index
-            end_ind (TYPE): Ending frame index
-            valid_gen (keras.utils.Sequence): Keras data generator
-        """
-        end_time = time.time()
-        for idx, i in enumerate(range(start_ind, end_ind)):
-            print("Predicting on batch {}".format(i), flush=True)
-            if (i - start_ind) % 10 == 0 and i != start_ind:
-                print(i)
-                print(
-                    "10 batches took {} seconds".format(time.time() - end_time)
-                )
-                end_time = time.time()
-
-            if (i - start_ind) % 1000 == 0 and i != start_ind:
-                print("Saving checkpoint at {}th batch".format(i))
-                if params["expval"]:
-                    p_n = savedata_expval(
-                        dannce_predict_dir + "save_data_AVG.mat",
-                        params,
-                        write=True,
-                        data=save_data,
-                        tcoord=False,
-                        num_markers=nchn,
-                        pmax=True,
-                    )
-                else:
-                    p_n = savedata_tomat(
-                        dannce_predict_dir + "save_data_MAX.mat",
-                        params,
-                        params["vmin"],
-                        params["vmax"],
-                        params["nvox"],
-                        write=True,
-                        data=save_data,
-                        num_markers=nchn,
-                        tcoord=False,
-                    )
-
-            ims = valid_gen.__getitem__(i)
-            pred = model.predict(ims[0])
-
-            if params["expval"]:
-                probmap = pred[1]
-                pred = pred[0]
-                for j in range(pred.shape[0]):
-                    pred_max = probmap[j]
-                    sampleID = partition["valid_sampleIDs"][
-                        i * pred.shape[0] + j
-                    ]
-                    save_data[idx * pred.shape[0] + j] = {
-                        "pred_max": pred_max,
-                        "pred_coord": pred[j],
-                        "sampleID": sampleID,
-                    }
-            else:
-                if predict_mode == "torch":
-                    for j in range(pred.shape[0]):
-                        preds = torch.as_tensor(
-                            pred[j], dtype=torch.float32, device=device
-                        )
-                        pred_max = (
-                            preds.max(0).values.max(0).values.max(0).values
-                        )
-                        pred_total = preds.sum((0, 1, 2))
-                        (
-                            xcoord,
-                            ycoord,
-                            zcoord,
-                        ) = processing.plot_markers_3d_torch(preds)
-                        coord = torch.stack([xcoord, ycoord, zcoord])
-                        pred_log = pred_max.log() - pred_total.log()
-                        sampleID = partition["valid_sampleIDs"][
-                            i * pred.shape[0] + j
-                        ]
-
-                        save_data[idx * pred.shape[0] + j] = {
-                            "pred_max": pred_max.cpu().numpy(),
-                            "pred_coord": coord.cpu().numpy(),
-                            "true_coord_nogrid": ims[1][j],
-                            "logmax": pred_log.cpu().numpy(),
-                            "sampleID": sampleID,
-                        }
-
-                elif predict_mode == "tf":
-                    # get coords for each map
-                    with tf.device(device):
-                        for j in range(pred.shape[0]):
-                            preds = tf.constant(pred[j], dtype="float32")
-                            pred_max = tf.math.reduce_max(
-                                tf.math.reduce_max(tf.math.reduce_max(preds))
-                            )
-                            pred_total = tf.math.reduce_sum(
-                                tf.math.reduce_sum(tf.math.reduce_sum(preds))
-                            )
-                            (
-                                xcoord,
-                                ycoord,
-                                zcoord,
-                            ) = processing.plot_markers_3d_tf(preds)
-                            coord = tf.stack([xcoord, ycoord, zcoord], axis=0)
-                            pred_log = tf.math.log(pred_max) - tf.math.log(
-                                pred_total
-                            )
-                            sampleID = partition["valid_sampleIDs"][
-                                i * pred.shape[0] + j
-                            ]
-
-                            save_data[idx * pred.shape[0] + j] = {
-                                "pred_max": pred_max.numpy(),
-                                "pred_coord": coord.numpy(),
-                                "true_coord_nogrid": ims[1][j],
-                                "logmax": pred_log.numpy(),
-                                "sampleID": sampleID,
-                            }
-
-                else:
-                    # get coords for each map
-                    for j in range(pred.shape[0]):
-                        pred_max = np.max(pred[j], axis=(0, 1, 2))
-                        pred_total = np.sum(pred[j], axis=(0, 1, 2))
-                        xcoord, ycoord, zcoord = processing.plot_markers_3d(
-                            pred[j, :, :, :, :]
-                        )
-                        coord = np.stack([xcoord, ycoord, zcoord])
-                        pred_log = np.log(pred_max) - np.log(pred_total)
-                        sampleID = partition["valid_sampleIDs"][
-                            i * pred.shape[0] + j
-                        ]
-
-                        save_data[idx * pred.shape[0] + j] = {
-                            "pred_max": pred_max,
-                            "pred_coord": coord,
-                            "true_coord_nogrid": ims[1][j],
-                            "logmax": pred_log,
-                            "sampleID": sampleID,
-                        }
-
     max_eval_batch = params["maxbatch"]
     print(max_eval_batch)
     if max_eval_batch == "max":
@@ -1878,35 +1393,45 @@ def dannce_predict(params: Dict):
         start_batch = 0
 
     if params["new_n_channels_out"] is not None:
-        nchn = params["new_n_channels_out"]
+        n_chn = params["new_n_channels_out"]
     else:
-        nchn = params["n_channels_out"]
+        n_chn = params["n_channels_out"]
 
-    evaluate_ondemand(start_batch, max_eval_batch, valid_generator)
+    save_data = inference.infer_dannce(
+        start_batch,
+        max_eval_batch,
+        valid_generator,
+        params,
+        model,
+        partition,
+        save_data,
+        device,
+        n_chn,
+    )
 
     if params["expval"]:
         if params["start_batch"] is not None:
             path = os.path.join(
-                dannce_predict_dir, "save_data_AVG%d.mat" % (start_batch)
+                params["dannce_predict_dir"], "save_data_AVG%d.mat" % (start_batch)
             )
         else:
-            path = os.path.join(dannce_predict_dir, "save_data_AVG.mat")
+            path = os.path.join(params["dannce_predict_dir"], "save_data_AVG.mat")
         p_n = savedata_expval(
             path,
             params,
             write=True,
             data=save_data,
             tcoord=False,
-            num_markers=nchn,
+            num_markers=n_chn,
             pmax=True,
         )
     else:
         if params["start_batch"] is not None:
             path = os.path.join(
-                dannce_predict_dir, "save_data_MAX%d.mat" % (start_batch)
+                params["dannce_predict_dir"], "save_data_MAX%d.mat" % (start_batch)
             )
         else:
-            path = os.path.join(dannce_predict_dir, "save_data_MAX.mat")
+            path = os.path.join(params["dannce_predict_dir"], "save_data_MAX.mat")
         p_n = savedata_tomat(
             path,
             params,
@@ -1915,7 +1440,7 @@ def dannce_predict(params: Dict):
             params["nvox"],
             write=True,
             data=save_data,
-            num_markers=nchn,
+            num_markers=n_chn,
             tcoord=False,
         )
 
