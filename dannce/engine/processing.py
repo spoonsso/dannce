@@ -188,7 +188,9 @@ def infer_params(params, dannce_net, prediction):
                 viddir = os.path.join(params["viddir"], params["camnames"][i])
                 if not params["vid_dir_flag"]:
                     # add intermediate directory to path
-                    viddir = os.path.join(params["viddir"], params["camnames"][i], os.listdir(viddir)[0])
+                    viddir = os.path.join(
+                        params["viddir"], params["camnames"][i], os.listdir(viddir)[0]
+                    )
                 video_files = os.listdir(viddir)
                 camf = os.path.join(viddir, video_files[0])
                 v = imageio.get_reader(camf)
@@ -235,7 +237,10 @@ def infer_params(params, dannce_net, prediction):
     # There will be straneg behavior if using a mirror acquisition system and are cropping images
     if params["mirror"] and params["crop_height"][-1] != params["raw_im_h"]:
         msg = "Note: You are using a mirror acquisition system with image cropping."
-        msg = msg + " All coordinates will be flipped relative to the raw image height, so ensure that your labels are also in that reference frame."
+        msg = (
+            msg
+            + " All coordinates will be flipped relative to the raw image height, so ensure that your labels are also in that reference frame."
+        )
         warnings.warn(msg)
 
     return params
@@ -271,15 +276,15 @@ def check_vmin_vmax(params):
                 )
             )
 
+
 def get_ft_wt(params):
     if params["dannce_finetune_weights"] is not None:
         weights = os.listdir(params["dannce_finetune_weights"])
         weights = [f for f in weights if ".hdf5" in f]
         weights = weights[0]
 
-        return os.path.join(
-            params["dannce_finetune_weights"], weights
-                )
+        return os.path.join(params["dannce_finetune_weights"], weights)
+
 
 def check_camnames(camp):
     """
@@ -511,9 +516,11 @@ def save_COM_dannce_mat(params, com3d, sampleID):
     sio.savemat(params["label3d_file"], rr)
 
     os.remove(params["label3d_file"] + ".temp")
-    
 
-def save_COM_checkpoint(save_data, RESULTSDIR, datadict_, cameras, params, file_name="com3d"):
+
+def save_COM_checkpoint(
+    save_data, RESULTSDIR, datadict_, cameras, params, file_name="com3d"
+):
     """
     Saves COM pickle and matfiles
 
@@ -645,9 +652,11 @@ def load_expdict(params, e, expdict, _DEFAULT_VIDDIR):
             intermediate_folder = os.listdir(camdir)
             camdir = os.path.join(camdir, intermediate_folder[0])
         video_files = os.listdir(camdir)
-        video_files = [f for f in video_files if ".mp4"  in f]
+        video_files = [f for f in video_files if ".mp4" in f]
         video_files = sorted(video_files, key=lambda x: int(x.split(".")[0]))
-        chunks[str(e) + '_' + name] = np.sort([int(x.split(".")[0]) for x in video_files])
+        chunks[str(e) + "_" + name] = np.sort(
+            [int(x.split(".")[0]) for x in video_files]
+        )
     exp["chunks"] = chunks
     print(chunks)
     return exp
@@ -797,7 +806,9 @@ def generate_readers(
         if pathonly:
             out[mp4files_scrub[i]] = os.path.join(viddir, mp4files[i])
         else:
-            print("NOTE: Ignoring {} files numbered above {}".format(extensions,maxopt))
+            print(
+                "NOTE: Ignoring {} files numbered above {}".format(extensions, maxopt)
+            )
             out[mp4files_scrub[i]] = imageio.get_reader(
                 os.path.join(viddir, mp4files[i]),
                 pixelformat=pixelformat,
@@ -1012,13 +1023,15 @@ def get_peak_inds(map_):
     """Return the indices of the peak value of an n-d map."""
     return np.unravel_index(np.argmax(map_, axis=None), map_.shape)
 
+
 def get_peak_inds_multi_instance(im, n_instances, window_size=10):
     """Return top n_instances local peaks through non-max suppression."""
-    bw = (im == maximum_filter(im, footprint=np.ones((window_size, window_size))))
+    bw = im == maximum_filter(im, footprint=np.ones((window_size, window_size)))
     inds = np.argwhere(bw)
     vals = im[inds[:, 0], inds[:, 1]]
     idx = np.argsort(vals)[::-1]
     return inds[idx[:n_instances], :]
+
 
 def get_marker_peaks_2d(stack):
     """Return the concatenated coordinates of all peaks for each map/marker."""
@@ -1184,10 +1197,10 @@ def dupe_params(exp, dupes, n_views):
 
         else:
             prompt = "The length of the {} list must divide evenly into {}. Duplicate a subset of the views starting from the first camera (y/n)?".format(
-                    d, n_views
-                )
+                d, n_views
+            )
             val_in = input(prompt)
-            if val_in == 'y':
+            if val_in == "y":
                 num_reps = n_views // len(val)
                 num_extra = n_views % len(val)
                 duped = val * num_reps
