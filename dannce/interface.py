@@ -1397,6 +1397,18 @@ def dannce_predict(params: Dict):
     else:
         n_chn = params["n_channels_out"]
 
+    if params["write_npy"] is not None:
+        # Instead of running inference, generate all samples
+        # from valid_generator and save them to npy files. Useful
+        # for working with large datasets (such as Rat 7M) because
+        # .npy files can be loaded in quickly with random access
+        # during training.
+        print("Writing sampels to .npy files")
+        processing.write_npy(params["write_npy"], valid_generator)
+        print("Done, exiting program")
+        sys.exit()
+
+
     save_data = inference.infer_dannce(
         start_batch,
         max_eval_batch,
