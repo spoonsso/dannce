@@ -70,6 +70,7 @@ _param_defaults_dannce = {
     "downfac": None,
     "net_type": None,
     "net": None,
+    "write_npy": None,
 }
 _param_defaults_com = {
     "dsmode": "nn",
