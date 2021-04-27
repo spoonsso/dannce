@@ -894,7 +894,7 @@ class DataGenerator_3Dconv_torch(DataGenerator):
         norm_im=True,
         chunks=3500,
         mono=False,
-
+        mirror=False,
     ):
         """Initialize data generator.
 
