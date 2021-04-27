@@ -117,10 +117,10 @@ def infer_params(params, dannce_net, prediction):
             intermediate_folder = os.listdir(camdir)
             camdir = os.path.join(camdir, intermediate_folder[0])
         video_files = os.listdir(camdir)
-        video_files = [f for f in video_files if ".mp4"  in f]
+        video_files = [f for f in video_files if ".mp4" in f]
         video_files = sorted(video_files, key=lambda x: int(x.split(".")[0]))
         chunks[name] = np.sort([int(x.split(".")[0]) for x in video_files])
-        
+
     print_and_set(params, "chunks", chunks)
 
     camf = os.path.join(viddir, video_files[0])
@@ -449,15 +449,22 @@ def save_params(outdir, params):
 
     return True
 
+
 def make_none_safe(pdict):
     if isinstance(pdict, dict):
         for key in pdict:
             pdict[key] = make_none_safe(pdict[key])
     else:
-        if pdict is None or (isinstance(pdict, list) and None in pdict) or (isinstance(pdict, tuple) and None in pdict):
+        if (
+            pdict is None
+            or (isinstance(pdict, list) and None in pdict)
+            or (isinstance(pdict, tuple) and None in pdict)
+        ):
             return "None"
         else:
             return pdict
+    return pdict
+
 
 def prepare_save_metadata(params):
     """
@@ -481,8 +488,7 @@ def prepare_save_metadata(params):
             f.__name__ if not isinstance(f, str) else f for f in meta["metric"]
         ]
 
-    make_none_safe(meta)
-
+    meta = make_none_safe(meta.copy())
     return meta
 
 
