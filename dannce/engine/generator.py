@@ -182,7 +182,7 @@ class DataGenerator(keras.utils.Sequence):
                 time.sleep(0.25)
                 if self.currvideo[camname] is not None:
                     # self.currvideo[camname].close()
-                    self.currvideo[camname].release()
+                    self.currvideo[camname]._reader_.release()
                 self.currvideo[camname] = vid
 
             # This deals with a strange indexing error in the pup data.
