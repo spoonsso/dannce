@@ -181,7 +181,8 @@ class DataGenerator(keras.utils.Sequence):
                 # Without a sleep here, ffmpeg can hang on video close
                 time.sleep(0.25)
                 if self.currvideo[camname] is not None:
-                    self.currvideo[camname].close()
+                    # self.currvideo[camname].close()
+                    self.currvideo[camname].release()
                 self.currvideo[camname] = vid
 
             # This deals with a strange indexing error in the pup data.
