@@ -424,6 +424,24 @@ def add_dannce_train_args(
         type=ast.literal_eval,
         help="If True, rotate all images in each sample of the training set by a random value between [-5 and 5] degrees during training.",
     )
+    parser.add_argument(
+        "--use-npy",
+        dest="use_npy",
+        type=ast.literal_eval,
+        help="If True, loads training data from npy files"
+    )
+    parser.add_argument(
+        "--rand-view-replace",
+        dest="rand_view_replace",
+        type=ast.literal_eval,
+        help="If True, samples n_rand_views with replacement"
+    )
+    parser.add_argument(
+        "--n-rand-views",
+        dest="n_rand_views",
+        type=int,
+        help="Number of views to sample from the full viewset during training"
+    )
     return parser
 
 
@@ -471,6 +489,10 @@ def add_dannce_predict_args(
         type=ast.literal_eval,
         help="If True, use expected value network. This is normally inferred from the network name. But because prediction can be decoupled from the net param, expval can be set independently if desired.",
     )
+    parser.add_argument(
+        "--write-npy",
+        dest="write_npy",
+        help="If not None, uses this base path to write large dataset to npy files")
     return parser
 
 

@@ -340,7 +340,9 @@ def sample_grid_tf(im, projPts, device, method="linear"):
 
 @tf.function
 def unproj_tf_nearest(feats, grid, batch_size):
-    """Unproject features."""
+    """Unproject features.
+    Modified from https://github.com/akar43/lsm
+    """
     # im_x, im_y are the x and y coordinates of each projected 3D position.
     # These are concatenated here for every image in each batch,
 
@@ -372,7 +374,9 @@ def unproj_tf_nearest(feats, grid, batch_size):
 
 @tf.function
 def unproj_tf_linear(feats, grid, batch_size):
-    """Unproject features."""
+    """Unproject features.
+        Modified from https://github.com/akar43/lsm
+    """
     # im_x, im_y are the x and y coordinates of each projected 3D position.
     # These are concatenated here for every image in each batch,
 
@@ -448,7 +452,10 @@ def unproj_tf_linear(feats, grid, batch_size):
 
 
 def unproj(feats, grid, batch_size):
-    """Unproject features."""
+    """Unproject features.
+    
+    Modified from https://github.com/akar43/lsm
+    """
     # im_x, im_y are the x and y coordinates of each projected 3D position.
     # These are concatenated here for every image in each batch,
     nR, fh, fw, fdim = K.int_shape(feats)
@@ -684,6 +691,8 @@ def proj_slice(
 
     grid = nv grids, R = nv x nr rotation matrices.
     R = (bs, im, 3, 4), K = (bs, im, 3, 3), grid = (bs, im, h, w, d, ch)
+
+    Modified from https://github.com/akar43/lsm
     """
     # Scale the camera intrinsic matrix accordingly if the final output is
     # a different shape than the input
@@ -758,6 +767,8 @@ def proj_slice(
 
 class InstanceNormalization(Layer):
     """Instance normalization layer (Lei Ba et al, 2016, Ulyanov et al., 2016).
+
+    Modified from from keras_contrib/layer/normalization
 
     Normalize the activations of the previous layer at each step,
     i.e. applies a transformation that maintains the mean activation

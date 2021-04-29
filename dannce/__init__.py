@@ -71,6 +71,9 @@ _param_defaults_dannce = {
     "net_type": None,
     "net": None,
     "write_npy": None,
+    "use_npy": False,
+    "n_rand_views": None,
+    "rand_view_replace": True,
 }
 _param_defaults_com = {
     "dsmode": "nn",
