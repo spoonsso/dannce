@@ -568,6 +568,7 @@ def load_expdict(params, e, expdict, _DEFAULT_VIDDIR):
     Load in camnames and video directories and label3d files for a single experiment
         during training.
     """
+    _DEFAULT_NPY_DIR = 'npy_volumes'
     exp = params.copy()
     exp = make_paths_safe(exp)
     exp["label3d_file"] = expdict["label3d_file"]
@@ -603,6 +604,10 @@ def load_expdict(params, e, expdict, _DEFAULT_VIDDIR):
         chunks[str(e) + '_' + name] = np.sort([int(x.split(".")[0]) for x in video_files])
     exp["chunks"] = chunks
     print(chunks)
+
+    # For npy volume training
+    if params["use_npy"]:
+        exp["npy_vol_dir"] = os.path.join(exp["base_exp_folder"], _DEFAULT_NPY_DIR)
     return exp
 
 
@@ -1160,6 +1165,7 @@ def write_npy(uri, gen):
     gen.channel_combo = None
     gen.shuffle = False
     gen.rotation = False
+    gen.expval = True
 
     # Turn normalization off so that we can save as uint8
     gen.norm_im = False
@@ -1177,5 +1183,5 @@ def write_npy(uri, gen):
 
             #and save
             print(fname)
-            np.save(imdir + fname + '.npy',bch[0][0][j].astype('uint8'))
-            np.save(griddir + fname + '.npy',bch[0][1][j])
+            np.save(os.path.join(imdir, fname + '.npy'), bch[0][0][j].astype('uint8'))
+            np.save(os.path.join(griddir, fname + '.npy'), bch[0][1][j])

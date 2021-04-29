@@ -15,6 +15,7 @@ from tensorflow.keras.callbacks import ModelCheckpoint, CSVLogger, TensorBoard
 import dannce.engine.serve_data_DANNCE as serve_data_DANNCE
 from dannce.engine.generator import DataGenerator_3Dconv
 from dannce.engine.generator import DataGenerator_3Dconv_frommem
+from dannce.engine.generator import DataGenerator_3Dconv_npy
 from dannce.engine.generator import DataGenerator_3Dconv_torch
 from dannce.engine.generator import DataGenerator_3Dconv_tf
 from dannce.engine.generator_aux import (
@@ -772,13 +773,19 @@ def dannce_train(params: Dict):
 
     samples = np.array(samples)
 
-    # Initialize video objects
-    vids = {}
-    for e in range(num_experiments):
-        if params["immode"] == "vid":
-            vids = processing.initialize_vids(
-                params, datadict, e, vids, pathonly=True
-            )
+    if params["use_npy"]:
+        # Add all npy volume directories to list, to be used by generator
+        npydir = {}
+        for e in range(num_experiments):
+            npydir[e] = params["experiment"][e]["npy_vol_dir"]
+    else:
+        # Initialize video objects
+        vids = {}
+        for e in range(num_experiments):
+            if params["immode"] == "vid":
+                vids = processing.initialize_vids(
+                    params, datadict, e, vids, pathonly=True
+                     )
 
     # Parameters
     if params["expval"]:
@@ -795,186 +802,191 @@ def dannce_train(params: Dict):
     else:
         cam3_train = False
 
-    # Used to initialize arrays for mono, and also in *frommem (the final generator)
-    params["chan_num"] = 1 if params["mono"] else params["n_channels_in"]
-
-    valid_params = {
-        "dim_in": (
-            params["crop_height"][1] - params["crop_height"][0],
-            params["crop_width"][1] - params["crop_width"][0],
-        ),
-        "n_channels_in": params["n_channels_in"],
-        "batch_size": 1,
-        "n_channels_out": params["new_n_channels_out"],
-        "out_scale": params["sigma"],
-        "crop_width": params["crop_width"],
-        "crop_height": params["crop_height"],
-        "vmin": params["vmin"],
-        "vmax": params["vmax"],
-        "nvox": params["nvox"],
-        "interp": params["interp"],
-        "depth": params["depth"],
-        "channel_combo": params["channel_combo"],
-        "mode": outmode,
-        "camnames": camnames,
-        "immode": params["immode"],
-        "shuffle": False,  # We will shuffle later
-        "rotation": False,  # We will rotate later if desired
-        "vidreaders": vids,
-        "distort": True,
-        "expval": params["expval"],
-        "crop_im": False,
-        "chunks": total_chunks,
-        "preload": False,
-        "mono": params["mono"],
-    }
-
-    # Setup a generator that will read videos and labels
-    tifdirs = []  # Training from single images not yet supported in this demo
-
     partition = processing.make_data_splits(
-        samples, params, dannce_train_dir, num_experiments
-    )
-
-    train_generator = DataGenerator_3Dconv(
-        partition["train_sampleIDs"],
-        datadict,
-        datadict_3d,
-        cameras,
-        partition["train_sampleIDs"],
-        com3d_dict,
-        tifdirs,
-        **valid_params
-    )
-    valid_generator = DataGenerator_3Dconv(
-        partition["valid_sampleIDs"],
-        datadict,
-        datadict_3d,
-        cameras,
-        partition["valid_sampleIDs"],
-        com3d_dict,
-        tifdirs,
-        **valid_params
-    )
-
-    # We should be able to load everything into memory...
-    gridsize = tuple([params["nvox"]] * 3)
-    X_train = np.zeros(
-        (
-            len(partition["train_sampleIDs"]),
-            *gridsize,
-            params["chan_num"] * len(camnames[0]),
-        ),
-        dtype="float32",
-    )
-
-    X_valid = np.zeros(
-        (
-            len(partition["valid_sampleIDs"]),
-            *gridsize,
-            params["chan_num"] * len(camnames[0]),
-        ),
-        dtype="float32",
-    )
-
-    X_train_grid = None
-    X_valid_grid = None
-    if params["expval"]:
-        y_train = np.zeros(
-            (
-                len(partition["train_sampleIDs"]),
-                3,
-                params["new_n_channels_out"],
-            ),
-            dtype="float32",
-        )
-        X_train_grid = np.zeros(
-            (len(partition["train_sampleIDs"]), params["nvox"] ** 3, 3),
-            dtype="float32",
+            samples, params, dannce_train_dir, num_experiments
         )
 
-        y_valid = np.zeros(
-            (
-                len(partition["valid_sampleIDs"]),
-                3,
-                params["new_n_channels_out"],
-            ),
-            dtype="float32",
-        )
-        X_valid_grid = np.zeros(
-            (len(partition["valid_sampleIDs"]), params["nvox"] ** 3, 3),
-            dtype="float32",
-        )
+    if params["use_npy"]:
+        # mono conversion will happen from RGB npy files, and the generator
+        # needs to b aware that the npy files contain RGB content
+        params["chan_num"] = params["n_channels_in"]
     else:
-        y_train = np.zeros(
+        # Used to initialize arrays for mono, and also in *frommem (the final generator)
+        params["chan_num"] = 1 if params["mono"] else params["n_channels_in"]
+
+        valid_params = {
+            "dim_in": (
+                params["crop_height"][1] - params["crop_height"][0],
+                params["crop_width"][1] - params["crop_width"][0],
+            ),
+            "n_channels_in": params["n_channels_in"],
+            "batch_size": 1,
+            "n_channels_out": params["new_n_channels_out"],
+            "out_scale": params["sigma"],
+            "crop_width": params["crop_width"],
+            "crop_height": params["crop_height"],
+            "vmin": params["vmin"],
+            "vmax": params["vmax"],
+            "nvox": params["nvox"],
+            "interp": params["interp"],
+            "depth": params["depth"],
+            "channel_combo": params["channel_combo"],
+            "mode": outmode,
+            "camnames": camnames,
+            "immode": params["immode"],
+            "shuffle": False,  # We will shuffle later
+            "rotation": False,  # We will rotate later if desired
+            "vidreaders": vids,
+            "distort": True,
+            "expval": params["expval"],
+            "crop_im": False,
+            "chunks": total_chunks,
+            "preload": False,
+            "mono": params["mono"],
+        }
+
+        # Setup a generator that will read videos and labels
+        tifdirs = []  # Training from single images not yet supported in this demo
+
+        train_generator = DataGenerator_3Dconv(
+            partition["train_sampleIDs"],
+            datadict,
+            datadict_3d,
+            cameras,
+            partition["train_sampleIDs"],
+            com3d_dict,
+            tifdirs,
+            **valid_params
+        )
+        valid_generator = DataGenerator_3Dconv(
+            partition["valid_sampleIDs"],
+            datadict,
+            datadict_3d,
+            cameras,
+            partition["valid_sampleIDs"],
+            com3d_dict,
+            tifdirs,
+            **valid_params
+        )
+
+        # We should be able to load everything into memory...
+        gridsize = tuple([params["nvox"]] * 3)
+        X_train = np.zeros(
             (
                 len(partition["train_sampleIDs"]),
                 *gridsize,
-                params["new_n_channels_out"],
+                params["chan_num"] * len(camnames[0]),
             ),
             dtype="float32",
         )
 
-        y_valid = np.zeros(
+        X_valid = np.zeros(
             (
                 len(partition["valid_sampleIDs"]),
                 *gridsize,
-                params["new_n_channels_out"],
+                params["chan_num"] * len(camnames[0]),
             ),
             dtype="float32",
         )
 
-    print(
-        "Loading training data into memory. This can take a while to seek through",
-        "large sets of video. This process is much faster if the frame indices",
-        "are sorted in ascending order in your label data file.",
-    )
-    for i in range(len(partition["train_sampleIDs"])):
-        print(i, end="\r")
-        rr = train_generator.__getitem__(i)
+        X_train_grid = None
+        X_valid_grid = None
         if params["expval"]:
-            X_train[i] = rr[0][0]
-            X_train_grid[i] = rr[0][1]
-        else:
-            X_train[i] = rr[0]
-        y_train[i] = rr[1]
+            y_train = np.zeros(
+                (
+                    len(partition["train_sampleIDs"]),
+                    3,
+                    params["new_n_channels_out"],
+                ),
+                dtype="float32",
+            )
+            X_train_grid = np.zeros(
+                (len(partition["train_sampleIDs"]), params["nvox"] ** 3, 3),
+                dtype="float32",
+            )
 
-    if params["debug_volume_tifdir"] is not None:
-        # When this option is toggled in the config, rather than
-        # training, the image volumes are dumped to tif stacks.
-        # This can be used for debugging problems with calibration or
-        # COM estimation
-        tifdir = params["debug_volume_tifdir"]
-        print("Dump training volumes to {}".format(tifdir))
-        for i in range(X_train.shape[0]):
-            for j in range(len(camnames[0])):
-                im = X_train[
-                    i,
-                    :,
-                    :,
-                    :,
-                    j * params["chan_num"] : (j + 1) * params["chan_num"],
-                ]
-                im = processing.norm_im(im) * 255
-                im = im.astype("uint8")
-                of = os.path.join(
-                    tifdir,
-                    partition["train_sampleIDs"][i] + "_cam" + str(j) + ".tif",
-                )
-                imageio.mimwrite(of, np.transpose(im, [2, 0, 1, 3]))
-        print("Done! Exiting.")
-        sys.exit()
-
-    print("Loading validation data into memory")
-    for i in range(len(partition["valid_sampleIDs"])):
-        print(i, end="\r")
-        rr = valid_generator.__getitem__(i)
-        if params["expval"]:
-            X_valid[i] = rr[0][0]
-            X_valid_grid[i] = rr[0][1]
+            y_valid = np.zeros(
+                (
+                    len(partition["valid_sampleIDs"]),
+                    3,
+                    params["new_n_channels_out"],
+                ),
+                dtype="float32",
+            )
+            X_valid_grid = np.zeros(
+                (len(partition["valid_sampleIDs"]), params["nvox"] ** 3, 3),
+                dtype="float32",
+            )
         else:
-            X_valid[i] = rr[0]
-        y_valid[i] = rr[1]
+            y_train = np.zeros(
+                (
+                    len(partition["train_sampleIDs"]),
+                    *gridsize,
+                    params["new_n_channels_out"],
+                ),
+                dtype="float32",
+            )
+
+            y_valid = np.zeros(
+                (
+                    len(partition["valid_sampleIDs"]),
+                    *gridsize,
+                    params["new_n_channels_out"],
+                ),
+                dtype="float32",
+            )
+
+        print(
+            "Loading training data into memory. This can take a while to seek through",
+            "large sets of video. This process is much faster if the frame indices",
+            "are sorted in ascending order in your label data file.",
+        )
+        for i in range(len(partition["train_sampleIDs"])):
+            print(i, end="\r")
+            rr = train_generator.__getitem__(i)
+            if params["expval"]:
+                X_train[i] = rr[0][0]
+                X_train_grid[i] = rr[0][1]
+            else:
+                X_train[i] = rr[0]
+            y_train[i] = rr[1]
+
+        if params["debug_volume_tifdir"] is not None:
+            # When this option is toggled in the config, rather than
+            # training, the image volumes are dumped to tif stacks.
+            # This can be used for debugging problems with calibration or
+            # COM estimation
+            tifdir = params["debug_volume_tifdir"]
+            print("Dump training volumes to {}".format(tifdir))
+            for i in range(X_train.shape[0]):
+                for j in range(len(camnames[0])):
+                    im = X_train[
+                        i,
+                        :,
+                        :,
+                        :,
+                        j * params["chan_num"] : (j + 1) * params["chan_num"],
+                    ]
+                    im = processing.norm_im(im) * 255
+                    im = im.astype("uint8")
+                    of = os.path.join(
+                        tifdir,
+                        partition["train_sampleIDs"][i] + "_cam" + str(j) + ".tif",
+                    )
+                    imageio.mimwrite(of, np.transpose(im, [2, 0, 1, 3]))
+            print("Done! Exiting.")
+            sys.exit()
+
+        print("Loading validation data into memory")
+        for i in range(len(partition["valid_sampleIDs"])):
+            print(i, end="\r")
+            rr = valid_generator.__getitem__(i)
+            if params["expval"]:
+                X_valid[i] = rr[0][0]
+                X_valid_grid[i] = rr[0][1]
+            else:
+                X_valid[i] = rr[0]
+            y_valid[i] = rr[1]
 
     # Now we can generate from memory with shuffling, rotation, etc.
     if params["channel_combo"] == "random":
@@ -982,42 +994,76 @@ def dannce_train(params: Dict):
     else:
         randflag = False
 
-    train_generator = DataGenerator_3Dconv_frommem(
-        np.arange(len(partition["train_sampleIDs"])),
-        X_train,
-        y_train,
-        batch_size=params["batch_size"],
-        random=randflag,
-        rotation=params["rotate"],
-        augment_hue=params["augment_hue"],
-        augment_brightness=params["augment_brightness"],
-        augment_continuous_rotation=params["augment_continuous_rotation"],
-        bright_val=params["augment_bright_val"],
-        hue_val=params["augment_hue_val"],
-        rotation_val=params["augment_rotation_val"],
-        expval=params["expval"],
-        xgrid=X_train_grid,
-        nvox=params["nvox"],
-        cam3_train=cam3_train,
-        chan_num=params["chan_num"],
-    )
-    valid_generator = DataGenerator_3Dconv_frommem(
-        np.arange(len(partition["valid_sampleIDs"])),
-        X_valid,
-        y_valid,
-        batch_size=1,
-        random=randflag,
-        rotation=False,
-        augment_hue=False,
-        augment_brightness=False,
-        augment_continuous_rotation=False,
-        expval=params["expval"],
-        xgrid=X_valid_grid,
-        nvox=params["nvox"],
-        shuffle=False,
-        cam3_train=cam3_train,
-        chan_num=params["chan_num"],
-    )
+    if cam3_train:
+        params["n_rand_views"] = 3
+        params["rand_view_replace"] = False
+        randflag = True
+
+    shared_args = {'chan_num': params["chan_num"],
+                   'random': randflag,
+                   'n_rand_views': params["n_rand_views"],
+                   'expval': params["expval"],
+                   'nvox': params["nvox"]}
+    shared_args_train = {'batch_size': params["batch_size"],
+                         'rotation': params["rotate"],
+                         'augment_hue': params["augment_hue"],
+                         'augment_brightness': params["augment_brightness"],
+                         'augment_continuous_rotation': params["augment_continuous_rotation"],
+                         'bright_val': params["augment_bright_val"],
+                         'hue_val': params["augment_hue_val"],
+                         'rotation_val': params["augment_rotation_val"],
+                         'replace': params["rand_view_replace"],
+                         }
+    shared_args_valid = {'batch_size': 1,
+                         'rotation': False,
+                         'augment_hue': False,
+                         'augment_brightness': False,
+                         'augment_continuous_rotation': False,
+                         'shuffle': False,
+                         'replace': False}
+    if params["use_npy"]:
+        genfunc = DataGenerator_3Dconv_npy
+        args_train = {'list_IDs': partition["train_sampleIDs"],
+                      'labels_3d': datadict_3d,
+                      'npydir': npydir,
+                      }
+        args_train = {**args_train,
+                      **shared_args_train,
+                      **shared_args,
+                      'sigma': params["sigma"],
+                      'mono': params["mono"]}
+
+        args_valid = {'list_IDs': partition["valid_sampleIDs"],
+                      'labels_3d': datadict_3d,
+                      'npydir': npydir,
+                      }
+        args_valid = {**args_valid,
+                      **shared_args_valid,
+                      **shared_args,
+                      'sigma': params["sigma"],
+                      'mono': params["mono"]}
+    else:
+        genfunc = DataGenerator_3Dconv_frommem
+        args_train = {'list_IDs': np.arange(len(partition["train_sampleIDs"])),
+                      'data': X_train,
+                      'labels': y_train,
+                      }
+        args_train = {**args_train,
+                      **shared_args_train,
+                      **shared_args,
+                      'xgrid': X_train_grid}
+
+        args_valid = {'list_IDs': np.arange(len(partition["valid_sampleIDs"])),
+                      'data': X_valid,
+                      'labels': y_valid,
+                      }
+        args_valid = {**args_valid,
+                      **shared_args_valid,
+                      **shared_args,
+                      'xgrid': X_valid_grid}
+
+    train_generator = genfunc(**args_train)
+    valid_generator = genfunc(**args_valid)
 
     # Build net
     print("Initializing Network...")
@@ -1403,7 +1449,7 @@ def dannce_predict(params: Dict):
         # for working with large datasets (such as Rat 7M) because
         # .npy files can be loaded in quickly with random access
         # during training.
-        print("Writing sampels to .npy files")
+        print("Writing samples to .npy files")
         processing.write_npy(params["write_npy"], valid_generator)
         print("Done, exiting program")
         sys.exit()
