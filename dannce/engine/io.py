@@ -91,7 +91,7 @@ def load_com(path: Text) -> Dict:
     d = sio.loadmat(path)["com"]
     data = {}
     data["com3d"] = d["com3d"][0, 0]
-    data["sampleID"] = d["sampleID"][0, 0]
+    data["sampleID"] = d["sampleID"][0, 0].astype(int)
     return data
 
 

@@ -21,24 +21,36 @@ DANNCE (3-Dimensional Aligned Neural Network for Computational Ethology) is a co
 
 |      OS               | Python | TensorFlow | CUDA | cuDNN | PyTorch |
 |:---------------------:|:------:|:----------:|:----:|:-----:|:-------:|
-| Ubuntu 16.04 or 18.04 |  3.7.x |   2.2.0    | 10.1 |  7.6  |  1.5.0  |
-| Windows 10            |  3.7.x |   2.2.0    | 10.1 |  7.6  |  1.5.0  |
+| Ubuntu 16.04 or 18.04 |  3.7.x |   2.2.0 - 2.3.0  | 10.1 |  7.6  |  1.5.0 - 1.7.0  |
+| Windows 10            |  3.7.x |   2.2.0 - 2.3.0  | 10.1 |  7.6  |  1.5.0 - 1.7.0  |
 
 We recommend installing DANNCE using the following steps:
 
-1. If you do not already have it, install [Anaconda](https://www.anaconda.com/products/individual).
+1. Clone the github repository
+```
+git clone --recursive https://github.com/spoonsso/dannce
+cd dannce
+```
 
-2. Set up a new Anaconda environment with the following configuration: \
-`conda create -n dannce python=3.7 cudatoolkit=10.1 cudnn`
+2. If you do not already have it, install [Anaconda](https://www.anaconda.com/products/individual).
 
-3. Activate the new Anaconda environment: \
+3. Set up a new Anaconda environment with the following configuration: \
+`conda create -n dannce python=3.7 cudatoolkit=10.1 cudnn ffmpeg`
+
+4. Activate the new Anaconda environment: \
 `conda activate dannce`
 
-4. Install DANNCE with the included setup script from within the base repository directory: \
-`python setup.py install`
+5. Install PyTorch: \
+`conda install pytorch=1.7 -c pytorch`
+
+6. Update setuptools: \
+`pip install -U setuptools`
+
+7. Install DANNCE with the included setup script from within the base repository directory: \
+`pip install -e .`
 
 Then you should be ready to try the quickstart demo! \
-These installation steps were tested with Anaconda releases 4.7.12 and 2020.02, although we expect it to work for most conda installations.
+These installation steps were tested with Anaconda releases 4.7.12 and 2020.02, although we expect it to work for most conda installations. After installing Anaconda, and presuming there are no issues with GPU drivers, the installation should take less than 5 minutes.
 
 A note on the PyTorch requirment.
 PyTorch is not required, but 3D volume generation is significantly faster when using PyTorch than with TensorFlow or NumPy. To use TensorFlow only, without having to install the PyTorch package, simply toggle the `predict_mode` field in the DANNCE configuration files to `tf`. To use NumPy volume generation (slowest), change `predict_mode` to `None`.
@@ -76,13 +88,15 @@ rm -r vids2 vids2.zip
 Once the files are downloaded and placed, run: 
 ```
 cd demo/markerless_mouse_1/; 
-python ../../predict_DANNCE.py config.yaml 
+dannce-predict ../../configs/dannce_mouse_config.yaml
 ```
 
 This demo will run the `AVG` version of DANNCE over 1000 frames of mouse data and save the results to: \
 `demo/markerless_mouse_1/DANNCE/predict_results/save_data_AVG.mat`
 
-The `AVG` version of DANNCE generally produces smoother and more precise 3D tracking because it converts the final 3D probability map for each landmark into a continuous 3D coordinate by taking the spatial average over this volume. However, the `AVG` network can sometimes be tricky to fine tune. If you are having trouble getting the `AVG` network to converge to a satisfactory error level, consider trying the `MAX` version of the nerwork, which assigns each landmark the 3D coordinate of the voxel containing the maximum value over the final 3D probability map.
+The demo should take less than 2 minutes to run on an NVIDIA Titan X, Titan V, Titan RTX, or V100. Run times may be slightly longer on less powerful GPUs. The demo has not been tested using a CPU only.
+
+Please see the *Wiki* for more details on running DANNCE and customizing configuration files. 
 
 ## Using DANNCE on your data
 
@@ -103,7 +117,7 @@ When calibrating the mirror setup, we have used one intrinsic parameter calibrat
 Cameras tested:
 1. Point Grey Flea3
 2. Blackfly BFS-U3-162M/C-CS
-3. Basler ace aca1920-155uc, aca640-750um, aca720-510um
+3. Basler ace aca1920-155uc
 
 
 ## Formatting The Data
@@ -130,7 +144,7 @@ DANNCE requires a parent video directory with *n* sub-directories, one for each 
 |\_\_+--0.mp4
 
 
-**configuration files**
+**configuration files**.
 
 `DANNCE` uses two configuration files and one data file. 
 
@@ -152,7 +166,7 @@ If your cameras are not natively synchronized, but you can collect timestaps for
 For fine-tuning DANNCE to work with your animal and system, we developed a labeling GUI, which can be found in a separate repo: https://github.com/diegoaldarondo/Label3D. The `Label3D` repository should be cloned with DANNCE automatically as a submodule when using `git clone --recursive https://github.com/spoonsso/dannce` When labeling is completed, the labels can be used to train DANNCE and the COMfinder network (see below) after converting the Label3D files to DANNCE format using `Label3D.exportDannce()`.
 
 ### Training and Predicting with the COMfinder U-Net
-DANNCE requires a reasonable estimate of the 3D position of the animal in each frame. We obtain this by triangulating the 2D center of mass (COM) of the animal in each frame. You can use your favorite method to find an estimate of the animal COM in each frame, but we trained a 2D U-Net to do it. Our U-Net is brittle and typically requires some additional training data to get it working on new views, new environments, and new species. If working with hand-labeled data, your same data structures can be used to train both the COMfinder network and the DANNCE network.
+DANNCE requires a reasonable estimate of the 3D position of the animal in each frame. We obtain this by triangulating the 2D center of mass (COM) of the animal in each frame. You can use your favorite method to find an estimate of the animal COM in each frame, but we trained a 2D U-Net to do it. Our U-Net typically requires some additional training data to get it working on new views, new environments, and new species. If working with hand-labeled data, your same data structures can be used to train both the COMfinder network and the DANNCE network.
 
 Given formatted data, a properly organized directory structure, and a config file (see config and demo folder, and wiki), navigate to your project folder and run 
 `com-train /path/to/main_com_config.yaml`

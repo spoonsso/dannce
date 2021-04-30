@@ -12,6 +12,7 @@ from scipy.ndimage.filters import maximum_filter
 
 from dannce.engine import io
 import matplotlib
+import warnings
 
 # matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -116,10 +117,10 @@ def infer_params(params, dannce_net, prediction):
             intermediate_folder = os.listdir(camdir)
             camdir = os.path.join(camdir, intermediate_folder[0])
         video_files = os.listdir(camdir)
-        video_files = [f for f in video_files if ".mp4"  in f]
+        video_files = [f for f in video_files if ".mp4" in f]
         video_files = sorted(video_files, key=lambda x: int(x.split(".")[0]))
         chunks[name] = np.sort([int(x.split(".")[0]) for x in video_files])
-        
+
     print_and_set(params, "chunks", chunks)
 
     camf = os.path.join(viddir, video_files[0])
@@ -129,6 +130,10 @@ def infer_params(params, dannce_net, prediction):
     im = v.get_data(0)
     v.close()
     print_and_set(params, "n_channels_in", im.shape[-1])
+
+    # set the raw im height and width
+    print_and_set(params, "raw_im_h", im.shape[0])
+    print_and_set(params, "raw_im_w", im.shape[1])
 
     if dannce_net and params["net"] is None:
         # Here we assume that if the network and expval are specified by the user
@@ -147,29 +152,25 @@ def infer_params(params, dannce_net, prediction):
 
         if params["net_type"] == "AVG":
             print_and_set(params, "expval", True)
-            if prediction:
-                print_and_set(params, "net", "unet3d_big_expectedvalue")
         elif params["net_type"] == "MAX":
             print_and_set(params, "expval", False)
-            if prediction:
-                print_and_set(params, "net", "unet3d_big")
         else:
             raise Exception("{} not a valid net_type".format(params["net_type"]))
 
-        if not prediction:
-            if params["net_type"] == "AVG" and params["train_mode"] == "finetune":
-                print_and_set(params, "net", "finetune_AVG")
-            elif params["net_type"] == "AVG":
-                # This is the network for training from scratch.
-                # This will also set the network for "continued", but that network
-                # will be ignored, as for continued training the full model file
-                # is loaded in without a call to construct the network. However, a value
-                # for params['net'] is still required for initialization
-                print_and_set(params, "net", "unet3d_big_expectedvalue")
-            elif params["net_type"] == "MAX" and params["train_mode"] == "finetune":
-                print_and_set(params, "net", "finetune_MAX")
-            elif params["net_type"] == "MAX":
-                print_and_set(params, "net", "unet3d_big")
+        # if not prediction:
+        if params["net_type"] == "AVG" and params["train_mode"] == "finetune":
+            print_and_set(params, "net", "finetune_AVG")
+        elif params["net_type"] == "AVG":
+            # This is the network for training from scratch.
+            # This will also set the network for "continued", but that network
+            # will be ignored, as for continued training the full model file
+            # is loaded in without a call to construct the network. However, a value
+            # for params['net'] is still required for initialization
+            print_and_set(params, "net", "unet3d_big_expectedvalue")
+        elif params["net_type"] == "MAX" and params["train_mode"] == "finetune":
+            print_and_set(params, "net", "finetune_MAX")
+        elif params["net_type"] == "MAX":
+            print_and_set(params, "net", "unet3d_big")
 
     elif dannce_net and params["expval"] is None:
         if "AVG" in params["net"] or "expected" in params["net"]:
@@ -180,10 +181,28 @@ def infer_params(params, dannce_net, prediction):
     if dannce_net:
         # infer crop_height and crop_width if None. Just use max dims of video, as
         # DANNCE does not need to crop.
-        if params["crop_height"] is None:
-            params["crop_height"] = [0, im.shape[0]]
-        if params["crop_width"] is None:
-            params["crop_width"] = [0, im.shape[1]]
+        if params["crop_height"] is None or params["crop_width"] is None:
+            im_h = []
+            im_w = []
+            for i in range(len(params["camnames"])):
+                viddir = os.path.join(params["viddir"], params["camnames"][i])
+                if not params["vid_dir_flag"]:
+                    # add intermediate directory to path
+                    viddir = os.path.join(
+                        params["viddir"], params["camnames"][i], os.listdir(viddir)[0]
+                    )
+                video_files = os.listdir(viddir)
+                camf = os.path.join(viddir, video_files[0])
+                v = imageio.get_reader(camf)
+                im = v.get_data(0)
+                v.close()
+                im_h.append(im.shape[0])
+                im_w.append(im.shape[1])
+
+            if params["crop_height"] is None:
+                print_and_set(params, "crop_height", [0, np.max(im_h)])
+            if params["crop_width"] is None:
+                print_and_set(params, "crop_width", [0, np.max(im_w)])
 
         if params["max_num_samples"] is not None:
             if params["max_num_samples"] == "max":
@@ -212,8 +231,18 @@ def infer_params(params, dannce_net, prediction):
             print_and_set(params, "start_batch", 0)
 
         if params["vol_size"] is not None:
-            print_and_set(params, "vmin", -1 * params["vol_size"] // 2)
-            print_and_set(params, "vmax", params["vol_size"] // 2)
+            print_and_set(params, "vmin", -1 * params["vol_size"] / 2)
+            print_and_set(params, "vmax", params["vol_size"] / 2)
+
+    # There will be straneg behavior if using a mirror acquisition system and are cropping images
+    if params["mirror"] and params["crop_height"][-1] != params["raw_im_h"]:
+        msg = "Note: You are using a mirror acquisition system with image cropping."
+        msg = (
+            msg
+            + " All coordinates will be flipped relative to the raw image height, so ensure that your labels are also in that reference frame."
+        )
+        warnings.warn(msg)
+
     return params
 
 
@@ -246,6 +275,15 @@ def check_vmin_vmax(params):
                     v
                 )
             )
+
+
+def get_ft_wt(params):
+    if params["dannce_finetune_weights"] is not None:
+        weights = os.listdir(params["dannce_finetune_weights"])
+        weights = [f for f in weights if ".hdf5" in f]
+        weights = weights[0]
+
+        return os.path.join(params["dannce_finetune_weights"], weights)
 
 
 def check_camnames(camp):
@@ -345,10 +383,10 @@ def make_data_splits(samples, params, RESULTSDIR, num_experiments):
         partition["train_sampleIDs"] = samples[train_inds]
 
         # Save train/val inds
-        with open(RESULTSDIR + "val_samples.pickle", "wb") as f:
+        with open(os.path.join(RESULTSDIR, "val_samples.pickle"), "wb") as f:
             cPickle.dump(partition["valid_sampleIDs"], f)
 
-        with open(RESULTSDIR + "train_samples.pickle", "wb") as f:
+        with open(os.path.join(RESULTSDIR, "train_samples.pickle"), "wb") as f:
             cPickle.dump(partition["train_sampleIDs"], f)
     else:
         # Load validation samples from elsewhere
@@ -417,6 +455,22 @@ def save_params(outdir, params):
     return True
 
 
+def make_none_safe(pdict):
+    if isinstance(pdict, dict):
+        for key in pdict:
+            pdict[key] = make_none_safe(pdict[key])
+    else:
+        if (
+            pdict is None
+            or (isinstance(pdict, list) and None in pdict)
+            or (isinstance(pdict, tuple) and None in pdict)
+        ):
+            return "None"
+        else:
+            return pdict
+    return pdict
+
+
 def prepare_save_metadata(params):
     """
     To save metadata, i.e. the prediction param values associated with COM or DANNCE
@@ -427,9 +481,6 @@ def prepare_save_metadata(params):
     # Need to convert None to string but still want to conserve the metadat structure
     # format, so we don't want to convert the whole dict to a string
     meta = params.copy()
-    for key in meta.keys():
-        if meta[key] is None:
-            meta[key] = "None"
 
     if "experiment" in meta:
         del meta["experiment"]
@@ -442,6 +493,7 @@ def prepare_save_metadata(params):
             f.__name__ if not isinstance(f, str) else f for f in meta["metric"]
         ]
 
+    meta = make_none_safe(meta.copy())
     return meta
 
 
@@ -466,7 +518,9 @@ def save_COM_dannce_mat(params, com3d, sampleID):
     os.remove(params["label3d_file"] + ".temp")
 
 
-def save_COM_checkpoint(save_data, RESULTSDIR, datadict_, cameras, params, file_name="com3d"):
+def save_COM_checkpoint(
+    save_data, RESULTSDIR, datadict_, cameras, params, file_name="com3d"
+):
     """
     Saves COM pickle and matfiles
 
@@ -599,9 +653,11 @@ def load_expdict(params, e, expdict, _DEFAULT_VIDDIR):
             intermediate_folder = os.listdir(camdir)
             camdir = os.path.join(camdir, intermediate_folder[0])
         video_files = os.listdir(camdir)
-        video_files = [f for f in video_files if ".mp4"  in f]
+        video_files = [f for f in video_files if ".mp4" in f]
         video_files = sorted(video_files, key=lambda x: int(x.split(".")[0]))
-        chunks[str(e) + '_' + name] = np.sort([int(x.split(".")[0]) for x in video_files])
+        chunks[str(e) + "_" + name] = np.sort(
+            [int(x.split(".")[0]) for x in video_files]
+        )
     exp["chunks"] = chunks
     print(chunks)
 
@@ -729,7 +785,6 @@ def generate_readers(
     viddir, camname, minopt=0, maxopt=300000, pathonly=False, extension=".mp4"
 ):
     """Open all mp4 objects with imageio, and return them in a dictionary."""
-    print("NOTE: Ignoring mp4 files numbered above {}".format(maxopt))
     out = {}
     mp4files = [
         os.path.join(camname, f)
@@ -756,6 +811,9 @@ def generate_readers(
         if pathonly:
             out[mp4files_scrub[i]] = os.path.join(viddir, mp4files[i])
         else:
+            print(
+                "NOTE: Ignoring {} files numbered above {}".format(extensions, maxopt)
+            )
             out[mp4files_scrub[i]] = imageio.get_reader(
                 os.path.join(viddir, mp4files[i]),
                 pixelformat=pixelformat,
@@ -970,13 +1028,15 @@ def get_peak_inds(map_):
     """Return the indices of the peak value of an n-d map."""
     return np.unravel_index(np.argmax(map_, axis=None), map_.shape)
 
+
 def get_peak_inds_multi_instance(im, n_instances, window_size=10):
     """Return top n_instances local peaks through non-max suppression."""
-    bw = (im == maximum_filter(im, footprint=np.ones((window_size, window_size))))
+    bw = im == maximum_filter(im, footprint=np.ones((window_size, window_size)))
     inds = np.argwhere(bw)
     vals = im[inds[:, 0], inds[:, 1]]
     idx = np.argsort(vals)[::-1]
     return inds[idx[:n_instances], :]
+
 
 def get_marker_peaks_2d(stack):
     """Return the concatenated coordinates of all peaks for each map/marker."""
@@ -1139,12 +1199,26 @@ def dupe_params(exp, dupes, n_views):
         if n_views % len(val) == 0:
             num_reps = n_views // len(val)
             exp[d] = val * num_reps
+
         else:
-            raise Exception(
-                "The length of the {} list must divide evenly into {}.".format(
-                    d, n_views
-                )
+            prompt = "The length of the {} list must divide evenly into {}. Duplicate a subset of the views starting from the first camera (y/n)?".format(
+                d, n_views
             )
+            val_in = input(prompt)
+            if val_in == "y":
+                num_reps = n_views // len(val)
+                num_extra = n_views % len(val)
+                duped = val * num_reps
+                for i in range(num_extra):
+                    duped.append(duped[i])
+                print("Duping {}. Changed from {} to {}".format(d, val, duped))
+                exp[d] = duped
+            else:
+                raise Exception(
+                    "The length of the {} list must divide evenly into {}. Exiting".format(
+                        d, n_views
+                    )
+                )
 
     return exp
 

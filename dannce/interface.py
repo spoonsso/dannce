@@ -6,6 +6,7 @@ from copy import deepcopy
 import scipy.io as sio
 import imageio
 import time
+import gc
 import tensorflow as tf
 import tensorflow.keras as keras
 import tensorflow.keras.losses as keras_losses
@@ -132,6 +133,9 @@ def com_predict(params: Dict):
     MULTI_MODE = params["n_channels_out"] > 1 & params["n_instances"] == 1
     params["n_channels_out"] = params["n_channels_out"] + int(MULTI_MODE)
 
+    # channels out is equal to the number of views when using a single video stream with mirrors
+    eff_n_channels_out = int(params["n_views"]) if params["mirror"] else params["n_channels_out"]
+
     # Grab the input file for prediction
     params["label3d_file"] = processing.grab_predict_label3d_file()
 
@@ -151,7 +155,7 @@ def com_predict(params: Dict):
         params["loss"],
         float(params["lr"]),
         params["chan_num"],
-        params["n_channels_out"],
+        eff_n_channels_out,
         ["mse"],
         multigpu=False,
     )
@@ -224,6 +228,7 @@ def com_predict(params: Dict):
         "dsmode": params["dsmode"],
         "preload": False,
         "mono": params["mono"],
+        "mirror": params["mirror"],
     }
 
     partition = {}
@@ -408,6 +413,7 @@ def com_train(params: Dict):
         "dsmode": params["dsmode"],
         "preload": False,
         "mono": params["mono"],
+        "mirror": params["mirror"],
     }
 
     valid_params = deepcopy(train_params)
@@ -421,6 +427,10 @@ def com_train(params: Dict):
 
     # For real mono training
     params["chan_num"] = 1 if params["mono"] else params["n_channels_in"]
+
+    # effective n_channels, which is different if using a mirror arena configuration
+    eff_n_channels_out = len(camnames[0]) if params["mirror"] else params["n_channels_out"]
+
     # Build net
     print("Initializing Network...")
 
@@ -428,7 +438,7 @@ def com_train(params: Dict):
         params["loss"],
         float(params["lr"]),
         params["chan_num"],
-        params["n_channels_out"],
+        eff_n_channels_out,
         ["mse"],
         multigpu=False,
     )
@@ -477,17 +487,19 @@ def com_train(params: Dict):
     )
     csvlog = CSVLogger(os.path.join(com_train_dir, "training.csv"))
     tboard = TensorBoard(
-        log_dir=com_train_dir + "logs", write_graph=False, update_freq=100
+        log_dir=os.path.join(com_train_dir, "logs"), write_graph=False, update_freq=100
     )
 
     # Initialize data structures
-    ncams = len(camnames[0])
-    dh = (params["crop_height"][1] - params["crop_height"][0]) // params[
-        "downfac"
-    ]
-    dw = (params["crop_width"][1] - params["crop_width"][0]) // params[
-        "downfac"
-    ]
+    if params["mirror"]:
+        ncams = 1 # Effectively, for the purpose of batch indexing
+    else:
+        ncams = len(camnames[0])
+
+    dh = (params["crop_height"][1] - params["crop_height"][0]) // params["downfac"]
+    dw = (params["crop_width"][1] - params["crop_width"][0]) // params["downfac"]
+
+
     ims_train = np.zeros(
         (
             ncams * len(partition["train_sampleIDs"]),
@@ -498,12 +510,7 @@ def com_train(params: Dict):
         dtype="float32",
     )
     y_train = np.zeros(
-        (
-            ncams * len(partition["train_sampleIDs"]),
-            dh,
-            dw,
-            params["n_channels_out"],
-        ),
+        (ncams * len(partition["train_sampleIDs"]), dh, dw, eff_n_channels_out),
         dtype="float32",
     )
     ims_valid = np.zeros(
@@ -516,12 +523,7 @@ def com_train(params: Dict):
         dtype="float32",
     )
     y_valid = np.zeros(
-        (
-            ncams * len(partition["valid_sampleIDs"]),
-            dh,
-            dw,
-            params["n_channels_out"],
-        ),
+        (ncams * len(partition["valid_sampleIDs"]), dh, dw, eff_n_channels_out),
         dtype="float32",
     )
 
@@ -599,6 +601,17 @@ def com_train(params: Dict):
         Args:
             trainData (bool, optional): If True use training data for debug.
         """
+        def plot_out(imo, lo, imn):
+            processing.plot_markers_2d(
+                processing.norm_im(imo), lo, newfig=False
+            )
+            plt.gca().xaxis.set_major_locator(plt.NullLocator())
+            plt.gca().yaxis.set_major_locator(plt.NullLocator())
+
+            imname = imn
+            plt.savefig(
+                os.path.join(debugdir, imname), bbox_inches="tight", pad_inches=0
+            )
 
         if params["debug"] and not MULTI_MODE:
 
@@ -610,6 +623,7 @@ def com_train(params: Dict):
                 outdir = "debug_im_out_valid"
                 ims_out = ims_valid
                 label_out = model.predict(ims_valid, batch_size=1)
+
             # Plot all training images and save
             # create new directory for images if necessary
             debugdir = os.path.join(params["com_train_dir"], outdir)
@@ -618,20 +632,17 @@ def com_train(params: Dict):
                 os.makedirs(debugdir)
 
             plt.figure()
+
             for i in range(ims_out.shape[0]):
                 plt.cla()
-                processing.plot_markers_2d(
-                    processing.norm_im(ims_out[i]), label_out[i], newfig=False
-                )
-                plt.gca().xaxis.set_major_locator(plt.NullLocator())
-                plt.gca().yaxis.set_major_locator(plt.NullLocator())
+                if params["mirror"]:
+                    for j in range(label_out.shape[-1]):
+                        plt.cla()
+                        plot_out(ims_out[i], label_out[i, :, :, j:j+1],
+                                 str(i) + "_cam_" + str(j) + ".png")
+                else:
+                    plot_out(ims_out[i], label_out[i], str(i) + ".png")
 
-                imname = str(i) + ".png"
-                plt.savefig(
-                    os.path.join(debugdir, imname),
-                    bbox_inches="tight",
-                    pad_inches=0,
-                )
         elif params["debug"] and MULTI_MODE:
             print("Note: Cannot output debug information in COM multi-mode")
 
@@ -698,14 +709,7 @@ def dannce_train(params: Dict):
 
     # find the weights given config path
     if params["dannce_finetune_weights"] is not None:
-        weights = os.listdir(params["dannce_finetune_weights"])
-        weights = [f for f in weights if ".hdf5" in f]
-        weights = weights[0]
-
-        params["dannce_finetune_weights"] = os.path.join(
-            params["dannce_finetune_weights"], weights
-        )
-
+        params["dannce_finetune_weights"] = processing.get_ft_wt(params)
         print("Fine-tuning from {}".format(params["dannce_finetune_weights"]))
 
     samples = []
@@ -797,6 +801,7 @@ def dannce_train(params: Dict):
 
     # When this true, the data generator will shuffle the cameras and then select the first 3,
     # to feed to a native 3 camera model
+    cam3_train = params["cam3_train"]
     if params["cam3_train"]:
         cam3_train = True
     else:
@@ -843,6 +848,7 @@ def dannce_train(params: Dict):
             "chunks": total_chunks,
             "preload": False,
             "mono": params["mono"],
+            "mirror": params["mirror"],
         }
 
         # Setup a generator that will read videos and labels
@@ -989,10 +995,7 @@ def dannce_train(params: Dict):
             y_valid[i] = rr[1]
 
     # Now we can generate from memory with shuffling, rotation, etc.
-    if params["channel_combo"] == "random":
-        randflag = True
-    else:
-        randflag = False
+    randflag = params["channel_combo"] == "random"
 
     if cam3_train:
         params["n_rand_views"] = 3
@@ -1147,12 +1150,71 @@ def dannce_train(params: Dict):
         os.path.join(dannce_train_dir, kkey),
         monitor=mon,
         save_best_only=True,
-        save_weights_only=True,
+        save_weights_only=False,
     )
     csvlog = CSVLogger(os.path.join(dannce_train_dir, "training.csv"))
     tboard = TensorBoard(
-        log_dir=dannce_train_dir + "logs", write_graph=False, update_freq=100
+        log_dir=os.path.join(dannce_train_dir,"logs"), write_graph=False, update_freq=100
     )
+
+    class savePredTargets(keras.callbacks.Callback):
+        def __init__(self, total_epochs, td, tgrid, vd, vgrid, tID, vID, odir, tlabel, vlabel):
+            self.td = td
+            self.vd = vd
+            self.tID = tID
+            self.vID = vID
+            self.total_epochs = total_epochs
+            self.val_loss = 1e10
+            self.odir = odir
+            self.tgrid = tgrid
+            self.vgrid = vgrid
+            self.tlabel = tlabel
+            self.vlabel = vlabel
+        def on_epoch_end(self, epoch, logs=None):
+            lkey = 'val_loss' if 'val_loss' in logs else 'loss'
+            if epoch == self.total_epochs-1 or logs[lkey] < self.val_loss and epoch > 25:
+                print("Saving predictions on train and validation data, after epoch {}".format(epoch))
+                self.val_loss = logs[lkey]
+                pred_t = model.predict([self.td, self.tgrid], batch_size=1)
+                pred_v = model.predict([self.vd, self.vgrid], batch_size=1)
+                ofile = os.path.join(self.odir,'checkpoint_predictions_e{}.mat'.format(epoch))
+                sio.savemat(ofile, {'pred_train': pred_t,
+                                    'pred_valid': pred_v,
+                                    'target_train': self.tlabel,
+                                    'target_valid': self.vlabel,
+                                    'train_sampleIDs': self.tID,
+                                    'valid_sampleIDs': self.vID})
+
+    class saveCheckPoint(keras.callbacks.Callback):
+        def __init__(self, odir, total_epochs):
+            self.odir = odir
+            self.saveE = np.arange(0, total_epochs, 250)
+        def on_epoch_end(self, epoch, logs=None):
+            lkey = 'val_loss' if 'val_loss' in logs else 'loss'
+            val_loss = logs[lkey]
+            if epoch in self.saveE:
+                # Do a garbage collect to combat keras memory leak
+                gc.collect()
+                print("Saving checkpoint weights at epoch {}".format(epoch))
+                savename = 'weights.checkpoint.epoch{}.{}{:.5f}.hdf5'.format(epoch,
+                                                                        lkey,
+                                                                        val_loss)
+                self.model.save(os.path.join(self.odir, savename))
+
+                
+    callbacks = [csvlog, model_checkpoint, tboard, saveCheckPoint(params['dannce_train_dir'], params["epochs"])]
+
+    if params['expval']:
+        save_callback = savePredTargets(params['epochs'],X_train,
+            X_train_grid,
+            X_valid,
+            X_valid_grid,
+            partition['train_sampleIDs'],
+            partition['valid_sampleIDs'],
+            params['dannce_train_dir'],
+            y_train,
+            y_valid)
+        callbacks = callbacks + [save_callback]
 
     model.fit(
         x=train_generator,
@@ -1161,7 +1223,7 @@ def dannce_train(params: Dict):
         validation_steps=len(valid_generator),
         verbose=params["verbose"],
         epochs=params["epochs"],
-        callbacks=[csvlog, model_checkpoint, tboard],
+        callbacks=callbacks,
         workers=6,
     )
 
@@ -1327,6 +1389,7 @@ def dannce_predict(params: Dict):
         "chunks": params["chunks"],
         "preload": False,
         "mono": params["mono"],
+        "mirror": params["mirror"]
     }
 
     # Datasets
@@ -1341,10 +1404,11 @@ def dannce_predict(params: Dict):
     if predict_mode == "torch":
         import torch
 
-        device = "cuda:" + gpu_id
+        # Because CUDA_VISBILE_DEVICES is already set to a single GPU, the gpu_id here should be "0"
+        device = "cuda:0"
         genfunc = DataGenerator_3Dconv_torch
     elif predict_mode == "tf":
-        device = "/GPU:" + gpu_id
+        device = "/GPU:0"
         genfunc = DataGenerator_3Dconv_tf
     else:
         genfunc = DataGenerator_3Dconv
@@ -1379,27 +1443,51 @@ def dannce_predict(params: Dict):
         weights = weights[-1]
 
         mdl_file = os.path.join(wdir, weights)
+        # if not using dannce_predict model (thus taking the final weights in train_results),
+        # set this file to dannce_predict_model so that it will still get saved with metadata
+        params["dannce_predict_model"] = mdl_file
 
     print("Loading model from " + mdl_file)
 
     if (
         netname == "unet3d_big_tiedfirstlayer_expectedvalue"
-        or "from_weights" in params.keys()
+        or params["from_weights"] is not None
     ):
-        # This network is too "custom" to be loaded in as a full model, until I
-        # figure out how to unroll the first tied weights layer
         gridsize = tuple([params["nvox"]] * 3)
-        model = params["net"](
-            params["loss"],
-            float(params["lr"]),
-            params["chan_num"] + params["depth"],
-            params["n_channels_out"],
-            len(camnames[0]),
-            batch_norm=False,
-            instance_norm=True,
-            include_top=True,
-            gridsize=gridsize,
-        )
+        params["dannce_finetune_weights"] = processing.get_ft_wt(params)
+
+        if params["train_mode"] == "finetune":
+
+            print("Initializing a finetune network from {}, into which weights from {} will be loaded.".format(
+                params["dannce_finetune_weights"], mdl_file))
+            model = params["net"](
+                params["loss"],
+                float(params["lr"]),
+                params["chan_num"] + params["depth"],
+                params["n_channels_out"],
+                len(camnames[0]),
+                params["new_last_kernel_size"],
+                params["new_n_channels_out"],
+                params["dannce_finetune_weights"],
+                params["n_layers_locked"],
+                batch_norm=False,
+                instance_norm=True,
+                gridsize=gridsize,
+            )
+        else:
+            # This network is too "custom" to be loaded in as a full model, until I
+            # figure out how to unroll the first tied weights layer
+            model = params["net"](
+                params["loss"],
+                float(params["lr"]),
+                params["chan_num"] + params["depth"],
+                params["n_channels_out"],
+                len(camnames[0]),
+                batch_norm=False,
+                instance_norm=True,
+                include_top=True,
+                gridsize=gridsize,
+            )
         model.load_weights(mdl_file)
     else:
         model = load_model(
@@ -1533,7 +1621,7 @@ def do_COM_load(
     )
 
     # If len(exp['camnames']) divides evenly into n_views, duplicate here
-    # This must come after loading in this excperiment's data because there
+    # This must come after loading in this experiment's data because there
     # is an assertion that len(exp['camnames']) == the number of cameras
     # in the label files (which will not be duplicated)
     exp = processing.dupe_params(exp, ["camnames"], n_views)

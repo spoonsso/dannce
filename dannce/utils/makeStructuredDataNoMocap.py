@@ -87,9 +87,9 @@ if __name__ == "__main__":
     markernames = sio.loadmat(sys.argv[2])
 
     mm = markernames['joint_names']
-    while mm.shape[1] == 1:
-        mm = mm[0]
-    markernames = [r[0] for r in mm[0]]
+    while np.any(np.array(mm.shape) == 1):
+        mm = np.squeeze(mm)
+    markernames = [r[0] for r in np.squeeze(mm)]
 
     # In Matlab, we cannot keep parentheses in the marker names
     markernames = [m.replace("(", "_") for m in markernames]

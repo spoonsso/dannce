@@ -2,6 +2,9 @@
 Reads in COM3D pickle file, takes median across camera pairs, and saves the result
     into a target Label3D file for access w/ dannce.
 
+    **This is included for backwards compatibility. dannce v1.0.0 and later will not
+    require this conversion**
+
     Usage: python COMmat_to_Label3D.py [path_to_com.mat_file] [path_to_label3d_file]
 """
 import numpy as np

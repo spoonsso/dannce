@@ -3,12 +3,12 @@ from setuptools import setup, find_packages
 
 setup(
     name="dannce",
-    version="1.0.0",
+    version="1.1.0",
     packages=find_packages(),
     install_requires=[
         "six",
         "pyyaml",
-        "imageio>=2.2.0",
+        "imageio==2.8.0",
         "imageio-ffmpeg",
         "numpy<1.19.0",
         "scikit-image",
@@ -17,7 +17,7 @@ setup(
         "attrs",
         "multiprocess",
         "opencv-python",
-        "tensorflow<=2.3.0",
+        "tensorflow==2.3.1",
         "torch",
     ],
     scripts=['cluster/holy_dannce_train.sh',
