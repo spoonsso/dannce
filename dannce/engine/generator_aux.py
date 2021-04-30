@@ -149,7 +149,8 @@ class DataGenerator_downsample(keras.utils.Sequence):
                 # Without a sleep here, ffmpeg can hang on video close
                 time.sleep(0.25)
                 if self.currvideo[camname] is not None:
-                    self.currvideo[camname].close()
+                    # self.currvideo[camname].close()
+                    self.currvideo[camname]._reader_.release()
                 self.currvideo[camname] = vid
 
             # im = vid.get_data(frame_num)
@@ -442,7 +443,8 @@ class DataGenerator_downsample_multi_instance(keras.utils.Sequence):
                 # Without a sleep here, ffmpeg can hang on video close
                 time.sleep(0.25)
                 if self.currvideo[camname] is not None:
-                    self.currvideo[camname].close()
+                    # self.currvideo[camname].close()
+                    self.currvideo[camname]._reader_.release()
                 self.currvideo[camname] = vid
 
             # im = vid.get_data(frame_num)
