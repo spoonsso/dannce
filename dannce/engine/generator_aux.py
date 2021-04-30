@@ -343,6 +343,7 @@ class DataGenerator_downsample_multi_instance(keras.utils.Sequence):
         chunks: int = 3500,
         multimode: bool = False,
         mono: bool = False,
+        mirror: bool = False
     ):
         """Initialize generator.
 
