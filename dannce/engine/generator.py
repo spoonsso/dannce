@@ -2198,8 +2198,7 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         self.augment_continuous_rotation = augment_continuous_rotation
         self.augment_brightness = augment_brightness
         self.var_reg = var_reg
-        if self.expval:
-            self.xgrid = xgrid
+        self.xgrid = xgrid
         self.nvox = nvox
         self.bright_val = bright_val
         self.hue_val = hue_val
@@ -2461,9 +2460,12 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         X = np.zeros((self.batch_size, *self.data.shape[1:]))
         y_3d = np.zeros((self.batch_size, *self.labels.shape[1:]))
 
-        # Only used when self.expval == True
-        X_grid = np.zeros((self.batch_size, *self.xgrid.shape[1:]))
-
+        # Only used when 
+        if self.expval:
+            X_grid = np.zeros((self.batch_size, *self.xgrid.shape[1:]))
+        else:
+            X_grid = None
+            
         for i, ID in enumerate(list_IDs_temp):
             X[i] = self.data[ID].copy()
             y_3d[i] = self.labels[ID]
