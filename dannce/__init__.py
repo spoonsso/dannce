@@ -36,6 +36,8 @@ _param_defaults_shared = {
     "max_num_samples": None,
     "n_instances": 1,
     "start_sample": 0,
+    "write_npy": None,
+    "use_npy": False,
 }
 _param_defaults_dannce = {
     "metric": ["euclidean_distance_3D"],
@@ -78,8 +80,6 @@ _param_defaults_dannce = {
     "net": None,
     "from_weights": None,
     "dannce_predict_vol_tifdir": None,
-    "write_npy": None,
-    "use_npy": False,
     "n_rand_views": None,
     "rand_view_replace": True,
 }
