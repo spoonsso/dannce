@@ -21,15 +21,15 @@ class DataGenerator(keras.utils.Sequence):
     """Generate data for Keras.
 
     Attributes:
-        batch_size (int, optional): Batch size to generate
-        camnames (list, optional): List of camera names.
+        batch_size (int): Batch size to generate
+        camnames (List): List of camera names.
         clusterIDs (List): List of sampleIDs
-        crop_height (tuple, optional): (first, last) pixels in image height
-        crop_width (tuple, optional): (first, last) pixels in image width
-        currvideo (dict): Description
-        currvideo_name (dict): Description
-        dim_in (tuple): Input dimension
-        dim_out (tuple): Output dimension
+        crop_height (Tuple): (first, last) pixels in image height
+        crop_width (tuple): (first, last) pixels in image width
+        currvideo (Dict): Contains open video objects
+        currvideo_name (Dict): Contains open video object names
+        dim_in (Tuple): Input dimension
+        dim_out (Tuple): Output dimension
         extension (Text): Video extension
         indexes (np.ndarray): sample indices used for batch generation
         labels (Dict): Label dictionary
@@ -765,17 +765,11 @@ class DataGenerator_3Dconv(DataGenerator):
                     (self.batch_size, self.nvox, self.nvox, self.nvox, 3),
                 )
 
-                if self.norm_im:
-                    X, X_grid = self.random_rotate(X, X_grid)
-                else:
-                    X, X_grid, rotate_log = self.random_rotate(X, X_grid, log=True)
+                X, X_grid = self.random_rotate(X, X_grid)
                 # Need to reshape back to raveled version
                 X_grid = np.reshape(X_grid, (self.batch_size, -1, 3))
             else:
-                if self.norm_im:
-                    X, y_3d = self.random_rotate(X, y_3d)
-                else:
-                    X, y_3d, rotate_log = self.random_rotate(X, y_3d, log=True)
+                X, y_3d = self.random_rotate(X, y_3d)
 
         if self.mono and self.n_channels_in == 3:
             # Convert from RGB to mono using the skimage formula. Drop the duplicated frames.
@@ -814,12 +808,12 @@ class DataGenerator_3Dconv(DataGenerator):
                 # y_3d is in coordinates here.
                 return [processing.preprocess_3d(X), X_grid], y_3d
             else:
-                return [X, X_grid], [y_3d, rotate_log]
+                return [X, X_grid], y_3d
         else:
             if self.norm_im:
                 return processing.preprocess_3d(X), y_3d
             else:
-                return X, [y_3d, rotate_log]
+                return X, y_3d
 
 
 class DataGenerator_3Dconv_torch(DataGenerator):
@@ -900,44 +894,44 @@ class DataGenerator_3Dconv_torch(DataGenerator):
         """Initialize data generator.
 
         Args:
-            list_IDs (TYPE): Description
-            labels (TYPE): Description
-            labels_3d (TYPE): Description
-            camera_params (TYPE): Description
-            clusterIDs (TYPE): Description
-            com3d (TYPE): Description
-            tifdirs (TYPE): Description
-            batch_size (int, optional): Description
-            dim_in (tuple, optional): Description
-            n_channels_in (int, optional): Description
-            n_channels_out (int, optional): Description
-            out_scale (int, optional): Description
-            shuffle (bool, optional): Description
-            camnames (list, optional): Description
-            crop_width (tuple, optional): Description
-            crop_height (tuple, optional): Description
-            vmin (TYPE, optional): Description
-            vmax (int, optional): Description
-            nvox (int, optional): Description
-            gpu_id (str, optional): Description
-            interp (str, optional): Description
-            depth (bool, optional): Description
-            channel_combo (None, optional): Description
-            mode (str, optional): Description
-            preload (bool, optional): Description
-            samples_per_cluster (int, optional): Description
-            immode (str, optional): Description
-            rotation (bool, optional): Description
-            vidreaders (None, optional): Description
-            distort (bool, optional): Description
-            expval (bool, optional): Description
-            multicam (bool, optional): Description
-            var_reg (bool, optional): Description
-            COM_aug (None, optional): Description
-            crop_im (bool, optional): Description
-            norm_im (bool, optional): Description
-            chunks (int, optional): Description
-            mono (bool, optional): Description
+            list_IDs (List): List of sample Ids
+            labels (Dict): Dictionary of labels
+            labels_3d (Dict): Dictionary of 3d labels.
+            camera_params (Dict): Camera parameters dictionary.
+            clusterIDs (List): List of sample Ids
+            com3d (Dict): Dictionary of com3d data.
+            tifdirs (List): Directories of .tifs
+            batch_size (int, optional): Batch size to generate
+            dim_in (Tuple, optional): Input dimension
+            n_channels_in (int, optional): Number of input channels
+            n_channels_out (int, optional): Number of output channels
+            out_scale (int, optional): Scale of the output gaussians.
+            shuffle (bool, optional): If True, shuffle the samples.
+            camnames (List, optional): List of camera names.
+            crop_width (Tuple, optional): (first, last) pixels in image width
+            crop_height (Tuple, optional): (first, last) pixels in image height
+            vmin (int, optional): Minimum box dim (relative to the COM)
+            vmax (int, optional): Maximum box dim (relative to the COM)
+            nvox (int, optional): Number of voxels per box side
+            gpu_id (Text, optional): Identity of GPU to use.
+            interp (Text, optional): Interpolation method.
+            depth (bool): If True, appends voxel depth to sampled image features [DEPRECATED]
+            channel_combo (Text): Method for shuffling camera input order
+            mode (Text): Toggles output label format to match MAX vs. AVG network requirements.
+            preload (bool, optional): If True, load using preloaded vidreaders.
+            samples_per_cluster (int, optional): Samples per cluster
+            immode (Text): Toggles using 'video' or 'tif' files as image input [DEPRECATED]
+            rotation (bool, optional): If True, use simple rotation augmentation.
+            vidreaders (Dict, optional): Dict containing video readers.
+            distort (bool, optional): If true, apply camera undistortion.
+            expval (bool, optional): If True, process an expected value network (AVG)
+            multicam (bool): If True, formats data to work with multiple cameras as input.
+            var_reg (bool): If True, adds a variance regularization term to the loss function.
+            COM_aug (bool, optional): If True, augment the COM.
+            crop_im (bool, optional): If True, crop images.
+            norm_im (bool, optional): If True, normalize images.
+            chunks (int, optional): Size of chunks when using chunked mp4.
+            mono (bool, optional): If True, use grayscale image.
         """
         DataGenerator.__init__(
             self,
@@ -1039,10 +1033,10 @@ class DataGenerator_3Dconv_torch(DataGenerator):
         """Rotate X by 90 degrees CCW.
 
         Args:
-            X (TYPE): Description
+            X (np.ndarray): Volume
 
         Returns:
-            TYPE: Description
+            X (np.ndarray): Rotated volume
         """
         X = X.permute(1, 0, 2, 3)
         X = X.flip(1)
@@ -1052,16 +1046,27 @@ class DataGenerator_3Dconv_torch(DataGenerator):
         """Rotate X by 180 degrees.
 
         Args:
-            X (TYPE): Description
+            X (np.ndarray): Volume
 
         Returns:
-            TYPE: Description
+            X (np.ndarray): Rotated volume
         """
         X = X.flip(0).flip(1)
         return X
 
     def project_grid(self, X_grid, camname, ID, experimentID):
+        """Projects 3D voxel centers and sample images as projected 2D pixel coordinates
 
+        Args:
+            X_grid (np.ndarray): 3-D array containing center coordinates of each voxel.
+            camname (Text): camera name
+            ID (Text): string denoting a sample ID
+            experimentID (int): identifier for a video recording session.
+
+        Returns:
+            np.ndarray: projected voxel centers, now in 2D pixels
+        """
+        ts = time.time()
         # Need this copy so that this_y does not change
         this_y = self.torch.as_tensor(
             self.labels[ID]["data"][camname],
@@ -1177,8 +1182,6 @@ class DataGenerator_3Dconv_torch(DataGenerator):
 
         return X
 
-    # TODO(this vs self): The this_* naming convention is hard to read.
-    # Consider revising
     # TODO(nesting): There is pretty deep locigal nesting in this function,
     # might be useful to break apart
     def __data_generation(self, list_IDs_temp):
@@ -1186,13 +1189,15 @@ class DataGenerator_3Dconv_torch(DataGenerator):
         X : (n_samples, *dim, n_channels)
 
         Args:
-            list_IDs_temp (TYPE): Description
+            list_IDs_temp (List): List of experiment Ids
 
         Returns:
-            TYPE: Description
-
+            Tuple: Batch_size training samples
+                X: Input volumes
+                y_3d: Targets
+                rotangle: Rotation angle
         Raises:
-            Exception: Description
+            Exception: Invalid generator mode specified.
         """
         # Initialization
         first_exp = int(self.list_IDs[0].split("_")[0])
@@ -1376,17 +1381,11 @@ class DataGenerator_3Dconv_torch(DataGenerator):
                     (self.batch_size, self.nvox, self.nvox, self.nvox, 3),
                 )
 
-                if self.norm_im:
-                    X, X_grid = self.random_rotate(X, X_grid)
-                else:
-                    X, X_grid, rotate_log = self.random_rotate(X, X_grid, log=True)
+                X, X_grid = self.random_rotate(X, X_grid)
                 # Need to reshape back to raveled version
                 X_grid = self.torch.reshape(X_grid, (self.batch_size, -1, 3))
             else:
-                if self.norm_im:
-                    X, y_3d = self.random_rotate(X, y_3d)
-                else:
-                    X, y_3d, rotate_log = self.random_rotate(X, y_3d, log=True)
+                X, y_3d = self.random_rotate(X, y_3d)
 
         if self.mono and self.n_channels_in == 3:
             # Convert from RGB to mono using the skimage formula. Drop the duplicated frames.
@@ -1429,12 +1428,12 @@ class DataGenerator_3Dconv_torch(DataGenerator):
                 # y_3d is in coordinates here.
                 return [processing.preprocess_3d(X), X_grid], y_3d
             else:
-                return [X, X_grid], [y_3d, rotate_log]
+                return [X, X_grid], y_3d
         else:
             if self.norm_im:
                 return processing.preprocess_3d(X), y_3d
             else:
-                return X, [y_3d, rotate_log]
+                return X, y_3d
 
 
 class DataGenerator_3Dconv_tf(DataGenerator):
@@ -1444,35 +1443,33 @@ class DataGenerator_3Dconv_tf(DataGenerator):
     Also handles data across multiple experiments
 
     Attributes:
-        camera_params (TYPE): Description
-        channel_combo (TYPE): Description
-        com3d (TYPE): Description
-        COM_aug (TYPE): Description
-        config (TYPE): Description
-        crop_im (TYPE): Description
-        depth (TYPE): Description
-        device (TYPE): Description
-        dim_out_3d (TYPE): Description
-        distort (TYPE): Description
-        expval (TYPE): Description
-        gpu_id (TYPE): Description
-        immode (TYPE): Description
-        interp (TYPE): Description
-        labels_3d (TYPE): Description
-        mode (TYPE): Description
-        multicam (TYPE): Description
-        norm_im (TYPE): Description
-        nvox (TYPE): Description
-        rotation (TYPE): Description
-        session (TYPE): Description
-        threadpool (TYPE): Description
-        tifdirs (TYPE): Description
-        var_reg (TYPE): Description
-        vmax (TYPE): Description
-        vmin (TYPE): Description
-        vsize (TYPE): Description
+        camera_params (Dict): Camera parameters dictionary.
+        channel_combo (Text): Method for shuffling camera input order
+        com3d (Dict): Dictionary of com3d data.
+        COM_aug (bool): If True, augment the COM.
+        crop_im (bool): If True, crop images.
+        depth (bool): If True, appends voxel depth to sampled image features [DEPRECATED]
+        device (Text): GPU device identifier
+        dim_out_3d (Tuple): Dimensions of the 3D volume, in voxels
+        distort (bool): If true, apply camera undistortion.
+        expval (bool): If True, process an expected value network (AVG)
+        gpu_id (Text): Identity of GPU to use.
+        immode (Text): Toggles using 'video' or 'tif' files as image input [DEPRECATED]
+        interp (Text): Interpolation method.
+        labels_3d (Dict): Contains ground-truth 3D label coordinates.
+        mode (Text): Toggles output label format to match MAX vs. AVG network requirements.
+        multicam (bool): If True, formats data to work with multiple cameras as input.
+        norm_im (bool): If True, normalize images.
+        nvox (int): Number of voxels per box side
+        rotation (bool): If True, use simple rotation augmentation.
+        session (tf.compat.v1.InteractiveSession): tensorflow session.
+        threadpool (Threadpool): threadpool object for parallelizing video loading
+        tifdirs (List): Directories of .tifs
+        var_reg (bool): If True, adds a variance regularization term to the loss function.
+        vmax (int): Maximum box dim (relative to the COM)
+        vmin (int): Minimum box dim (relative to the COM)
+        vsize (float): Side length of one voxel
     """
-
     def __init__(
         self,
         list_IDs,
@@ -1519,44 +1516,44 @@ class DataGenerator_3Dconv_tf(DataGenerator):
         """Initialize data generator.
 
         Args:
-            list_IDs (TYPE): Description
-            labels (TYPE): Description
-            labels_3d (TYPE): Description
-            camera_params (TYPE): Description
-            clusterIDs (TYPE): Description
-            com3d (TYPE): Description
-            tifdirs (TYPE): Description
-            batch_size (int, optional): Description
-            dim_in (tuple, optional): Description
-            n_channels_in (int, optional): Description
-            n_channels_out (int, optional): Description
-            out_scale (int, optional): Description
-            shuffle (bool, optional): Description
-            camnames (list, optional): Description
-            crop_width (tuple, optional): Description
-            crop_height (tuple, optional): Description
-            vmin (TYPE, optional): Description
-            vmax (int, optional): Description
-            nvox (int, optional): Description
-            gpu_id (str, optional): Description
-            interp (str, optional): Description
-            depth (bool, optional): Description
-            channel_combo (None, optional): Description
-            mode (str, optional): Description
-            preload (bool, optional): Description
-            samples_per_cluster (int, optional): Description
-            immode (str, optional): Description
-            rotation (bool, optional): Description
-            vidreaders (None, optional): Description
-            distort (bool, optional): Description
-            expval (bool, optional): Description
-            multicam (bool, optional): Description
-            var_reg (bool, optional): Description
-            COM_aug (None, optional): Description
-            crop_im (bool, optional): Description
-            norm_im (bool, optional): Description
-            chunks (int, optional): Description
-            mono (bool, optional): Description
+            list_IDs (List): List of sample Ids
+            labels (Dict): Dictionary of labels
+            labels_3d (Dict): Dictionary of 3d labels.
+            camera_params (Dict): Camera parameters dictionary.
+            clusterIDs (List): List of sample Ids
+            com3d (Dict): Dictionary of com3d data.
+            tifdirs (List): Directories of .tifs
+            batch_size (int, optional): Batch size to generate
+            dim_in (Tuple, optional): Input dimension
+            n_channels_in (int, optional): Number of input channels
+            n_channels_out (int, optional): Number of output channels
+            out_scale (int, optional): Scale of the output gaussians.
+            shuffle (bool, optional): If True, shuffle the samples.
+            camnames (List, optional): List of camera names.
+            crop_width (Tuple, optional): (first, last) pixels in image width
+            crop_height (Tuple, optional): (first, last) pixels in image height
+            vmin (int, optional): Minimum box dim (relative to the COM)
+            vmax (int, optional): Maximum box dim (relative to the COM)
+            nvox (int, optional): Number of voxels per box side
+            gpu_id (Text, optional): Identity of GPU to use.
+            interp (Text, optional): Interpolation method.
+            depth (bool): If True, appends voxel depth to sampled image features [DEPRECATED]
+            channel_combo (Text): Method for shuffling camera input order
+            mode (Text): Toggles output label format to match MAX vs. AVG network requirements.
+            preload (bool, optional): If True, load using preloaded vidreaders.
+            samples_per_cluster (int, optional): Samples per cluster
+            immode (Text): Toggles using 'video' or 'tif' files as image input [DEPRECATED]
+            rotation (bool, optional): If True, use simple rotation augmentation.
+            vidreaders (Dict, optional): Dict containing video readers.
+            distort (bool, optional): If true, apply camera undistortion.
+            expval (bool, optional): If True, process an expected value network (AVG)
+            multicam (bool): If True, formats data to work with multiple cameras as input.
+            var_reg (bool): If True, adds a variance regularization term to the loss function.
+            COM_aug (bool, optional): If True, augment the COM.
+            crop_im (bool, optional): If True, crop images.
+            norm_im (bool, optional): If True, normalize images.
+            chunks (int, optional): Size of chunks when using chunked mp4.
+            mono (bool, optional): If True, use grayscale image.
         """
         DataGenerator.__init__(
             self,
@@ -1635,10 +1632,12 @@ class DataGenerator_3Dconv_tf(DataGenerator):
         """Generate one batch of data.
 
         Args:
-            index (TYPE): Description
+            index (int): Frame index
 
         Returns:
-            TYPE: Description
+            Tuple[np.ndarray, np.ndarray]: One batch of data
+                X (np.ndarray): Input volume
+                y (np.ndarray): Target
         """
         # Generate indexes of the batch
         indexes = self.indexes[index * self.batch_size : (index + 1) * self.batch_size]
@@ -1656,10 +1655,10 @@ class DataGenerator_3Dconv_tf(DataGenerator):
         """Rotate X by 90 degrees CCW.
 
         Args:
-            X (TYPE): Description
+            X (np.ndarray): Volume
 
         Returns:
-            TYPE: Description
+            X (np.ndarray): Rotated volume
         """
         X = tf.transpose(X, [1, 0, 2, 3])
         X = X[:, ::-1, :, :]
@@ -1670,26 +1669,25 @@ class DataGenerator_3Dconv_tf(DataGenerator):
         """Rotate X by 180 degrees.
 
         Args:
-            X (TYPE): Description
+            X (np.ndarray): Volume
 
         Returns:
-            TYPE: Description
+            X (np.ndarray): Rotated volume
         """
         X = X[::-1, ::-1, :, :]
         return X
 
     def project_grid(self, X_grid, camname, ID, experimentID, device):
-        """Summary
+        """Projects 3D voxel centers and sample images as projected 2D pixel coordinates
 
         Args:
-            X_grid (TYPE): Description
-            camname (TYPE): Description
-            ID (TYPE): Description
-            experimentID (TYPE): Description
-            device (TYPE): Description
+            X_grid (np.ndarray): 3-D array containing center coordinates of each voxel.
+            camname (Text): camera name
+            ID (Text): string denoting a sample ID
+            experimentID (int): identifier for a video recording session.
 
         Returns:
-            TYPE: Description
+            np.ndarray: projected voxel centers, now in 2D pixels
         """
         ts = time.time()
         with tf.device(device):
@@ -1783,23 +1781,22 @@ class DataGenerator_3Dconv_tf(DataGenerator):
 
             return X
 
-    # TODO(this vs self): The this_* naming convention is hard to read.
-    # Consider revising
     # TODO(nesting): There is pretty deep locigal nesting in this function,
     # might be useful to break apart
     def __data_generation(self, list_IDs_temp):
         """Generate data containing batch_size samples.
-
         X : (n_samples, *dim, n_channels)
 
         Args:
-            list_IDs_temp (TYPE): Description
+            list_IDs_temp (List): List of experiment Ids
 
         Returns:
-            TYPE: Description
-
+            Tuple: Batch_size training samples
+                X: Input volumes
+                y_3d: Targets
+                rotangle: Rotation angle
         Raises:
-            Exception: Description
+            Exception: Invalid generator mode specified.
         """
         # Initialization
         ts = time.time()
@@ -1998,17 +1995,12 @@ class DataGenerator_3Dconv_tf(DataGenerator):
                         (self.batch_size, self.nvox, self.nvox, self.nvox, 3),
                     )
 
-                    if self.norm_im:
-                        X, X_grid = self.random_rotate(X, X_grid)
-                    else:
-                        X, X_grid, rotate_log = self.random_rotate(X, X_grid, log=True)
+
+                    X, X_grid = self.random_rotate(X, X_grid)
                     # Need to reshape back to raveled version
                     X_grid = tf.reshape(X_grid, (self.batch_size, -1, 3))
                 else:
-                    if self.norm_im:
-                        X, y_3d = self.random_rotate(X, y_3d)
-                    else:
-                        X, y_3d, rotate_log = self.random_rotate(X, y_3d, log=True)
+                    X, y_3d = self.random_rotate(X, y_3d)
 
             # Then we also need to return the 3d grid center coordinates,
             # for calculating a spatial expected value
@@ -2064,39 +2056,86 @@ class DataGenerator_3Dconv_tf(DataGenerator):
                 # y_3d is in coordinates here.
                 return [processing.preprocess_3d(X), X_grid], y_3d
             else:
-                return [X, X_grid], [y_3d, rotate_log]
+                return [X, X_grid], y_3d
         else:
             if self.norm_im:
                 return processing.preprocess_3d(X), y_3d
             else:
-                return X, [y_3d, rotate_log]
+                return X, y_3d
 
+def random_continuous_rotation(X, y_3d, max_delta=5):
+    """Rotates X and y_3d a random amount around z-axis.
+
+    Args:
+        X (np.ndarray): input image volume
+        y_3d (np.ndarray): 3d target (for MAX network) or voxel center grid (for AVG network)
+        max_delta (int, optional): maximum range for rotation angle.
+
+    Returns:
+        np.ndarray: rotated image volumes
+        np.ndarray: rotated grid coordimates
+    """
+    rotangle = np.random.rand() * (2 * max_delta) - max_delta
+    X = tf.reshape(X, [X.shape[0], X.shape[1], X.shape[2], -1]).numpy()
+    y_3d = tf.reshape(
+        y_3d, [y_3d.shape[0], y_3d.shape[1], y_3d.shape[2], -1]
+    ).numpy()
+    for i in range(X.shape[0]):
+        X[i] = tf.keras.preprocessing.image.apply_affine_transform(
+            X[i],
+            theta=rotangle,
+            row_axis=0,
+            col_axis=1,
+            channel_axis=2,
+            fill_mode="nearest",
+            cval=0.0,
+            order=1,
+        )
+        y_3d[i] = tf.keras.preprocessing.image.apply_affine_transform(
+            y_3d[i],
+            theta=rotangle,
+            row_axis=0,
+            col_axis=1,
+            channel_axis=2,
+            fill_mode="nearest",
+            cval=0.0,
+            order=1,
+        )
+
+    X = tf.reshape(X, [X.shape[0], X.shape[1], X.shape[2], X.shape[2], -1]).numpy()
+    y_3d = tf.reshape(
+        y_3d,
+        [y_3d.shape[0], y_3d.shape[1], y_3d.shape[2], y_3d.shape[2], -1],
+    ).numpy()
+
+    return X, y_3d
 
 # TODO(inherit): Several methods are repeated, consider inheriting from parent
 class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
     """Generate 3d conv data from memory.
 
     Attributes:
-        augment_brightness (TYPE): Description
-        augment_continuous_rotation (TYPE): Description
-        augment_hue (TYPE): Description
-        batch_size (TYPE): Description
-        bright_val (TYPE): Description
-        cam3_train (TYPE): Description
-        chan_num (TYPE): Description
-        data (TYPE): Description
-        expval (TYPE): Description
-        hue_val (TYPE): Description
-        indexes (TYPE): Description
-        labels (TYPE): Description
-        list_IDs (TYPE): Description
-        nvox (TYPE): Description
-        random (TYPE): Description
-        rotation (TYPE): Description
-        rotation_val (TYPE): Description
-        shuffle (TYPE): Description
-        var_reg (TYPE): Description
-        xgrid (TYPE): Description
+        augment_brightness (bool): If True, applies brightness augmentation
+        augment_continuous_rotation (bool): If True, applies rotation augmentation in increments smaller than 90 degrees
+        augment_hue (bool): If True, applies hue augmentation
+        batch_size (int): Batch size
+        bright_val (float): Brightness augmentation range (-bright_val, bright_val), as fraction of raw image brightness
+        chan_num (int): Number of input channels
+        data (np.ndarray): Image volumes
+        expval (bool): If True, crafts input for an AVG network
+        hue_val (float): Hue augmentation range (-hue_val, hue_val), as fraction of raw image hue range
+        indexes (np.ndarray): Sample indices used for batch generation
+        labels (Dict): Label dictionary
+        list_IDs (List): List of sampleIDs
+        nvox (int): Number of voxels in each grid dimension
+        random (bool): If True, shuffles camera order for each batch
+        rotation (bool): If True, applies rotation augmentation in 90 degree increments
+        rotation_val (float): Range of angles used for continuous rotation augmentation
+        shuffle (bool): If True, shuffle the samples before each epoch
+        var_reg (bool): If True, returns input used for variance regularization
+        xgrid (np.ndarray): For the AVG network, this contains the 3D grid coordinates
+        n_rand_views (int): Number of reviews to sample randomly from the full set
+        replace (bool): If True, samples n_rand_views with replacement
     """
 
     def __init__(
@@ -2113,36 +2152,38 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         xgrid=None,
         var_reg=False,
         nvox=64,
-        cam3_train=False,
         augment_brightness=True,
         augment_hue=True,
         augment_continuous_rotation=True,
         bright_val=0.05,
         hue_val=0.05,
-        rotation_val=0.05,
+        rotation_val=5,
+        replace=True,
+        n_rand_views=None,
     ):
         """Initialize data generator.
 
         Args:
-            list_IDs (TYPE): Description
-            data (TYPE): Description
-            labels (TYPE): Description
-            batch_size (TYPE): Description
-            rotation (bool, optional): Description
-            random (bool, optional): Description
-            chan_num (int, optional): Description
-            shuffle (bool, optional): Description
-            expval (bool, optional): Description
-            xgrid (None, optional): Description
-            var_reg (bool, optional): Description
-            nvox (int, optional): Description
-            cam3_train (bool, optional): Description
-            augment_brightness (bool, optional): Description
-            augment_hue (bool, optional): Description
-            augment_continuous_rotation (bool, optional): Description
-            bright_val (float, optional): Description
-            hue_val (float, optional): Description
-            rotation_val (float, optional): Description
+            list_IDs (List): List of sampleIDs
+            data data (np.ndarray): Image volumes
+            labels (Dict): Label dictionar
+            batch_size (int): batch size
+            rotation (bool, optional): If True, applies rotation augmentation in 90 degree increments
+            random (bool, optional): If True, shuffles camera order for each batch
+            chan_num (int, optional): Number of input channels
+            shuffle (bool, optional): If True, shuffle the samples before each epoch
+            expval (bool, optional): If True, crafts input for an AVG network
+            xgrid (None, optional): For the AVG network, this contains the 3D grid coordinates
+            var_reg (bool, optional): If True, returns input used for variance regularization
+            nvox (int, optional): Number of voxels in each grid dimension
+            augment_brightness (bool, optional): If True, applies brightness augmentation
+            augment_hue (bool, optional): If True, applies hue augmentation
+            augment_continuous_rotation (bool, optional): If True, applies rotation augmentation in increments smaller than 90 degree
+            bright_val (float, optional): brightness augmentation range (-bright_val, bright_val), as fraction of raw image brightness
+            hue_val (float, optional): Hue augmentation range (-hue_val, hue_val), as fraction of raw image hue range
+            rotation_val (float, optional): Range of angles used for continuous rotation augmentation
+            n_rand_views (int, optional): Number of reviews to sample randomly from the full set
+            replace (bool, optional): If True, samples n_rand_views with replacement
         """
         self.list_IDs = list_IDs
         self.data = data
@@ -2160,17 +2201,18 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         if self.expval:
             self.xgrid = xgrid
         self.nvox = nvox
-        self.cam3_train = cam3_train
         self.bright_val = bright_val
         self.hue_val = hue_val
         self.rotation_val = rotation_val
+        self.n_rand_views = n_rand_views
+        self.replace = replace
         self.on_epoch_end()
 
     def __len__(self):
         """Denote the number of batches per epoch.
 
         Returns:
-            TYPE: Description
+            int: Batches per epoch
         """
         return int(np.floor(len(self.list_IDs) / self.batch_size))
 
@@ -2178,10 +2220,12 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         """Generate one batch of data.
 
         Args:
-            index (TYPE): Description
+            index (int): Frame index
 
         Returns:
-            TYPE: Description
+            Tuple[np.ndarray, np.ndarray]: One batch of data
+                X (np.ndarray): Input volume
+                y (np.ndarray): Target
         """
         # Generate indexes of the batch
         indexes = self.indexes[index * self.batch_size : (index + 1) * self.batch_size]
@@ -2204,10 +2248,10 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         """Rotate X by 90 degrees CCW.
 
         Args:
-            X (TYPE): Description
+            X (np.ndarray): Image volume or grid
 
         Returns:
-            TYPE: Description
+            X (np.ndarray): Rotated image volume or grid
         """
         X = np.transpose(X, [1, 0, 2, 3])
         X = X[:, ::-1, :, :]
@@ -2217,10 +2261,10 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         """Rotate X by 180 degrees.
 
         Args:
-            X (TYPE): Description
+            X (np.ndarray): Image volume or grid
 
         Returns:
-            TYPE: Description
+            X (np.ndarray): Rotated image volume or grid
         """
         X = X[::-1, ::-1, :, :]
         return X
@@ -2229,11 +2273,12 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         """Rotate each sample by 0, 90, 180, or 270 degrees.
 
         Args:
-            X (TYPE): Description
-            y_3d (TYPE): Description
+            X (np.ndarray): Image volumes
+            y_3d (np.ndarray): 3D grid coordinates (AVG) or training target volumes (MAX)
 
         Returns:
-            TYPE: Description
+            X (np.ndarray): Rotated image volumes
+            y_3d (np.ndarray): Rotated 3D grid coordinates (AVG) or training target volumes (MAX)
         """
         rots = np.random.choice(np.arange(4), X.shape[0])
         for i in range(X.shape[0]):
@@ -2276,75 +2321,19 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         plt.show()
         input("Press Enter to continue...")
 
-    def random_continuous_rotation(self, X, y_3d, max_delta=5):
-        """Rotates X and y_3d a random amount around z-axis.
+    def do_augmentation(self, X, X_grid, y_3d):
+        """Applies augmentation
 
         Args:
-            X (np.ndarray): input image volume
-            y_3d (np.ndarray): 3d target (for MAX network) or voxel center grid (for AVG network)
-            max_delta (int, optional): maximum range for rotation angle.
+            X (np.ndarray): image volumes
+            X_grid (np.ndarray): 3D grid coordinates
+            y_3d (np.ndarray): training targets
 
         Returns:
-            TYPE: Description
+            X (np.ndarray): Augemented image volumes
+            X_grid (np.ndarray): 3D grid coordinates
+            y_3d (np.ndarray): Training targets
         """
-        rotangle = np.random.rand() * (2 * max_delta) - max_delta
-        X = tf.reshape(X, [X.shape[0], X.shape[1], X.shape[2], -1]).numpy()
-        y_3d = tf.reshape(
-            y_3d, [y_3d.shape[0], y_3d.shape[1], y_3d.shape[2], -1]
-        ).numpy()
-        for i in range(X.shape[0]):
-            X[i] = tf.keras.preprocessing.image.apply_affine_transform(
-                X[i],
-                theta=rotangle,
-                row_axis=0,
-                col_axis=1,
-                channel_axis=2,
-                fill_mode="nearest",
-                cval=0.0,
-                order=1,
-            )
-            y_3d[i] = tf.keras.preprocessing.image.apply_affine_transform(
-                y_3d[i],
-                theta=rotangle,
-                row_axis=0,
-                col_axis=1,
-                channel_axis=2,
-                fill_mode="nearest",
-                cval=0.0,
-                order=1,
-            )
-
-        X = tf.reshape(X, [X.shape[0], X.shape[1], X.shape[2], X.shape[2], -1]).numpy()
-        y_3d = tf.reshape(
-            y_3d,
-            [y_3d.shape[0], y_3d.shape[1], y_3d.shape[2], y_3d.shape[2], -1],
-        ).numpy()
-
-        return X, y_3d
-
-    def __data_generation(self, list_IDs_temp):
-        """Generate data containing batch_size samples.
-
-        Args:
-            list_IDs_temp (TYPE): Description
-
-        Returns:
-            TYPE: Description
-        """
-        # Initialization
-
-        X = np.zeros((self.batch_size, *self.data.shape[1:]))
-        y_3d = np.zeros((self.batch_size, *self.labels.shape[1:]))
-
-        if self.expval:
-            X_grid = np.zeros((self.batch_size, *self.xgrid.shape[1:]))
-
-        for i, ID in enumerate(list_IDs_temp):
-            X[i] = self.data[ID].copy()
-            y_3d[i] = self.labels[ID]
-            if self.expval:
-                X_grid[i] = self.xgrid[ID]
-
         if self.rotation:
             if self.expval:
                 # First make X_grid 3d
@@ -2359,22 +2348,19 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
                 X, y_3d = self.random_rotate(X.copy(), y_3d.copy())
 
         if self.augment_continuous_rotation:
-            # import pdb
-            # pdb.set_trace()
-            # print(y_3d.shape, flush=True)
             if self.expval:
                 # First make X_grid 3d
                 X_grid = np.reshape(
                     X_grid,
                     (self.batch_size, self.nvox, self.nvox, self.nvox, 3),
                 )
-                X, X_grid = self.random_continuous_rotation(
+                X, X_grid = random_continuous_rotation(
                     X.copy(), X_grid.copy(), self.rotation_val
                 )
                 # Need to reshape back to raveled version
                 X_grid = np.reshape(X_grid, (self.batch_size, -1, 3))
             else:
-                X, y_3d = self.random_continuous_rotation(
+                X, y_3d = random_continuous_rotation(
                     X.copy(), y_3d.copy(), self.rotation_val
                 )
 
@@ -2402,41 +2388,92 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
                     X[..., channel_ids], self.bright_val
                 )
 
-        # Randomly re-order, if desired
-        if self.random:
-            X = np.reshape(
-                X,
-                (
-                    X.shape[0],
-                    X.shape[1],
-                    X.shape[2],
-                    X.shape[3],
-                    self.chan_num,
-                    -1,
-                ),
-                order="F",
-            )
-            X = X[:, :, :, :, :, np.random.permutation(X.shape[-1])]
-            X = np.reshape(
-                X,
-                (
-                    X.shape[0],
-                    X.shape[1],
-                    X.shape[2],
-                    X.shape[3],
-                    X.shape[4] * X.shape[5],
-                ),
-                order="F",
-            )
+        return X, X_grid, y_3d
 
-        if self.cam3_train:
-            # If random camera shuffling is turned on, we can just take the first 3 cameras and get a nice
-            # random distribution of sets of 3
-            if not self.random:
-                warnings.warn(
-                    "Set to generate data from a random subset of 3 cameras, but cameras are not being shuffled"
-                )
-            X = X[:, :, :, :, :9]  # 3 cameras * 3 RGB channels
+    def do_random(self, X):
+        """Randomly re-order camera views
+
+        Args:
+            X (np.ndarray): image volumes
+
+        Returns:
+            X (np.ndarray): Shuffled image volumes
+        """
+        if self.random:
+            X = np.reshape(X,
+                           (X.shape[0],
+                            X.shape[1],
+                            X.shape[2],
+                            X.shape[3],
+                            self.chan_num,
+                            -1),
+                           order='F')
+            X = X[:, :, :, :, :, np.random.permutation(X.shape[-1])]
+            X = np.reshape(X,
+                           (X.shape[0],
+                            X.shape[1],
+                            X.shape[2],
+                            X.shape[3],
+                            X.shape[4]*X.shape[5]), order='F')
+
+        elif self.n_rand_views is not None:
+            # Select a set of cameras randomly with replacement.
+            X = np.reshape(X,
+                           (X.shape[0],
+                            X.shape[1],
+                            X.shape[2],
+                            X.shape[3],
+                            self.chan_num,
+                            -1),
+                           order='F')
+            if self.replace:
+                X = X[..., np.random.randint(X.shape[-1], size=(self.n_rand_views,))]
+            else:
+                if not self.random:
+                    raise Exception("For replace=False for n_rand_views, random must be turned on")
+                X = X[:, :, :, :, :, :self.n_rand_views]
+            X = np.reshape(X,
+                           (X.shape[0],
+                            X.shape[1],
+                            X.shape[2],
+                            X.shape[3],
+                            X.shape[4]*X.shape[5]),
+                           order='F')
+
+        return X
+
+    def __data_generation(self, list_IDs_temp):
+        """Generate data containing batch_size samples.
+        X : (n_samples, *dim, n_channels)
+
+        Args:
+            list_IDs_temp (List): List of experiment Ids
+
+        Returns:
+            Tuple: Batch_size training samples
+                X: Input volumes
+                y_3d: Targets
+        Raises:
+            Exception: For replace=False for n_rand_views, random must be turned on.
+        """
+        # Initialization
+
+        X = np.zeros((self.batch_size, *self.data.shape[1:]))
+        y_3d = np.zeros((self.batch_size, *self.labels.shape[1:]))
+
+        # Only used when self.expval == True
+        X_grid = np.zeros((self.batch_size, *self.xgrid.shape[1:]))
+
+        for i, ID in enumerate(list_IDs_temp):
+            X[i] = self.data[ID].copy()
+            y_3d[i] = self.labels[ID]
+            if self.expval:
+                X_grid[i] = self.xgrid[ID]
+
+        X, X_grid, y_3d = self.do_augmentation(X, X_grid, y_3d)
+
+        # Randomly re-order, if desired
+        X = self.do_random(X)
 
         if self.expval:
             if self.var_reg:
@@ -2445,77 +2482,126 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         else:
             return X, y_3d
 
+class DataGenerator_3Dconv_npy(DataGenerator_3Dconv_frommem):
+    """Generates 3d conv data from npy files.
 
-class DataGenerator_3Dconv_multiviewconsistency(keras.utils.Sequence):
-    """Generate 3d conv data from memory, with a multiview consistency objective
-
-    Attributes:
-        batch_size (int): Description
-        chan_num (int): Description
-        data (TYPE): Description
-        expval (TYPE): Description
-        indexes (TYPE): Description
-        labels (TYPE): Description
-        list_IDs (TYPE): Description
-        nvox (TYPE): Description
-        random (TYPE): Description
-        rotation (TYPE): Description
-        shuffle (TYPE): Description
-        var_reg (TYPE): Description
-        xgrid (TYPE): Description
+        Attributes:
+        augment_brightness (bool): If True, applies brightness augmentation
+        augment_continuous_rotation (bool): If True, applies rotation augmentation in increments smaller than 90 degrees
+        augment_hue (bool): If True, applies hue augmentation
+        batch_size (int): Batch size
+        bright_val (float): Brightness augmentation range (-bright_val, bright_val), as fraction of raw image brightness
+        chan_num (int): Number of input channels
+        labels_3d (Dict): training targets
+        expval (bool): If True, crafts input for an AVG network
+        hue_val (float): Hue augmentation range (-hue_val, hue_val), as fraction of raw image hue range
+        indexes (np.ndarray): Sample indices used for batch generation
+        list_IDs (List): List of sampleIDs
+        nvox (int): Number of voxels in each grid dimension
+        random (bool): If True, shuffles camera order for each batch
+        rotation (bool): If True, applies rotation augmentation in 90 degree increments
+        rotation_val (float): Range of angles used for continuous rotation augmentation
+        shuffle (bool): If True, shuffle the samples before each epoch
+        var_reg (bool): If True, returns input used for variance regularization
+        n_rand_views (int): Number of reviews to sample randomly from the full set
+        replace (bool): If True, samples n_rand_views with replacement
+        imdir (Text): Name of image volume npy subfolder
+        griddir (Text): Name of grid volumw npy subfolder
+        mono (bool): If True, return monochrome image volumes
+        sigma (float): For MAX network, size of target Gaussian (mm)
+        cam1 (bool): If True, prepares input for training a single camea network
+        prefeat (bool): If True, prepares input for a network performing volume feature extraction before fusion
+        npydir (Dict): path to each npy volume folder for each recording (i.e. experiment)
     """
 
-    def __init__(
-        self,
-        list_IDs,
-        data,
-        labels,
-        batch_size,
-        rotation=True,
-        random=True,
-        chan_num=3,
-        shuffle=True,
-        expval=False,
-        xgrid=None,
-        var_reg=False,
-        nvox=64,
-    ):
-        """Initialize data generator.
+    def __init__(self,
+                 list_IDs,
+                 labels_3d,
+                 npydir,
+                 batch_size,
+                 rotation=True,
+                 random=False,
+                 chan_num=3,
+                 shuffle=True,
+                 expval=False,
+                 var_reg=False,
+                 imdir='image_volumes',
+                 griddir='grid_volumes',
+                 nvox=64,
+                 n_rand_views=None,
+                 mono=False,
+                 cam1=False,
+                 replace=True,
+                 prefeat=False,
+                 sigma=10,
+                 augment_brightness=True,
+                 augment_hue=True,
+                 augment_continuous_rotation=True,
+                 bright_val=0.05,
+                 hue_val=0.05,
+                 rotation_val=5,
+                 ):
+        """Generates 3d conv data from npy files.
 
         Args:
-            list_IDs (TYPE): Description
-            data (TYPE): Description
-            labels (TYPE): Description
-            batch_size (TYPE): Description
-            rotation (bool, optional): Description
-            random (bool, optional): Description
-            chan_num (int, optional): Description
-            shuffle (bool, optional): Description
-            expval (bool, optional): Description
-            xgrid (None, optional): Description
-            var_reg (bool, optional): Description
-            nvox (int, optional): Description
+            list_IDs (List): List of sampleIDs
+            labels_3d (Dict): training targets
+            npydir (Dict): path to each npy volume folder for each recording (i.e. experiment)
+            batch_size (int): Batch size
+            rotation (bool, optional): If True, applies rotation augmentation in 90 degree increments
+            random (bool, optional): If True, shuffles camera order for each batch
+            chan_num (int, optional): Number of input channels
+            shuffle (bool, optional): If True, shuffle the samples before each epoch
+            expval (bool, optional): If True, crafts input for an AVG network
+            var_reg (bool, optional): If True, returns input used for variance regularization
+            imdir (Text, optional): Name of image volume npy subfolder
+            griddir (Text, optional): Name of grid volumw npy subfolder
+            nvox (int, optional): Number of voxels in each grid dimension
+            n_rand_views (int, optional): Number of reviews to sample randomly from the full set
+            mono (bool, optional): If True, return monochrome image volumes
+            cam1 (bool, optional): If True, prepares input for training a single camea network
+            replace (bool, optional): If True, samples n_rand_views with replacement
+            prefeat (bool, optional): If True, prepares input for a network performing volume feature extraction before fusion
+            sigma (float, optional): For MAX network, size of target Gaussian (mm)
+            augment_brightness (bool, optional): If True, applies brightness augmentation
+            augment_hue (bool, optional): If True, applies hue augmentation
+            augment_continuous_rotation (bool, optional): If True, applies rotation augmentation in increments smaller than 90 degrees
+            bright_val (float, optional): Brightness augmentation range (-bright_val, bright_val), as fraction of raw image brightness
+            hue_val (float, optional): Hue augmentation range (-hue_val, hue_val), as fraction of raw image hue range
+            rotation_val (float, optional): Range of angles used for continuous rotation augmentation
         """
         self.list_IDs = list_IDs
-        self.data = data
-        self.labels = labels
+        self.labels_3d = labels_3d
+        self.npydir = npydir
         self.rotation = rotation
-        self.batch_size = 1  # We expand the number of examples in each batch for the multi-view consistency loss
+        self.batch_size = batch_size
         self.random = random
-        self.chan_num = 3
+        self.chan_num = chan_num
         self.shuffle = shuffle
         self.expval = expval
         self.var_reg = var_reg
-        if self.expval:
-            self.xgrid = xgrid
+        self.griddir = griddir
+        self.imdir = imdir
         self.nvox = nvox
+        self.n_rand_views = n_rand_views
+        self.mono = mono
+        self.cam1 = cam1
+        self.replace = replace
+        self.prefeat = prefeat
+        self.sigma = sigma
+        self.augment_hue = augment_hue
+        self.augment_continuous_rotation = augment_continuous_rotation
+        self.augment_brightness = augment_brightness
+        self.bright_val = bright_val
+        self.hue_val = hue_val
+        self.rotation_val = rotation_val
         self.on_epoch_end()
 
     def __len__(self):
         """Denote the number of batches per epoch.
 
         Returns:
-            TYPE: Description
+            int: Batches per epoch
         """
         return int(np.floor(len(self.list_IDs) / self.batch_size))
 
@@ -2523,13 +2609,15 @@ class DataGenerator_3Dconv_multiviewconsistency(keras.utils.Sequence):
         """Generate one batch of data.
 
         Args:
-            index (TYPE): Description
+            index (int): Frame index
 
         Returns:
-            TYPE: Description
+            Tuple[np.ndarray, np.ndarray]: One batch of data
+                X (np.ndarray): Input volume
+                y (np.ndarray): Target
         """
         # Generate indexes of the batch
-        indexes = self.indexes[index * self.batch_size : (index + 1) * self.batch_size]
+        indexes = self.indexes[index*self.batch_size:(index+1)*self.batch_size]
 
         # Find list of IDs
         list_IDs_temp = [self.list_IDs[k] for k in indexes]
@@ -2542,65 +2630,181 @@ class DataGenerator_3Dconv_multiviewconsistency(keras.utils.Sequence):
     def on_epoch_end(self):
         """Update indexes after each epoch."""
         self.indexes = np.arange(len(self.list_IDs))
-        if self.shuffle:
+        if self.shuffle == True:
+            print("SHUFFLING DATA INDICES")
             np.random.shuffle(self.indexes)
+
+    def rot90(self, X):
+        # Rotate 90
+        X = np.transpose(X, [1, 0, 2, 3])
+        X = X[:, ::-1, :, :]
+
+        return X
+
+    def rot180(self,X):
+        #Rotate 180
+        X = X[::-1, ::-1, :, :]
+
+        return X
+
+    def random_rotate(self, X, y_3d):
+        """
+        Rotate each sample by 0, 90, 180, or 270 degrees
+        """
+        rots = np.random.choice(np.arange(4), X.shape[0])
+
+        for i in range(X.shape[0]):
+            if rots[i]==0:
+                pass
+            elif rots[i]==1:
+                #Rotate180
+                X[i] = self.rot180(X[i])
+                y_3d[i] = self.rot180(y_3d[i])
+            elif rots[i]==2:
+                #Rotate90
+                X[i] = self.rot90(X[i])
+                y_3d[i] = self.rot90(y_3d[i])
+            elif rots[i]==3:
+                #Rotate -90/270
+                X[i] = self.rot90(X[i])
+                X[i] = self.rot180(X[i])
+                y_3d[i] = self.rot90(y_3d[i])
+                y_3d[i] = self.rot180(y_3d[i])
+            else:
+                raise Exception("Failed to rotate properly")
+
+        return X, y_3d
 
     def __data_generation(self, list_IDs_temp):
         """Generate data containing batch_size samples.
+        X : (n_samples, *dim, n_channels)
 
         Args:
-            list_IDs_temp (TYPE): Description
+            list_IDs_temp (List): List of experiment Ids
 
         Returns:
-            TYPE: Description
+            Tuple: Batch_size training samples
+                X: Input volumes
+                y_3d or y_3d_max: Targets
+        Raises:
+            Exception: For replace=False for n_rand_views, random must be turned on.
         """
+
         # Initialization
 
-        X = np.zeros((self.batch_size * 4, *self.data.shape[1:]))
-        y_3d = np.zeros((self.batch_size * 4, *self.labels.shape[1:]))
+        X = []
+        y_3d = []
+        X_grid = []
 
         for i, ID in enumerate(list_IDs_temp):
-            X[-1] = self.data[ID].copy()
-            y_3d = np.tile(
-                self.labels[ID][np.newaxis, :, :, :, :], (4, 1, 1, 1, 1)
-            )  # We just take 4 copies of this
+            # Need to look up the experiment ID to get the correct directory
+            IDkey = ID.split("_")
+            eID = int(IDkey[0])
+            sID = IDkey[1]
 
-        # Now we need to sub-select camera pairs in each of the first 3 examples,
-        # so
-        # idx 0: Camera1/Camera2
-        # idx 1: Camera2/Camera3
-        # idx 2: Camera1/Camera3
-        # idx 3: Camera1/Camera2/Camera3
+            X.append(np.load(os.path.join(self.npydir[eID],
+                                          self.imdir,
+                                          '0_' + sID + '.npy')).astype('float32'))
 
-        order_dict = {}
-        order_dict[0] = [0, 0, 0, 1, 1, 1]
-        order_dict[1] = [1, 1, 1, 2, 2, 2]
-        order_dict[2] = [0, 0, 0, 2, 2, 2]
+            y_3d.append(self.labels_3d[ID])
+            X_grid.append(np.load(os.path.join(self.npydir[eID],
+                                               self.griddir,
+                                               '0_' + sID + '.npy')))
 
-        for i in range(3):
-            c1_2_X = X[-1].copy()
+        X = np.stack(X)
+        y_3d = np.stack(y_3d)
 
-            c1_2_X = np.reshape(
-                c1_2_X,
+        X_grid = np.stack(X_grid)
+        if not self.expval:
+            y_3d_max = np.zeros((self.batch_size,
+                                 self.nvox,
+                                 self.nvox,
+                                 self.nvox,
+                                 y_3d.shape[-1]))
+
+        if not self.expval:
+            X_grid = np.reshape(X_grid, (-1,
+                                         self.nvox,
+                                         self.nvox,
+                                         self.nvox,
+                                         3))
+            for gridi in range(X_grid.shape[0]):
+                x_coord_3d = X_grid[gridi, :, :, :, 0]
+                y_coord_3d = X_grid[gridi, :, :, :, 1]
+                z_coord_3d = X_grid[gridi, :, :, :, 2]
+                for j in range(y_3d_max.shape[-1]):
+                        y_3d_max[gridi, :, :, :, j] = \
+                            np.exp(-((y_coord_3d-y_3d[gridi, 1, j])**2 +
+                                   (x_coord_3d-y_3d[gridi, 0, j])**2 +
+                                   (z_coord_3d-y_3d[gridi, 2, j])**2)/(2*self.sigma**2))
+
+        if self.mono and self.chan_num == 3:
+            # Convert from RGB to mono using the skimage formula. Drop the duplicated frames.
+            # Reshape so RGB can be processed easily.
+            X = np.reshape(
+                X,
                 (
-                    c1_2_X.shape[0],
-                    c1_2_X.shape[1],
-                    c1_2_X.shape[2],
+                    X.shape[0],
+                    X.shape[1],
+                    X.shape[2],
+                    X.shape[3],
                     self.chan_num,
                     -1,
                 ),
                 order="F",
             )
-            c1_2_X = c1_2_X[:, :, :, :, order_dict[i]]
-            X[i] = np.reshape(
-                c1_2_X,
-                (
-                    c1_2_X.shape[0],
-                    c1_2_X.shape[1],
-                    c1_2_X.shape[2],
-                    c1_2_X.shape[3] * c1_2_X.shape[4],
-                ),
-                order="F",
+            X = (
+                X[:, :, :, :, 0] * 0.2125
+                + X[:, :, :, :, 1] * 0.7154
+                + X[:, :, :, :, 2] * 0.0721
             )
 
-        return X, y_3d
+        ncam = int(X.shape[-1]//self.chan_num)
+
+        X, X_grid, y_3d = self.do_augmentation(X, X_grid, y_3d)
+
+        # Randomly re-order, if desired
+        X = self.do_random(X)
+
+        if self.cam1:
+            # collapse the cameras to the batch dimensions.
+            X = np.reshape(X,
+                           (X.shape[0],
+                            X.shape[1],
+                            X.shape[2],
+                            X.shape[3],
+                            self.chan_num,
+                            -1),
+                           order='F')
+            X = np.transpose(X, [0, 5, 1, 2, 3, 4])
+            X = np.reshape(X,
+                           (-1,
+                            X.shape[2],
+                            X.shape[3],
+                            X.shape[4],
+                            X.shape[5]))
+            if self.expval:
+                y_3d = np.tile(y_3d, [ncam, 1, 1])
+                X_grid = np.tile(X_grid, [ncam, 1, 1])
+            else:
+                y_3d = np.tile(y_3d, [ncam, 1, 1, 1, 1])
+
+        X = processing.preprocess_3d(X)
+
+        XX = []
+        if self.prefeat:
+            for ix in range(ncam):
+                XX.append(X[..., ix*self.chan_num:(ix+1)*self.chan_num])
+            X = XX
+
+        if self.expval:
+            if not self.prefeat:
+                X = [X]
+            X = X + [X_grid]
+
+        if self.expval:
+            if self.var_reg:
+                return X, [y_3d, np.zeros(self.batch_size)]
+            return X, y_3d
+        else:
+            return X, y_3d_max

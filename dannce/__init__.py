@@ -78,6 +78,10 @@ _param_defaults_dannce = {
     "net": None,
     "from_weights": None,
     "dannce_predict_vol_tifdir": None,
+    "write_npy": None,
+    "use_npy": False,
+    "n_rand_views": None,
+    "rand_view_replace": True,
 }
 _param_defaults_com = {
     "dsmode": "nn",
