@@ -461,11 +461,6 @@ def add_experiment(
     datadict_3d_in,
     com3d_dict_in,
 ):
-    """Change variable names to satisfy naming convention.
-
-    Append *_in variables to out variables, after appending the experiment
-    number to the front of keys
-    """
     samples_in = [str(experiment) + "_" + str(int(x)) for x in samples_in]
     samples_out = samples_out + samples_in
 

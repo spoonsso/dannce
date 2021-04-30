@@ -73,20 +73,25 @@ def identity_pred(y_true, y_pred):
     return K.mean(K.flatten(y_pred))
 
 
-def K_nanmean(tensor):
+def K_nanmean_infmean(tensor):
     """
-    Returns the nanmean of the input tensor. If tensor is all NaN or inf, returns 0
+    Returns the nanmean of the input tensor. If tensor is all NaN, returns 0
+
+    Also removes inf
     """
     notnan = K.cast((~tf.math.is_nan(tensor)) & (~tf.math.is_inf(tensor)), "float32")
     num_notnan = K.sum(K.flatten(notnan))
 
     nonan = K.cast(
-        tf.where((~tf.math.is_nan(tensor)) & (~tf.math.is_inf(tensor)), tensor, tf.zeros_like(tensor)), "float32"
+        tf.where((~tf.math.is_nan(tensor)) & (~tf.math.is_inf(tensor)),
+                 tensor,
+                 tf.zeros_like(tensor)), "float32"
     )
 
     loss = K.sum(nonan) / num_notnan
 
-    return tf.where((~tf.math.is_nan(loss)) & (~tf.math.is_inf(loss)), loss, 0)
+    return loss#tf.where(~tf.math.is_inf(loss), loss, 0)
+
 
 def euclidean_distance_3D(y_true, y_pred):
     """Get 3d Euclidean distance.
@@ -97,7 +102,7 @@ def euclidean_distance_3D(y_true, y_pred):
         are NaNs in the labels, the distance function returns inf
     """
     ed3D = K.flatten(K.sqrt(K.sum(K.pow(y_true - y_pred, 2), axis=1)))
-    return K_nanmean(ed3D)
+    return K_nanmean_infmean(ed3D)
 
 
 def centered_euclidean_distance_3D(y_true, y_pred):
@@ -111,4 +116,4 @@ def centered_euclidean_distance_3D(y_true, y_pred):
     y_pred = y_pred - K.mean(y_pred, axis=-1, keepdims=True)
 
     ced3D = K.flatten(K.sqrt(K.sum(K.pow(y_true - y_pred, 2), axis=1)))
-    return K_nanmean(ced3D)
+    return K_nanmean_infmean(ced3D)

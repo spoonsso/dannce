@@ -455,6 +455,24 @@ def add_dannce_train_args(
         type=ast.literal_eval,
         help="Pass a list of landmark indices to exclude these landmarks from training",
     )
+    parser.add_argument(
+        "--use-npy",
+        dest="use_npy",
+        type=ast.literal_eval,
+        help="If True, loads training data from npy files"
+    )
+    parser.add_argument(
+        "--rand-view-replace",
+        dest="rand_view_replace",
+        type=ast.literal_eval,
+        help="If True, samples n_rand_views with replacement"
+    )
+    parser.add_argument(
+        "--n-rand-views",
+        dest="n_rand_views",
+        type=int,
+        help="Number of views to sample from the full viewset during training"
+    )
     return parser
 
 
@@ -496,6 +514,12 @@ def add_dannce_predict_args(
         type=ast.literal_eval,
         help="If True, attempt to load in a prediction model without requiring a full model file (i.e. just using weights). May fail for some model types.",
     )
+    parser.add_argument(
+    "--write-npy",
+    dest="write_npy",
+    help="If not None, uses this base path to write large dataset to npy files"
+    )
+ 
     return parser
 
 
