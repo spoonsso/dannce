@@ -19,8 +19,6 @@ setup(
         "opencv-python",
         "tensorflow==2.3.1",
         "torch",
-        "attr",
-        "attrs",
     ],
     scripts=['cluster/holy_dannce_train.sh',
              'cluster/holy_dannce_train_grid.sh',
