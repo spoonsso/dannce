@@ -98,7 +98,8 @@ def euclidean_distance_3D(y_true, y_pred):
 
     Assumes predictions of shape (batch_size,3,num_markers)
 
-    Ignores NaN when necessary
+    Ignores NaN when necessary. But because K.sqrt(NaN) == inf, whenthere
+        are NaNs in the labels, the distance function returns inf
     """
     ed3D = K.flatten(K.sqrt(K.sum(K.pow(y_true - y_pred, 2), axis=1)))
     return K_nanmean_infmean(ed3D)

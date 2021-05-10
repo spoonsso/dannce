@@ -1,5 +1,5 @@
 """
-If we have trained a multi-gpu model and want to use it for
+If we have trained a multi-gpu TF 1.x model and want to use it for
 training or prediction on a single GPU, we need to convert it.
 
 Usage: python multigpu_to_singlegpu.py path_to_model target_GPU

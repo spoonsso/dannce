@@ -28,5 +28,7 @@ exp:
 # path to folder contraining video sub directories. Used only for com and dannce PREDICTION
 viddir: ../../demo/markerless_mouse_1/videos/
 
+gpu_id: "1"
+
 
 
