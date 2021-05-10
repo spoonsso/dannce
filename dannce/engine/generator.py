@@ -63,6 +63,7 @@ class DataGenerator(keras.utils.Sequence):
         chunks: int = 3500,
         preload: bool = True,
         mono: bool = False,
+        mirror: bool = False,
     ):
         """Initialize Generator.
 
@@ -104,6 +105,7 @@ class DataGenerator(keras.utils.Sequence):
         self._N_VIDEO_FRAMES = chunks
         self.preload = preload
         self.mono = mono
+        self.mirror = mirror
         self.on_epoch_end()
 
         if self.vidreaders is not None:
@@ -181,7 +183,8 @@ class DataGenerator(keras.utils.Sequence):
                 # Without a sleep here, ffmpeg can hang on video close
                 time.sleep(0.25)
                 if self.currvideo[camname] is not None:
-                    self.currvideo[camname].close()
+                    # self.currvideo[camname].close()
+                    self.currvideo[camname]._reader_.release()
                 self.currvideo[camname] = vid
 
             # This deals with a strange indexing error in the pup data.
@@ -306,6 +309,7 @@ class DataGenerator_3Dconv(DataGenerator):
         norm_im: bool = True,
         chunks: int = 3500,
         mono: bool = False,
+        mirror: bool = False,
     ):
         """Initialize data generator.
 
@@ -368,6 +372,7 @@ class DataGenerator_3Dconv(DataGenerator):
             chunks,
             preload,
             mono,
+            mirror
         )
         self.vmin = vmin
         self.vmax = vmax
@@ -553,7 +558,7 @@ class DataGenerator_3Dconv(DataGenerator):
                     axis=1,
                 )
 
-            for camname in self.camnames[experimentID]:
+            for _ci, camname in enumerate(self.camnames[experimentID]):
                 ts = time.time()
                 # Need this copy so that this_y does not change
                 this_y = np.round(self.labels[ID]["data"][camname]).copy()
@@ -565,37 +570,50 @@ class DataGenerator_3Dconv(DataGenerator):
                     com_precrop = np.nanmean(this_y, axis=1)
 
                 # Store sample
-                # for pre-cropped tifs
-                if self.immode == "tif":
-                    thisim = imageio.imread(
-                        os.path.join(
-                            self.tifdirs[experimentID],
-                            camname,
-                            "{}.tif".format(sampleID),
+                if not self.mirror or _ci == 0:
+                    # for pre-cropped tifs
+                    if self.immode == "tif":
+                        thisim = imageio.imread(
+                            os.path.join(
+                                self.tifdirs[experimentID],
+                                camname,
+                                "{}.tif".format(sampleID),
+                            )
                         )
-                    )
 
-                # From raw video, need to crop
-                elif self.immode == "vid":
-                    thisim = self.load_vid_frame(
-                        self.labels[ID]["frames"][camname],
-                        camname,
-                        self.preload,
-                        extension=self.extension,
-                    )[
-                        self.crop_height[0] : self.crop_height[1],
-                        self.crop_width[0] : self.crop_width[1],
-                    ]
-                    # print("Decode frame took {} sec".format(time.time() - ts))
-                    tss = time.time()
+                    # From raw video, need to crop
+                    elif self.immode == "vid":
+                        thisim = self.load_vid_frame(
+                            self.labels[ID]["frames"][camname],
+                            camname,
+                            self.preload,
+                            extension=self.extension,
+                        )[
+                            self.crop_height[0] : self.crop_height[1],
+                            self.crop_width[0] : self.crop_width[1],
+                        ]
+                        # print("Decode frame took {} sec".format(time.time() - ts))
+                        tss = time.time()
 
-                # Load in the image file at the specified path
-                elif self.immode == "arb_ims":
-                    thisim = imageio.imread(
-                        self.tifdirs[experimentID]
-                        + self.labels[ID]["frames"][camname][0]
-                        + ".jpg"
-                    )
+                    # Load in the image file at the specified path
+                    elif self.immode == "arb_ims":
+                        thisim = imageio.imread(
+                            self.tifdirs[experimentID]
+                            + self.labels[ID]["frames"][camname][0]
+                            + ".jpg"
+                        )
+
+                    if self.mirror:
+                        # Save copy of the first image loaded in, so that it can be flipped accordingly.
+                        self.raw_im = thisim.copy()
+
+                if self.mirror and self.camera_params[experimentID][camname]["m"] == 1:
+                    thisim = self.raw_im.copy()
+                    thisim = thisim[-1::-1]
+                elif self.mirror and self.camera_params[experimentID][camname]["m"] == 0:
+                    thisim = self.raw_im
+                elif self.mirror:
+                    raise Exception("Invalid mirror parameter, m, must be 0 or 1")
 
                 if self.immode == "vid" or self.immode == "arb_ims":
                     this_y[0, :] = this_y[0, :] - self.crop_width[0]
@@ -871,6 +889,7 @@ class DataGenerator_3Dconv_torch(DataGenerator):
         norm_im=True,
         chunks=3500,
         mono=False,
+        mirror=False,
     ):
         """Initialize data generator.
 
@@ -933,6 +952,7 @@ class DataGenerator_3Dconv_torch(DataGenerator):
             chunks,
             preload,
             mono,
+            mirror,
         )
         self.vmin = vmin
         self.vmax = vmax
@@ -1070,10 +1090,47 @@ class DataGenerator_3Dconv_torch(DataGenerator):
             self.preload,
             extension=self.extension,
         )[
-            self.crop_height[0] : self.crop_height[1],
-            self.crop_width[0] : self.crop_width[1],
+            self.crop_height[0]: self.crop_height[1],
+            self.crop_width[0]: self.crop_width[1],
         ]
+        return self.pj_grid_post(X_grid, camname, ID, experimentID,
+                                 com, com_precrop, thisim)
 
+    def pj_grid_mirror(self, X_grid, camname, ID, experimentID, thisim):
+        this_y = self.torch.as_tensor(
+            self.labels[ID]["data"][camname],
+            dtype=self.torch.float32,
+            device=self.device,
+        ).round()
+
+        if self.torch.all(self.torch.isnan(this_y)):
+            com_precrop = self.torch.zeros_like(this_y[:, 0]) * self.torch.nan
+        else:
+            # For projecting points, we should not use this offset
+            com_precrop = self.torch.mean(this_y, axis=1)
+
+        this_y[0, :] = this_y[0, :] - self.crop_width[0]
+        this_y[1, :] = this_y[1, :] - self.crop_height[0]
+        com = self.torch.mean(this_y, axis=1)
+
+        if not self.mirror:
+            raise Exception("Trying to project onto mirrored images without mirror being set properly")
+
+        if self.camera_params[experimentID][camname]["m"] == 1:
+            passim = thisim[-1::-1].copy()
+        elif self.camera_params[experimentID][camname]["m"] == 0:
+            passim = thisim.copy()
+        else:
+            raise Exception("Invalid mirror parameter, m, must be 0 or 1")
+
+
+        return self.pj_grid_post(X_grid, camname, ID, experimentID,
+                                 com, com_precrop, passim)
+
+    def pj_grid_post(self, X_grid, camname, ID, experimentID,
+                     com, com_precrop, thisim):
+        # separate the porjection and sampling into its own function so that
+        # when mirror == True, this can be called directly
         if self.crop_im:
             if self.torch.all(self.torch.isnan(com)):
                 thisim = self.torch.zeros(
@@ -1239,16 +1296,30 @@ class DataGenerator_3Dconv_torch(DataGenerator):
             ts = time.time()
             num_cams = len(self.camnames[experimentID])
             arglist = []
-            for c in range(num_cams):
-                arglist.append(
-                    [
-                        X_grid[i],
-                        self.camnames[experimentID][c],
-                        ID,
-                        experimentID,
-                    ]
-                )
-            result = self.threadpool.starmap(self.project_grid, arglist)
+            if self.mirror:
+                # Here we only load the video once, and then parallelize the projection
+                # and sampling after mirror flipping. For setups that collect views
+                # in a single imgae with the use of mirrors
+                loadim = self.load_vid_frame(
+                    self.labels[ID]["frames"][self.camnames[experimentID][0]],
+                    self.camnames[experimentID][0],
+                    self.preload,
+                    extension=self.extension,
+                )[
+                    self.crop_height[0]: self.crop_height[1],
+                    self.crop_width[0]: self.crop_width[1],
+                ]
+                for c in range(num_cams):
+                    arglist.append(
+                        [X_grid[i], self.camnames[experimentID][c], ID, experimentID, loadim]
+                    )
+                result = self.threadpool.starmap(self.pj_grid_mirror, arglist)
+            else:
+                for c in range(num_cams):
+                    arglist.append(
+                        [X_grid[i], self.camnames[experimentID][c], ID, experimentID]
+                    )
+                result = self.threadpool.starmap(self.project_grid, arglist)
 
             for c in range(num_cams):
                 ic = c + i * len(self.camnames[experimentID])
@@ -1439,6 +1510,7 @@ class DataGenerator_3Dconv_tf(DataGenerator):
         norm_im=True,
         chunks=3500,
         mono=False,
+        mirror=False,
     ):
 
         """Initialize data generator.
@@ -1502,6 +1574,7 @@ class DataGenerator_3Dconv_tf(DataGenerator):
             chunks,
             preload,
             mono,
+            mirror,
         )
         self.vmin = vmin
         self.vmax = vmax
@@ -2125,8 +2198,7 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         self.augment_continuous_rotation = augment_continuous_rotation
         self.augment_brightness = augment_brightness
         self.var_reg = var_reg
-        if self.expval:
-            self.xgrid = xgrid
+        self.xgrid = xgrid
         self.nvox = nvox
         self.bright_val = bright_val
         self.hue_val = hue_val
@@ -2388,9 +2460,12 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         X = np.zeros((self.batch_size, *self.data.shape[1:]))
         y_3d = np.zeros((self.batch_size, *self.labels.shape[1:]))
 
-        # Only used when self.expval == True
-        X_grid = np.zeros((self.batch_size, *self.xgrid.shape[1:]))
-
+        # Only used when 
+        if self.expval:
+            X_grid = np.zeros((self.batch_size, *self.xgrid.shape[1:]))
+        else:
+            X_grid = None
+            
         for i, ID in enumerate(list_IDs_temp):
             X[i] = self.data[ID].copy()
             y_3d[i] = self.labels[ID]

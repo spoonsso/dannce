@@ -44,6 +44,14 @@ def prepare_data(
         print(CONFIG_PARAMS["label3d_file"])
         labels = load_labels(CONFIG_PARAMS["label3d_file"])
 
+    params = load_camera_params(CONFIG_PARAMS["label3d_file"])
+    cameras = {name: params[i] for i, name in enumerate(CONFIG_PARAMS["camnames"])}
+
+    if "m" in params[0] and not CONFIG_PARAMS["mirror"]:
+        warnings.warn("found mirror field in camera params, but the network is not set to run in mirror mode")
+    elif CONFIG_PARAMS["mirror"] and "m" not in params[0]:
+        raise Exception("network set to run in mirror mode, but cannot find mirror (m) field in camera params")
+
     samples = np.squeeze(labels[0]["data_sampleID"])
 
     if labels[0]["data_sampleID"].shape == (1, 1):
@@ -75,6 +83,10 @@ def prepare_data(
         # Correct for Matlab "1" indexing
         data = data - 1
 
+        if CONFIG_PARAMS["mirror"] and cameras[CONFIG_PARAMS["camnames"][i]]["m"] == 1:
+            # then we need to flip the 2D coords -- for now assuemd only horizontal flipping
+            data[:, 1] = CONFIG_PARAMS["raw_im_h"] - data[:, 1] - 1
+
         if multimode:
             print(
                 "Entering multi-mode with {} + 1 targets".format(
@@ -100,6 +112,11 @@ def prepare_data(
     data_3d = np.transpose(
         np.reshape(data_3d, [data_3d.shape[0], -1, 3]), [0, 2, 1]
     )
+
+    #If specific markers are set to be excluded, set them to NaN here.
+    if CONFIG_PARAMS["drop_landmark"] is not None and not prediction:
+        print("Setting landmarks {} to NaN. These landmarks will not be included in loss or metric evaluations".format(CONFIG_PARAMS["drop_landmark"]))
+        data_3d[:, :, CONFIG_PARAMS["drop_landmark"]] = np.nan
 
     datadict = {}
     datadict_3d = {}
