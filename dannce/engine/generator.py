@@ -2415,7 +2415,7 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
                             X.shape[3],
                             X.shape[4]*X.shape[5]), order='F')
 
-        elif self.n_rand_views is not None:
+        if self.n_rand_views is not None:
             # Select a set of cameras randomly with replacement.
             X = np.reshape(X,
                            (X.shape[0],

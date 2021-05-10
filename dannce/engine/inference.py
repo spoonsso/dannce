@@ -54,7 +54,10 @@ def predict_batch(
         np.ndarray: n_batch x n_cam x h x w x c predictions
     """
     pred = model.predict(generator.__getitem__(n_frame)[0])
-    n_cams = len(params["camnames"])
+    if params["mirror"]:
+        n_cams = 1
+    else:
+        n_cams = len(params["camnames"])
     shape = [-1, n_cams, pred.shape[1], pred.shape[2], pred.shape[3]]
     pred = np.reshape(pred, shape)
     return pred
@@ -322,6 +325,11 @@ def extract_single_instance(
     ind[0] += params["crop_height"][0]
     ind[1] += params["crop_width"][0]
     ind = ind[::-1]
+
+    # mirror flip each coord if indicated
+    if params["mirror"] and cameras[params["camnames"][n_cam]]["m"] == 1:
+        ind[1] = params["raw_im_h"] - ind[1] - 1
+        
     # now, the center of mass is (x,y) instead of (i,j)
     # now, we need to use camera calibration to triangulate
     # from 2D to 3D
@@ -575,7 +583,14 @@ def infer_com(
             # By selecting -1 for the last axis, we get the COM index for a
             # normal COM network, and also the COM index for a multi_mode COM network,
             # as in multimode the COM label is put at the end
-            if params["n_instances"] > 1 and params["n_channels_out"] > 1:
+            if params["mirror"] and params["n_instances"] == 1:
+                # For mirror we need to reshape pred so that the cameras are in front, so
+                # it works with the downstream code
+                pred = pred_batch[n_batch, 0]
+                pred = np.transpose(pred, (2, 0, 1))
+            elif params["mirror"]:
+                raise Exception("mirror mode with multiple animal instances not currently supported.")
+            elif params["n_instances"] > 1 and params["n_channels_out"] > 1:
                 pred = pred_batch[n_batch, ...]
             else:
                 pred = pred_batch[n_batch, :, :, :, -1]
