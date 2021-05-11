@@ -38,6 +38,8 @@ _param_defaults_shared = {
     "start_sample": 0,
     "write_npy": None,
     "use_npy": False,
+    "data_split_seed": None,
+    "valid_exp": None,
 }
 _param_defaults_dannce = {
     "metric": ["euclidean_distance_3D"],
