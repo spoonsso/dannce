@@ -491,6 +491,12 @@ def add_dannce_train_args(
         type=int,
         help="Number of views to sample from the full viewset during training"
     )
+    parser.add_argument(
+        "--multi-gpu-train",
+        dest="multi_gpu_train",
+        type=ast.literal_eval,
+        help="If True, distribute training data across multiple GPUs for each batch",
+    )
     return parser
 
 

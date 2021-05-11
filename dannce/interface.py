@@ -705,7 +705,8 @@ def dannce_train(params: Dict):
         metrics.append(m_obj)
 
     # set GPU ID
-    os.environ["CUDA_VISIBLE_DEVICES"] = params["gpu_id"]
+    if not params["multi_gpu_train"]:
+        os.environ["CUDA_VISIBLE_DEVICES"] = params["gpu_id"]
 
     # find the weights given config path
     if params["dannce_finetune_weights"] is not None:
@@ -1019,7 +1020,7 @@ def dannce_train(params: Dict):
                          'rotation_val': params["augment_rotation_val"],
                          'replace': params["rand_view_replace"],
                          }
-    shared_args_valid = {'batch_size': 1,
+    shared_args_valid = {'batch_size': 2,
                          'rotation': False,
                          'augment_hue': False,
                          'augment_brightness': False,
@@ -1078,69 +1079,77 @@ def dannce_train(params: Dict):
     # 2) Fine-tuning a network trained on a diff. dataset (transfer learning)
     # 3) Continuing to train 1) or 2) from a full model checkpoint (including optimizer state)
 
+    # if params["multi_gpu_train"]:
+    strategy = tf.distribute.MirroredStrategy()
+    print('Number of devices: {}'.format(strategy.num_replicas_in_sync))
+    scoping = strategy.scope()
+    # else:
+    #     scoping = True
+
     print("NUM CAMERAS: {}".format(len(camnames[0])))
 
-    if params["train_mode"] == "new":
-        model = params["net"](
-            params["loss"],
-            float(params["lr"]),
-            params["chan_num"] + params["depth"],
-            params["n_channels_out"],
-            len(camnames[0]),
-            batch_norm=False,
-            instance_norm=True,
-            include_top=True,
-            gridsize=gridsize,
-        )
-    elif params["train_mode"] == "finetune":
-        model = params["net"](
-            params["loss"],
-            float(params["lr"]),
-            params["chan_num"] + params["depth"],
-            params["n_channels_out"],
-            len(camnames[0]),
-            params["new_last_kernel_size"],
-            params["new_n_channels_out"],
-            params["dannce_finetune_weights"],
-            params["n_layers_locked"],
-            batch_norm=False,
-            instance_norm=True,
-            gridsize=gridsize,
-        )
-    elif params["train_mode"] == "continued":
-        model = load_model(
-            params["dannce_finetune_weights"],
-            custom_objects={
-                "ops": ops,
-                "slice_input": nets.slice_input,
-                "mask_nan_keep_loss": losses.mask_nan_keep_loss,
-                "euclidean_distance_3D": losses.euclidean_distance_3D,
-                "centered_euclidean_distance_3D": losses.centered_euclidean_distance_3D,
-            },
-        )
-    elif params["train_mode"] == "continued_weights_only":
-        # This does not work with models created in 'finetune' mode, but will work with models
-        # started from scratch ('new' train_mode)
-        model = params["net"](
-            params["loss"],
-            float(params["lr"]),
-            params["chan_num"] + params["depth"],
-            params["n_channels_out"],
-            3 if cam3_train else len(camnames[0]),
-            batch_norm=False,
-            instance_norm=True,
-            include_top=True,
-            gridsize=gridsize,
-        )
-        model.load_weights(params["dannce_finetune_weights"])
-    else:
-        raise Exception("Invalid training mode")
+    with scoping:
+        if params["train_mode"] == "new":
+            model = params["net"](
+                params["loss"],
+                float(params["lr"]),
+                params["chan_num"] + params["depth"],
+                params["n_channels_out"],
+                len(camnames[0]),
+                batch_norm=False,
+                instance_norm=True,
+                include_top=True,
+                gridsize=gridsize,
+            )
+        elif params["train_mode"] == "finetune":
+            model = params["net"](
+                params["loss"],
+                float(params["lr"]),
+                params["chan_num"] + params["depth"],
+                params["n_channels_out"],
+                len(camnames[0]),
+                params["new_last_kernel_size"],
+                params["new_n_channels_out"],
+                params["dannce_finetune_weights"],
+                params["n_layers_locked"],
+                batch_norm=False,
+                instance_norm=True,
+                gridsize=gridsize,
+            )
+        elif params["train_mode"] == "continued":
+            model = load_model(
+                params["dannce_finetune_weights"],
+                custom_objects={
+                    "ops": ops,
+                    "slice_input": nets.slice_input,
+                    "mask_nan_keep_loss": losses.mask_nan_keep_loss,
+                    "euclidean_distance_3D": losses.euclidean_distance_3D,
+                    "centered_euclidean_distance_3D": losses.centered_euclidean_distance_3D,
+                },
+            )
+        elif params["train_mode"] == "continued_weights_only":
+            # This does not work with models created in 'finetune' mode, but will work with models
+            # started from scratch ('new' train_mode)
+            model = params["net"](
+                params["loss"],
+                float(params["lr"]),
+                params["chan_num"] + params["depth"],
+                params["n_channels_out"],
+                3 if cam3_train else len(camnames[0]),
+                batch_norm=False,
+                instance_norm=True,
+                include_top=True,
+                gridsize=gridsize,
+            )
+            model.load_weights(params["dannce_finetune_weights"])
+        else:
+            raise Exception("Invalid training mode")
 
-    model.compile(
-        optimizer=Adam(lr=float(params["lr"])),
-        loss=params["loss"],
-        metrics=metrics,
-    )
+        model.compile(
+            optimizer=Adam(lr=float(params["lr"])),
+            loss=params["loss"],
+            metrics=metrics,
+        )
 
     print("COMPLETE\n")
 

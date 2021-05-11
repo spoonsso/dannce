@@ -85,6 +85,7 @@ _param_defaults_dannce = {
     "dannce_predict_vol_tifdir": None,
     "n_rand_views": None,
     "rand_view_replace": True,
+    "multi_gpu_train": False,
 }
 _param_defaults_com = {
     "dsmode": "nn",
