@@ -782,6 +782,8 @@ def dannce_train(params: Dict):
         npydir = {}
         for e in range(num_experiments):
             npydir[e] = params["experiment"][e]["npy_vol_dir"]
+
+        samples = processing.remove_samples_npy(npydir, samples, params)
     else:
         # Initialize video objects
         vids = {}
@@ -1204,7 +1206,7 @@ def dannce_train(params: Dict):
                 
     callbacks = [csvlog, model_checkpoint, tboard, saveCheckPoint(params['dannce_train_dir'], params["epochs"])]
 
-    if params['expval']:
+    if params['expval'] and not params["use_npy"]:
         save_callback = savePredTargets(params['epochs'],X_train,
             X_train_grid,
             X_valid,
