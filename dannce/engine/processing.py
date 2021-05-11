@@ -381,7 +381,6 @@ def make_data_splits(samples, params, RESULTSDIR, num_experiments):
                 valid_inds = list(np.sort(valid_inds))
 
             train_inds = [i for i in all_inds if i not in all_valid_inds]
-
         elif params["num_validation_per_exp"] > 0:  # if 0, do not perform validation
             for e in range(num_experiments):
                 tinds = [
@@ -393,12 +392,13 @@ def make_data_splits(samples, params, RESULTSDIR, num_experiments):
                 valid_inds = list(np.sort(valid_inds))
 
             train_inds = [i for i in all_inds if i not in valid_inds]
-
         elif params["valid_exp"] is not None:
             raise Exception("Need to set num_validation_per_exp in using valid_exp")
+        else:
+            train_inds = [i for i in all_inds if i not in valid_inds]
 
         assert (set(valid_inds) & set(train_inds)) == set()
-        
+
         train_samples = samples[train_inds]
         train_inds = []
         if params["valid_exp"] is not None:
