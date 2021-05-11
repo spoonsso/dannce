@@ -359,13 +359,30 @@ def make_data_splits(samples, params, RESULTSDIR, num_experiments):
 
     partition = {}
     if params["load_valid"] is None:
+        # Set random seed if included in params
+        if params["data_split_seed"] is not None:
+            np.random.seed(params["data_split_seed"])
+
         all_inds = np.arange(len(samples))
 
         # extract random inds from each set for validation
         v = params["num_validation_per_exp"]
         valid_inds = []
+        if params["valid_exp"] is not None:
+            all_valid_inds = []
+            for e in params["valid_exp"]:
+                tinds = [
+                    i for i in range(len(samples)) if int(samples[i].split("_")[0]) == e
+                ]
+                all_valid_inds.append(tinds)
+                valid_inds = valid_inds + list(
+                    np.random.choice(tinds, (v,), replace=False)
+                )
+                valid_inds = list(np.sort(valid_inds))
 
-        if params["num_validation_per_exp"] > 0:  # if 0, do not perform validation
+            train_inds = [i for i in all_inds if i not in all_valid_inds]
+
+        elif params["num_validation_per_exp"] > 0:  # if 0, do not perform validation
             for e in range(num_experiments):
                 tinds = [
                     i for i in range(len(samples)) if int(samples[i].split("_")[0]) == e
@@ -375,7 +392,7 @@ def make_data_splits(samples, params, RESULTSDIR, num_experiments):
                 )
                 valid_inds = list(np.sort(valid_inds))
 
-        train_inds = [i for i in all_inds if i not in valid_inds]
+            train_inds = [i for i in all_inds if i not in valid_inds]
 
         assert (set(valid_inds) & set(train_inds)) == set()
 
@@ -395,6 +412,10 @@ def make_data_splits(samples, params, RESULTSDIR, num_experiments):
         partition["train_sampleIDs"] = [
             f for f in samples if f not in partition["valid_sampleIDs"]
         ]
+
+    # Reset any seeding so that future batch shuffling, etc. are not tied to this seed
+    if params["data_split_seed"] is not None:
+        np.random.seed()
 
     return partition
 

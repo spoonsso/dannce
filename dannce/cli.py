@@ -251,6 +251,18 @@ def add_shared_train_args(
         type=int,
         help="If continuous rotation augmentation is True, chooses random rotation angle in degrees in [-augment_rotation_val, augment_rotation_val]",
     )
+    parser.add_argument(
+        "--data-split-seed",
+        dest="data_split_seed",
+        type=int,
+        help="Integer seed for the random numebr generator controlling train/test data splits",
+    )
+    parser.add_argument(
+        "--valid-exp",
+        dest="valid_exp",
+        type=ast.literal_eval,
+        help="Pass a list of the expfile indices (0-indexed, starting from the top of your expdict) to be set aside for validation",
+    )
     return parser
 
 
