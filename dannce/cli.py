@@ -209,7 +209,13 @@ def add_shared_train_args(
         "--num-validation-per-exp",
         dest="num_validation_per_exp",
         type=int,
-        help="Number of validation images to use during training.",
+        help="Number of validation images to use per recording during training.",
+    )
+    parser.add_argument(
+        "--num-train-per-exp",
+        dest="num_train_per_exp",
+        type=int,
+        help="Number of training images to use per recording during training.",
     )
     parser.add_argument(
         "--metric",

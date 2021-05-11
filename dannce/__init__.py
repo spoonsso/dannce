@@ -20,6 +20,7 @@ _param_defaults_shared = {
     "epochs": None,
     "vid_dir_flag": None,
     "num_validation_per_exp": None,
+    "num_train_per_exp": None,
     "chunks": None,
     "lockfirst": None,
     "load_valid": None,

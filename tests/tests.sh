@@ -23,24 +23,26 @@ python setup.py install
 cd tests/configs
 
 # echo "Testing COMfinder training"
+# cp ./label3d_temp_dannce.mat ./alabel3d_temp_dannce.mat
 # com-train config_com_mousetest.yaml --com-finetune-weights=../../demo/markerless_mouse_1/COM/weights/
 
 # echo "Testing COMfinder training w/ mono"
 # com-train config_com_mousetest.yaml --mono=True
 
-echo "Testing COMfinder prediction"
-com-predict config_com_mousetest.yaml
-python ../compare_predictions.py ../touchstones/COM3D_undistorted_masternn.mat ../../demo/markerless_mouse_1/COM/predict_test/com3d.mat 0.001
+# echo "Testing COMfinder prediction"
+# com-predict config_com_mousetest.yaml
+# python ../compare_predictions.py ../touchstones/COM3D_undistorted_masternn.mat ../../demo/markerless_mouse_1/COM/predict_test/com3d.mat 0.001
 
-echo "Testing COMfinder prediction, 3 cams"
-cp ./label3d_temp_dannce_3cam.mat ./alabel3d_temp_dannce.mat
-com-predict config_com_mousetest.yaml --downfac=4
+# echo "Testing COMfinder prediction, 3 cams"
+# cp ./label3d_temp_dannce_3cam.mat ./alabel3d_temp_dannce.mat
+# com-predict config_com_mousetest.yaml --downfac=4
 
-echo "Testing COMfinder prediction, 5 cams"
-cp ./label3d_temp_dannce_5cam.mat ./alabel3d_temp_dannce.mat
-com-predict config_com_mousetest.yaml --downfac=2
+# echo "Testing COMfinder prediction, 5 cams"
+# cp ./label3d_temp_dannce_5cam.mat ./alabel3d_temp_dannce.mat
+# com-predict config_com_mousetest.yaml --downfac=2
 
 echo "Testing DANNCE training, finetune_MAX"
+cp ./label3d_temp_dannce.mat ./alabel3d_temp_dannce.mat
 dannce-train config_mousetest.yaml --net-type=MAX --dannce-finetune-weights=../../demo/markerless_mouse_1/DANNCE/weights/weights.rat.MAX/
 
 echo "Testing DANNCE training, finetune_AVG"
@@ -104,5 +106,21 @@ echo "Testing DANNCE MAX prediction"
 dannce-predict config_mousetest.yaml --net-type=MAX --expval=False --dannce-predict-model=../../demo/markerless_mouse_1/DANNCE/train_results/weights.12000-0.00014.hdf5
 python ../compare_predictions.py ../touchstones/save_data_MAX_torchnearest_newtfroutine.mat ../../demo/markerless_mouse_1/DANNCE/predict_test/save_data_MAX0.mat 0.001
 
+echo "Testing npy volume generation"
+cp ./label3d_voltest_dannce_m1.mat ./alabel3d_temp_dannce.mat
+dannce-predict config_mousetest.yaml --net-type=AVG --write-npy=../../demo/markerless_mouse_1/npy_volumes/ --batch-size=1
+
+cp ./label3d_voltest_dannce_m2.mat ./alabel3d_temp_dannce.mat
+dannce-predict config_mousetest.yaml --net-type=AVG --write-npy=../../demo/markerless_mouse_1/npy_volumes/ --batch-size=1
+
+echo "Testing npy volume training, with validation recording"
+cd ../../demo/markerless_mouse_1/
+dannce-train ../../configs/dannce_mouse_config.yaml --net-type=AVG --use-npy=True --dannce-train-dir=./DANNCE/npy_test/ --epochs=10 --valid-exp=[1]
+
+echo "Testing npy volume testing, with num_train_exp"
+dannce-train ../../configs/dannce_mouse_config.yaml --net-type=AVG --use-npy=True --dannce-train-dir=./DANNCE/npy_test/ --epochs=10 --num-train-per-exp=2 --batch-size=1
+
+echo "Testing npy volume testing, with num_train_exp and validation recording"
+dannce-train ../../configs/dannce_mouse_config.yaml --net-type=AVG --use-npy=True --dannce-train-dir=./DANNCE/npy_test/ --epochs=10 --valid-exp=[1] --num-train-per-exp=2 --batch-size=1
 
 echo "PASSED WITHOUT ERROR"

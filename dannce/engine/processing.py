@@ -368,13 +368,13 @@ def make_data_splits(samples, params, RESULTSDIR, num_experiments):
         # extract random inds from each set for validation
         v = params["num_validation_per_exp"]
         valid_inds = []
-        if params["valid_exp"] is not None:
+        if params["valid_exp"] is not None and params["num_validation_per_exp"] > 0:
             all_valid_inds = []
             for e in params["valid_exp"]:
                 tinds = [
                     i for i in range(len(samples)) if int(samples[i].split("_")[0]) == e
                 ]
-                all_valid_inds.append(tinds)
+                all_valid_inds = all_valid_inds + tinds
                 valid_inds = valid_inds + list(
                     np.random.choice(tinds, (v,), replace=False)
                 )
@@ -394,10 +394,35 @@ def make_data_splits(samples, params, RESULTSDIR, num_experiments):
 
             train_inds = [i for i in all_inds if i not in valid_inds]
 
+        elif params["valid_exp"] is not None:
+            raise Exception("Need to set num_validation_per_exp in using valid_exp")
+
         assert (set(valid_inds) & set(train_inds)) == set()
+        
+        train_samples = samples[train_inds]
+        train_inds = []
+        if params["valid_exp"] is not None:
+            train_expts = [f for f in range(num_experiments) if f not in params["valid_exp"]]
+        else:
+            train_expts = np.arange(num_experiments)
+
+        if params["num_train_per_exp"] is not None:
+            # Then sample randomly without replacement from training sampleIDs
+            for e in train_expts:
+                tinds = [
+                        i for i in range(len(train_samples)) if int(train_samples[i].split("_")[0]) == e
+                    ]
+                train_inds = train_inds + list(
+                    np.random.choice(tinds, (params["num_train_per_exp"],), replace=False)
+                )
+                train_inds = list(np.sort(train_inds))
+        else:
+            train_inds = np.arange(len(train_samples))
+
+        
 
         partition["valid_sampleIDs"] = samples[valid_inds]
-        partition["train_sampleIDs"] = samples[train_inds]
+        partition["train_sampleIDs"] = train_samples[train_inds]
 
         # Save train/val inds
         with open(os.path.join(RESULTSDIR, "val_samples.pickle"), "wb") as f:
@@ -419,6 +444,33 @@ def make_data_splits(samples, params, RESULTSDIR, num_experiments):
 
     return partition
 
+def remove_samples_npy(npydir, samples, params):
+    """
+    Remove any samples from sample list if they do not have corresponding volumes in the image
+        or grid directories
+    """
+    # image_volumes
+    # grid_volumes
+    samps = []
+    for e in npydir.keys():
+        imvol = os.path.join(npydir[e], 'image_volumes')
+        gridvol = os.path.join(npydir[e], 'grid_volumes')
+        ims = os.listdir(imvol)
+        grids = os.listdir(gridvol)
+        npysamps = [f for f in samples if int(f.split("_")[0]) == e]
+
+        samplen = len(samps)
+        for ID in npysamps:
+            fname = '0_' + ID.split("_")[1] + '.npy'
+            if fname in ims and fname in grids:
+                samps.append(ID)
+
+        sampdiff = len(samps) - samplen
+
+        #import pdb; pdb.set_trace()
+        print("Removed {} samples from {} because corresponding image or grid files could not be found".format(len(npysamps)-sampdiff, params["experiment"][e]["label3d_file"]))
+
+    return np.array(samps)
 
 def rename_weights(traindir, kkey, mon):
     """
