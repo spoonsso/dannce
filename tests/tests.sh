@@ -113,17 +113,17 @@ cd tests/configs
 # cp ./label3d_voltest_dannce_m2.mat ./alabel3d_temp_dannce.mat
 # dannce-predict config_mousetest.yaml --net-type=AVG --write-npy=../../demo/markerless_mouse_1/npy_volumes/ --batch-size=1
 
-echo "Testing npy volume training, with validation recording"
+# echo "Testing npy volume training, with validation recording"
 cd ../../demo/markerless_mouse_1/
-dannce-train ../../configs/dannce_mouse_config.yaml --net-type=AVG --use-npy=True --dannce-train-dir=./DANNCE/npy_test/ --epochs=10 --valid-exp=[1]
+# dannce-train ../../configs/dannce_mouse_config.yaml --net-type=AVG --use-npy=True --dannce-train-dir=./DANNCE/npy_test/ --epochs=10 --valid-exp=[1]
 
 echo "Testing npy volume training, with multi gpu support"
-dannce-train ../../configs/dannce_mouse_config.yaml --net-type=AVG --batch-size=4 --use-npy=True --dannce-train-dir=./DANNCE/npy_test/ --epochs=10 --multi-gpu=True
+dannce-train ../../configs/dannce_mouse_config.yaml --net-type=AVG --batch-size=4 --use-npy=True --dannce-train-dir=./DANNCE/npy_test/ --epochs=10 --multi-gpu-train=True
 
-echo "Testing npy volume testing, with num_train_exp"
-dannce-train ../../configs/dannce_mouse_config.yaml --net-type=AVG --use-npy=True --dannce-train-dir=./DANNCE/npy_test/ --epochs=10 --num-train-per-exp=2 --batch-size=1
+# echo "Testing npy volume testing, with num_train_exp"
+# dannce-train ../../configs/dannce_mouse_config.yaml --net-type=AVG --use-npy=True --dannce-train-dir=./DANNCE/npy_test/ --epochs=10 --num-train-per-exp=2 --batch-size=1
 
-echo "Testing npy volume testing, with num_train_exp and validation recording"
-dannce-train ../../configs/dannce_mouse_config.yaml --net-type=AVG --use-npy=True --dannce-train-dir=./DANNCE/npy_test/ --epochs=10 --valid-exp=[1] --num-train-per-exp=2 --batch-size=1
+# echo "Testing npy volume testing, with num_train_exp and validation recording"
+# dannce-train ../../configs/dannce_mouse_config.yaml --net-type=AVG --use-npy=True --dannce-train-dir=./DANNCE/npy_test/ --epochs=10 --valid-exp=[1] --num-train-per-exp=2 --batch-size=1
 
 echo "PASSED WITHOUT ERROR"

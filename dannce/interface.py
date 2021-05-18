@@ -1527,10 +1527,14 @@ def dannce_predict(params: Dict):
     save_data = {}
 
     max_eval_batch = params["maxbatch"]
-    print(max_eval_batch)
+
+    if max_eval_batch != "max" and max_eval_batch > len(valid_generator):
+        print("Maxbatch was set to a larger number of matches than exist in the video. Truncating")
+        max_eval_batch = len(valid_generator)
+        processing.print_and_set(params, "maxbatch", max_eval_batch)
+
     if max_eval_batch == "max":
         max_eval_batch = len(valid_generator)
-    print(max_eval_batch)
 
     if params["start_batch"] is not None:
         start_batch = params["start_batch"]
