@@ -200,7 +200,7 @@ def sample_grid_torch_linear(
     # These are concatenated here for every image in each batch,
     import torch
 
-    feats = torch.as_tensor(im, device=device)
+    feats = torch.as_tensor(im.copy(), device=device)
     grid = projPts
     c = int(round(projPts.shape[0] ** (1 / 3.0)))
 
