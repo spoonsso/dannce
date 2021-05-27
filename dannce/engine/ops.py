@@ -166,7 +166,7 @@ def sample_grid(im: np.ndarray, projPts: np.ndarray, method: Text = "linear"):
 
 
 def sample_grid_torch_nearest(
-    im: np.ndarray, projPts: np.ndarray, device: Text, method: Text = "bilinear"
+    im: np.ndarray, projPts: np.ndarray, device: Text
 ) -> torch.Tensor:
     """Unproject features."""
     # im_x, im_y are the x and y coordinates of each projected 3D position.
@@ -193,7 +193,7 @@ def sample_grid_torch_nearest(
 
 
 def sample_grid_torch_linear(
-    im: np.ndarray, projPts: np.ndarray, device: Text, method: Text = "bilinear"
+    im: np.ndarray, projPts: np.ndarray, device: Text
 ) -> torch.Tensor:
     """Unproject features."""
     # im_x, im_y are the x and y coordinates of each projected 3D position.
@@ -275,9 +275,9 @@ def sample_grid_torch(im: np.ndarray, projPts: np.ndarray, device: Text, method:
     reshaped after being returned
     """
     if method == "nearest" or method == "out2d":
-        proj_rgb = sample_grid_torch_nearest(im, projPts, device, method)
+        proj_rgb = sample_grid_torch_nearest(im, projPts, device)
     elif method == "linear" or method == "bilinear":
-        proj_rgb = sample_grid_torch_linear(im, projPts, device, method)
+        proj_rgb = sample_grid_torch_linear(im, projPts, device)
     else:
         raise Exception("{} not a valid interpolation method".format(method))
 
