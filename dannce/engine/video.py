@@ -4,6 +4,9 @@ import cv2
 import numpy as np
 import attr
 import multiprocessing
+import imageio
+import time
+from typing import List, Dict, Tuple, Text
 
 
 @attr.s(auto_attribs=True, eq=False, order=False)
@@ -155,3 +158,88 @@ class MediaVideo:
             frame = frame[..., ::-1]
 
         return frame
+
+class LoadVideoFrame:
+    """
+    This class generalized load_vid_frame for access by all generators
+    Args:
+        _N_VIDEO_FRAMES: Array of chunked video indices
+        vidreaders: Dictionary of all video file paths
+        camnames: All Camera names
+        predict_flag: If True, uses imageio rather than OpenCV
+    """
+
+    def __init__(
+        self,
+        _N_VIDEO_FRAMES,
+        vidreaders,
+        camnames,
+        predict_flag):
+
+        self._N_VIDEO_FRAMES = _N_VIDEO_FRAMES
+        self.vidreaders = vidreaders
+        self.camnames = camnames
+        self.predict_flag = predict_flag
+
+        # we keep a running video object so at least we don't open a new one every time
+        self.currvideo = {}
+        self.currvideo_name = {}
+        for dd in camnames.keys():
+            for cc in camnames[dd]:
+                self.currvideo[cc] = None
+                self.currvideo_name[cc] = None
+
+
+    def load_vid_frame(
+        self, ind: int, camname: Text, extension: Text = ".mp4"
+    ) -> np.ndarray:
+        """Load video frame from a single camera.
+
+        This is currently implemented for handling only one camera as input
+
+        Args:
+            ind (int): Frame index
+            camname (Text): Camera index
+            extension (Text, optional): Video extension
+
+        Returns:
+            np.ndarray: Video frame as w x h x c numpy ndarray
+        """
+        chunks = self._N_VIDEO_FRAMES[camname]
+        cur_video_id = np.nonzero([c <= ind for c in chunks])[0][-1]
+        cur_first_frame = chunks[cur_video_id]
+        fname = str(cur_first_frame) + extension
+        frame_num = int(ind - cur_first_frame)
+
+        keyname = os.path.join(camname, fname)
+
+        thisvid_name = self.vidreaders[camname][keyname]
+        abname = thisvid_name.split("/")[-1]
+        if abname == self.currvideo_name[camname]:
+            vid = self.currvideo[camname]
+        else:
+            # use imageio for prediction, because linear seeking
+            # is faster with imageio than opencv
+            vid = imageio.get_reader(thisvid_name) if self.predict_flag else \
+                MediaVideo(thisvid_name, grayscale=False)
+            print("Loading new video: {} for {}".format(abname, camname))
+            self.currvideo_name[camname] = abname
+            # close current vid
+            # Without a sleep here, ffmpeg can hang on video close
+            time.sleep(0.25)
+            if self.currvideo[camname] is not None:
+                self.currvideo[camname].close() if self.predict_flag else \
+                    self.currvideo[camname]._reader_.release()
+            self.currvideo[camname] = vid
+
+        # This deals with a strange indexing error in the pup data.
+        try:
+
+            im = vid.get_data(frame_num).astype("uint8") if self.predict_flag \
+                else vid.get_frame(frame_num)
+        except IndexError:
+            print("Indexing error, using previous frame")
+            im = vid.get_data(frame_num - 1).astype("uint8") if self.predict_flag \
+                else vid.get_frame(frame_num - 1)
+
+        return im
