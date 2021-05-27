@@ -226,7 +226,6 @@ def com_predict(params: Dict):
         "chunks": params["chunks"],
         "shuffle": False,
         "dsmode": params["dsmode"],
-        "preload": False,
         "mono": params["mono"],
         "mirror": params["mirror"],
     }
@@ -411,7 +410,6 @@ def com_train(params: Dict):
         "shuffle": False,
         "chunks": total_chunks,
         "dsmode": params["dsmode"],
-        "preload": False,
         "mono": params["mono"],
         "mirror": params["mirror"],
     }
@@ -849,7 +847,6 @@ def dannce_train(params: Dict):
             "expval": params["expval"],
             "crop_im": False,
             "chunks": total_chunks,
-            "preload": False,
             "mono": params["mono"],
             "mirror": params["mirror"],
         }
@@ -1400,7 +1397,6 @@ def dannce_predict(params: Dict):
         "expval": params["expval"],
         "crop_im": False,
         "chunks": params["chunks"],
-        "preload": False,
         "mono": params["mono"],
         "mirror": params["mirror"],
         "predict_flag": True,
