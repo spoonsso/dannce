@@ -30,93 +30,90 @@ import sys
 
 _VALID_EXT = ["mp4", "avi"]
 
-vidpath = sys.argv[1]
-fps = float(sys.argv[2])
-num_landmarks = int(sys.argv[3])
+if __name__ == "__main__":
+    vidpath = sys.argv[1]
+    fps = float(sys.argv[2])
+    num_landmarks = int(sys.argv[3])
 
-outpath = os.path.dirname(vidpath.rstrip(os.sep))
-outpath = os.path.join(outpath, "sync")
+    outpath = os.path.dirname(vidpath.rstrip(os.sep))
+    outpath = os.path.join(outpath, "sync")
 
-if not os.path.exists(outpath):
-    os.makedirs(outpath)
-    print("making new folder, {}".format(outpath))
+    if not os.path.exists(outpath):
+        os.makedirs(outpath)
+        print("making new folder, {}".format(outpath))
 
-print("Writing Sync files to {}...".format(outpath))
+    print("Writing Sync files to {}...".format(outpath))
 
-dirs = os.listdir(vidpath)
-dirs = [d for d in dirs if os.path.isdir(os.path.join(vidpath, d))]
+    dirs = os.listdir(vidpath)
+    dirs = [d for d in dirs if os.path.isdir(os.path.join(vidpath, d))]
 
-print("Found the following cameras: {}".format(dirs))
+    print("Found the following cameras: {}".format(dirs))
 
-dirs = [os.path.join(vidpath, d) for d in dirs]
-
-
-def get_vid_paths(dir_):
-    vids = os.listdir(dir_)
-    vids = [vd for vd in vids if vd.split(".")[-1] in _VALID_EXT]
-    vids = [os.path.join(dir_, vd) for vd in vids]
-    return vids
+    dirs = [os.path.join(vidpath, d) for d in dirs]
 
 
-camnames = []
-framecount = []
-for d in dirs:
-    cnt = 0
-    vids = get_vid_paths(d)
-    if len(vids) == 0:
-        print("Traversing video subdirectory")
-        d = os.path.join(d, os.listdir(d)[0])
+    def get_vid_paths(dir_):
+        vids = os.listdir(dir_)
+        vids = [vd for vd in vids if vd.split(".")[-1] in _VALID_EXT]
+        vids = [os.path.join(dir_, vd) for vd in vids]
+        return vids
+
+
+    camnames = []
+    framecount = []
+    for d in dirs:
+        cnt = 0
         vids = get_vid_paths(d)
+        if len(vids) == 0:
+            print("Traversing video subdirectory")
+            d = os.path.join(d, os.listdir(d)[0])
+            vids = get_vid_paths(d)
 
-    for i in range(len(vids)):
-        # Open each video file and count the number of frames
-        thisvid = imageio.get_reader(vids[i])
-        cnt += thisvid.count_frames()
+        for i in range(len(vids)):
+            # Open each video file and count the number of frames
+            thisvid = imageio.get_reader(vids[i])
+            cnt += thisvid.count_frames()
 
-    framecount.append(cnt)
-    cname = os.path.basename(d.rstrip(os.sep))
-    camnames.append(cname)
+        framecount.append(cnt)
+        cname = os.path.basename(d.rstrip(os.sep))
+        camnames.append(cname)
 
-    print("Found {} frames for {}".format(cnt, cname))
+        print("Found {} frames for {}".format(cnt, cname))
 
-if np.sum(framecount) // len(framecount) != framecount[0]:
-    raise Exception("Your videos are not the same length")
+    if np.sum(framecount) // len(framecount) != framecount[0]:
+        raise Exception("Your videos are not the same length")
 
 
-if fps > 1000:
-    raise Exception("Acquisition rates over 1000 Hz not currently supported")
+    fp = 1000.0 / fps  # frame period in ms
 
-fp = 1000.0 / fps  # frame period in ms
-fp = int(fp)
+    data_frame = np.arange(framecount[0]).astype("float64")
+    data_sampleID = data_frame * fp + 1
+    data_2d = np.zeros((framecount[0], 2 * num_landmarks))
+    data_3d = np.zeros((framecount[0], 3 * num_landmarks))
 
-data_frame = np.arange(framecount[0])
-data_sampleID = data_frame * fp + 1
-data_2d = np.zeros((framecount[0], 2 * num_landmarks))
-data_3d = np.zeros((framecount[0], 3 * num_landmarks))
+    checkf = os.listdir(outpath)
+    for cname in camnames:
+        fname = cname + "_sync.mat"
+        outfile = os.path.join(outpath, fname)
+        if fname in checkf:
+            ans = ""
+            while ans != "y" and ans != "n":
+                print(fname + " already exists. Overwrite (y/n)?")
+                ans = input().lower()
 
-checkf = os.listdir(outpath)
-for cname in camnames:
-    fname = cname + "_sync.mat"
-    outfile = os.path.join(outpath, fname)
-    if fname in checkf:
-        ans = ""
-        while ans != "y" and ans != "n":
-            print(fname + " already exists. Overwrite (y/n)?")
-            ans = input().lower()
+            if ans == "n":
+                print("Ok, skipping.")
+                continue
 
-        if ans == "n":
-            print("Ok, skipping.")
-            continue
+        print("Writing " + outfile)
+        sio.savemat(
+            outfile,
+            {
+                "data_frame": data_frame[:, np.newaxis],
+                "data_sampleID": data_sampleID[:, np.newaxis],
+                "data_2d": data_2d,
+                "data_3d": data_3d,
+            },
+        )
 
-    print("Writing " + outfile)
-    sio.savemat(
-        outfile,
-        {
-            "data_frame": data_frame[:, np.newaxis],
-            "data_sampleID": data_sampleID[:, np.newaxis],
-            "data_2d": data_2d,
-            "data_3d": data_3d,
-        },
-    )
-
-print("done!")
+    print("done!")

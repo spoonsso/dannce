@@ -8,12 +8,13 @@ import dannce.engine.serve_data_DANNCE as serve_data_DANNCE
 import PIL
 from six.moves import cPickle
 import scipy.io as sio
+from scipy.ndimage.filters import maximum_filter
 
 from dannce.engine import io
 import matplotlib
 import warnings
 
-matplotlib.use("Agg")
+# matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 import yaml
@@ -84,7 +85,7 @@ def infer_params(params, dannce_net, prediction):
         params["camnames"] = io.load_camnames(f)
         if params["camnames"] is None:
             raise Exception("No camnames in config or in *dannce.mat")
-        
+
     # Infer vid_dir_flag and extension and n_channels_in and chunks
     # from the videos and video folder organization.
     # Look into the video directory / camnames[0]. Is there a video file?
@@ -105,14 +106,24 @@ def infer_params(params, dannce_net, prediction):
     extension = ".mp4" if any([".mp4" in file for file in video_files]) else ".avi"
     print_and_set(params, "extension", extension)
     video_files = [file for file in video_files if extension in file]
-    if len(video_files) > 1:
+
+    # Use the camnames to find the chunks for each video
+    chunks = {}
+    for name in params["camnames"]:
+        if params["vid_dir_flag"]:
+            camdir = os.path.join(params["viddir"], name)
+        else:
+            camdir = os.path.join(params["viddir"], name)
+            intermediate_folder = os.listdir(camdir)
+            camdir = os.path.join(camdir, intermediate_folder[0])
+        video_files = os.listdir(camdir)
+        video_files = [f for f in video_files if ".mp4" in f]
         video_files = sorted(video_files, key=lambda x: int(x.split(".")[0]))
-        chunks = int(video_files[1].split(".")[0]) - int(video_files[0].split(".")[0])
-    else:
-        chunks = 10000000000000
-    camf = os.path.join(viddir, video_files[0])
+        chunks[name] = np.sort([int(x.split(".")[0]) for x in video_files])
 
     print_and_set(params, "chunks", chunks)
+
+    camf = os.path.join(viddir, video_files[0])
 
     # Infer n_channels_in from the video info
     v = imageio.get_reader(camf)
@@ -134,9 +145,7 @@ def infer_params(params, dannce_net, prediction):
         # During prediction, the train_mode might be missing, and in any case only the
         # expval needs to be set.
         if params["net_type"] is None:
-            raise Exception(
-                "Without a net name, net_type must be specified"
-            )
+            raise Exception("Without a net name, net_type must be specified")
 
         if not prediction and params["train_mode"] is None:
             raise Exception("Need to specific train_mode for DANNCE training")
@@ -170,7 +179,7 @@ def infer_params(params, dannce_net, prediction):
             print_and_set(params, "expval", False)
 
     if dannce_net:
-        #infer crop_height and crop_width if None. Just use max dims of video, as
+        # infer crop_height and crop_width if None. Just use max dims of video, as
         # DANNCE does not need to crop.
         if params["crop_height"] is None or params["crop_width"] is None:
             im_h = []
@@ -179,7 +188,9 @@ def infer_params(params, dannce_net, prediction):
                 viddir = os.path.join(params["viddir"], params["camnames"][i])
                 if not params["vid_dir_flag"]:
                     # add intermediate directory to path
-                    viddir = os.path.join(params["viddir"], params["camnames"][i], os.listdir(viddir)[0])
+                    viddir = os.path.join(
+                        params["viddir"], params["camnames"][i], os.listdir(viddir)[0]
+                    )
                 video_files = os.listdir(viddir)
                 camf = os.path.join(viddir, video_files[0])
                 v = imageio.get_reader(camf)
@@ -226,7 +237,10 @@ def infer_params(params, dannce_net, prediction):
     # There will be straneg behavior if using a mirror acquisition system and are cropping images
     if params["mirror"] and params["crop_height"][-1] != params["raw_im_h"]:
         msg = "Note: You are using a mirror acquisition system with image cropping."
-        msg = msg + " All coordinates will be flipped relative to the raw image height, so ensure that your labels are also in that reference frame."
+        msg = (
+            msg
+            + " All coordinates will be flipped relative to the raw image height, so ensure that your labels are also in that reference frame."
+        )
         warnings.warn(msg)
 
     return params
@@ -262,15 +276,15 @@ def check_vmin_vmax(params):
                 )
             )
 
+
 def get_ft_wt(params):
     if params["dannce_finetune_weights"] is not None:
         weights = os.listdir(params["dannce_finetune_weights"])
         weights = [f for f in weights if ".hdf5" in f]
         weights = weights[0]
 
-        return os.path.join(
-            params["dannce_finetune_weights"], weights
-                )
+        return os.path.join(params["dannce_finetune_weights"], weights)
+
 
 def check_camnames(camp):
     """
@@ -290,18 +304,18 @@ def check_net_expval(params):
         raise Exception("net is None. You must set either net or net_type.")
     if params["net_type"] is not None:
         if (
-            params["net_type"] == 'AVG'
+            params["net_type"] == "AVG"
             and "AVG" not in params["net"]
             and "expected" not in params["net"]
         ):
             raise Exception("net_type is set to AVG, but you are using a MAX network")
         if (
-            params["net_type"] == 'MAX'
+            params["net_type"] == "MAX"
             and "MAX" not in params["net"]
             and params["net"] != "unet3d_big"
         ):
             raise Exception("net_type is set to MAX, but you are using a AVG network")
-        
+
     if (
         params["expval"]
         and "AVG" not in params["net"]
@@ -345,13 +359,29 @@ def make_data_splits(samples, params, RESULTSDIR, num_experiments):
 
     partition = {}
     if params["load_valid"] is None:
+        # Set random seed if included in params
+        if params["data_split_seed"] is not None:
+            np.random.seed(params["data_split_seed"])
+
         all_inds = np.arange(len(samples))
 
         # extract random inds from each set for validation
         v = params["num_validation_per_exp"]
         valid_inds = []
+        if params["valid_exp"] is not None and params["num_validation_per_exp"] > 0:
+            all_valid_inds = []
+            for e in params["valid_exp"]:
+                tinds = [
+                    i for i in range(len(samples)) if int(samples[i].split("_")[0]) == e
+                ]
+                all_valid_inds = all_valid_inds + tinds
+                valid_inds = valid_inds + list(
+                    np.random.choice(tinds, (v,), replace=False)
+                )
+                valid_inds = list(np.sort(valid_inds))
 
-        if params["num_validation_per_exp"] > 0:  # if 0, do not perform validation
+            train_inds = list(set(all_inds) - set(all_valid_inds))#[i for i in all_inds if i not in all_valid_inds]
+        elif params["num_validation_per_exp"] > 0:  # if 0, do not perform validation
             for e in range(num_experiments):
                 tinds = [
                     i for i in range(len(samples)) if int(samples[i].split("_")[0]) == e
@@ -361,12 +391,42 @@ def make_data_splits(samples, params, RESULTSDIR, num_experiments):
                 )
                 valid_inds = list(np.sort(valid_inds))
 
-        train_inds = [i for i in all_inds if i not in valid_inds]
+            train_inds = [i for i in all_inds if i not in valid_inds]
+        elif params["valid_exp"] is not None:
+            raise Exception("Need to set num_validation_per_exp in using valid_exp")
+        else:
+            train_inds = all_inds
 
         assert (set(valid_inds) & set(train_inds)) == set()
 
+        train_samples = samples[train_inds]
+        train_inds = []
+        if params["valid_exp"] is not None:
+            train_expts = [f for f in range(num_experiments) if f not in params["valid_exp"]]
+        else:
+            train_expts = np.arange(num_experiments)
+
+        print("TRAIN EXPTS: {}".format(train_expts))
+
+        if params["num_train_per_exp"] is not None:
+            # Then sample randomly without replacement from training sampleIDs
+            for e in train_expts:
+                tinds = [
+                        i for i in range(len(train_samples)) if int(train_samples[i].split("_")[0]) == e
+                    ]
+                print(e)
+                print(len(tinds))
+                train_inds = train_inds + list(
+                    np.random.choice(tinds, (params["num_train_per_exp"],), replace=False)
+                )
+                train_inds = list(np.sort(train_inds))
+        else:
+            train_inds = np.arange(len(train_samples))
+
+        
+
         partition["valid_sampleIDs"] = samples[valid_inds]
-        partition["train_sampleIDs"] = samples[train_inds]
+        partition["train_sampleIDs"] = train_samples[train_inds]
 
         # Save train/val inds
         with open(os.path.join(RESULTSDIR, "val_samples.pickle"), "wb") as f:
@@ -382,8 +442,37 @@ def make_data_splits(samples, params, RESULTSDIR, num_experiments):
             f for f in samples if f not in partition["valid_sampleIDs"]
         ]
 
+    # Reset any seeding so that future batch shuffling, etc. are not tied to this seed
+    if params["data_split_seed"] is not None:
+        np.random.seed()
+
     return partition
 
+def remove_samples_npy(npydir, samples, params):
+    """
+    Remove any samples from sample list if they do not have corresponding volumes in the image
+        or grid directories
+    """
+    # image_volumes
+    # grid_volumes
+    samps = []
+    for e in npydir.keys():
+        imvol = os.path.join(npydir[e], 'image_volumes')
+        gridvol = os.path.join(npydir[e], 'grid_volumes')
+        ims = os.listdir(imvol)
+        grids = os.listdir(gridvol)
+        npysamps = ['0_' + f.split("_")[1] + '.npy' for f in samples if int(f.split("_")[0]) == e]
+
+        goodsamps = list(set(npysamps) & set(ims) & set(grids))
+
+        samps = samps + [str(e) + '_' + f.split("_")[1].split(".")[0] for f in goodsamps]
+
+        sampdiff = len(npysamps) - len(goodsamps)
+
+        #import pdb; pdb.set_trace()
+        print("Removed {} samples from {} because corresponding image or grid files could not be found".format(sampdiff, params["experiment"][e]["label3d_file"]))
+
+    return np.array(samps)
 
 def rename_weights(traindir, kkey, mon):
     """
@@ -431,24 +520,31 @@ def trim_COM_pickle(fpath, start_sample, end_sample, opath=None):
         cPickle.dump(sd, f)
     return sd
 
+
 def save_params(outdir, params):
     """
     Save copy of params to outdir as .mat file
     """
-    sio.savemat(os.path.join(outdir, 'copy_params.mat'),
-                prepare_save_metadata(params))
+    sio.savemat(os.path.join(outdir, "copy_params.mat"), prepare_save_metadata(params))
 
     return True
+
 
 def make_none_safe(pdict):
     if isinstance(pdict, dict):
         for key in pdict:
             pdict[key] = make_none_safe(pdict[key])
     else:
-        if pdict is None or (isinstance(pdict, list) and None in pdict) or (isinstance(pdict, tuple) and None in pdict):
+        if (
+            pdict is None
+            or (isinstance(pdict, list) and None in pdict)
+            or (isinstance(pdict, tuple) and None in pdict)
+        ):
             return "None"
         else:
             return pdict
+    return pdict
+
 
 def prepare_save_metadata(params):
     """
@@ -472,8 +568,7 @@ def prepare_save_metadata(params):
             f.__name__ if not isinstance(f, str) else f for f in meta["metric"]
         ]
 
-    make_none_safe(meta)
-
+    meta = make_none_safe(meta.copy())
     return meta
 
 
@@ -491,19 +586,22 @@ def save_COM_dannce_mat(params, com3d, sampleID):
     print("Saving COM predictions to " + params["label3d_file"])
     rr = sio.loadmat(params["label3d_file"])
     # For safety, save old file to temp and delete it at the end
-    sio.savemat(params["label3d_file"]+".temp", rr)
+    sio.savemat(params["label3d_file"] + ".temp", rr)
     rr["com"] = com
     sio.savemat(params["label3d_file"], rr)
 
-    os.remove(params["label3d_file"]+".temp")
+    os.remove(params["label3d_file"] + ".temp")
 
-def save_COM_checkpoint(save_data, RESULTSDIR, datadict_, cameras, params):
+
+def save_COM_checkpoint(
+    save_data, RESULTSDIR, datadict_, cameras, params, file_name="com3d"
+):
     """
     Saves COM pickle and matfiles
 
     """
     # Save undistorted 2D COMs and their 3D triangulations
-    f = open(os.path.join(RESULTSDIR, "com3d.pickle"), "wb")
+    f = open(os.path.join(RESULTSDIR, file_name + ".pickle"), "wb")
     cPickle.dump(save_data, f)
     f.close()
 
@@ -513,20 +611,39 @@ def save_COM_checkpoint(save_data, RESULTSDIR, datadict_, cameras, params):
     for key in datadict_:
         datadict_save[int(float(key.split("_")[-1]))] = datadict_[key]
 
-    _, com3d_dict = serve_data_DANNCE.prepare_COM(
-        os.path.join(RESULTSDIR, "com3d.pickle"),
-        datadict_save,
-        comthresh=0,
-        weighted=False,
-        camera_mats=cameras,
-        method="median",
-    )
+    if params["n_instances"] > 1:
+        if params["n_channels_out"] > 1:
+            linking_method = "multi_channel"
+        else:
+            linking_method = "euclidean"
+        _, com3d_dict = serve_data_DANNCE.prepare_COM_multi_instance(
+            os.path.join(RESULTSDIR, file_name + ".pickle"),
+            datadict_save,
+            comthresh=0,
+            weighted=False,
+            camera_mats=cameras,
+            linking_method=linking_method,
+        )
+    else:
+        prepare_func = serve_data_DANNCE.prepare_COM
+        _, com3d_dict = serve_data_DANNCE.prepare_COM(
+            os.path.join(RESULTSDIR, file_name + ".pickle"),
+            datadict_save,
+            comthresh=0,
+            weighted=False,
+            camera_mats=cameras,
+            method="median",
+        )
 
-    cfilename = os.path.join(RESULTSDIR, "com3d.mat")
+    cfilename = os.path.join(RESULTSDIR, file_name + ".mat")
     print("Saving 3D COM to {}".format(cfilename))
     samples_keys = list(com3d_dict.keys())
 
-    c3d = np.zeros((len(samples_keys), 3))
+    if params["n_instances"] > 1:
+        c3d = np.zeros((len(samples_keys), 3, params["n_instances"]))
+    else:
+        c3d = np.zeros((len(samples_keys), 3))
+
     for i in range(len(samples_keys)):
         c3d[i] = com3d_dict[samples_keys[i]]
 
@@ -540,7 +657,7 @@ def save_COM_checkpoint(save_data, RESULTSDIR, datadict_, cameras, params):
     )
 
     # Also save a copy into the label3d file
-    save_COM_dannce_mat(params, c3d, samples_keys)
+    # save_COM_dannce_mat(params, c3d, samples_keys)
 
 
 def inherit_config(child, parent, keys):
@@ -556,6 +673,7 @@ def inherit_config(child, parent, keys):
             )
 
     return child
+
 
 def grab_predict_label3d_file(defaultdir=""):
     """
@@ -579,11 +697,12 @@ def load_expdict(params, e, expdict, _DEFAULT_VIDDIR):
     Load in camnames and video directories and label3d files for a single experiment
         during training.
     """
+    _DEFAULT_NPY_DIR = 'npy_volumes'
     exp = params.copy()
     exp = make_paths_safe(exp)
     exp["label3d_file"] = expdict["label3d_file"]
     exp["base_exp_folder"] = os.path.dirname(exp["label3d_file"])
-    
+
     if "viddir" not in expdict:
         # if the videos are not at the _DEFAULT_VIDDIR, then it must
         # be specified in the io.yaml experiment portion
@@ -597,9 +716,29 @@ def load_expdict(params, e, expdict, _DEFAULT_VIDDIR):
         exp["camnames"] = expdict["camnames"]
     elif l3d_camnames is not None:
         exp["camnames"] = l3d_camnames
-
     print("Experiment {} using camnames: {}".format(e, exp["camnames"]))
 
+    # Use the camnames to find the chunks for each video
+    chunks = {}
+    for name in exp["camnames"]:
+        if exp["vid_dir_flag"]:
+            camdir = os.path.join(exp["viddir"], name)
+        else:
+            camdir = os.path.join(exp["viddir"], name)
+            intermediate_folder = os.listdir(camdir)
+            camdir = os.path.join(camdir, intermediate_folder[0])
+        video_files = os.listdir(camdir)
+        video_files = [f for f in video_files if ".mp4" in f]
+        video_files = sorted(video_files, key=lambda x: int(x.split(".")[0]))
+        chunks[str(e) + "_" + name] = np.sort(
+            [int(x.split(".")[0]) for x in video_files]
+        )
+    exp["chunks"] = chunks
+    print(chunks)
+
+    # For npy volume training
+    if params["use_npy"]:
+        exp["npy_vol_dir"] = os.path.join(exp["base_exp_folder"], _DEFAULT_NPY_DIR)
     return exp
 
 
@@ -747,7 +886,9 @@ def generate_readers(
         if pathonly:
             out[mp4files_scrub[i]] = os.path.join(viddir, mp4files[i])
         else:
-            print("NOTE: Ignoring {} files numbered above {}".format(extensions,maxopt))
+            print(
+                "NOTE: Ignoring {} files numbered above {}".format(extensions, maxopt)
+            )
             out[mp4files_scrub[i]] = imageio.get_reader(
                 os.path.join(viddir, mp4files[i]),
                 pixelformat=pixelformat,
@@ -963,6 +1104,15 @@ def get_peak_inds(map_):
     return np.unravel_index(np.argmax(map_, axis=None), map_.shape)
 
 
+def get_peak_inds_multi_instance(im, n_instances, window_size=10):
+    """Return top n_instances local peaks through non-max suppression."""
+    bw = im == maximum_filter(im, footprint=np.ones((window_size, window_size)))
+    inds = np.argwhere(bw)
+    vals = im[inds[:, 0], inds[:, 1]]
+    idx = np.argsort(vals)[::-1]
+    return inds[idx[:n_instances], :]
+
+
 def get_marker_peaks_2d(stack):
     """Return the concatenated coordinates of all peaks for each map/marker."""
     x = []
@@ -1127,10 +1277,10 @@ def dupe_params(exp, dupes, n_views):
 
         else:
             prompt = "The length of the {} list must divide evenly into {}. Duplicate a subset of the views starting from the first camera (y/n)?".format(
-                    d, n_views
-                )
+                d, n_views
+            )
             val_in = input(prompt)
-            if val_in == 'y':
+            if val_in == "y":
                 num_reps = n_views // len(val)
                 num_extra = n_views % len(val)
                 duped = val * num_reps
@@ -1146,3 +1296,41 @@ def dupe_params(exp, dupes, n_views):
                 )
 
     return exp
+
+def write_npy(uri, gen):
+    """
+    Creates a new image folder and grid folder at the uri and uses
+    the generator to generate samples and save them as npy files
+    """
+    imdir = os.path.join(uri, 'image_volumes')
+    if not os.path.exists(imdir):
+        os.makedirs(imdir)
+
+    griddir = os.path.join(uri, 'grid_volumes')
+    if not os.path.exists(griddir):
+        os.makedirs(griddir)
+
+    # Make sure rotation and shuffle are turned off
+    gen.channel_combo = None
+    gen.shuffle = False
+    gen.rotation = False
+    gen.expval = True
+
+    # Turn normalization off so that we can save as uint8
+    gen.norm_im = False
+
+    bs = gen.batch_size
+    for i in range(len(gen)):
+        if i % 1000 == 0:
+            print(i)
+        # Generate batch
+        bch = gen.__getitem__(i)
+        # loop over all examples in batch and save volume
+        for j in range(bs):
+            #get the frame name / unique ID
+            fname = gen.list_IDs[gen.indexes[i*bs + j]]
+
+            #and save
+            print(fname)
+            np.save(os.path.join(imdir, fname + '.npy'), bch[0][0][j].astype('uint8'))
+            np.save(os.path.join(griddir, fname + '.npy'), bch[0][1][j])

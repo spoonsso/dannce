@@ -1,3 +1,4 @@
+"""Dannce module and default parameters"""
 # Default parameters, which can be superseded by CL arguments or
 # config files
 _param_defaults_shared = {
@@ -19,6 +20,7 @@ _param_defaults_shared = {
     "epochs": None,
     "vid_dir_flag": None,
     "num_validation_per_exp": None,
+    "num_train_per_exp": None,
     "chunks": None,
     "lockfirst": None,
     "load_valid": None,
@@ -33,6 +35,12 @@ _param_defaults_shared = {
     "raw_im_w": None,
     "mirror": False,
     "max_num_samples": None,
+    "n_instances": 1,
+    "start_sample": 0,
+    "write_npy": None,
+    "use_npy": False,
+    "data_split_seed": None,
+    "valid_exp": None,
 }
 _param_defaults_dannce = {
     "metric": ["euclidean_distance_3D"],
@@ -64,6 +72,7 @@ _param_defaults_dannce = {
     "expval": None,
     "com_thresh": None,
     "start_sample": None,
+    "max_num_samples": None,
     "new_n_channels_out": None,
     "cam3_train": None,
     "debug_volume_tifdir": None,
@@ -74,6 +83,9 @@ _param_defaults_dannce = {
     "net": None,
     "from_weights": None,
     "dannce_predict_vol_tifdir": None,
+    "n_rand_views": None,
+    "rand_view_replace": True,
+    "multi_gpu_train": False,
 }
 _param_defaults_com = {
     "dsmode": "nn",
