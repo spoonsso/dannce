@@ -10,7 +10,7 @@ import scipy.io as sio
 import warnings
 import time
 import matplotlib.pyplot as plt
-from dannce.engine.video import MediaVideo
+from dannce.engine.video import LoadVideoFrame
 from typing import Text, Tuple, List, Union, Dict
 
 _DEFAULT_CAM_NAMES = [
@@ -44,12 +44,12 @@ class DataGenerator_downsample(keras.utils.Sequence):
         downsample=1,
         immode="video",
         labelmode="prob",
-        preload=True,
         dsmode="dsm",
         chunks=3500,
         multimode=False,
         mono=False,
         mirror=False,
+        predict_flag=False,
     ):
         """Initialize generator.
 
@@ -70,7 +70,6 @@ class DataGenerator_downsample(keras.utils.Sequence):
         self.crop_width = crop_width
         self.crop_height = crop_height
         self.downsample = downsample
-        self.preload = preload
         self.dsmode = dsmode
         self.mirror = mirror
         self.on_epoch_end()
@@ -89,14 +88,11 @@ class DataGenerator_downsample(keras.utils.Sequence):
 
         self.mono = mono
 
-        if not self.preload:
-            # then we keep a running video object so at least we don't open a new one every time
-            self.currvideo = {}
-            self.currvideo_name = {}
-            for dd in camnames.keys():
-                for cc in camnames[dd]:
-                    self.currvideo[cc] = None
-                    self.currvideo_name[cc] = None
+        self.predict_flag = predict_flag
+        self.load_frame = LoadVideoFrame(self._N_VIDEO_FRAMES,
+                                         self.vidreaders,
+                                         self.camnames,
+                                         self.predict_flag)
 
     def __len__(self):
         """Denote the number of batches per epoch."""
@@ -120,43 +116,6 @@ class DataGenerator_downsample(keras.utils.Sequence):
         self.indexes = np.arange(len(self.list_IDs))
         if self.shuffle:
             np.random.shuffle(self.indexes)
-
-    def load_vid_frame(self, ind, camname, preload=True, extension=".mp4"):
-        """Load the video frame from a single camera."""
-        chunks = self._N_VIDEO_FRAMES[camname]
-        cur_video_id = np.nonzero([c <= ind for c in chunks])[0][-1]
-        cur_first_frame = chunks[cur_video_id]
-        fname = str(cur_first_frame) + extension
-        frame_num = int(ind - cur_first_frame)
-
-        keyname = os.path.join(camname, fname)
-
-        if preload:
-            # return self.vidreaders[camname][keyname].get_data(frame_num)
-            return self.vidreaders[camname][keyname].get_frame(frame_num)
-
-        else:
-            thisvid_name = self.vidreaders[camname][keyname]
-            abname = thisvid_name.split("/")[-1]
-            if abname == self.currvideo_name[camname]:
-                vid = self.currvideo[camname]
-            else:
-                # vid = imageio.get_reader(thisvid_name)
-                vid = MediaVideo(thisvid_name, grayscale=False)
-                print("Loading new video: {} for {}".format(abname, camname))
-                self.currvideo_name[camname] = abname
-                # close current vid
-                # Without a sleep here, ffmpeg can hang on video close
-                time.sleep(0.25)
-                if self.currvideo[camname] is not None:
-                    # self.currvideo[camname].close()
-                    self.currvideo[camname]._reader_.release()
-                self.currvideo[camname] = vid
-
-            # im = vid.get_data(frame_num)
-            im = vid.get_frame(frame_num)
-
-            return im
 
     def load_tif_frame(self, ind, camname):
         """Load frames in tif mode."""
@@ -219,10 +178,9 @@ class DataGenerator_downsample(keras.utils.Sequence):
 
                 if not self.mirror or _ci == 0:
                     if self.immode == "video":
-                        X[cnt] = self.load_vid_frame(
+                        X[cnt] = self.load_frame.load_vid_frame(
                             self.labels[ID]["frames"][camname],
                             camname,
-                            self.preload,
                             self.extension,
                         )[
                             self.crop_height[0] : self.crop_height[1],
@@ -339,12 +297,12 @@ class DataGenerator_downsample_multi_instance(keras.utils.Sequence):
         downsample: int = 1,
         immode: Text = "video",
         labelmode: Text = "prob",
-        preload: bool = True,
         dsmode: Text = "dsm",
         chunks: int = 3500,
         multimode: bool = False,
         mono: bool = False,
-        mirror: bool = False
+        mirror: bool = False,
+        predict_flag: bool = False,
     ):
         """Initialize generator.
 
@@ -366,7 +324,6 @@ class DataGenerator_downsample_multi_instance(keras.utils.Sequence):
         self.crop_width = crop_width
         self.crop_height = crop_height
         self.downsample = downsample
-        self.preload = preload
         self.dsmode = dsmode
         self.on_epoch_end()
 
@@ -384,14 +341,11 @@ class DataGenerator_downsample_multi_instance(keras.utils.Sequence):
 
         self.mono = mono
 
-        if not self.preload:
-            # then we keep a running video object so at least we don't open a new one every time
-            self.currvideo = {}
-            self.currvideo_name = {}
-            for dd in camnames.keys():
-                for cc in camnames[dd]:
-                    self.currvideo[cc] = None
-                    self.currvideo_name[cc] = None
+        self.predict_flag = predict_flag
+        self.load_frame = LoadVideoFrame(self._N_VIDEO_FRAMES,
+                                         self.vidreaders,
+                                         self.camnames,
+                                         self.predict_flag)
 
     def __len__(self):
         """Denote the number of batches per epoch."""
@@ -415,42 +369,6 @@ class DataGenerator_downsample_multi_instance(keras.utils.Sequence):
         self.indexes = np.arange(len(self.list_IDs))
         if self.shuffle:
             np.random.shuffle(self.indexes)
-
-    def load_vid_frame(self, ind, camname, preload=True, extension=".mp4"):
-        """Load the video frame from a single camera."""
-        chunks = self._N_VIDEO_FRAMES[camname]
-        cur_video_id = np.nonzero([c <= ind for c in chunks])[0][-1]
-        cur_first_frame = chunks[cur_video_id]
-        fname = str(cur_first_frame) + extension
-        frame_num = int(ind - cur_first_frame)
-
-        keyname = os.path.join(camname, fname)
-
-        if preload:
-            # return self.vidreaders[camname][keyname].get_data(frame_num)
-            return self.vidreaders[camname][keyname].get_frame(frame_num)
-        else:
-            thisvid_name = self.vidreaders[camname][keyname]
-            abname = thisvid_name.split("/")[-1]
-            if abname == self.currvideo_name[camname]:
-                vid = self.currvideo[camname]
-            else:
-                # vid = imageio.get_reader(thisvid_name)
-                vid = MediaVideo(thisvid_name, grayscale=False)
-                print("Loading new video: {} for {}".format(abname, camname))
-                self.currvideo_name[camname] = abname
-                # close current vid
-                # Without a sleep here, ffmpeg can hang on video close
-                time.sleep(0.25)
-                if self.currvideo[camname] is not None:
-                    # self.currvideo[camname].close()
-                    self.currvideo[camname]._reader_.release()
-                self.currvideo[camname] = vid
-
-            # im = vid.get_data(frame_num)
-            im = vid.get_frame(frame_num)
-
-            return im
 
     def load_tif_frame(self, ind, camname):
         """Load frames in tif mode."""
@@ -509,10 +427,9 @@ class DataGenerator_downsample_multi_instance(keras.utils.Sequence):
                 # Store sample
                 # TODO(Refactor): This section is tricky to read
                 if self.immode == "video":
-                    X[cnt] = self.load_vid_frame(
+                    X[cnt] = self.load_frame.load_vid_frame(
                         self.labels[ID]["frames"][camname],
                         camname,
-                        self.preload,
                         self.extension,
                     )[
                         self.crop_height[0] : self.crop_height[1],
@@ -808,10 +725,9 @@ class DataGenerator_downsample_frommem(keras.utils.Sequence):
         # Load in a sample so that size can be found when full_data=False
         camname = self.camnames[0]
         # TODO(refactor): Hard to read
-        X = self.load_vid_frame(
+        X = self.load_frame.load_vid_frame(
             self.labels[list_IDs_temp[0]]["frames"][camname],
             camname,
-            self.preload,
             self.extension,
         )[
             self.crop_height[0] : self.crop_height[1],
@@ -821,10 +737,9 @@ class DataGenerator_downsample_frommem(keras.utils.Sequence):
         for i, ID in enumerate(list_IDs_temp):
             for camname in self.camnames:
                 if full_data:
-                    X = self.load_vid_frame(
+                    X = self.load_frame.load_vid_frame(
                         self.labels[ID]["frames"][camname],
                         camname,
-                        self.preload,
                         self.extension,
                     )[
                         self.crop_height[0] : self.crop_height[1],

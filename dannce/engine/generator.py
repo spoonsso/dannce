@@ -5,7 +5,7 @@ import numpy as np
 from tensorflow import keras
 from dannce.engine import processing as processing
 from dannce.engine import ops as ops
-from dannce.engine.video import MediaVideo
+from dannce.engine.video import LoadVideoFrame
 import imageio
 import warnings
 import time
@@ -115,13 +115,10 @@ class DataGenerator(keras.utils.Sequence):
 
         assert len(self.list_IDs) == len(self.clusterIDs)
 
-        # we keep a running video object so at least we don't open a new one every time
-        self.currvideo = {}
-        self.currvideo_name = {}
-        for dd in camnames.keys():
-            for cc in camnames[dd]:
-                self.currvideo[cc] = None
-                self.currvideo_name[cc] = None
+        self.load_frame = LoadVideoFrame(self._N_VIDEO_FRAMES,
+                                         self.vidreaders,
+                                         self.camnames,
+                                         self.predict_flag)
 
     def __len__(self) -> int:
         """Denote the number of batches per epoch.
@@ -137,60 +134,6 @@ class DataGenerator(keras.utils.Sequence):
 
         if self.shuffle:
             np.random.shuffle(self.indexes)
-
-    def load_vid_frame(
-        self, ind: int, camname: Text, extension: Text = ".mp4"
-    ) -> np.ndarray:
-        """Load video frame from a single camera.
-
-        This is currently implemented for handling only one camera as input
-
-        Args:
-            ind (int): Frame index
-            camname (Text): Camera index
-            extension (Text, optional): Video extension
-
-        Returns:
-            np.ndarray: Video frame as w x h x c numpy ndarray
-        """
-        chunks = self._N_VIDEO_FRAMES[camname]
-        cur_video_id = np.nonzero([c <= ind for c in chunks])[0][-1]
-        cur_first_frame = chunks[cur_video_id]
-        fname = str(cur_first_frame) + extension
-        frame_num = int(ind - cur_first_frame)
-
-        keyname = os.path.join(camname, fname)
-
-        thisvid_name = self.vidreaders[camname][keyname]
-        abname = thisvid_name.split("/")[-1]
-        if abname == self.currvideo_name[camname]:
-            vid = self.currvideo[camname]
-        else:
-            # use imageio for prediction, because linear seeking
-            # is faster with imageio than opencv
-            vid = imageio.get_reader(thisvid_name) if self.predict_flag else \
-                MediaVideo(thisvid_name, grayscale=False)
-            print("Loading new video: {} for {}".format(abname, camname))
-            self.currvideo_name[camname] = abname
-            # close current vid
-            # Without a sleep here, ffmpeg can hang on video close
-            time.sleep(0.25)
-            if self.currvideo[camname] is not None:
-                self.currvideo[camname].close() if self.predict_flag else \
-                    self.currvideo[camname]._reader_.release()
-            self.currvideo[camname] = vid
-
-        # This deals with a strange indexing error in the pup data.
-        try:
-
-            im = vid.get_data(frame_num).astype("uint8") if self.predict_flag \
-                else vid.get_frame(frame_num)
-        except IndexError:
-            print("Indexing error, using previous frame")
-            im = vid.get_data(frame_num - 1).astype("uint8") if self.predict_flag \
-                else vid.get_frame(frame_num - 1)
-
-        return im
 
     def random_rotate(self, X: np.ndarray, y_3d: np.ndarray, log: bool = False):
         """Rotate each sample by 0, 90, 180, or 270 degrees.
@@ -578,7 +521,7 @@ class DataGenerator_3Dconv(DataGenerator):
 
                     # From raw video, need to crop
                     elif self.immode == "vid":
-                        thisim = self.load_vid_frame(
+                        thisim = self.load_frame.load_vid_frame(
                             self.labels[ID]["frames"][camname],
                             camname,
                             extension=self.extension,
@@ -1079,7 +1022,7 @@ class DataGenerator_3Dconv_torch(DataGenerator):
         this_y[1, :] = this_y[1, :] - self.crop_height[0]
         com = self.torch.mean(this_y, axis=1)
 
-        thisim = self.load_vid_frame(
+        thisim = self.load_frame.load_vid_frame(
             self.labels[ID]["frames"][camname],
             camname,
             extension=self.extension,
@@ -1294,7 +1237,7 @@ class DataGenerator_3Dconv_torch(DataGenerator):
                 # Here we only load the video once, and then parallelize the projection
                 # and sampling after mirror flipping. For setups that collect views
                 # in a single imgae with the use of mirrors
-                loadim = self.load_vid_frame(
+                loadim = self.load_frame.load_vid_frame(
                     self.labels[ID]["frames"][self.camnames[experimentID][0]],
                     self.camnames[experimentID][0],
                     extension=self.extension,
@@ -1696,7 +1639,7 @@ class DataGenerator_3Dconv_tf(DataGenerator):
 
             if self.immode == "vid":
                 ts = time.time()
-                thisim = self.load_vid_frame(
+                thisim = self.load_frame.load_vid_frame(
                     self.labels[ID]["frames"][camname],
                     camname,
                     extension=self.extension,

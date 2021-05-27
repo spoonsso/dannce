@@ -228,6 +228,7 @@ def com_predict(params: Dict):
         "dsmode": params["dsmode"],
         "mono": params["mono"],
         "mirror": params["mirror"],
+        "predict_flag": True,
     }
 
     partition = {}
