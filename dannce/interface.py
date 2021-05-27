@@ -1400,7 +1400,8 @@ def dannce_predict(params: Dict):
         "chunks": params["chunks"],
         "preload": False,
         "mono": params["mono"],
-        "mirror": params["mirror"]
+        "mirror": params["mirror"],
+        "predict_flag": True,
     }
 
     # Datasets
