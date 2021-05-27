@@ -38,10 +38,10 @@ class DataGenerator(keras.utils.Sequence):
         n_channels_in (int): Number of input channels
         n_channels_out (int): Number of output channels
         out_scale (int): Scale of the output gaussians.
-        preload (bool): If true, preload the data.
         samples_per_cluster (int): Samples per cluster
         shuffle (bool): If True, shuffle the samples.
         vidreaders (Dict): Dict containing video readers.
+        predict_flag (bool): If True, use imageio for reading videos, rather than OpenCV
     """
 
     def __init__(
@@ -61,9 +61,9 @@ class DataGenerator(keras.utils.Sequence):
         samples_per_cluster: int = 0,
         vidreaders: Dict = None,
         chunks: int = 3500,
-        preload: bool = True,
         mono: bool = False,
         mirror: bool = False,
+        predict_flag: bool = False,
     ):
         """Initialize Generator.
 
@@ -83,8 +83,8 @@ class DataGenerator(keras.utils.Sequence):
             samples_per_cluster (int, optional): Samples per cluster
             vidreaders (Dict, optional): Dict containing video readers.
             chunks (int, optional): Size of chunks when using chunked mp4.
-            preload (bool, optional): If true, preload the data.
             mono (bool, optional): If True, use grayscale image.
+            predict_flag (bool, optional): If True, use imageio for reading videos, rather than OpenCV
         """
         self.dim_in = dim_in
         self.dim_out = dim_in
@@ -103,9 +103,9 @@ class DataGenerator(keras.utils.Sequence):
         self.clusterIDs = clusterIDs
         self.samples_per_cluster = samples_per_cluster
         self._N_VIDEO_FRAMES = chunks
-        self.preload = preload
         self.mono = mono
         self.mirror = mirror
+        self.predict_flag = predict_flag
         self.on_epoch_end()
 
         if self.vidreaders is not None:
@@ -115,14 +115,13 @@ class DataGenerator(keras.utils.Sequence):
 
         assert len(self.list_IDs) == len(self.clusterIDs)
 
-        if not self.preload:
-            # then we keep a running video object so at least we don't open a new one every time
-            self.currvideo = {}
-            self.currvideo_name = {}
-            for dd in camnames.keys():
-                for cc in camnames[dd]:
-                    self.currvideo[cc] = None
-                    self.currvideo_name[cc] = None
+        # we keep a running video object so at least we don't open a new one every time
+        self.currvideo = {}
+        self.currvideo_name = {}
+        for dd in camnames.keys():
+            for cc in camnames[dd]:
+                self.currvideo[cc] = None
+                self.currvideo_name[cc] = None
 
     def __len__(self) -> int:
         """Denote the number of batches per epoch.
@@ -140,7 +139,7 @@ class DataGenerator(keras.utils.Sequence):
             np.random.shuffle(self.indexes)
 
     def load_vid_frame(
-        self, ind: int, camname: Text, preload: bool = True, extension: Text = ".mp4"
+        self, ind: int, camname: Text, extension: Text = ".mp4"
     ) -> np.ndarray:
         """Load video frame from a single camera.
 
@@ -149,7 +148,6 @@ class DataGenerator(keras.utils.Sequence):
         Args:
             ind (int): Frame index
             camname (Text): Camera index
-            preload (bool, optional): If true load from the existing video readers.
             extension (Text, optional): Video extension
 
         Returns:
@@ -162,41 +160,37 @@ class DataGenerator(keras.utils.Sequence):
         frame_num = int(ind - cur_first_frame)
 
         keyname = os.path.join(camname, fname)
-        if preload:
-            # return (
-            #     self.vidreaders[camname][keyname]
-            #     .get_data(frame_num)
-            #     .astype("uint8")
-            # )
-            return self.vidreaders[camname][keyname].get_frame(frame_num)
+
+        thisvid_name = self.vidreaders[camname][keyname]
+        abname = thisvid_name.split("/")[-1]
+        if abname == self.currvideo_name[camname]:
+            vid = self.currvideo[camname]
         else:
-            thisvid_name = self.vidreaders[camname][keyname]
-            abname = thisvid_name.split("/")[-1]
-            if abname == self.currvideo_name[camname]:
-                vid = self.currvideo[camname]
-            else:
-                # vid = imageio.get_reader(thisvid_name)
-                vid = MediaVideo(thisvid_name, grayscale=False)
-                print("Loading new video: {} for {}".format(abname, camname))
-                self.currvideo_name[camname] = abname
-                # close current vid
-                # Without a sleep here, ffmpeg can hang on video close
-                time.sleep(0.25)
-                if self.currvideo[camname] is not None:
-                    # self.currvideo[camname].close()
+            # use imageio for prediction, because linear seeking
+            # is faster with imageio than opencv
+            vid = imageio.get_reader(thisvid_name) if self.predict_flag else \
+                MediaVideo(thisvid_name, grayscale=False)
+            print("Loading new video: {} for {}".format(abname, camname))
+            self.currvideo_name[camname] = abname
+            # close current vid
+            # Without a sleep here, ffmpeg can hang on video close
+            time.sleep(0.25)
+            if self.currvideo[camname] is not None:
+                self.currvideo[camname].close() if self.predict_flag else \
                     self.currvideo[camname]._reader_.release()
-                self.currvideo[camname] = vid
+            self.currvideo[camname] = vid
 
-            # This deals with a strange indexing error in the pup data.
-            try:
-                # im = vid.get_data(frame_num).astype("uint8")
-                im = vid.get_frame(frame_num)
-            except IndexError:
-                print("Indexing error using previous frame")
-                # im = vid.get_data(frame_num - 1).astype("uint8")
-                im = vid.get_frame(frame_num)
+        # This deals with a strange indexing error in the pup data.
+        try:
 
-            return im
+            im = vid.get_data(frame_num).astype("uint8") if self.predict_flag \
+                else vid.get_frame(frame_num)
+        except IndexError:
+            print("Indexing error, using previous frame")
+            im = vid.get_data(frame_num - 1).astype("uint8") if self.predict_flag \
+                else vid.get_frame(frame_num - 1)
+
+        return im
 
     def random_rotate(self, X: np.ndarray, y_3d: np.ndarray, log: bool = False):
         """Rotate each sample by 0, 90, 180, or 270 degrees.
@@ -267,6 +261,7 @@ class DataGenerator_3Dconv(DataGenerator):
         vmax (int): Maximum box dim (relative to the COM)
         vmin (int): Minimum box dim (relative to the COM)
         vsize (float): Side length of one voxel
+        predict_flag (bool): If True, use imageio for reading videos, rather than OpenCV
     """
 
     def __init__(
@@ -295,7 +290,6 @@ class DataGenerator_3Dconv(DataGenerator):
         depth: bool = False,
         channel_combo=None,
         mode: Text = "3dprob",
-        preload: bool = True,
         samples_per_cluster: int = 0,
         immode: Text = "tif",
         rotation: bool = False,
@@ -310,6 +304,7 @@ class DataGenerator_3Dconv(DataGenerator):
         chunks: int = 3500,
         mono: bool = False,
         mirror: bool = False,
+        predict_flag: bool = False,
     ):
         """Initialize data generator.
 
@@ -338,7 +333,6 @@ class DataGenerator_3Dconv(DataGenerator):
             depth (bool): If True, appends voxel depth to sampled image features [DEPRECATED]
             channel_combo (Text): Method for shuffling camera input order
             mode (Text): Toggles output label format to match MAX vs. AVG network requirements.
-            preload (bool, optional): If True, load using preloaded vidreaders.
             samples_per_cluster (int, optional): Samples per cluster
             immode (Text): Toggles using 'video' or 'tif' files as image input [DEPRECATED]
             rotation (bool, optional): If True, use simple rotation augmentation.
@@ -352,6 +346,7 @@ class DataGenerator_3Dconv(DataGenerator):
             norm_im (bool, optional): If True, normalize images.
             chunks (int, optional): Size of chunks when using chunked mp4.
             mono (bool, optional): If True, use grayscale image.
+            predict_flag (bool, optional): If True, use imageio for reading videos, rather than OpenCV
         """
         DataGenerator.__init__(
             self,
@@ -370,9 +365,9 @@ class DataGenerator_3Dconv(DataGenerator):
             samples_per_cluster,
             vidreaders,
             chunks,
-            preload,
             mono,
-            mirror
+            mirror,
+            predict_flag,
         )
         self.vmin = vmin
         self.vmax = vmax
@@ -586,7 +581,6 @@ class DataGenerator_3Dconv(DataGenerator):
                         thisim = self.load_vid_frame(
                             self.labels[ID]["frames"][camname],
                             camname,
-                            self.preload,
                             extension=self.extension,
                         )[
                             self.crop_height[0] : self.crop_height[1],
@@ -847,6 +841,7 @@ class DataGenerator_3Dconv_torch(DataGenerator):
         vmax (int): Maximum box dim (relative to the COM)
         vmin (int): Minimum box dim (relative to the COM)
         vsize (float): Side length of one voxel
+        predict_flag (bool): If True, use imageio for reading videos, rather than OpenCV
     """
 
     def __init__(
@@ -875,7 +870,6 @@ class DataGenerator_3Dconv_torch(DataGenerator):
         depth=False,
         channel_combo=None,
         mode="3dprob",
-        preload=True,
         samples_per_cluster=0,
         immode="tif",
         rotation=False,
@@ -890,6 +884,7 @@ class DataGenerator_3Dconv_torch(DataGenerator):
         chunks=3500,
         mono=False,
         mirror=False,
+        predict_flag=False,
     ):
         """Initialize data generator.
 
@@ -918,7 +913,6 @@ class DataGenerator_3Dconv_torch(DataGenerator):
             depth (bool): If True, appends voxel depth to sampled image features [DEPRECATED]
             channel_combo (Text): Method for shuffling camera input order
             mode (Text): Toggles output label format to match MAX vs. AVG network requirements.
-            preload (bool, optional): If True, load using preloaded vidreaders.
             samples_per_cluster (int, optional): Samples per cluster
             immode (Text): Toggles using 'video' or 'tif' files as image input [DEPRECATED]
             rotation (bool, optional): If True, use simple rotation augmentation.
@@ -932,6 +926,7 @@ class DataGenerator_3Dconv_torch(DataGenerator):
             norm_im (bool, optional): If True, normalize images.
             chunks (int, optional): Size of chunks when using chunked mp4.
             mono (bool, optional): If True, use grayscale image.
+            predict_flag (bool, optional): If True, use imageio for reading videos, rather than OpenCV
         """
         DataGenerator.__init__(
             self,
@@ -950,9 +945,9 @@ class DataGenerator_3Dconv_torch(DataGenerator):
             samples_per_cluster,
             vidreaders,
             chunks,
-            preload,
             mono,
             mirror,
+            predict_flag,
         )
         self.vmin = vmin
         self.vmax = vmax
@@ -1087,7 +1082,6 @@ class DataGenerator_3Dconv_torch(DataGenerator):
         thisim = self.load_vid_frame(
             self.labels[ID]["frames"][camname],
             camname,
-            self.preload,
             extension=self.extension,
         )[
             self.crop_height[0]: self.crop_height[1],
@@ -1303,7 +1297,6 @@ class DataGenerator_3Dconv_torch(DataGenerator):
                 loadim = self.load_vid_frame(
                     self.labels[ID]["frames"][self.camnames[experimentID][0]],
                     self.camnames[experimentID][0],
-                    self.preload,
                     extension=self.extension,
                 )[
                     self.crop_height[0]: self.crop_height[1],
@@ -1469,6 +1462,7 @@ class DataGenerator_3Dconv_tf(DataGenerator):
         vmax (int): Maximum box dim (relative to the COM)
         vmin (int): Minimum box dim (relative to the COM)
         vsize (float): Side length of one voxel
+        predict_flag (bool): If True, use imageio for reading videos, rather than OpenCV
     """
     def __init__(
         self,
@@ -1496,7 +1490,6 @@ class DataGenerator_3Dconv_tf(DataGenerator):
         depth=False,
         channel_combo=None,
         mode="3dprob",
-        preload=True,
         samples_per_cluster=0,
         immode="tif",
         rotation=False,
@@ -1511,6 +1504,7 @@ class DataGenerator_3Dconv_tf(DataGenerator):
         chunks=3500,
         mono=False,
         mirror=False,
+        predict_flag=False,
     ):
 
         """Initialize data generator.
@@ -1540,7 +1534,6 @@ class DataGenerator_3Dconv_tf(DataGenerator):
             depth (bool): If True, appends voxel depth to sampled image features [DEPRECATED]
             channel_combo (Text): Method for shuffling camera input order
             mode (Text): Toggles output label format to match MAX vs. AVG network requirements.
-            preload (bool, optional): If True, load using preloaded vidreaders.
             samples_per_cluster (int, optional): Samples per cluster
             immode (Text): Toggles using 'video' or 'tif' files as image input [DEPRECATED]
             rotation (bool, optional): If True, use simple rotation augmentation.
@@ -1554,6 +1547,7 @@ class DataGenerator_3Dconv_tf(DataGenerator):
             norm_im (bool, optional): If True, normalize images.
             chunks (int, optional): Size of chunks when using chunked mp4.
             mono (bool, optional): If True, use grayscale image.
+            predict_flag (bool, optional): If True, use imageio for reading videos, rather than OpenCV
         """
         DataGenerator.__init__(
             self,
@@ -1572,9 +1566,9 @@ class DataGenerator_3Dconv_tf(DataGenerator):
             samples_per_cluster,
             vidreaders,
             chunks,
-            preload,
             mono,
             mirror,
+            predict_flag,
         )
         self.vmin = vmin
         self.vmax = vmax
@@ -1705,7 +1699,6 @@ class DataGenerator_3Dconv_tf(DataGenerator):
                 thisim = self.load_vid_frame(
                     self.labels[ID]["frames"][camname],
                     camname,
-                    self.preload,
                     extension=self.extension,
                 )[
                     self.crop_height[0] : self.crop_height[1],
