@@ -1003,6 +1003,13 @@ def dannce_train(params: Dict):
         params["rand_view_replace"] = False
         randflag = True
 
+    if params["n_rand_views"] == 0:
+        print("Using default n_rand_views augmentation with {} views and with replacement".format(n_views))
+        print("To disable n_rand_views augmentation, set it to None in the config.")
+        params["n_rand_views"] = n_views
+        params["rand_view_replace"] = True
+
+
     shared_args = {'chan_num': params["chan_num"],
                    'expval': params["expval"],
                    'nvox': params["nvox"]}

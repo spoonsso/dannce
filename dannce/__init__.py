@@ -83,7 +83,7 @@ _param_defaults_dannce = {
     "net": None,
     "from_weights": None,
     "dannce_predict_vol_tifdir": None,
-    "n_rand_views": None,
+    "n_rand_views": 0,
     "rand_view_replace": True,
     "multi_gpu_train": False,
 }
