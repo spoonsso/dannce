@@ -1006,8 +1006,6 @@ def dannce_train(params: Dict):
         randflag = True
 
     shared_args = {'chan_num': params["chan_num"],
-                   'random': randflag,
-                   'n_rand_views': params["n_rand_views"],
                    'expval': params["expval"],
                    'nvox': params["nvox"]}
     shared_args_train = {'batch_size': params["batch_size"],
@@ -1019,14 +1017,18 @@ def dannce_train(params: Dict):
                          'hue_val': params["augment_hue_val"],
                          'rotation_val': params["augment_rotation_val"],
                          'replace': params["rand_view_replace"],
+                         'random': randflag,
+                         'n_rand_views': params["n_rand_views"],
                          }
-    shared_args_valid = {'batch_size': 2,
+    shared_args_valid = {'batch_size': 4,
                          'rotation': False,
                          'augment_hue': False,
                          'augment_brightness': False,
                          'augment_continuous_rotation': False,
                          'shuffle': False,
-                         'replace': False}
+                         'replace': False,
+                         'n_rand_views': params["n_rand_views"] if cam3_train else None,
+                         'random': True if cam3_train else False}
     if params["use_npy"]:
         genfunc = DataGenerator_3Dconv_npy
         args_train = {'list_IDs': partition["train_sampleIDs"],

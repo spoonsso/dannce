@@ -380,7 +380,7 @@ def make_data_splits(samples, params, RESULTSDIR, num_experiments):
                 )
                 valid_inds = list(np.sort(valid_inds))
 
-            train_inds = [i for i in all_inds if i not in all_valid_inds]
+            train_inds = list(set(all_inds) - set(all_valid_inds))#[i for i in all_inds if i not in all_valid_inds]
         elif params["num_validation_per_exp"] > 0:  # if 0, do not perform validation
             for e in range(num_experiments):
                 tinds = [
@@ -395,7 +395,7 @@ def make_data_splits(samples, params, RESULTSDIR, num_experiments):
         elif params["valid_exp"] is not None:
             raise Exception("Need to set num_validation_per_exp in using valid_exp")
         else:
-            train_inds = [i for i in all_inds if i not in valid_inds]
+            train_inds = all_inds
 
         assert (set(valid_inds) & set(train_inds)) == set()
 
@@ -406,12 +406,16 @@ def make_data_splits(samples, params, RESULTSDIR, num_experiments):
         else:
             train_expts = np.arange(num_experiments)
 
+        print("TRAIN EXPTS: {}".format(train_expts))
+
         if params["num_train_per_exp"] is not None:
             # Then sample randomly without replacement from training sampleIDs
             for e in train_expts:
                 tinds = [
                         i for i in range(len(train_samples)) if int(train_samples[i].split("_")[0]) == e
                     ]
+                print(e)
+                print(len(tinds))
                 train_inds = train_inds + list(
                     np.random.choice(tinds, (params["num_train_per_exp"],), replace=False)
                 )
@@ -457,18 +461,16 @@ def remove_samples_npy(npydir, samples, params):
         gridvol = os.path.join(npydir[e], 'grid_volumes')
         ims = os.listdir(imvol)
         grids = os.listdir(gridvol)
-        npysamps = [f for f in samples if int(f.split("_")[0]) == e]
+        npysamps = ['0_' + f.split("_")[1] + '.npy' for f in samples if int(f.split("_")[0]) == e]
 
-        samplen = len(samps)
-        for ID in npysamps:
-            fname = '0_' + ID.split("_")[1] + '.npy'
-            if fname in ims and fname in grids:
-                samps.append(ID)
+        goodsamps = list(set(npysamps) & set(ims) & set(grids))
 
-        sampdiff = len(samps) - samplen
+        samps = samps + [str(e) + '_' + f.split("_")[1].split(".")[0] for f in goodsamps]
+
+        sampdiff = len(npysamps) - len(goodsamps)
 
         #import pdb; pdb.set_trace()
-        print("Removed {} samples from {} because corresponding image or grid files could not be found".format(len(npysamps)-sampdiff, params["experiment"][e]["label3d_file"]))
+        print("Removed {} samples from {} because corresponding image or grid files could not be found".format(sampdiff, params["experiment"][e]["label3d_file"]))
 
     return np.array(samps)
 
