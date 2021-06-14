@@ -6,7 +6,6 @@ downstream analysis pipeline
 Usage:
 python path_to_file/makeStructuredDataNoMocap.py path_to_prediction_file path_to_skeleton_file path_to_label3d_file
 
-path_to_template is an optional parameter for times when I don't have any labeling directory
 """
 import numpy as np
 import scipy.io as sio
