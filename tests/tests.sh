@@ -48,6 +48,9 @@ dannce-train config_mousetest.yaml --net-type=MAX --dannce-finetune-weights=../.
 echo "Testing DANNCE training, finetune_AVG"
 dannce-train config_mousetest.yaml --net-type=AVG --dannce-finetune-weights=../../demo/markerless_mouse_1/DANNCE/weights/
 
+echo "Testing DANNCE training, finetune_AVG from previous finetune"
+dannce-train config_mousetest.yaml --net-type=AVG --dannce-finetune-weights=../../demo/markerless_mouse_1/DANNCE/train_results/AVG/
+
 echo "Testing DANNCE training, AVG net from scratch"
 dannce-train config_mousetest.yaml --net=unet3d_big_expectedvalue --train-mode=new --n-channels-out=22
 

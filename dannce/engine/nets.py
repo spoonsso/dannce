@@ -1,5 +1,5 @@
 """Define networks for dannce."""
-from tensorflow.keras.models import Model
+from tensorflow.keras.models import Model, load_model
 from tensorflow.keras.layers import Input, concatenate, Conv2D, MaxPooling2D
 from tensorflow.keras.layers import Conv2DTranspose, Conv3D, Lambda
 from tensorflow.keras.layers import MaxPooling3D, Conv3DTranspose
@@ -11,6 +11,7 @@ from tensorflow.keras import backend as K
 from tensorflow.keras.utils import multi_gpu_model
 from tensorflow.keras import regularizers
 from dannce.engine import ops as ops
+from dannce.engine import losses as losses
 import numpy as np
 import h5py
 
@@ -1161,6 +1162,68 @@ def finetune_AVG(
 
     return model
 
+def finetune_fullmodel_AVG(
+    lossfunc,
+    lr,
+    input_dim,
+    feature_num,
+    num_cams,
+    new_last_kern_size,
+    new_n_channels_out,
+    weightspath,
+    num_layers_locked=2,
+    batch_norm=False,
+    instance_norm=False,
+    gridsize=(64, 64, 64),
+):
+    """
+    makes necessary calls to network constructors to set up nets for fine-tuning
+    the spatial average version of the network, but here starting from a full model
+    file, which enables finetuning of a finetuned model.
+
+    num_layers_locked (int) is the number of layers, starting from the input layer,
+    that will be locked (non-trainable) during fine-tuning.
+    """
+
+    model = load_model(
+                weightspath,
+                custom_objects={
+                    "ops": ops,
+                    "slice_input": slice_input,
+                    "mask_nan_keep_loss": losses.mask_nan_keep_loss,
+                    "euclidean_distance_3D": losses.euclidean_distance_3D,
+                    "centered_euclidean_distance_3D": losses.centered_euclidean_distance_3D,
+                },
+            )
+
+    # Unlock all layers so they can be locked later according to num_layers_locked
+    for layer in model.layers[1].layers:
+        layer.trainable = True
+        # Lock desired number of layers
+    for layer in model.layers[1].layers[:num_layers_locked]:
+        layer.trainable = False
+
+        # Do forward pass all the way until end
+    input_ = Input((*gridsize, input_dim * num_cams))
+
+    old_out = model.layers[1](input_)
+
+    # Add new output conv. layer
+    new_conv = Conv3D(
+        new_n_channels_out, new_last_kern_size, activation="linear", padding="same"
+    )(old_out)
+
+    grid_centers = Input((None, 3))
+
+    new_conv2 = Lambda(lambda x: ops.spatial_softmax(x))(new_conv)
+
+    output = Lambda(lambda x: ops.expected_value_3d(x[0], x[1]))(
+        [new_conv2, grid_centers]
+    )
+
+    model = Model(inputs=[input_, grid_centers], outputs=[output])
+
+    return model
 
 def load_attributes_from_hdf5_group(group, name):
     """Loads attributes of the specified name from the HDF5 group.

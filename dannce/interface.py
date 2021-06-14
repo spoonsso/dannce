@@ -1109,20 +1109,30 @@ def dannce_train(params: Dict):
                 gridsize=gridsize,
             )
         elif params["train_mode"] == "finetune":
-            model = params["net"](
-                params["loss"],
-                float(params["lr"]),
-                params["chan_num"] + params["depth"],
-                params["n_channels_out"],
-                len(camnames[0]),
-                params["new_last_kernel_size"],
-                params["new_n_channels_out"],
-                params["dannce_finetune_weights"],
-                params["n_layers_locked"],
-                batch_norm=False,
-                instance_norm=True,
-                gridsize=gridsize,
-            )
+            fargs = [params["loss"],
+                     float(params["lr"]),
+                     params["chan_num"] + params["depth"],
+                     params["n_channels_out"],
+                     len(camnames[0]),
+                     params["new_last_kernel_size"],
+                     params["new_n_channels_out"],
+                     params["dannce_finetune_weights"],
+                     params["n_layers_locked"],
+                     False,
+                     True,
+                     gridsize]
+            try:
+                model = params["net"](
+                        *fargs
+                )
+            except:
+                if params["expval"]:
+                    print("Could not load weights for finetune (likely because you are finetuning a previously finetuned network. Attempting to finetune from a full finetune model file.")
+                    model = nets.finetune_fullmodel_AVG(
+                            *fargs
+                    )
+                else:
+                    raise Exception("Finetuning from a previously finetuned model is currently only possible for AVG models")
         elif params["train_mode"] == "continued":
             model = load_model(
                 params["dannce_finetune_weights"],
