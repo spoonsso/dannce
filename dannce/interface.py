@@ -157,7 +157,6 @@ def com_predict(params: Dict):
         params["chan_num"],
         eff_n_channels_out,
         ["mse"],
-        multigpu=False,
     )
 
     # If the weights are not specified, use the train directory.
@@ -439,7 +438,6 @@ def com_train(params: Dict):
         params["chan_num"],
         eff_n_channels_out,
         ["mse"],
-        multigpu=False,
     )
     print("COMPLETE\n")
 
@@ -695,13 +693,7 @@ def dannce_train(params: Dict):
     n_views = int(params["n_views"])
 
     # Convert all metric strings to objects
-    metrics = []
-    for m in params["metric"]:
-        try:
-            m_obj = getattr(losses, m)
-        except AttributeError:
-            m_obj = getattr(keras.losses, m)
-        metrics.append(m_obj)
+    metrics = nets.get_metrics(params)
 
     # set GPU ID
     if not params["multi_gpu_train"]:
@@ -1012,7 +1004,9 @@ def dannce_train(params: Dict):
 
     shared_args = {'chan_num': params["chan_num"],
                    'expval': params["expval"],
-                   'nvox': params["nvox"]}
+                   'nvox': params["nvox"],
+                   'heatmap_reg': params["heatmap_reg"],
+                   'heatmap_reg_coeff': params["heatmap_reg_coeff"]}
     shared_args_train = {'batch_size': params["batch_size"],
                          'rotation': params["rotate"],
                          'augment_hue': params["augment_hue"],
@@ -1127,12 +1121,12 @@ def dannce_train(params: Dict):
                 )
             except:
                 if params["expval"]:
-                    print("Could not load weights for finetune (likely because you are finetuning a previously finetuned network. Attempting to finetune from a full finetune model file.")
+                    print("Could not load weights for finetune (likely because you are finetuning a previously finetuned network). Attempting to finetune from a full finetune model file.")
                     model = nets.finetune_fullmodel_AVG(
                             *fargs
                     )
                 else:
-                    raise Exception("Finetuning from a previously finetuned model is currently only possible for AVG models")
+                    raise Exception("Finetuning from a previously finetuned model is currently possible only for AVG models")
         elif params["train_mode"] == "continued":
             model = load_model(
                 params["dannce_finetune_weights"],
@@ -1140,6 +1134,7 @@ def dannce_train(params: Dict):
                     "ops": ops,
                     "slice_input": nets.slice_input,
                     "mask_nan_keep_loss": losses.mask_nan_keep_loss,
+                    "mask_nan_l1_loss": losses.mask_nan_l1_loss,
                     "euclidean_distance_3D": losses.euclidean_distance_3D,
                     "centered_euclidean_distance_3D": losses.centered_euclidean_distance_3D,
                 },
@@ -1162,11 +1157,18 @@ def dannce_train(params: Dict):
         else:
             raise Exception("Invalid training mode")
 
-        model.compile(
-            optimizer=Adam(lr=float(params["lr"])),
-            loss=params["loss"],
-            metrics=metrics,
-        )
+        if params["heatmap_reg"]:
+            model = nets.add_heatmap_output(model)
+
+
+
+        if params["heatmap_reg"] or params["train_mode"] != "continued":
+            # recompiling a full model will reset the optimizer state
+            model.compile(
+                optimizer=Adam(lr=float(params["lr"])),
+                loss=params["loss"] if not params["heatmap_reg"] else [params["loss"], losses.heatmap_max_regularizer],
+                metrics=metrics,
+            )
 
     print("COMPLETE\n")
 
@@ -1232,8 +1234,9 @@ def dannce_train(params: Dict):
                 
     callbacks = [csvlog, model_checkpoint, tboard, saveCheckPoint(params['dannce_train_dir'], params["epochs"])]
 
-    if params['expval'] and not params["use_npy"]:
-        save_callback = savePredTargets(params['epochs'],X_train,
+    if params['expval'] and not params["use_npy"] and not params["heatmap_reg"] and params["save_pred_targets"]:
+        save_callback = savePredTargets(params['epochs'],
+            X_train,
             X_train_grid,
             X_valid,
             X_valid_grid,
@@ -1262,6 +1265,8 @@ def dannce_train(params: Dict):
     sdir = os.path.join(params["dannce_train_dir"], "fullmodel_weights")
     if not os.path.exists(sdir):
         os.makedirs(sdir)
+
+    model = nets.remove_heatmap_output(model, params)
     model.save(os.path.join(sdir, "fullmodel_end.hdf5"))
 
     print("done!")
@@ -1464,7 +1469,7 @@ def dannce_predict(params: Dict):
     else:
         wdir = params["dannce_train_dir"]
         weights = os.listdir(wdir)
-        weights = [f for f in weights if ".hdf5" in f]
+        weights = [f for f in weights if ".hdf5" in f and "checkpoint" not in f]
         weights = sorted(
             weights, key=lambda x: int(x.split(".")[1].split("-")[0])
         )
@@ -1524,10 +1529,14 @@ def dannce_predict(params: Dict):
                 "ops": ops,
                 "slice_input": nets.slice_input,
                 "mask_nan_keep_loss": losses.mask_nan_keep_loss,
+                "mask_nan_l1_loss": losses.mask_nan_l1_loss,
                 "euclidean_distance_3D": losses.euclidean_distance_3D,
                 "centered_euclidean_distance_3D": losses.centered_euclidean_distance_3D,
             },
         )
+
+    # If there is a heatmap regularization i/o, remove it
+    model = nets.remove_heatmap_output(model, params)
 
     # To speed up expval prediction, rather than doing two forward passes: one for the 3d coordinate
     # and one for the probability map, here we splice on a new output layer after

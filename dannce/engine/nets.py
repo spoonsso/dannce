@@ -8,16 +8,28 @@ from tensorflow.keras.layers import Activation
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.layers import BatchNormalization
 from tensorflow.keras import backend as K
-from tensorflow.keras.utils import multi_gpu_model
 from tensorflow.keras import regularizers
 from dannce.engine import ops as ops
 from dannce.engine import losses as losses
 import numpy as np
 import h5py
+import tensorflow as tf
 
+def get_metrics(params):
+    """
+    """
+    metrics = []
+    for m in params["metric"]:
+        try:
+            m_obj = getattr(losses, m)
+        except AttributeError:
+            m_obj = getattr(tf.keras.losses, m)
+        metrics.append(m_obj)
+
+    return metrics
 
 def unet2d_fullbn(
-    lossfunc, lr, input_dim, feature_num, metric="mse", multigpu=False, include_top=True
+    lossfunc, lr, input_dim, feature_num, metric="mse", include_top=True
 ):
     """Initialize 2D U-net.
 
@@ -105,16 +117,13 @@ def unet2d_fullbn(
     else:
         model = Model(inputs=[inputs], outputs=[conv9])
 
-    if multigpu:
-        model = multi_gpu_model(model, gpus=2)
-
     model.compile(optimizer=Adam(lr=lr), loss=lossfunc, metrics=[metric])
 
     return model
 
 
 def unet2d_fullIN(
-    lossfunc, lr, input_dim, feature_num, metric="mse", multigpu=False, include_top=True
+    lossfunc, lr, input_dim, feature_num, metric="mse", include_top=True
 ):
     """
     Initialize 2D U-net
@@ -202,14 +211,11 @@ def unet2d_fullIN(
     else:
         model = Model(inputs=[inputs], outputs=[conv9])
 
-    if multigpu:
-        model = multi_gpu_model(model, gpus=2)
-
     model.compile(optimizer=Adam(lr=lr), loss=lossfunc, metrics=[metric])
 
     return model
 
-def unet2d_fullIN(lossfunc, lr, input_dim, feature_num, metric='mse',multigpu=False, include_top = True):
+def unet2d_fullIN(lossfunc, lr, input_dim, feature_num, metric='mse', include_top = True):
     """
     Initialize 2D U-net
 
@@ -285,9 +291,6 @@ def unet2d_fullIN(lossfunc, lr, input_dim, feature_num, metric='mse',multigpu=Fa
     else:
         model = Model(inputs=[inputs], outputs=[conv9])
 
-    if multigpu:
-        model = multi_gpu_model(model,gpus=2)
-
     model.compile(optimizer=Adam(lr=lr), loss=lossfunc, metrics=[metric])
 
     return model
@@ -325,7 +328,7 @@ def unet3d_big_expectedvalue(
         def fun(inputs):
             return inputs
 
-    inputs = Input((*gridsize, input_dim * num_cams))
+    inputs = Input((*gridsize, input_dim * num_cams), name="image_input")
     conv1_layer = Conv3D(64, (3, 3, 3), padding="same")
 
     conv1 = conv1_layer(inputs)
@@ -389,11 +392,11 @@ def unet3d_big_expectedvalue(
 
     conv10 = Conv3D(feature_num, out_kernel, activation="linear", padding="same")(conv8)
 
-    grid_centers = Input((None, 3))
+    grid_centers = Input((None, 3), name="grid_input")
 
-    conv10 = Lambda(lambda x: ops.spatial_softmax(x))(conv10)
+    conv10 = Lambda(lambda x: ops.spatial_softmax(x), name="normed_map")(conv10)
 
-    output = Lambda(lambda x: ops.expected_value_3d(x[0], x[1]))([conv10, grid_centers])
+    output = Lambda(lambda x: ops.expected_value_3d(x[0], x[1]), name="final_output")([conv10, grid_centers])
 
     # Because I think it is easier, use a layer to calculate the variance and return it as a second output to be used for variance loss
 
@@ -1141,7 +1144,7 @@ def finetune_AVG(
         layer.trainable = False
 
         # Do forward pass all the way until end
-    input_ = Input((*gridsize, input_dim * num_cams))
+    input_ = Input((*gridsize, input_dim * num_cams), name="image_input")
 
     old_out = model(input_)
 
@@ -1150,11 +1153,11 @@ def finetune_AVG(
         new_n_channels_out, new_last_kern_size, activation="linear", padding="same"
     )(old_out)
 
-    grid_centers = Input((None, 3))
+    grid_centers = Input((None, 3), name="grid_input")
 
-    new_conv2 = Lambda(lambda x: ops.spatial_softmax(x))(new_conv)
+    new_conv2 = Lambda(lambda x: ops.spatial_softmax(x), name="normed_map")(new_conv)
 
-    output = Lambda(lambda x: ops.expected_value_3d(x[0], x[1]))(
+    output = Lambda(lambda x: ops.expected_value_3d(x[0], x[1]), name="final_output")(
         [new_conv2, grid_centers]
     )
 
@@ -1191,9 +1194,11 @@ def finetune_fullmodel_AVG(
                     "ops": ops,
                     "slice_input": slice_input,
                     "mask_nan_keep_loss": losses.mask_nan_keep_loss,
+                    "mask_nan_l1_loss": losses.mask_nan_l1_loss,
                     "euclidean_distance_3D": losses.euclidean_distance_3D,
                     "centered_euclidean_distance_3D": losses.centered_euclidean_distance_3D,
                 },
+                compile=False,
             )
 
     # Unlock all layers so they can be locked later according to num_layers_locked
@@ -1204,7 +1209,7 @@ def finetune_fullmodel_AVG(
         layer.trainable = False
 
         # Do forward pass all the way until end
-    input_ = Input((*gridsize, input_dim * num_cams))
+    input_ = Input((*gridsize, input_dim * num_cams), name="image_input")
 
     old_out = model.layers[1](input_)
 
@@ -1213,15 +1218,91 @@ def finetune_fullmodel_AVG(
         new_n_channels_out, new_last_kern_size, activation="linear", padding="same"
     )(old_out)
 
-    grid_centers = Input((None, 3))
+    grid_centers = Input((None, 3), name="grid_input")
 
-    new_conv2 = Lambda(lambda x: ops.spatial_softmax(x))(new_conv)
+    new_conv2 = Lambda(lambda x: ops.spatial_softmax(x), name="normed_map")(new_conv)
 
-    output = Lambda(lambda x: ops.expected_value_3d(x[0], x[1]))(
+    output = Lambda(lambda x: ops.expected_value_3d(x[0], x[1]), name="final_output")(
         [new_conv2, grid_centers]
     )
 
     model = Model(inputs=[input_, grid_centers], outputs=[output])
+
+    return model
+
+def heatmap_reg(hmap, inds):
+    """
+    Returns the value of the 3D hmap at inds
+    """
+    nvox = K.int_shape(hmap)[1]
+    samp = tf.gather_nd(K.reshape(tf.transpose(hmap,
+                                               (0, 4, 1, 2, 3)),
+                                  (-1, nvox, nvox, nvox)),
+                        K.reshape(tf.transpose(K.cast(inds, "int32"),
+                                               (0, 2, 1)),
+                                  (-1, 1, 3)),
+                        batch_dims=1)
+    return K.reshape(samp,
+                     (-1, K.int_shape(inds)[2]))
+
+def add_heatmap_output(model):
+    """
+    Given at AVG model, splice on a new input (GT voxel index) and output (amplitude of normalized heatmap at that GT index)
+    """
+    lay = [l.name for l in model.layers]
+    if "heatmap_output" not in lay:
+        print("Adding heatmap regularization arm")
+        norm_layer = "normed_map"
+        image_input_layer = "image_input"
+        grid_input_layer = "grid_input"
+        final_output_layer = "final_output"
+        if norm_layer not in lay:
+            # for backwards compatibility with older models running in "continued" mode
+            model.get_layer("lambda_4")._name = norm_layer
+            model.get_layer("input_3")._name = image_input_layer
+            model.get_layer("input_4")._name = grid_input_layer
+            model.get_layer("lambda_5")._name = final_output_layer
+
+        gt_vox_ind = Input((3,
+                            K.int_shape(model.get_layer(norm_layer).output)[-1]),
+                           name="heatmap_input")
+
+        normed_out = model.get_layer(norm_layer).output
+        gt_vox_val = Lambda(lambda x: heatmap_reg(x[0], x[1]), name="heatmap_output")(
+            [normed_out, gt_vox_ind]
+            )
+
+        #import pdb;pdb.set_trace()
+        model = Model(
+            inputs=[model.get_layer(image_input_layer).input, model.get_layer(grid_input_layer).input, gt_vox_ind],
+            outputs=[model.get_layer(final_output_layer).output, gt_vox_val])
+
+        #import pdb;pdb.set_trace()
+
+    return model
+
+def remove_heatmap_output(model, params):
+    """
+    Remove any heatmap regularizer layers so saved models can be run normally with dannce predict.
+    """
+    lay = [l.name for l in model.layers]
+
+    if "heatmap_output" in lay:
+        print("Removing heatmap regularization arm")
+
+        opt = Adam(lr=float(params["lr"]))
+        mets = get_metrics(params)
+        l = params["loss"]
+        model = Model(
+            inputs=[model.get_layer("image_input").input, model.get_layer("grid_input").input],
+            outputs=[model.get_layer("final_output").output])
+
+        # Compile so that this model can be loaded in subsequent "continued" mode without needing to recompile.
+        # Note that optimizer state will be lost.
+        model.compile(
+            optimizer=opt,
+            loss=l,
+            metrics=mets)
 
     return model
 

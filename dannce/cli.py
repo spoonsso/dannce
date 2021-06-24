@@ -488,7 +488,7 @@ def add_dannce_train_args(
     parser.add_argument(
         "--n-rand-views",
         dest="n_rand_views",
-        type=int,
+        type=ast.literal_eval,
         help="Number of views to sample from the full viewset during training"
     )
     parser.add_argument(
@@ -496,6 +496,24 @@ def add_dannce_train_args(
         dest="multi_gpu_train",
         type=ast.literal_eval,
         help="If True, distribute training data across multiple GPUs for each batch",
+    )
+    parser.add_argument(
+        "--heatmap-reg",
+        dest="heatmap_reg",
+        type=ast.literal_eval,
+        help="If True, use heatmap regularization during training",
+    )
+    parser.add_argument(
+        "--heatmap-reg-coeff",
+        dest="heatmap_reg_coeff",
+        type=float,
+        help="Sets the weight on the heatmap regularization term in the objective function.",
+    )
+    parser.add_argument(
+        "--save-pred-targets",
+        dest="save_pred_targets",
+        type=ast.literal_eval,
+        help="If True, save predictions evaluated at checkpoints during training. Note that for large training datasets, this can cause memory issues.",
     )
     return parser
 

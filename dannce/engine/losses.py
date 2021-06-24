@@ -2,20 +2,32 @@
 import tensorflow as tf
 from tensorflow.keras import backend as K
 
-# TODO(nan_true): nan_true is where y_true is not nan. This is confusing
-def mask_nan_keep_loss(y_true, y_pred):
-    """Mask out nan values in the calulation of MSE."""
-    nan_true = K.cast(~tf.math.is_nan(y_true), "float32")
-    num_notnan = K.sum(K.flatten(nan_true))
-    y_pred = tf.math.multiply(y_pred, nan_true)
+def mask_nan(y_true, y_pred):
+    """Mask nans and return tensors for use by loss functions
+    """
+    notnan_true = K.cast(~tf.math.is_nan(y_true), "float32")
+    num_notnan = K.sum(K.flatten(notnan_true))
+    y_pred = tf.math.multiply(y_pred, notnan_true)
 
     # We need to use tf.where to do this substitution, because when trying to
-    # multiply with just the nan_true masks,
+    # multiply with just the notnan_true masks,
     # NaN*0 = NaN, so NaNs are not removed
     y_true = K.cast(
         tf.where(~tf.math.is_nan(y_true), y_true, tf.zeros_like(y_true)), "float32"
     )
+    return y_pred, y_true, num_notnan
+
+
+def mask_nan_keep_loss(y_true, y_pred):
+    """Mask out nan values in the calulation of MSE."""
+    y_pred, y_true, num_notnan = mask_nan(y_true, y_pred)
     loss = K.sum((K.flatten(y_pred) - K.flatten(y_true)) ** 2) / num_notnan
+    return tf.where(~tf.math.is_nan(loss), loss, 0)
+
+
+def mask_nan_l1_loss(y_true, y_pred):
+    y_pred, y_true, num_notnan = mask_nan(y_true, y_pred)
+    loss = K.sum(K.abs(K.flatten(y_pred) - K.flatten(y_true))) / num_notnan
     return tf.where(~tf.math.is_nan(loss), loss, 0)
 
 
@@ -117,3 +129,14 @@ def centered_euclidean_distance_3D(y_true, y_pred):
 
     ced3D = K.flatten(K.sqrt(K.sum(K.pow(y_true - y_pred, 2), axis=1)))
     return K_nanmean_infmean(ced3D)
+
+def heatmap_max_regularizer(y_true, y_pred):
+    """Regularizes 3d confidence maps by maximizing density in the voxel
+    containing the GT coordinate.
+
+    y_true contains the beta coefficient, just repeated for each example, with
+    output: -beta*log(V_output(gt_voxel)) 
+
+    """
+
+    return -1*K.mean(K.flatten(y_true)*K.log(K.flatten(y_pred)))

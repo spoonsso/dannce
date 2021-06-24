@@ -48,6 +48,9 @@ dannce-train config_mousetest.yaml --net-type=MAX --dannce-finetune-weights=../.
 echo "Testing DANNCE training, finetune_AVG"
 dannce-train config_mousetest.yaml --net-type=AVG --dannce-finetune-weights=../../demo/markerless_mouse_1/DANNCE/weights/
 
+echo "Testing DANNCE training, finetune_AVG with heatmap regularization"
+dannce-train config_mousetest.yaml --net-type=AVG --dannce-finetune-weights=../../demo/markerless_mouse_1/DANNCE/weights/ --heatmap-reg=True
+
 echo "Testing DANNCE training, finetune_AVG from previous finetune"
 dannce-train config_mousetest.yaml --net-type=AVG --dannce-finetune-weights=../../demo/markerless_mouse_1/DANNCE/train_results/AVG/
 
@@ -118,15 +121,15 @@ dannce-predict config_mousetest.yaml --net-type=AVG --write-npy=../../demo/marke
 
 echo "Testing npy volume training, with validation recording"
 cd ../../demo/markerless_mouse_1/
-dannce-train ../../configs/dannce_mouse_config.yaml --net-type=AVG --use-npy=True --dannce-train-dir=./DANNCE/npy_test/ --epochs=10 --valid-exp=[1]
+dannce-train ../../configs/dannce_mouse_config.yaml --net-type=AVG --use-npy=True --dannce-train-dir=./DANNCE/npy_test/ --epochs=10 --valid-exp=[1] --gpu=1
 
 echo "Testing npy volume training, with multi gpu support"
-dannce-train ../../configs/dannce_mouse_config.yaml --net-type=AVG --batch-size=4 --use-npy=True --dannce-train-dir=./DANNCE/npy_test/ --epochs=10 --multi-gpu-train=True
+dannce-train ../../configs/dannce_mouse_config.yaml --net-type=AVG --batch-size=4 --use-npy=True --dannce-train-dir=./DANNCE/npy_test/ --epochs=10 --multi-gpu-train=True --gpu=1
 
 echo "Testing npy volume testing, with num_train_exp"
-dannce-train ../../configs/dannce_mouse_config.yaml --net-type=AVG --use-npy=True --dannce-train-dir=./DANNCE/npy_test/ --epochs=10 --num-train-per-exp=2 --batch-size=1
+dannce-train ../../configs/dannce_mouse_config.yaml --net-type=AVG --use-npy=True --dannce-train-dir=./DANNCE/npy_test/ --epochs=10 --num-train-per-exp=2 --batch-size=1 --gpu=1
 
 echo "Testing npy volume testing, with num_train_exp and validation recording"
-dannce-train ../../configs/dannce_mouse_config.yaml --net-type=AVG --use-npy=True --dannce-train-dir=./DANNCE/npy_test/ --epochs=10 --valid-exp=[1] --num-train-per-exp=2 --batch-size=1
+dannce-train ../../configs/dannce_mouse_config.yaml --net-type=AVG --use-npy=True --dannce-train-dir=./DANNCE/npy_test/ --epochs=10 --valid-exp=[1] --num-train-per-exp=2 --batch-size=1 --gpu=1
 
 echo "PASSED WITHOUT ERROR"

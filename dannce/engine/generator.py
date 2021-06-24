@@ -2096,6 +2096,8 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         rotation_val=5,
         replace=True,
         n_rand_views=None,
+        heatmap_reg=False,
+        heatmap_reg_coeff=0.01,
     ):
         """Initialize data generator.
 
@@ -2141,6 +2143,8 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         self.rotation_val = rotation_val
         self.n_rand_views = n_rand_views
         self.replace = replace
+        self.heatmap_reg = heatmap_reg
+        self.heatmap_reg_coeff = heatmap_reg_coeff
         self.on_epoch_end()
 
     def __len__(self):
@@ -2377,6 +2381,18 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
 
         return X
 
+    def get_max_gt_ind(self, X_grid, y_3d):
+        """Uses the gt label position to find the index of the voxel corresponding to it.
+        Used for heatmap regularization.
+        """
+
+        diff = np.sum((X_grid[:, :, :, np.newaxis] - y_3d[:, np.newaxis, :, :])**2, axis=2)
+        inds = np.argmin(diff, axis=1)
+        grid_d = int(np.round(X_grid.shape[1]**(1/3)))
+        inds = np.unravel_index(inds, (grid_d, grid_d, grid_d))
+        return np.stack(inds, axis=1)
+
+
     def __data_generation(self, list_IDs_temp):
         """Generate data containing batch_size samples.
         X : (n_samples, *dim, n_channels)
@@ -2414,8 +2430,9 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         X = self.do_random(X)
 
         if self.expval:
-            if self.var_reg:
-                return [X, X_grid], [y_3d, np.zeros(self.batch_size)]
+            if self.heatmap_reg:
+                return [X, X_grid, self.get_max_gt_ind(X_grid, y_3d)], [y_3d,
+                    self.heatmap_reg_coeff*np.ones((self.batch_size, y_3d.shape[-1]), dtype='float32')]
             return [X, X_grid], y_3d
         else:
             return X, y_3d
@@ -2478,6 +2495,8 @@ class DataGenerator_3Dconv_npy(DataGenerator_3Dconv_frommem):
                  bright_val=0.05,
                  hue_val=0.05,
                  rotation_val=5,
+                 heatmap_reg=False,
+                 heatmap_reg_coeff=0.01,
                  ):
         """Generates 3d conv data from npy files.
 
@@ -2533,6 +2552,8 @@ class DataGenerator_3Dconv_npy(DataGenerator_3Dconv_frommem):
         self.bright_val = bright_val
         self.hue_val = hue_val
         self.rotation_val = rotation_val
+        self.heatmap_reg = heatmap_reg
+        self.heatmap_reg_coeff = heatmap_reg_coeff
         self.on_epoch_end()
 
     def __len__(self):
@@ -2741,8 +2762,9 @@ class DataGenerator_3Dconv_npy(DataGenerator_3Dconv_frommem):
             X = X + [X_grid]
 
         if self.expval:
-            if self.var_reg:
-                return X, [y_3d, np.zeros(self.batch_size)]
+            if self.heatmap_reg:
+                return [X, X_grid, self.get_max_gt_ind(X_grid, y_3d)], [y_3d,
+                    self.heatmap_reg_coeff*np.ones((self.batch_size, y_3d.shape[-1]), dtype='float32')]
             return X, y_3d
         else:
             return X, y_3d_max

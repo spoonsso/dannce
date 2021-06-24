@@ -234,7 +234,13 @@ def infer_params(params, dannce_net, prediction):
             print_and_set(params, "vmin", -1 * params["vol_size"] / 2)
             print_and_set(params, "vmax", params["vol_size"] / 2)
 
-    # There will be straneg behavior if using a mirror acquisition system and are cropping images
+        if params["heatmap_reg"] and not params["expval"]:
+            raise Exception("Heatmap regularization enabled only for AVG networks -- you are using MAX")
+
+        if params["n_rand_views"] == "None":
+            print_and_set(params, "n_rand_views", None)
+
+    # There will be strange behavior if using a mirror acquisition system and are cropping images
     if params["mirror"] and params["crop_height"][-1] != params["raw_im_h"]:
         msg = "Note: You are using a mirror acquisition system with image cropping."
         msg = (

@@ -21,6 +21,7 @@ exp:
       # com_file: ../../demo/markerless_mouse_1/COM/predict_results/com3d.mat
       viddir: ../../demo/markerless_mouse_1/videos/
     - label3d_file: ./label3d_temp_dannce.mat
+      # label3d_file: ../../demo/markerless_mouse_2/label3d_demo.mat # The temp file is only for rapid testing, but does not actually train over real mouse_2 labels
       # camnames: ['Camera1','Camera2','Camera3','Camera4','Camera5','Camera6']
       # com_file: ../../demo/markerless_mouse_2/COM/predict_results/com3d.pickle
       viddir: ../../demo/markerless_mouse_2/videos/
@@ -28,7 +29,7 @@ exp:
 # path to folder contraining video sub directories. Used only for com and dannce PREDICTION
 viddir: ../../demo/markerless_mouse_1/videos/
 
-gpu_id: "0"
+gpu_id: "1"
 
 
 

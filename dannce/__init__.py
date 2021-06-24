@@ -86,6 +86,9 @@ _param_defaults_dannce = {
     "n_rand_views": 0,
     "rand_view_replace": True,
     "multi_gpu_train": False,
+    "heatmap_reg": False,
+    "heatmap_reg_coeff": 0.01,
+    "save_pred_targets": False,
 }
 _param_defaults_com = {
     "dsmode": "nn",
