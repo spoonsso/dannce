@@ -63,7 +63,7 @@ train_mode: finetune
 n_layers_locked: 0
 
 # DANNCE training. Metric to be monitored in addition to loss
-metric: ['mse']
+metric: ['mse', 'euclidean_distance_3D']
 #['euclidean_distance_3D','centered_euclidean_distance_3D']
 
 # How many samples from each animal do you want to (randomly) set aside for a validation metric?
