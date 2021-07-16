@@ -30,6 +30,7 @@ _param_defaults_shared = {
     "augment_hue_val": 0.05,
     "augment_bright_val": 0.05,
     "augment_rotation_val": 5,
+    "mirror_augmentation": False,
     "drop_landmark": None,
     "raw_im_h": None,
     "raw_im_w": None,

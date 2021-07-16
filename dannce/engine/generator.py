@@ -2091,6 +2091,7 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         augment_brightness=True,
         augment_hue=True,
         augment_continuous_rotation=True,
+        mirror_augmentation=False,
         bright_val=0.05,
         hue_val=0.05,
         rotation_val=5,
@@ -2135,6 +2136,7 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         self.augment_hue = augment_hue
         self.augment_continuous_rotation = augment_continuous_rotation
         self.augment_brightness = augment_brightness
+        self.mirror_augmentation = mirror_augmentation
         self.var_reg = var_reg
         self.xgrid = xgrid
         self.nvox = nvox
@@ -2195,6 +2197,32 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         X = np.transpose(X, [1, 0, 2, 3])
         X = X[:, ::-1, :, :]
         return X
+
+    def mirror(self, X, y_3d, X_grid):
+        # Flip the image and x coordinates about the x axis
+        X = X[:, ::-1, ...]
+        X_grid = X_grid[:, ::-1, ...]
+        self.right_keypoints = np.array([2, 11, 12, 13, 14, 19, 20, 21, 22])
+        self.left_keypoints = np.array([1, 7, 8, 9, 10, 15, 16, 17, 18])
+        temp = y_3d[..., self.left_keypoints].copy()
+        y_3d[..., self.left_keypoints] = y_3d[..., self.right_keypoints]
+        y_3d[..., self.right_keypoints] = temp
+        # for n_batch in range(X.shape[0]):
+        #     self.right_keypoints = np.array([2, 11, 12, 13, 14, 19, 20, 21, 22])
+        #     self.left_keypoints = np.array([1, 7, 8, 9, 10, 15, 16, 17, 18])
+
+        #     # Swap the left and right keypoints.
+        #     new_right_pts = y_3d[n_batch, :, self.left_keypoints].copy().squeeze()
+        #     new_left_pts = y_3d[n_batch, :, self.right_keypoints].copy().squeeze()
+
+        #     # # Flip the x labels about the midpoint of the volume
+        #     # new_right_pts[0, :] -= 2 * (new_right_pts[0, :] - x_midpoint)
+        #     # new_left_pts[0, :] -= 2 * (new_left_pts[0, :] - x_midpoint)
+
+        #     y_3d[n_batch, :, self.left_keypoints] = new_left_pts
+        #     y_3d[n_batch, :, self.right_keypoints] = new_right_pts
+
+        return X, y_3d, X_grid
 
     def rot180(self, X):
         """Rotate X by 180 degrees.
@@ -2326,6 +2354,16 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
                 X[..., channel_ids] = tf.image.random_brightness(
                     X[..., channel_ids], self.bright_val
                 )
+
+        if self.mirror_augmentation:
+            if np.random.rand() > 0.5:
+                X_grid = np.reshape(
+                    X_grid,
+                    (self.batch_size, self.nvox, self.nvox, self.nvox, 3),
+                )
+                # Flip the image and the symmetric keypoints
+                X, y_3d, X_grid = self.mirror(X.copy(), y_3d.copy(), X_grid.copy())
+                X_grid = np.reshape(X_grid, (self.batch_size, -1, 3))
 
         return X, X_grid, y_3d
 

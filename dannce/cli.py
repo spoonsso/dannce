@@ -104,9 +104,7 @@ def add_shared_args(
     parser.add_argument(
         "base_config", metavar="base_config", help="Path to base config."
     )
-    parser.add_argument(
-        "--viddir", dest="viddir", help="Directory containing videos."
-    )
+    parser.add_argument("--viddir", dest="viddir", help="Directory containing videos.")
     parser.add_argument(
         "--crop-height",
         dest="crop_height",
@@ -126,9 +124,7 @@ def add_shared_args(
         help="List of ordered camera names.",
     )
 
-    parser.add_argument(
-        "--io-config", dest="io_config", help="Path to io.yaml file."
-    )
+    parser.add_argument("--io-config", dest="io_config", help="Path to io.yaml file.")
 
     parser.add_argument(
         "--n-channels-out",
@@ -153,15 +149,11 @@ def add_shared_args(
         dest="verbose",
         help="verbose=0 prints nothing to std out. verbose=1 prints training summary to std out.",
     )
-    parser.add_argument(
-        "--net", dest="net", help="Network architecture. See nets.py"
-    )
+    parser.add_argument("--net", dest="net", help="Network architecture. See nets.py")
     parser.add_argument(
         "--gpu-id", dest="gpu_id", help="String identifying GPU to use."
     )
-    parser.add_argument(
-        "--immode", dest="immode", help="Data format for images."
-    )
+    parser.add_argument("--immode", dest="immode", help="Data format for images.")
 
     parser.add_argument(
         "--mono",
@@ -422,7 +414,8 @@ def add_dannce_shared_args(
         "--n-views",
         dest="n_views",
         type=int,
-        help="Sets the absolute number of views (when using fewer than 6 views only)")
+        help="Sets the absolute number of views (when using fewer than 6 views only)",
+    )
     parser.add_argument(
         "--train-mode",
         dest="train_mode",
@@ -468,6 +461,12 @@ def add_dannce_train_args(
         help="If True, rotate all images in each sample of the training set by a random value between [-5 and 5] degrees during training.",
     )
     parser.add_argument(
+        "--mirror-augmentation",
+        dest="mirror_augmentation",
+        type=ast.literal_eval,
+        help="If True, mirror the images in half of the samples of the training set.",
+    )
+    parser.add_argument(
         "--drop-landmark",
         dest="drop_landmark",
         type=ast.literal_eval,
@@ -477,19 +476,19 @@ def add_dannce_train_args(
         "--use-npy",
         dest="use_npy",
         type=ast.literal_eval,
-        help="If True, loads training data from npy files"
+        help="If True, loads training data from npy files",
     )
     parser.add_argument(
         "--rand-view-replace",
         dest="rand_view_replace",
         type=ast.literal_eval,
-        help="If True, samples n_rand_views with replacement"
+        help="If True, samples n_rand_views with replacement",
     )
     parser.add_argument(
         "--n-rand-views",
         dest="n_rand_views",
         type=ast.literal_eval,
-        help="Number of views to sample from the full viewset during training"
+        help="Number of views to sample from the full viewset during training",
     )
     parser.add_argument(
         "--multi-gpu-train",
@@ -557,11 +556,11 @@ def add_dannce_predict_args(
         help="If True, attempt to load in a prediction model without requiring a full model file (i.e. just using weights). May fail for some model types.",
     )
     parser.add_argument(
-    "--write-npy",
-    dest="write_npy",
-    help="If not None, uses this base path to write large dataset to npy files"
+        "--write-npy",
+        dest="write_npy",
+        help="If not None, uses this base path to write large dataset to npy files",
     )
- 
+
     return parser
 
 
@@ -722,9 +721,7 @@ def parse_clargs(
     return parser.parse_args()
 
 
-def combine(
-    base_params: Dict, clargs: argparse.Namespace, dannce_net: bool
-) -> Dict:
+def combine(base_params: Dict, clargs: argparse.Namespace, dannce_net: bool) -> Dict:
     """Combine command line, io, and base configurations.
 
     Args:
