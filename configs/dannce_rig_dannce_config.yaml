@@ -115,3 +115,6 @@ predict_mode: 'torch'
 medfilt_window: 30
 
 # debug_volume_tifdir: ./volumes
+rand_view_replace: True
+
+n_rand_views: 6

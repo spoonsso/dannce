@@ -4,7 +4,7 @@
 # Inputs: dannce_config - path to com config.
 # Example: sbatch dannce_multi_gpu.sh /path/to/dannce_config.yaml
 #SBATCH --job-name=dannce_multi_gpu
-#SBATCH --mem=10000
+#SBATCH --mem=15000
 #SBATCH -t 5-00:00
 #SBATCH -N 1
 #SBATCH -c 1
