@@ -21,13 +21,13 @@ def print_checkpoint(
     n_frame: int, start_ind: int, end_time: float, sample_save: int = 100
 ) -> float:
     """Print checkpoint messages indicating frame and fps for inference.
-    
+
     Args:
         n_frame (int): Frame number
         start_ind (int): Start index
         end_time (float): Timing reference
         sample_save (int, optional): Number of samples to use in fps estimation.
-    
+
     No Longer Returned:
         float: New timing reference.
     """
@@ -43,13 +43,13 @@ def predict_batch(
     model: Model, generator: keras.utils.Sequence, n_frame: int, params: Dict
 ) -> np.ndarray:
     """Predict for a single batch and reformat output.
-    
+
     Args:
         model (Model): interence model
         generator (keras.utils.Sequence): Data generator
         n_frame (int): Frame number
         params (Dict): Parameters dictionary.
-    
+
     No Longer Returned:
         np.ndarray: n_batch x n_cam x h x w x c predictions
     """
@@ -74,7 +74,7 @@ def debug_com(
     n_cam: int,
 ):
     """Print useful figures for COM debugging.
-    
+
     Args:
         params (Dict): Parameters dictionary.
         pred (np.ndarray): Reformatted batch predictions.
@@ -136,7 +136,7 @@ def extract_multi_instance_single_channel(
     generator: keras.utils.Sequence,
 ) -> Dict:
     """Extract prediction indices for multi-instance single-channel tracking.
-    
+
     Args:
         pred (np.ndarray): Reformatted batch predictions.
         pred_batch (np.ndarray): Batch prediction.
@@ -148,7 +148,7 @@ def extract_multi_instance_single_channel(
         save_data (Dict): Saved data dictionary.
         cameras (Dict): Camera dictionary
         generator (keras.utils.Sequence): DataGenerator
-    
+
     No Longer Returned:
         (Dict): Updated saved data dictionary.
     """
@@ -224,7 +224,7 @@ def extract_multi_instance_multi_channel(
     generator: keras.utils.Sequence,
 ) -> Dict:
     """Extract prediction indices for multi-instance multi-channel tracking.
-    
+
     Args:
         pred (np.ndarray): Reformatted batch predictions.
         pred_batch (np.ndarray): Batch prediction.
@@ -236,7 +236,7 @@ def extract_multi_instance_multi_channel(
         save_data (Dict): Saved data dictionary.
         cameras (Dict): Camera dictionary
         generator (keras.utils.Sequence): DataGenerator
-    
+
     No Longer Returned:
         (Dict): Updated saved data dictionary.
     """
@@ -302,7 +302,7 @@ def extract_single_instance(
     generator: keras.utils.Sequence,
 ):
     """Extract prediction indices for single-instance tracking.
-    
+
     Args:
         pred (np.ndarray): Reformatted batch predictions.
         pred_batch (np.ndarray): Batch prediction.
@@ -314,7 +314,7 @@ def extract_single_instance(
         save_data (Dict): Saved data dictionary.
         cameras (Dict): Camera dictionary
         generator (keras.utils.Sequence): DataGenerator
-    
+
     No Longer Returned:
         (Dict): Updated saved data dictionary.
     """
@@ -329,7 +329,7 @@ def extract_single_instance(
     # mirror flip each coord if indicated
     if params["mirror"] and cameras[params["camnames"][n_cam]]["m"] == 1:
         ind[1] = params["raw_im_h"] - ind[1] - 1
-        
+
     # now, the center of mass is (x,y) instead of (i,j)
     # now, we need to use camera calibration to triangulate
     # from 2D to 3D
@@ -371,14 +371,14 @@ def triangulate_single_instance(
     n_cams: int, sample_id: Text, params: Dict, camera_mats: Dict, save_data: Dict
 ) -> Dict:
     """Triangulate for a single instance.
-    
+
     Args:
         n_cams (int): Numver of cameras
         sample_id (Text): Sample identifier.
         params (Dict): Parameters dictionary.
         camera_mats (Dict): Camera matrices dictioanry.
         save_data (Dict): Saved data dictionary.
-    
+
     No Longer Returned:
         Dict: Updated saved data dictionary.
     """
@@ -407,14 +407,14 @@ def triangulate_multi_instance_multi_channel(
     n_cams: int, sample_id: Text, params: Dict, camera_mats: Dict, save_data: Dict
 ) -> Dict:
     """Triangulate for multi-instance multi-channel.
-    
+
     Args:
         n_cams (int): Numver of cameras
         sample_id (Text): Sample identifier.
         params (Dict): Parameters dictionary.
         camera_mats (Dict): Camera matrices dictioanry.
         save_data (Dict): Saved data dictionary.
-    
+
     No Longer Returned:
         Dict: Updated saved data dictionary.
     """
@@ -465,7 +465,7 @@ def triangulate_multi_instance_single_channel(
     save_data: Dict,
 ) -> Dict:
     """Triangulate for multi-instance single-channel.
-    
+
     Args:
         n_cams (int): Numver of cameras
         sample_id (Text): Sample identifier.
@@ -473,7 +473,7 @@ def triangulate_multi_instance_single_channel(
         camera_mats (Dict): Camera matrices dictioanry.
         cameras (Dict): Camera dictionary.
         save_data (Dict): Saved data dictionary.
-    
+
     No Longer Returned:
         Dict: Updated saved data dictionary.
     """
@@ -558,7 +558,7 @@ def infer_com(
     sample_save: int = 100,
 ):
     """Perform COM detection over a set of frames.
-    
+
     Args:
         start_ind (int): Starting frame index
         end_ind (int): Ending frame index
@@ -589,7 +589,9 @@ def infer_com(
                 pred = pred_batch[n_batch, 0]
                 pred = np.transpose(pred, (2, 0, 1))
             elif params["mirror"]:
-                raise Exception("mirror mode with multiple animal instances not currently supported.")
+                raise Exception(
+                    "mirror mode with multiple animal instances not currently supported."
+                )
             elif params["n_instances"] > 1 and params["n_channels_out"] > 1:
                 pred = pred_batch[n_batch, ...]
             else:
@@ -647,7 +649,7 @@ def infer_dannce(
     n_chn: int,
 ):
     """Perform dannce detection over a set of frames.
-    
+
     Args:
         start_ind (int): Starting frame index
         end_ind (int): Ending frame index
