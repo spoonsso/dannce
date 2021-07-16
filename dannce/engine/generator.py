@@ -928,9 +928,10 @@ class DataGenerator_3Dconv_torch(DataGenerator):
         ts = time.time()
         # Limit GPU memory usage by Tensorflow to leave memory for PyTorch
         config = tf.compat.v1.ConfigProto()
-        config.gpu_options.per_process_gpu_memory_fraction = 0.45
+        config.gpu_options.per_process_gpu_memory_fraction = 0.9
         config.gpu_options.allow_growth = True
-        self.session = tf.compat.v1.InteractiveSession(config=config, graph=tf.Graph())
+        self.session = tf.compat.v1.Session(config=config, graph=tf.Graph())
+        print(tf.executing_eagerly(), flush=True)
         for i, ID in enumerate(list_IDs):
             experimentID = int(ID.split("_")[0])
             for camname in self.camnames[experimentID]:
