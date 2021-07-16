@@ -38,6 +38,9 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from typing import List, Dict, Text
+import os, psutil
+
+process = psutil.Process(os.getpid())
 
 _DEFAULT_VIDDIR = "videos"
 _DEFAULT_COMSTRING = "COM"
@@ -84,9 +87,7 @@ def build_params(base_config: Text, dannce_net: bool):
     base_params = processing.make_paths_safe(base_params)
     params = processing.read_config(base_params["io_config"])
     params = processing.make_paths_safe(params)
-    params = processing.inherit_config(
-        params, base_params, list(base_params.keys())
-    )
+    params = processing.inherit_config(params, base_params, list(base_params.keys()))
     check_unrecognized_params(params)
     return params
 
@@ -134,7 +135,9 @@ def com_predict(params: Dict):
     params["n_channels_out"] = params["n_channels_out"] + int(MULTI_MODE)
 
     # channels out is equal to the number of views when using a single video stream with mirrors
-    eff_n_channels_out = int(params["n_views"]) if params["mirror"] else params["n_channels_out"]
+    eff_n_channels_out = (
+        int(params["n_views"]) if params["mirror"] else params["n_channels_out"]
+    )
 
     # Grab the input file for prediction
     params["label3d_file"] = processing.grab_predict_label3d_file()
@@ -164,9 +167,7 @@ def com_predict(params: Dict):
         wdir = params["com_train_dir"]
         weights = os.listdir(wdir)
         weights = [f for f in weights if ".hdf5" in f]
-        weights = sorted(
-            weights, key=lambda x: int(x.split(".")[1].split("-")[0])
-        )
+        weights = sorted(weights, key=lambda x: int(x.split(".")[1].split("-")[0]))
         weights = weights[-1]
         params["com_predict_weights"] = os.path.join(wdir, weights)
 
@@ -338,12 +339,7 @@ def com_train(params: Dict):
         exp = processing.load_expdict(params, e, expdict, _DEFAULT_VIDDIR)
 
         params["experiment"][e] = exp
-        (
-            samples_,
-            datadict_,
-            datadict_3d_,
-            cameras_,
-        ) = serve_data_DANNCE.prepare_data(
+        (samples_, datadict_, datadict_3d_, cameras_,) = serve_data_DANNCE.prepare_data(
             params["experiment"][e],
             nanflag=False,
             com_flag=not MULTI_MODE,
@@ -388,9 +384,7 @@ def com_train(params: Dict):
     # Initialize video objects
     vids = {}
     for e in range(num_experiments):
-        vids = processing.initialize_vids(
-            params, datadict, e, vids, pathonly=True
-        )
+        vids = processing.initialize_vids(params, datadict, e, vids, pathonly=True)
 
     print("Using {} downsampling".format(params["dsmode"]))
 
@@ -427,7 +421,9 @@ def com_train(params: Dict):
     params["chan_num"] = 1 if params["mono"] else params["n_channels_in"]
 
     # effective n_channels, which is different if using a mirror arena configuration
-    eff_n_channels_out = len(camnames[0]) if params["mirror"] else params["n_channels_out"]
+    eff_n_channels_out = (
+        len(camnames[0]) if params["mirror"] else params["n_channels_out"]
+    )
 
     # Build net
     print("Initializing Network...")
@@ -447,9 +443,7 @@ def com_train(params: Dict):
         weights = weights[0]
 
         try:
-            model.load_weights(
-                os.path.join(params["com_finetune_weights"], weights)
-            )
+            model.load_weights(os.path.join(params["com_finetune_weights"], weights))
         except:
             print(
                 "Note: model weights could not be loaded due to a mismatch in dimensions.\
@@ -489,13 +483,12 @@ def com_train(params: Dict):
 
     # Initialize data structures
     if params["mirror"]:
-        ncams = 1 # Effectively, for the purpose of batch indexing
+        ncams = 1  # Effectively, for the purpose of batch indexing
     else:
         ncams = len(camnames[0])
 
     dh = (params["crop_height"][1] - params["crop_height"][0]) // params["downfac"]
     dw = (params["crop_width"][1] - params["crop_width"][0]) // params["downfac"]
-
 
     ims_train = np.zeros(
         (
@@ -598,10 +591,9 @@ def com_train(params: Dict):
         Args:
             trainData (bool, optional): If True use training data for debug.
         """
+
         def plot_out(imo, lo, imn):
-            processing.plot_markers_2d(
-                processing.norm_im(imo), lo, newfig=False
-            )
+            processing.plot_markers_2d(processing.norm_im(imo), lo, newfig=False)
             plt.gca().xaxis.set_major_locator(plt.NullLocator())
             plt.gca().yaxis.set_major_locator(plt.NullLocator())
 
@@ -635,8 +627,11 @@ def com_train(params: Dict):
                 if params["mirror"]:
                     for j in range(label_out.shape[-1]):
                         plt.cla()
-                        plot_out(ims_out[i], label_out[i, :, :, j:j+1],
-                                 str(i) + "_cam_" + str(j) + ".png")
+                        plot_out(
+                            ims_out[i],
+                            label_out[i, :, :, j : j + 1],
+                            str(i) + "_cam_" + str(j) + ".png",
+                        )
                 else:
                     plot_out(ims_out[i], label_out[i], str(i) + ".png")
 
@@ -652,7 +647,7 @@ def com_train(params: Dict):
         validation_steps=len(valid_generator),
         verbose=params["verbose"],
         epochs=params["epochs"],
-        workers=6,
+        # workers=6,
         callbacks=[csvlog, model_checkpoint, tboard],
     )
 
@@ -783,7 +778,7 @@ def dannce_train(params: Dict):
             if params["immode"] == "vid":
                 vids = processing.initialize_vids(
                     params, datadict, e, vids, pathonly=True
-                     )
+                )
 
     # Parameters
     if params["expval"]:
@@ -802,8 +797,8 @@ def dannce_train(params: Dict):
         cam3_train = False
 
     partition = processing.make_data_splits(
-            samples, params, dannce_train_dir, num_experiments
-        )
+        samples, params, dannce_train_dir, num_experiments
+    )
 
     if params["use_npy"]:
         # mono conversion will happen from RGB npy files, and the generator
@@ -996,78 +991,100 @@ def dannce_train(params: Dict):
         randflag = True
 
     if params["n_rand_views"] == 0:
-        print("Using default n_rand_views augmentation with {} views and with replacement".format(n_views))
+        print(
+            "Using default n_rand_views augmentation with {} views and with replacement".format(
+                n_views
+            )
+        )
         print("To disable n_rand_views augmentation, set it to None in the config.")
         params["n_rand_views"] = n_views
         params["rand_view_replace"] = True
 
-
-    shared_args = {'chan_num': params["chan_num"],
-                   'expval': params["expval"],
-                   'nvox': params["nvox"],
-                   'heatmap_reg': params["heatmap_reg"],
-                   'heatmap_reg_coeff': params["heatmap_reg_coeff"]}
-    shared_args_train = {'batch_size': params["batch_size"],
-                         'rotation': params["rotate"],
-                         'augment_hue': params["augment_hue"],
-                         'augment_brightness': params["augment_brightness"],
-                         'augment_continuous_rotation': params["augment_continuous_rotation"],
-                         'bright_val': params["augment_bright_val"],
-                         'hue_val': params["augment_hue_val"],
-                         'rotation_val': params["augment_rotation_val"],
-                         'replace': params["rand_view_replace"],
-                         'random': randflag,
-                         'n_rand_views': params["n_rand_views"],
-                         }
-    shared_args_valid = {'batch_size': 4,
-                         'rotation': False,
-                         'augment_hue': False,
-                         'augment_brightness': False,
-                         'augment_continuous_rotation': False,
-                         'shuffle': False,
-                         'replace': False,
-                         'n_rand_views': params["n_rand_views"] if cam3_train else None,
-                         'random': True if cam3_train else False}
+    shared_args = {
+        "chan_num": params["chan_num"],
+        "expval": params["expval"],
+        "nvox": params["nvox"],
+        "heatmap_reg": params["heatmap_reg"],
+        "heatmap_reg_coeff": params["heatmap_reg_coeff"],
+    }
+    shared_args_train = {
+        "batch_size": params["batch_size"],
+        "rotation": params["rotate"],
+        "augment_hue": params["augment_hue"],
+        "augment_brightness": params["augment_brightness"],
+        "augment_continuous_rotation": params["augment_continuous_rotation"],
+        "mirror_augmentation": params["mirror_augmentation"],
+        "bright_val": params["augment_bright_val"],
+        "hue_val": params["augment_hue_val"],
+        "rotation_val": params["augment_rotation_val"],
+        "replace": params["rand_view_replace"],
+        "random": randflag,
+        "n_rand_views": params["n_rand_views"],
+    }
+    shared_args_valid = {
+        "batch_size": 4,
+        "rotation": False,
+        "augment_hue": False,
+        "augment_brightness": False,
+        "augment_continuous_rotation": False,
+        "mirror_augmentation": False,
+        "shuffle": False,
+        "replace": False,
+        "n_rand_views": params["n_rand_views"] if cam3_train else None,
+        "random": True if cam3_train else False,
+    }
     if params["use_npy"]:
         genfunc = DataGenerator_3Dconv_npy
-        args_train = {'list_IDs': partition["train_sampleIDs"],
-                      'labels_3d': datadict_3d,
-                      'npydir': npydir,
-                      }
-        args_train = {**args_train,
-                      **shared_args_train,
-                      **shared_args,
-                      'sigma': params["sigma"],
-                      'mono': params["mono"]}
+        args_train = {
+            "list_IDs": partition["train_sampleIDs"],
+            "labels_3d": datadict_3d,
+            "npydir": npydir,
+        }
+        args_train = {
+            **args_train,
+            **shared_args_train,
+            **shared_args,
+            "sigma": params["sigma"],
+            "mono": params["mono"],
+        }
 
-        args_valid = {'list_IDs': partition["valid_sampleIDs"],
-                      'labels_3d': datadict_3d,
-                      'npydir': npydir,
-                      }
-        args_valid = {**args_valid,
-                      **shared_args_valid,
-                      **shared_args,
-                      'sigma': params["sigma"],
-                      'mono': params["mono"]}
+        args_valid = {
+            "list_IDs": partition["valid_sampleIDs"],
+            "labels_3d": datadict_3d,
+            "npydir": npydir,
+        }
+        args_valid = {
+            **args_valid,
+            **shared_args_valid,
+            **shared_args,
+            "sigma": params["sigma"],
+            "mono": params["mono"],
+        }
     else:
         genfunc = DataGenerator_3Dconv_frommem
-        args_train = {'list_IDs': np.arange(len(partition["train_sampleIDs"])),
-                      'data': X_train,
-                      'labels': y_train,
-                      }
-        args_train = {**args_train,
-                      **shared_args_train,
-                      **shared_args,
-                      'xgrid': X_train_grid}
+        args_train = {
+            "list_IDs": np.arange(len(partition["train_sampleIDs"])),
+            "data": X_train,
+            "labels": y_train,
+        }
+        args_train = {
+            **args_train,
+            **shared_args_train,
+            **shared_args,
+            "xgrid": X_train_grid,
+        }
 
-        args_valid = {'list_IDs': np.arange(len(partition["valid_sampleIDs"])),
-                      'data': X_valid,
-                      'labels': y_valid,
-                      }
-        args_valid = {**args_valid,
-                      **shared_args_valid,
-                      **shared_args,
-                      'xgrid': X_valid_grid}
+        args_valid = {
+            "list_IDs": np.arange(len(partition["valid_sampleIDs"])),
+            "data": X_valid,
+            "labels": y_valid,
+        }
+        args_valid = {
+            **args_valid,
+            **shared_args_valid,
+            **shared_args,
+            "xgrid": X_valid_grid,
+        }
 
     train_generator = genfunc(**args_train)
     valid_generator = genfunc(**args_valid)
@@ -1082,7 +1099,7 @@ def dannce_train(params: Dict):
 
     # if params["multi_gpu_train"]:
     strategy = tf.distribute.MirroredStrategy()
-    print('Number of devices: {}'.format(strategy.num_replicas_in_sync))
+    print("Number of devices: {}".format(strategy.num_replicas_in_sync))
     scoping = strategy.scope()
     # else:
     #     scoping = True
@@ -1103,30 +1120,32 @@ def dannce_train(params: Dict):
                 gridsize=gridsize,
             )
         elif params["train_mode"] == "finetune":
-            fargs = [params["loss"],
-                     float(params["lr"]),
-                     params["chan_num"] + params["depth"],
-                     params["n_channels_out"],
-                     len(camnames[0]),
-                     params["new_last_kernel_size"],
-                     params["new_n_channels_out"],
-                     params["dannce_finetune_weights"],
-                     params["n_layers_locked"],
-                     False,
-                     True,
-                     gridsize]
+            fargs = [
+                params["loss"],
+                float(params["lr"]),
+                params["chan_num"] + params["depth"],
+                params["n_channels_out"],
+                len(camnames[0]),
+                params["new_last_kernel_size"],
+                params["new_n_channels_out"],
+                params["dannce_finetune_weights"],
+                params["n_layers_locked"],
+                False,
+                True,
+                gridsize,
+            ]
             try:
-                model = params["net"](
-                        *fargs
-                )
+                model = params["net"](*fargs)
             except:
                 if params["expval"]:
-                    print("Could not load weights for finetune (likely because you are finetuning a previously finetuned network). Attempting to finetune from a full finetune model file.")
-                    model = nets.finetune_fullmodel_AVG(
-                            *fargs
+                    print(
+                        "Could not load weights for finetune (likely because you are finetuning a previously finetuned network). Attempting to finetune from a full finetune model file."
                     )
+                    model = nets.finetune_fullmodel_AVG(*fargs)
                 else:
-                    raise Exception("Finetuning from a previously finetuned model is currently possible only for AVG models")
+                    raise Exception(
+                        "Finetuning from a previously finetuned model is currently possible only for AVG models"
+                    )
         elif params["train_mode"] == "continued":
             model = load_model(
                 params["dannce_finetune_weights"],
@@ -1160,13 +1179,13 @@ def dannce_train(params: Dict):
         if params["heatmap_reg"]:
             model = nets.add_heatmap_output(model)
 
-
-
         if params["heatmap_reg"] or params["train_mode"] != "continued":
             # recompiling a full model will reset the optimizer state
             model.compile(
                 optimizer=Adam(lr=float(params["lr"])),
-                loss=params["loss"] if not params["heatmap_reg"] else [params["loss"], losses.heatmap_max_regularizer],
+                loss=params["loss"]
+                if not params["heatmap_reg"]
+                else [params["loss"], losses.heatmap_max_regularizer],
                 metrics=metrics,
             )
 
@@ -1184,11 +1203,15 @@ def dannce_train(params: Dict):
     )
     csvlog = CSVLogger(os.path.join(dannce_train_dir, "training.csv"))
     tboard = TensorBoard(
-        log_dir=os.path.join(dannce_train_dir,"logs"), write_graph=False, update_freq=100
+        log_dir=os.path.join(dannce_train_dir, "logs"),
+        write_graph=False,
+        update_freq=100,
     )
 
     class savePredTargets(keras.callbacks.Callback):
-        def __init__(self, total_epochs, td, tgrid, vd, vgrid, tID, vID, odir, tlabel, vlabel):
+        def __init__(
+            self, total_epochs, td, tgrid, vd, vgrid, tID, vID, odir, tlabel, vlabel
+        ):
             self.td = td
             self.vd = vd
             self.tID = tID
@@ -1200,52 +1223,83 @@ def dannce_train(params: Dict):
             self.vgrid = vgrid
             self.tlabel = tlabel
             self.vlabel = vlabel
+
         def on_epoch_end(self, epoch, logs=None):
-            lkey = 'val_loss' if 'val_loss' in logs else 'loss'
-            if epoch == self.total_epochs-1 or logs[lkey] < self.val_loss and epoch > 25:
-                print("Saving predictions on train and validation data, after epoch {}".format(epoch))
+            lkey = "val_loss" if "val_loss" in logs else "loss"
+            if (
+                epoch == self.total_epochs - 1
+                or logs[lkey] < self.val_loss
+                and epoch > 25
+            ):
+                print(
+                    "Saving predictions on train and validation data, after epoch {}".format(
+                        epoch
+                    )
+                )
                 self.val_loss = logs[lkey]
                 pred_t = model.predict([self.td, self.tgrid], batch_size=1)
                 pred_v = model.predict([self.vd, self.vgrid], batch_size=1)
-                ofile = os.path.join(self.odir,'checkpoint_predictions_e{}.mat'.format(epoch))
-                sio.savemat(ofile, {'pred_train': pred_t,
-                                    'pred_valid': pred_v,
-                                    'target_train': self.tlabel,
-                                    'target_valid': self.vlabel,
-                                    'train_sampleIDs': self.tID,
-                                    'valid_sampleIDs': self.vID})
+                gc.collect()
+                keras.backend.clear_session()
+                print(process.memory_info().rss, flush=True)
+                ofile = os.path.join(
+                    self.odir, "checkpoint_predictions_e{}.mat".format(epoch)
+                )
+                sio.savemat(
+                    ofile,
+                    {
+                        "pred_train": pred_t,
+                        "pred_valid": pred_v,
+                        "target_train": self.tlabel,
+                        "target_valid": self.vlabel,
+                        "train_sampleIDs": self.tID,
+                        "valid_sampleIDs": self.vID,
+                    },
+                )
 
     class saveCheckPoint(keras.callbacks.Callback):
         def __init__(self, odir, total_epochs):
             self.odir = odir
             self.saveE = np.arange(0, total_epochs, 250)
+
         def on_epoch_end(self, epoch, logs=None):
-            lkey = 'val_loss' if 'val_loss' in logs else 'loss'
+            lkey = "val_loss" if "val_loss" in logs else "loss"
             val_loss = logs[lkey]
             if epoch in self.saveE:
                 # Do a garbage collect to combat keras memory leak
                 gc.collect()
                 print("Saving checkpoint weights at epoch {}".format(epoch))
-                savename = 'weights.checkpoint.epoch{}.{}{:.5f}.hdf5'.format(epoch,
-                                                                        lkey,
-                                                                        val_loss)
+                savename = "weights.checkpoint.epoch{}.{}{:.5f}.hdf5".format(
+                    epoch, lkey, val_loss
+                )
                 self.model.save(os.path.join(self.odir, savename))
 
-                
-    callbacks = [csvlog, model_checkpoint, tboard, saveCheckPoint(params['dannce_train_dir'], params["epochs"])]
+    callbacks = [
+        csvlog,
+        model_checkpoint,
+        tboard,
+        saveCheckPoint(params["dannce_train_dir"], params["epochs"]),
+    ]
 
-    if params['expval'] and not params["use_npy"] and not params["heatmap_reg"] and params["save_pred_targets"]:
-        save_callback = savePredTargets(params['epochs'],
+    if (
+        params["expval"]
+        and not params["use_npy"]
+        and not params["heatmap_reg"]
+        and params["save_pred_targets"]
+    ):
+        save_callback = savePredTargets(
+            params["epochs"],
             X_train,
             X_train_grid,
             X_valid,
             X_valid_grid,
-            partition['train_sampleIDs'],
-            partition['valid_sampleIDs'],
-            params['dannce_train_dir'],
+            partition["train_sampleIDs"],
+            partition["valid_sampleIDs"],
+            params["dannce_train_dir"],
             y_train,
-            y_valid)
-        callbacks = callbacks + [save_callback]
+            y_valid,
+        )
+        # callbacks = callbacks + [save_callback]
 
     model.fit(
         x=train_generator,
@@ -1255,7 +1309,7 @@ def dannce_train(params: Dict):
         verbose=params["verbose"],
         epochs=params["epochs"],
         callbacks=callbacks,
-        workers=6,
+        # workers=6,
     )
 
     print("Renaming weights file with best epoch description")
@@ -1306,9 +1360,7 @@ def dannce_predict(params: Dict):
 
     # default to slow numpy backend if there is no predict_mode in config file. I.e. legacy support
     predict_mode = (
-        params["predict_mode"]
-        if params["predict_mode"] is not None
-        else "numpy"
+        params["predict_mode"] if params["predict_mode"] is not None else "numpy"
     )
     print("Using {} predict mode".format(predict_mode))
 
@@ -1350,12 +1402,7 @@ def dannce_predict(params: Dict):
     datadict = {}
     datadict_3d = {}
     com3d_dict = {}
-    (
-        samples,
-        datadict,
-        datadict_3d,
-        com3d_dict,
-    ) = serve_data_DANNCE.add_experiment(
+    (samples, datadict, datadict_3d, com3d_dict,) = serve_data_DANNCE.add_experiment(
         0,
         samples,
         datadict,
@@ -1388,9 +1435,7 @@ def dannce_predict(params: Dict):
     # to support tifs
     if params["immode"] == "vid":
         vids = {}
-        vids = processing.initialize_vids(
-            params, datadict, 0, vids, pathonly=True
-        )
+        vids = processing.initialize_vids(params, datadict, 0, vids, pathonly=True)
 
     # Parameters
     valid_params = {
@@ -1457,6 +1502,92 @@ def dannce_predict(params: Dict):
         **valid_params
     )
 
+    model = build_model(params, netname, camnames)
+
+    save_data = {}
+
+    max_eval_batch = params["maxbatch"]
+
+    if max_eval_batch != "max" and max_eval_batch > len(valid_generator):
+        print(
+            "Maxbatch was set to a larger number of matches than exist in the video. Truncating"
+        )
+        max_eval_batch = len(valid_generator)
+        processing.print_and_set(params, "maxbatch", max_eval_batch)
+
+    if max_eval_batch == "max":
+        max_eval_batch = len(valid_generator)
+
+    if params["start_batch"] is not None:
+        start_batch = params["start_batch"]
+    else:
+        start_batch = 0
+
+    if params["new_n_channels_out"] is not None:
+        n_chn = params["new_n_channels_out"]
+    else:
+        n_chn = params["n_channels_out"]
+
+    if params["write_npy"] is not None:
+        # Instead of running inference, generate all samples
+        # from valid_generator and save them to npy files. Useful
+        # for working with large datasets (such as Rat 7M) because
+        # .npy files can be loaded in quickly with random access
+        # during training.
+        print("Writing samples to .npy files")
+        processing.write_npy(params["write_npy"], valid_generator)
+        print("Done, exiting program")
+        sys.exit()
+
+    save_data = inference.infer_dannce(
+        start_batch,
+        max_eval_batch,
+        valid_generator,
+        params,
+        model,
+        partition,
+        save_data,
+        device,
+        n_chn,
+    )
+
+    if params["expval"]:
+        if params["start_batch"] is not None:
+            path = os.path.join(
+                params["dannce_predict_dir"], "save_data_AVG%d.mat" % (start_batch)
+            )
+        else:
+            path = os.path.join(params["dannce_predict_dir"], "save_data_AVG.mat")
+        p_n = savedata_expval(
+            path,
+            params,
+            write=True,
+            data=save_data,
+            tcoord=False,
+            num_markers=n_chn,
+            pmax=True,
+        )
+    else:
+        if params["start_batch"] is not None:
+            path = os.path.join(
+                params["dannce_predict_dir"], "save_data_MAX%d.mat" % (start_batch)
+            )
+        else:
+            path = os.path.join(params["dannce_predict_dir"], "save_data_MAX.mat")
+        p_n = savedata_tomat(
+            path,
+            params,
+            params["vmin"],
+            params["vmax"],
+            params["nvox"],
+            write=True,
+            data=save_data,
+            num_markers=n_chn,
+            tcoord=False,
+        )
+
+
+def build_model(params, netname, camnames):
     # Build net
     print("Initializing Network...")
 
@@ -1470,9 +1601,7 @@ def dannce_predict(params: Dict):
         wdir = params["dannce_train_dir"]
         weights = os.listdir(wdir)
         weights = [f for f in weights if ".hdf5" in f and "checkpoint" not in f]
-        weights = sorted(
-            weights, key=lambda x: int(x.split(".")[1].split("-")[0])
-        )
+        weights = sorted(weights, key=lambda x: int(x.split(".")[1].split("-")[0]))
         weights = weights[-1]
 
         mdl_file = os.path.join(wdir, weights)
@@ -1490,9 +1619,11 @@ def dannce_predict(params: Dict):
         params["dannce_finetune_weights"] = processing.get_ft_wt(params)
 
         if params["train_mode"] == "finetune":
-
-            print("Initializing a finetune network from {}, into which weights from {} will be loaded.".format(
-                params["dannce_finetune_weights"], mdl_file))
+            print(
+                "Initializing a finetune network from {}, into which weights from {} will be loaded.".format(
+                    params["dannce_finetune_weights"], mdl_file
+                )
+            )
             model = params["net"](
                 params["loss"],
                 float(params["lr"]),
@@ -1550,91 +1681,10 @@ def dannce_predict(params: Dict):
             outputs=[model.layers[-1].output, o2],
         )
 
-    save_data = {}
-
-    max_eval_batch = params["maxbatch"]
-
-    if max_eval_batch != "max" and max_eval_batch > len(valid_generator):
-        print("Maxbatch was set to a larger number of matches than exist in the video. Truncating")
-        max_eval_batch = len(valid_generator)
-        processing.print_and_set(params, "maxbatch", max_eval_batch)
-
-    if max_eval_batch == "max":
-        max_eval_batch = len(valid_generator)
-
-    if params["start_batch"] is not None:
-        start_batch = params["start_batch"]
-    else:
-        start_batch = 0
-
-    if params["new_n_channels_out"] is not None:
-        n_chn = params["new_n_channels_out"]
-    else:
-        n_chn = params["n_channels_out"]
-
-    if params["write_npy"] is not None:
-        # Instead of running inference, generate all samples
-        # from valid_generator and save them to npy files. Useful
-        # for working with large datasets (such as Rat 7M) because
-        # .npy files can be loaded in quickly with random access
-        # during training.
-        print("Writing samples to .npy files")
-        processing.write_npy(params["write_npy"], valid_generator)
-        print("Done, exiting program")
-        sys.exit()
+    return model
 
 
-    save_data = inference.infer_dannce(
-        start_batch,
-        max_eval_batch,
-        valid_generator,
-        params,
-        model,
-        partition,
-        save_data,
-        device,
-        n_chn,
-    )
-
-    if params["expval"]:
-        if params["start_batch"] is not None:
-            path = os.path.join(
-                params["dannce_predict_dir"], "save_data_AVG%d.mat" % (start_batch)
-            )
-        else:
-            path = os.path.join(params["dannce_predict_dir"], "save_data_AVG.mat")
-        p_n = savedata_expval(
-            path,
-            params,
-            write=True,
-            data=save_data,
-            tcoord=False,
-            num_markers=n_chn,
-            pmax=True,
-        )
-    else:
-        if params["start_batch"] is not None:
-            path = os.path.join(
-                params["dannce_predict_dir"], "save_data_MAX%d.mat" % (start_batch)
-            )
-        else:
-            path = os.path.join(params["dannce_predict_dir"], "save_data_MAX.mat")
-        p_n = savedata_tomat(
-            path,
-            params,
-            params["vmin"],
-            params["vmax"],
-            params["nvox"],
-            write=True,
-            data=save_data,
-            num_markers=n_chn,
-            tcoord=False,
-        )
-
-
-def do_COM_load(
-    exp: Dict, expdict: Dict, n_views: int, e, params: Dict, training=True
-):
+def do_COM_load(exp: Dict, expdict: Dict, n_views: int, e, params: Dict, training=True):
     """Load and process COMs.
 
     Args:
@@ -1652,12 +1702,7 @@ def do_COM_load(
     Raises:
         Exception: Exception when invalid com file format.
     """
-    (
-        samples_,
-        datadict_,
-        datadict_3d_,
-        cameras_,
-    ) = serve_data_DANNCE.prepare_data(
+    (samples_, datadict_, datadict_3d_, cameras_,) = serve_data_DANNCE.prepare_data(
         exp, prediction=False if training else True, nanflag=False
     )
 
@@ -1673,9 +1718,7 @@ def do_COM_load(
         print("For experiment {}, calculating 3D COM from labels".format(e))
         com3d_dict_ = deepcopy(datadict_3d_)
         for key in com3d_dict_.keys():
-            com3d_dict_[key] = np.nanmean(
-                datadict_3d_[key], axis=1, keepdims=True
-            )
+            com3d_dict_[key] = np.nanmean(datadict_3d_[key], axis=1, keepdims=True)
     elif "com_file" in expdict and expdict["com_file"] is not None:
         exp["com_file"] = expdict["com_file"]
         if ".mat" in exp["com_file"]:
