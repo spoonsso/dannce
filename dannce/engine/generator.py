@@ -23,6 +23,7 @@ MISSING_KEYPOINTS_MSG = (
     + "set right_keypoints: [0, 2] and left_keypoints: [1, 3] in the config file"
 )
 
+TF_GPU_MEMORY_FRACTION = 0.9
 
 class DataGenerator(keras.utils.Sequence):
     """Generate data for Keras.
@@ -785,7 +786,7 @@ class DataGenerator_3Dconv_torch(DataGenerator):
         norm_im (bool): If True, normalize images.
         nvox (int): Number of voxels per box side
         rotation (bool): If True, use simple rotation augmentation.
-        session (tf.compat.v1.InteractiveSession): tensorflow session.
+        session (tf.compat.v1.Session): tensorflow session.
         threadpool (Threadpool): threadpool object for parallelizing video loading
         tifdirs (List): Directories of .tifs
         var_reg (bool): If True, adds a variance regularization term to the loss function.
@@ -936,10 +937,10 @@ class DataGenerator_3Dconv_torch(DataGenerator):
         ts = time.time()
         # Limit GPU memory usage by Tensorflow to leave memory for PyTorch
         config = tf.compat.v1.ConfigProto()
-        config.gpu_options.per_process_gpu_memory_fraction = 0.9
+        config.gpu_options.per_process_gpu_memory_fraction = TF_GPU_MEMORY_FRACTION
         config.gpu_options.allow_growth = True
         self.session = tf.compat.v1.Session(config=config, graph=tf.Graph())
-        print(tf.executing_eagerly(), flush=True)
+        print("Executing eagerly: ", tf.executing_eagerly(), flush=True)
         for i, ID in enumerate(list_IDs):
             experimentID = int(ID.split("_")[0])
             for camname in self.camnames[experimentID]:
