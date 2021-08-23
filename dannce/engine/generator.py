@@ -16,6 +16,13 @@ import tensorflow as tf
 from multiprocessing.dummy import Pool as ThreadPool
 from typing import List, Dict, Tuple, Text
 
+MISSING_KEYPOINTS_MSG = (
+    "If mirror augmentation is used, the right_keypoints indices and left_keypoints "
+    + "indices must be specified as well. "
+    + "For the skeleton, ['RHand, 'LHand', 'RFoot', 'LFoot'], "
+    + "set right_keypoints: [0, 2] and left_keypoints: [1, 3] in the config file"
+)
+
 
 class DataGenerator(keras.utils.Sequence):
     """Generate data for Keras.
@@ -2102,6 +2109,8 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         augment_hue=True,
         augment_continuous_rotation=True,
         mirror_augmentation=False,
+        right_keypoints=None,
+        left_keypoints=None,
         bright_val=0.05,
         hue_val=0.05,
         rotation_val=5,
@@ -2147,6 +2156,12 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         self.augment_continuous_rotation = augment_continuous_rotation
         self.augment_brightness = augment_brightness
         self.mirror_augmentation = mirror_augmentation
+        self.right_keypoints = right_keypoints
+        self.left_keypoints = left_keypoints
+        if self.mirror_augmentation and (
+            self.right_keypoints is None or self.left_keypoints is None
+        ):
+            raise Exception(MISSING_KEYPOINTS_MSG)
         self.var_reg = var_reg
         self.xgrid = xgrid
         self.nvox = nvox
@@ -2212,26 +2227,11 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         # Flip the image and x coordinates about the x axis
         X = X[:, ::-1, ...]
         X_grid = X_grid[:, ::-1, ...]
-        self.right_keypoints = np.array([2, 11, 12, 13, 14, 19, 20, 21, 22])
-        self.left_keypoints = np.array([1, 7, 8, 9, 10, 15, 16, 17, 18])
+
+        # Flip the left and right keypoints. 
         temp = y_3d[..., self.left_keypoints].copy()
         y_3d[..., self.left_keypoints] = y_3d[..., self.right_keypoints]
         y_3d[..., self.right_keypoints] = temp
-        # for n_batch in range(X.shape[0]):
-        #     self.right_keypoints = np.array([2, 11, 12, 13, 14, 19, 20, 21, 22])
-        #     self.left_keypoints = np.array([1, 7, 8, 9, 10, 15, 16, 17, 18])
-
-        #     # Swap the left and right keypoints.
-        #     new_right_pts = y_3d[n_batch, :, self.left_keypoints].copy().squeeze()
-        #     new_left_pts = y_3d[n_batch, :, self.right_keypoints].copy().squeeze()
-
-        #     # # Flip the x labels about the midpoint of the volume
-        #     # new_right_pts[0, :] -= 2 * (new_right_pts[0, :] - x_midpoint)
-        #     # new_left_pts[0, :] -= 2 * (new_left_pts[0, :] - x_midpoint)
-
-        #     y_3d[n_batch, :, self.left_keypoints] = new_left_pts
-        #     y_3d[n_batch, :, self.right_keypoints] = new_right_pts
-
         return X, y_3d, X_grid
 
     def rot180(self, X):

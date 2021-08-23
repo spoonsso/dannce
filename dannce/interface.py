@@ -1014,6 +1014,8 @@ def dannce_train(params: Dict):
         "augment_brightness": params["augment_brightness"],
         "augment_continuous_rotation": params["augment_continuous_rotation"],
         "mirror_augmentation": params["mirror_augmentation"],
+        "right_keypoints": params["right_keypoints"],
+        "left_keypoints": params["left_keypoints"],
         "bright_val": params["augment_bright_val"],
         "hue_val": params["augment_hue_val"],
         "rotation_val": params["augment_rotation_val"],
