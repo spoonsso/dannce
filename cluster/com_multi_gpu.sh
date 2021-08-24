@@ -14,8 +14,9 @@ set -e
 
 # Setup the dannce environment
 module load Anaconda3/5.0.1-fasrc02
-module load ffmpeg/4.0.2-fasrc01
-source activate dannce
+source activate dannce_cuda11
+module load cuda/11.0.3-fasrc01
+module load cudnn/8.0.4.30_cuda11.0-fasrc01
 
 # Train com network
 sbatch --wait holy_com_train.sh $1

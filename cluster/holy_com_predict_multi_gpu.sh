@@ -12,4 +12,6 @@
 #SBATCH --constraint=cc5.2
 module load Anaconda3/5.0.1-fasrc02
 source activate dannce_cuda11
-com-predict-single-batch "$@"
+module load cuda/11.0.3-fasrc01
+module load cudnn/8.0.4.30_cuda11.0-fasrc01
+setup_cuda11com-predict-single-batch "$@"
