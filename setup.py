@@ -19,6 +19,7 @@ setup(
         "opencv-python",
         "tensorflow==2.4.0",
         "torch",
+        "psutil",
     ],
     scripts=[
         "cluster/holy_dannce_train.sh",
