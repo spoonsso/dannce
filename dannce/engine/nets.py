@@ -5,6 +5,7 @@ from tensorflow.keras.layers import Conv2DTranspose, Conv3D, Lambda
 from tensorflow.keras.layers import MaxPooling3D, Conv3DTranspose
 from tensorflow.keras.layers import Add
 from tensorflow.keras.layers import Activation
+from tensorflow.keras.layers import GlobalMaxPooling3D
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.layers import BatchNormalization
 from tensorflow.keras import backend as K
@@ -1230,6 +1231,39 @@ def finetune_fullmodel_AVG(
 
     return model
 
+def add_exposed_heatmap(model):
+    """
+    Given a normal AVG model, add an extra output for supervision of the penultimate heatmap representation
+    """
+    lay = [l.name for l in model.layers]
+    if "exposed_heatmap" not in lay:
+        model.layers[-1]._name = "final_output"
+        model.layers[-3]._name = "exposed_heatmap"
+        model = Model(
+            inputs=[model.layers[0].input, model.layers[-2].input],
+            outputs=[model.layers[-1].output, model.layers[-3].output],
+        )
+
+    return model
+
+def remove_exposed_heatmap(model):
+    """
+    Given an AVG+MAX model, removes the exposes heatmap output so that only the continuous AVG output is
+        generated.
+
+    To fully support "continued" mode training, this should only be called during dannce-predict, and before
+        the p_max output is added to the network.
+    """
+
+    lay = [l.name for l in model.layers]
+    if "exposed_heatmap" in lay:
+        model = Model(
+            inputs=[model.layers[0].input, model.layers[-2].input],
+            outputs=[model.get_layer("final_output").output],
+        )
+
+    return model
+
 def heatmap_reg(hmap, inds):
     """
     Returns the value of the 3D hmap at inds
@@ -1247,7 +1281,7 @@ def heatmap_reg(hmap, inds):
 
 def add_heatmap_output(model):
     """
-    Given at AVG model, splice on a new input (GT voxel index) and output (amplitude of normalized heatmap at that GT index)
+    Given an AVG model, splice on a new input (GT voxel index) and output (amplitude of normalized heatmap at that GT index)
     """
     lay = [l.name for l in model.layers]
     if "heatmap_output" not in lay:

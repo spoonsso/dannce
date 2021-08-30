@@ -1671,6 +1671,9 @@ def build_model(params, netname, camnames):
     # If there is a heatmap regularization i/o, remove it
     model = nets.remove_heatmap_output(model, params)
 
+    # If there was an exposed heatmap for AVG+MAX training, remove it
+    model = nets.remove_exposed_heatmap(model)
+
     # To speed up expval prediction, rather than doing two forward passes: one for the 3d coordinate
     # and one for the probability map, here we splice on a new output layer after
     # the softmax on the last convolutional layer

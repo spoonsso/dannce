@@ -117,13 +117,14 @@ def infer_params(params, dannce_net, prediction):
             intermediate_folder = os.listdir(camdir)
             camdir = os.path.join(camdir, intermediate_folder[0])
         video_files = os.listdir(camdir)
-        video_files = [f for f in video_files if ".mp4" in f]
+        video_files = [f for f in video_files if extension in f]
         video_files = sorted(video_files, key=lambda x: int(x.split(".")[0]))
         chunks[name] = np.sort([int(x.split(".")[0]) for x in video_files])
 
     print_and_set(params, "chunks", chunks)
 
-    camf = os.path.join(viddir, video_files[0])
+    firstvid = str(chunks[params["camnames"][0]][0]) + params["extension"]
+    camf = os.path.join(viddir, firstvid)
 
     # Infer n_channels_in from the video info
     v = imageio.get_reader(camf)
