@@ -10,6 +10,7 @@ import gc
 import tensorflow as tf
 import tensorflow.keras as keras
 import tensorflow.keras.losses as keras_losses
+from tensorflow.keras import backend as K
 from tensorflow.keras.models import load_model, Model
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import ModelCheckpoint, CSVLogger, TensorBoard
@@ -1160,8 +1161,6 @@ def dannce_train(params: Dict):
         if params["heatmap_reg"]:
             model = nets.add_heatmap_output(model)
 
-
-
         if params["heatmap_reg"] or params["train_mode"] != "continued":
             # recompiling a full model will reset the optimizer state
             model.compile(
@@ -1205,8 +1204,8 @@ def dannce_train(params: Dict):
             if epoch == self.total_epochs-1 or logs[lkey] < self.val_loss and epoch > 25:
                 print("Saving predictions on train and validation data, after epoch {}".format(epoch))
                 self.val_loss = logs[lkey]
-                pred_t = model.predict([self.td, self.tgrid], batch_size=1)
-                pred_v = model.predict([self.vd, self.vgrid], batch_size=1)
+                pred_t = self.model.predict([self.td, self.tgrid], batch_size=1)
+                pred_v = self.model.predict([self.vd, self.vgrid], batch_size=1)
                 ofile = os.path.join(self.odir,'checkpoint_predictions_e{}.mat'.format(epoch))
                 sio.savemat(ofile, {'pred_train': pred_t,
                                     'pred_valid': pred_v,
@@ -1214,6 +1213,61 @@ def dannce_train(params: Dict):
                                     'target_valid': self.vlabel,
                                     'train_sampleIDs': self.tID,
                                     'valid_sampleIDs': self.vID})
+
+    class saveMaxPreds(keras.callbacks.Callback):
+        """
+        This callback fully evaluates MAX predictions and logs the euclidean
+            distance error to a file.
+        """
+        def __init__(self, vID, vData, vLabel, odir, com, params):
+            self.vID = vID
+            self.vData = vData
+            self.odir = odir
+            self.com = com
+            self.param_mat = params
+
+            fn = os.path.join(odir, 'max_euclid_error.csv')
+            self.fn = fn
+
+            self.vLabel = np.zeros((len(vID),
+                                    3,
+                                    params["new_n_channels_out"]))
+
+            # Now run thru sample IDs, pull out the correct COM, and add it in
+            for j in range(len(self.vID)):
+                id_ = self.vID[j]
+                self.vLabel[j] = vLabel[id_]
+
+            with open(fn, 'w') as fd:
+                fd.write("epoch,error\n")
+
+        def on_epoch_end(self, epoch, logs=None):
+            pred_v = self.model.predict([self.vData], batch_size=1)
+            d_coords = np.zeros((pred_v.shape[0],
+                                 3,
+                                 pred_v.shape[-1]))
+            for j in range(pred_v.shape[0]):
+                xcoord, ycoord, zcoord = processing.plot_markers_3d(
+                    pred_v[j]
+                )
+                d_coords[j] = np.stack([xcoord, ycoord, zcoord])
+
+            vsize = (self.param_mat["vmax"] - self.param_mat["vmin"]) / self.param_mat["nvox"]
+            # # First, need to move coordinates over to centers of voxels
+            pred_out_world = self.param_mat["vmin"] + d_coords * vsize + vsize / 2
+
+            # Now run thru sample IDs, pull out the correct COM, and add it in
+            for j in range(len(self.vID)):
+                id_ = self.vID[j]
+                tcom = self.com[id_]
+                pred_out_world[j] = pred_out_world[j] + tcom[:, np.newaxis]
+
+            # Calculate euclidean_distance_3d 
+            e3d = K.eval(losses.euclidean_distance_3D(self.vLabel, pred_out_world))
+
+            print("epoch {} euclidean_distance_3d: {}".format(epoch, e3d))
+            with open(self.fn, 'a') as fd:
+                fd.write("{},{}\n".format(epoch, e3d))
 
     class saveCheckPoint(keras.callbacks.Callback):
         def __init__(self, odir, total_epochs):
@@ -1246,6 +1300,16 @@ def dannce_train(params: Dict):
             y_train,
             y_valid)
         callbacks = callbacks + [save_callback]
+    elif not params["expval"] and not params["use_npy"] and not params["heatmap_reg"]:
+        max_save_callback = saveMaxPreds(
+            partition['train_sampleIDs'],
+            X_train,
+            datadict_3d,
+            params['dannce_train_dir'],
+            com3d_dict,
+            params
+            )
+        callbacks = callbacks + [max_save_callback]
 
     model.fit(
         x=train_generator,

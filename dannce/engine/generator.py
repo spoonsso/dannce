@@ -2208,13 +2208,13 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         X = X[::-1, ::-1, :, :]
         return X
 
-    def random_rotate(self, X, y_3d):
+    def random_rotate(self, X, y_3d, aux=None):
         """Rotate each sample by 0, 90, 180, or 270 degrees.
 
         Args:
             X (np.ndarray): Image volumes
             y_3d (np.ndarray): 3D grid coordinates (AVG) or training target volumes (MAX)
-
+            aux (np.ndarray or None): Populated in MAX+AVG mode with the training target volumes
         Returns:
             X (np.ndarray): Rotated image volumes
             y_3d (np.ndarray): Rotated 3D grid coordinates (AVG) or training target volumes (MAX)
@@ -2227,18 +2227,28 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
                 # Rotate180
                 X[i] = self.rot180(X[i])
                 y_3d[i] = self.rot180(y_3d[i])
+                if aux is not None:
+                    aux[i] = self.rot180(aux[i])
             elif rots[i] == 2:
                 # Rotate90
                 X[i] = self.rot90(X[i])
                 y_3d[i] = self.rot90(y_3d[i])
+                if aux is not None:
+                    aux[i] = self.rot90(aux[i])
             elif rots[i] == 3:
                 # Rotate -90/270
                 X[i] = self.rot90(X[i])
                 X[i] = self.rot180(X[i])
                 y_3d[i] = self.rot90(y_3d[i])
                 y_3d[i] = self.rot180(y_3d[i])
+                if aux is not None:
+                    aux[i] = self.rot90(aux[i])
+                    aux[i] = self.rot180(aux[i])
 
-        return X, y_3d
+        if aux is not None:
+            return X, y_3d, aux
+        else:
+            return X, y_3d
 
     def visualize(self, original, augmented):
         """Plots example image after augmentation
@@ -2260,13 +2270,14 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         plt.show()
         input("Press Enter to continue...")
 
-    def do_augmentation(self, X, X_grid, y_3d):
+    def do_augmentation(self, X, X_grid, y_3d, aux=None):
         """Applies augmentation
 
         Args:
             X (np.ndarray): image volumes
             X_grid (np.ndarray): 3D grid coordinates
             y_3d (np.ndarray): training targets
+            aux (np.ndarray or None): additional target volumes if using MAX+AVG mode
 
         Returns:
             X (np.ndarray): Augemented image volumes
@@ -2280,13 +2291,16 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
                     X_grid,
                     (self.batch_size, self.nvox, self.nvox, self.nvox, 3),
                 )
-                X, X_grid = self.random_rotate(X.copy(), X_grid.copy())
+                if aux is not None:
+                    X, X_grid, aux = self.random_rotate(X.copy(), X_grid.copy(), aux.copy())
+                else:
+                    X, X_grid = self.random_rotate(X.copy(), X_grid.copy())
                 # Need to reshape back to raveled version
                 X_grid = np.reshape(X_grid, (self.batch_size, -1, 3))
             else:
                 X, y_3d = self.random_rotate(X.copy(), y_3d.copy())
 
-        if self.augment_continuous_rotation:
+        if self.augment_continuous_rotation and aux is None:
             if self.expval:
                 # First make X_grid 3d
                 X_grid = np.reshape(
