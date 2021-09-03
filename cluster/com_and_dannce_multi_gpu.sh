@@ -9,25 +9,16 @@
 #SBATCH -t 5-00:00
 #SBATCH -N 1
 #SBATCH -c 1
-#SBATCH -p olveczky
+#SBATCH -p common
 set -e
 
 # Setup the dannce environment
-module load Anaconda3/5.0.1-fasrc02
-module load ffmpeg/4.0.2-fasrc01
+module load Anaconda3/5.1.0
 source activate dannce
-
-# Train com network
-sbatch --wait holy_com_train.sh $1
-wait
 
 # Predict with com network in parallel and merge results
 com-predict-multi-gpu $1
 com-merge $1
-
-# Train dannce network
-sbatch --wait holy_dannce_train.sh $2
-wait
 
 # Predict with dannce network in parallel and merge results
 dannce-predict-multi-gpu $2

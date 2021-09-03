@@ -7,9 +7,9 @@
 # Time limit hrs:min:sec
 #SBATCH -N 1
 #SBATCH -n 8
-#SBATCH -p olveczkygpu,gpu,cox,gpu_requeue
+#SBATCH -p scavenger-gpu
 #SBATCH --gres=gpu:1
-#SBATCH --constraint=cc5.2
-module load Anaconda3/5.0.1-fasrc02
+#SBATCH --exclude=dcc-tdunn-gpu-01
+module load Anaconda3/5.1.0
 source activate dannce
 com-predict-single-batch "$@"
