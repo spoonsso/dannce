@@ -136,6 +136,12 @@ def infer_params(params, dannce_net, prediction):
     print_and_set(params, "raw_im_h", im.shape[0])
     print_and_set(params, "raw_im_w", im.shape[1])
 
+    if dannce_net and params["avg+max"] is not None:
+        # To use avg+max, need to start with an AVG network
+        # In case the net type is not properly specified, set it here
+        print_and_set(params, "expval", True)
+        print_and_set(params, "net_type", "AVG")
+
     if dannce_net and params["net"] is None:
         # Here we assume that if the network and expval are specified by the user
         # then there is no reason to infer anything. net + expval compatibility
@@ -454,6 +460,58 @@ def make_data_splits(samples, params, RESULTSDIR, num_experiments):
         np.random.seed()
 
     return partition
+
+
+def __initAvgMax(t, g, o, params):
+    """
+    Helper function for creating 3D targets
+    """
+    gridsize = tuple([params["nvox"]] * 3)
+    g = np.reshape(
+                g,
+                (-1, *gridsize, 3),
+            )
+
+    for i in range(o.shape[0]):
+        for j in range(o.shape[-1]):
+            o[i, ..., j] = np.exp(
+                -(
+                    (g[i, ..., 1] - t[i, 1, j]) ** 2
+                    + (g[i, ..., 0] - t[i, 0, j]) ** 2
+                    + (g[i, ..., 2] - t[i, 2, j]) ** 2
+                )
+                / (2 * params["sigma"] ** 2)
+            )
+
+    return o
+
+
+def initAvgMax(y_train, y_valid, Xtg, Xvg, params):
+    """
+    Converts 3D coordinate targets into 3D volumes, for AVG+MAX training
+    """
+    gridsize = tuple([params["nvox"]] * 3)
+    y_train_aux = np.zeros(
+        (
+            y_train.shape[0],
+            *gridsize,
+            params["new_n_channels_out"],
+        ),
+        dtype="float32",
+    )
+
+    y_valid_aux = np.zeros(
+        (
+            y_valid.shape[0],
+            *gridsize,
+            params["new_n_channels_out"],
+        ),
+        dtype="float32",
+    )
+
+    return __initAvgMax(y_train, Xtg, y_train_aux, params), \
+        __initAvgMax(y_valid, Xvg, y_valid_aux, params),
+
 
 def remove_samples_npy(npydir, samples, params):
     """

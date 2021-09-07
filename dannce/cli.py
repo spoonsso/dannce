@@ -515,6 +515,11 @@ def add_dannce_train_args(
         type=ast.literal_eval,
         help="If True, save predictions evaluated at checkpoints during training. Note that for large training datasets, this can cause memory issues.",
     )
+    parser.add_argument(
+        "--avg-max",
+        dest="avg+max",
+        type=float,
+        help="Pass a floating point value here for DANNCE to enter AVG+MAX training mode, where the 3D maps are MAX-like regularized to be Gaussian. The avg+max value is used to weight the contribution of the MAX-like loss.")
     return parser
 
 
@@ -557,11 +562,11 @@ def add_dannce_predict_args(
         help="If True, attempt to load in a prediction model without requiring a full model file (i.e. just using weights). May fail for some model types.",
     )
     parser.add_argument(
-    "--write-npy",
-    dest="write_npy",
-    help="If not None, uses this base path to write large dataset to npy files"
+        "--write-npy",
+        dest="write_npy",
+        help="If not None, uses this base path to write large dataset to npy files"
     )
- 
+
     return parser
 
 

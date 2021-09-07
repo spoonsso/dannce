@@ -89,6 +89,7 @@ _param_defaults_dannce = {
     "heatmap_reg": False,
     "heatmap_reg_coeff": 0.01,
     "save_pred_targets": False,
+    "avg+max": None,
 }
 _param_defaults_com = {
     "dsmode": "nn",

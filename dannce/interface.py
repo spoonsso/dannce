@@ -988,6 +988,19 @@ def dannce_train(params: Dict):
                 X_valid[i] = rr[0]
             y_valid[i] = rr[1]
 
+    # For AVG+MAX training, need to update the expval flag in the generators 
+    # and re-generate the 3D training targets
+    # TODO: Add code to infer_params
+    y_train_aux = None
+    y_valid_aux = None
+    if params["avg+max"] is not None:
+        y_train_aux, y_valid_aux = \
+            processing.initAvgMax(y_train,
+                                  y_valid,
+                                  X_train_grid,
+                                  X_valid_grid,
+                                  params)
+
     # Now we can generate from memory with shuffling, rotation, etc.
     randflag = params["channel_combo"] == "random"
 
@@ -1059,11 +1072,13 @@ def dannce_train(params: Dict):
         args_train = {**args_train,
                       **shared_args_train,
                       **shared_args,
-                      'xgrid': X_train_grid}
+                      'xgrid': X_train_grid,
+                      'aux_labels': y_train_aux}
 
         args_valid = {'list_IDs': np.arange(len(partition["valid_sampleIDs"])),
                       'data': X_valid,
                       'labels': y_valid,
+                      'aux_labels': y_valid_aux,
                       }
         args_valid = {**args_valid,
                       **shared_args_valid,
@@ -1161,11 +1176,15 @@ def dannce_train(params: Dict):
         if params["heatmap_reg"]:
             model = nets.add_heatmap_output(model)
 
+        if params["avg+max"] is not None and params["train_mode"] != "continued":
+            model = nets.add_exposed_heatmap(model)
+
         if params["heatmap_reg"] or params["train_mode"] != "continued":
             # recompiling a full model will reset the optimizer state
             model.compile(
                 optimizer=Adam(lr=float(params["lr"])),
                 loss=params["loss"] if not params["heatmap_reg"] else [params["loss"], losses.heatmap_max_regularizer],
+                loss_weights=[1, params["avg+max"]] if params["avg+max"] is not None else None,
                 metrics=metrics,
             )
 
@@ -1609,9 +1628,14 @@ def dannce_predict(params: Dict):
     # and one for the probability map, here we splice on a new output layer after
     # the softmax on the last convolutional layer
     if params["expval"]:
+        print(model.summary())
         from tensorflow.keras.layers import GlobalMaxPooling3D
-
-        o2 = GlobalMaxPooling3D()(model.layers[-3].output)
+        from tensorflow.keras.layers import Activation
+        from tensorflow.keras import activations
+        sigmoid_output = Activation(activations.sigmoid,
+                                    name="sigmoid_exposed_hetmap")
+        # o2 = GlobalMaxPooling3D()(model.layers[-3].output)
+        o2 = GlobalMaxPooling3D()(sigmoid_output(model.layers[-4].output))
         model = Model(
             inputs=[model.layers[0].input, model.layers[-2].input],
             outputs=[model.layers[-1].output, o2],

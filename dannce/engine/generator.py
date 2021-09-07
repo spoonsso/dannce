@@ -2072,6 +2072,7 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         xgrid (np.ndarray): For the AVG network, this contains the 3D grid coordinates
         n_rand_views (int): Number of reviews to sample randomly from the full set
         replace (bool): If True, samples n_rand_views with replacement
+        aux_labels (np.ndarray): If not None, contains the 3D MAX training targets for AVG+MAX training.
     """
 
     def __init__(
@@ -2098,6 +2099,7 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         n_rand_views=None,
         heatmap_reg=False,
         heatmap_reg_coeff=0.01,
+        aux_labels=None,
     ):
         """Initialize data generator.
 
@@ -2122,6 +2124,7 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
             rotation_val (float, optional): Range of angles used for continuous rotation augmentation
             n_rand_views (int, optional): Number of reviews to sample randomly from the full set
             replace (bool, optional): If True, samples n_rand_views with replacement
+            aux_labels (np.ndarray, optional): If not None, contains the 3D MAX training targets for AVG+MAX training.
         """
         self.list_IDs = list_IDs
         self.data = data
@@ -2145,6 +2148,7 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         self.replace = replace
         self.heatmap_reg = heatmap_reg
         self.heatmap_reg_coeff = heatmap_reg_coeff
+        self.aux_labels = aux_labels
         self.on_epoch_end()
 
     def __len__(self):
@@ -2341,7 +2345,7 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
                     X[..., channel_ids], self.bright_val
                 )
 
-        return X, X_grid, y_3d
+        return X, X_grid, y_3d, aux
 
     def do_random(self, X):
         """Randomly re-order camera views
@@ -2426,19 +2430,27 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         X = np.zeros((self.batch_size, *self.data.shape[1:]))
         y_3d = np.zeros((self.batch_size, *self.labels.shape[1:]))
 
-        # Only used when 
+        # Only used for AVG mode
         if self.expval:
             X_grid = np.zeros((self.batch_size, *self.xgrid.shape[1:]))
         else:
             X_grid = None
-            
+
+        # Only used for AVG+MAX mode
+        if self.aux_labels is not None:
+            aux = np.zeros((*X.shape[:4], y_3d.shape[-1]))
+        else:
+            aux = None
+
         for i, ID in enumerate(list_IDs_temp):
             X[i] = self.data[ID].copy()
             y_3d[i] = self.labels[ID]
             if self.expval:
                 X_grid[i] = self.xgrid[ID]
+            if aux is not None:
+                aux[i] = self.aux_labels[ID]
 
-        X, X_grid, y_3d = self.do_augmentation(X, X_grid, y_3d)
+        X, X_grid, y_3d, aux = self.do_augmentation(X, X_grid, y_3d, aux)
 
         # Randomly re-order, if desired
         X = self.do_random(X)
@@ -2447,6 +2459,8 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
             if self.heatmap_reg:
                 return [X, X_grid, self.get_max_gt_ind(X_grid, y_3d)], [y_3d,
                     self.heatmap_reg_coeff*np.ones((self.batch_size, y_3d.shape[-1]), dtype='float32')]
+            elif aux is not None:
+                return [X, X_grid], [y_3d, aux]
             return [X, X_grid], y_3d
         else:
             return X, y_3d
