@@ -30,6 +30,32 @@ def get_metrics(params):
 
     return metrics
 
+# TODO (JOSH). Move the if/else normalization block to its own function. And in this function
+# add the correct InstanceNormalization() call, using the appropriate axis setting.
+def norm_method(
+    method=False,
+):
+    """
+    method: Normalization method can be 'batch','instance', or 'layer'
+    """
+    if method.lower().startswith('batch'):
+        print("using batch normalization")
+
+        def fun(inputs):
+            return BatchNormalization()(inputs)
+    elif method.lower().startswith('layer'):
+        print("using layer normalization")
+
+        def fun(inputs):
+            return ops.InstanceNormalization(axis=None)(inputs)
+    elif method.lower().startswith('instance'):
+        print("using instance normalization")
+
+        def fun(inputs):
+            return ops.InstanceNormalization(axis=1)(inputs)
+
+
+
 # TODO (JOSH): Replace all BatchNormalization() calls here with fun(), after 
 # getting fun from your future normalization layer function
 def unet2d_fullbn(
@@ -219,9 +245,6 @@ def unet2d_fullIN(
     model.compile(optimizer=Adam(lr=lr), loss=lossfunc, metrics=[metric])
 
     return model
-
-# TODO (JOSH). Move the if/else normalization block to its own function. And in this function
-# add the correct InstanceNormalization() call, using the appropriate axis setting.
 
 def unet3d_big_expectedvalue(
     lossfunc,
