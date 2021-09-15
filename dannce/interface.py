@@ -1100,8 +1100,6 @@ def dannce_train(params: Dict):
     strategy = tf.distribute.MirroredStrategy()
     print('Number of devices: {}'.format(strategy.num_replicas_in_sync))
     scoping = strategy.scope()
-    # else:
-    #     scoping = True
 
     print("NUM CAMERAS: {}".format(len(camnames[0])))
 
@@ -1187,6 +1185,11 @@ def dannce_train(params: Dict):
                 loss_weights=[1, params["avg+max"]] if params["avg+max"] is not None else None,
                 metrics=metrics,
             )
+
+        if params["lr"] != model.optimizer.learning_rate:
+            print("Changing learning rate to {}".format(params["lr"]))
+            K.set_value(model.optimizer.learning_rate, params["lr"])
+            print("Confirming new learning rate: {}".format(model.optimizer.learning_rate))
 
     print("COMPLETE\n")
 
@@ -1634,7 +1637,6 @@ def dannce_predict(params: Dict):
         from tensorflow.keras import activations
         sigmoid_output = Activation(activations.sigmoid,
                                     name="sigmoid_exposed_hetmap")
-        # o2 = GlobalMaxPooling3D()(model.layers[-3].output)
         o2 = GlobalMaxPooling3D()(sigmoid_output(model.layers[-4].output))
         model = Model(
             inputs=[model.layers[0].input, model.layers[-2].input],
