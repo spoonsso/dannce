@@ -95,6 +95,7 @@ def debug_com(
     print("Writing " + params["com_debug"] + " confidence maps to " + cmapdir)
     print("Writing " + params["com_debug"] + "COM-image overlays to " + overlaydir)
 
+    batch_size = pred_batch.shape[0]
     # Write preds
     plt.figure(0)
     plt.cla()
@@ -102,13 +103,13 @@ def debug_com(
     plt.savefig(
         os.path.join(
             cmapdir,
-            params["com_debug"] + str(n_frame + n_batch) + ".png",
+            params["com_debug"] + str(n_frame * batch_size + n_batch) + ".png",
         )
     )
 
     plt.figure(1)
     plt.cla()
-    im = generator.__getitem__(n_frame * n_batches + n_batch)
+    im = generator.__getitem__(n_frame * batch_size + n_batch)
     plt.imshow(processing.norm_im(im[0][n_cam]))
     plt.plot(
         (ind[0] - params["crop_width"][0]) / params["downfac"],
@@ -118,7 +119,7 @@ def debug_com(
     plt.savefig(
         os.path.join(
             overlaydir,
-            params["com_debug"] + str(n_frame + n_batch) + ".png",
+            params["com_debug"] + str(n_frame * batch_size + n_batch) + ".png",
         )
     )
 
