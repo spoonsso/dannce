@@ -54,3 +54,5 @@ demo/markerless_mouse_2/DANNCE/predict_results/copy*
 
 demo/markerless_mouse_1/videos/
 demo/markerless_mouse_2/videos/
+
+.vscode/

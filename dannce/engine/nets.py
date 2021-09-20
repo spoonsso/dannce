@@ -104,7 +104,7 @@ def unet2d_fullIN(
 
 def unet2d_full(
     lossfunc, lr, input_dim, feature_num, metric="mse", include_top=True,
-    norm_method=None
+    norm_method="layer"
 ):
     """Initialize 2D U-net.
 
@@ -206,8 +206,7 @@ def unet3d_big_expectedvalue(
     feature_num,
     num_cams,
     gridsize=(64, 64, 64),
-    batch_norm=False,
-    instance_norm=False,
+    norm_method="layer",
     include_top=True,
     regularize_var=False,
     loss_weights=None,
@@ -215,8 +214,6 @@ def unet3d_big_expectedvalue(
     out_kernel=(1, 1, 1),
 ):
 
-    norm_method = "batch" if batch_norm and not instance_norm else None
-    norm_method = "instance" if instance_norm else None
     fun = norm_fun(norm_method)
 
     inputs = Input((*gridsize, input_dim * num_cams), name="image_input")
@@ -321,12 +318,9 @@ def unet3d_big_1cam(
     input_dim,
     feature_num,
     num_cams,
-    batch_norm=False,
-    instance_norm=False,
+    norm_method="layer",
 ):
 
-    norm_method = "batch" if batch_norm and not instance_norm else None
-    norm_method = "instance" if instance_norm else None
     fun = norm_fun(norm_method)
 
     inputs = Input((None, None, None, input_dim))
@@ -405,15 +399,12 @@ def unet3d_big(
     input_dim,
     feature_num,
     num_cams,
-    batch_norm=False,
-    instance_norm=False,
+    norm_method="layer",
     include_top=True,
     last_kern_size=(1, 1, 1),
     gridsize=None,
 ):
     # Gridsize unused, necessary for argument consistency with other nets
-    norm_method = "batch" if batch_norm and not instance_norm else None
-    norm_method = "instance" if instance_norm else None
     fun = norm_fun(norm_method)
 
     inputs = Input((None, None, None, input_dim * num_cams))
@@ -497,8 +488,7 @@ def finetune_AVG(
     new_n_channels_out,
     weightspath,
     num_layers_locked=2,
-    batch_norm=False,
-    instance_norm=False,
+    norm_method="layer",
     gridsize=(64, 64, 64),
 ):
     """
@@ -508,7 +498,7 @@ def finetune_AVG(
     num_layers_locked (int) is the number of layers, starting from the input layer,
     that will be locked (non-trainable) during fine-tuning.
     """
-
+    # model = netobj()
     model = unet3d_big_expectedvalue(
         lossfunc,
         lr,
@@ -516,8 +506,7 @@ def finetune_AVG(
         feature_num,
         num_cams,
         gridsize,
-        batch_norm,
-        instance_norm,
+        norm_method,
         include_top=False,
     )
 
@@ -572,8 +561,6 @@ def finetune_fullmodel_AVG(
     new_n_channels_out,
     weightspath,
     num_layers_locked=2,
-    batch_norm=False,
-    instance_norm=False,
     gridsize=(64, 64, 64),
 ):
     """
@@ -798,8 +785,7 @@ def finetune_MAX(
     new_n_channels_out,
     weightspath,
     num_layers_locked=2,
-    batch_norm=False,
-    instance_norm=False,
+    norm_method="layer",
     gridsize=(64, 64, 64),
 ):
     """
@@ -813,8 +799,7 @@ def finetune_MAX(
         input_dim,
         feature_num,
         num_cams,
-        batch_norm,
-        instance_norm,
+        norm_method="layer",
         include_top=False,
     )
 

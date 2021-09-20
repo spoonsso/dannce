@@ -157,6 +157,7 @@ def com_predict(params: Dict):
         float(params["lr"]),
         params["chan_num"],
         eff_n_channels_out,
+        params["norm_method"],
         ["mse"],
     )
 
@@ -438,6 +439,7 @@ def com_train(params: Dict):
         float(params["lr"]),
         params["chan_num"],
         eff_n_channels_out,
+        params["norm_method"],
         ["mse"],
     )
     print("COMPLETE\n")
@@ -1113,8 +1115,7 @@ def dannce_train(params: Dict):
                 params["chan_num"] + params["depth"],
                 params["n_channels_out"],
                 len(camnames[0]),
-                batch_norm=False,
-                instance_norm=True,
+                params["norm_method"],
                 include_top=True,
                 gridsize=gridsize,
             )
@@ -1128,8 +1129,7 @@ def dannce_train(params: Dict):
                      params["new_n_channels_out"],
                      params["dannce_finetune_weights"],
                      params["n_layers_locked"],
-                     False,
-                     True,
+                     params["norm_method"],
                      gridsize]
             try:
                 model = params["net"](
@@ -1164,8 +1164,7 @@ def dannce_train(params: Dict):
                 params["chan_num"] + params["depth"],
                 params["n_channels_out"],
                 3 if cam3_train else len(camnames[0]),
-                batch_norm=False,
-                instance_norm=True,
+                params["norm_method"],
                 include_top=True,
                 gridsize=gridsize,
             )
@@ -1586,8 +1585,7 @@ def dannce_predict(params: Dict):
                 params["new_n_channels_out"],
                 params["dannce_finetune_weights"],
                 params["n_layers_locked"],
-                batch_norm=False,
-                instance_norm=True,
+                params["norm_method"],
                 gridsize=gridsize,
             )
         else:
@@ -1599,8 +1597,7 @@ def dannce_predict(params: Dict):
                 params["chan_num"] + params["depth"],
                 params["n_channels_out"],
                 len(camnames[0]),
-                batch_norm=False,
-                instance_norm=True,
+                params["norm_method"],
                 include_top=True,
                 gridsize=gridsize,
             )
@@ -1644,6 +1641,9 @@ def dannce_predict(params: Dict):
     save_data = {}
 
     max_eval_batch = params["maxbatch"]
+
+    print("Printing model instance_normalization layer")
+    print(model.get_layer("instance_normalization").axis)
 
     if max_eval_batch != "max" and max_eval_batch > len(valid_generator):
         print("Maxbatch was set to a larger number of matches than exist in the video. Truncating")

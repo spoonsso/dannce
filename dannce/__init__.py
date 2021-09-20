@@ -41,6 +41,7 @@ _param_defaults_shared = {
     "use_npy": False,
     "data_split_seed": None,
     "valid_exp": None,
+    "norm_method":"layer",
 }
 _param_defaults_dannce = {
     "metric": ["euclidean_distance_3D"],
