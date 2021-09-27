@@ -177,6 +177,12 @@ def add_shared_args(
         help="If true, uses a single video file for multiple views.",
     )
 
+    parser.add_argument(
+        "--norm_method",
+        dest="norm_method",
+        help="Normalization method to use, can be 'batch', 'instance', or 'layer'.",
+    )
+
     return parser
 
 

@@ -140,3 +140,18 @@ def heatmap_max_regularizer(y_true, y_pred):
     """
 
     return -1*K.mean(K.flatten(y_true)*K.log(K.flatten(y_pred)))
+
+def gaussian_cross_entropy_loss(y_true, y_pred):
+    """Get cross entropy loss of output distribution and Gaussian centered around target
+
+    Assumes predictions of shape (batch_size,3,num_markers)
+    """
+    # y_pred, y_true, num_notnan = mask_nan(y_true, y_pred)
+    print("y_pred ####################################")
+    print(y_pred)
+    print("y_true ####################################")
+    print(y_true)
+    loss = tf.nn.sigmoid_cross_entropy_with_logits(labels=y_pred, logits=y_true)
+    print("loss ####################################")
+    print(loss)
+    return tf.where(~tf.math.is_nan(loss), loss, 0)

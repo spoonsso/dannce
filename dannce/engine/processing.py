@@ -259,7 +259,7 @@ def infer_params(params, dannce_net, prediction):
     # Handle COM network name backwards compatibility
     if params["net"] == "unet2d_fullBN":
         print_and_set(params,"norm_method","batch")
-    elif params["net"] == "unet2d_fullIN':
+    elif params["net"] == "unet2d_fullIN":
         print_and_set(params,"norm_method","layer")
     
     if not dannce_net:
