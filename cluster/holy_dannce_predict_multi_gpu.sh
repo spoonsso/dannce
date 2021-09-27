@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=predictDannce
 # Job name
-#SBATCH --mem=10000
+#SBATCH --mem=30000
 # Job memory request
 #SBATCH -t 0-03:00
 # Time limit hrs:min:sec

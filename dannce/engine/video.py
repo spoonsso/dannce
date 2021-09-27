@@ -1,4 +1,5 @@
 """ Video reading and writing interfaces for different formats. """
+from copy import Error
 import os
 import cv2
 import numpy as np
@@ -159,6 +160,7 @@ class MediaVideo:
 
         return frame
 
+
 class LoadVideoFrame:
     """
     This class generalized load_vid_frame for access by all generators
@@ -169,12 +171,7 @@ class LoadVideoFrame:
         predict_flag: If True, uses imageio rather than OpenCV
     """
 
-    def __init__(
-        self,
-        _N_VIDEO_FRAMES,
-        vidreaders,
-        camnames,
-        predict_flag):
+    def __init__(self, _N_VIDEO_FRAMES, vidreaders, camnames, predict_flag):
 
         self._N_VIDEO_FRAMES = _N_VIDEO_FRAMES
         self.vidreaders = vidreaders
@@ -188,7 +185,6 @@ class LoadVideoFrame:
             for cc in camnames[dd]:
                 self.currvideo[cc] = None
                 self.currvideo_name[cc] = None
-
 
     def load_vid_frame(
         self, ind: int, camname: Text, extension: Text = ".mp4"
@@ -220,26 +216,65 @@ class LoadVideoFrame:
         else:
             # use imageio for prediction, because linear seeking
             # is faster with imageio than opencv
-            vid = imageio.get_reader(thisvid_name) if self.predict_flag else \
-                MediaVideo(thisvid_name, grayscale=False)
+            try:
+                vid = (
+                    imageio.get_reader(thisvid_name)
+                    if self.predict_flag
+                    else MediaVideo(thisvid_name, grayscale=False)
+                )
+            except (OSError, IOError, RuntimeError):
+                time.sleep(2)
+                vid = (
+                    imageio.get_reader(thisvid_name)
+                    if self.predict_flag
+                    else MediaVideo(thisvid_name, grayscale=False)
+                )
             print("Loading new video: {} for {}".format(abname, camname))
             self.currvideo_name[camname] = abname
             # close current vid
             # Without a sleep here, ffmpeg can hang on video close
             time.sleep(0.25)
             if self.currvideo[camname] is not None:
-                self.currvideo[camname].close() if self.predict_flag else \
-                    self.currvideo[camname]._reader_.release()
+                self.currvideo[
+                    camname
+                ].close() if self.predict_flag else self.currvideo[
+                    camname
+                ]._reader_.release()
             self.currvideo[camname] = vid
 
-        # This deals with a strange indexing error in the pup data.
-        try:
+        im = self._load_frame_multiple_attempts(frame_num, vid)
+        return im
 
-            im = vid.get_data(frame_num).astype("uint8") if self.predict_flag \
+    def _load_frame_multiple_attempts(self, frame_num, vid, n_attempts=10):
+        attempts = 0
+        while attempts < n_attempts:
+            im = self._load_frame(frame_num, vid)
+            if im is None:
+                attempts += 1
+            else:
+                break
+        else:
+            raise KeyError
+        return im
+
+    def _load_frame(self, frame_num, vid):
+        im = None
+        try:
+            im = (
+                vid.get_data(frame_num).astype("uint8")
+                if self.predict_flag
                 else vid.get_frame(frame_num)
+            )
+        # This deals with a strange indexing error in the pup data.
         except IndexError:
             print("Indexing error, using previous frame")
-            im = vid.get_data(frame_num - 1).astype("uint8") if self.predict_flag \
+            im = (
+                vid.get_data(frame_num - 1).astype("uint8")
+                if self.predict_flag
                 else vid.get_frame(frame_num - 1)
-
+            )
+        # Files can lock if other processes are also trying to access the data.
+        except KeyError:
+            time.sleep(5)
+            pass
         return im
