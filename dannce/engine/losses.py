@@ -140,3 +140,15 @@ def heatmap_max_regularizer(y_true, y_pred):
     """
 
     return -1*K.mean(K.flatten(y_true)*K.log(K.flatten(y_pred)))
+
+# Huber and Cosh losses copied from implementation by robb
+def huber_loss(delta):
+    def huber_model(y_true,y_pred):
+         model = tf.keras.losses.Huber(delta=delta,reduction=tf.keras.losses.Reduction.NONE)
+         h = model(y_true, y_pred) 
+         return K_nanmean_infmean(h)
+    return huber_model
+
+def log_cosh_loss(y_true, y_pred):
+    lc = tf.keras.losses.logcosh(y_true, y_pred)
+    return K_nanmean_infmean(lc)

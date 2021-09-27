@@ -194,6 +194,13 @@ def add_shared_train_args(
         dest="loss",
         help="Loss function to use during training. See losses.py.",
     )
+    # Taken from changes by robb
+    parser.add_argument(
+        "--huber-delta",
+        dest="huber-delta",
+        type=float,
+        help="Delta Value if using huber loss",
+    )
     parser.add_argument(
         "--epochs", dest="epochs", type=int, help="Number of epochs to train."
     )
