@@ -8,7 +8,7 @@
 #SBATCH -N 1
 #SBATCH -n 8
 #SBATCH --constraint=cc5.2
-#SBATCH -p olveczkygpu,gpu,cox,gpu_requeue
+#SBATCH -p olveczkygpu,gpu,cox,gpu_test,gpu_requeue
 #SBATCH --gres=gpu:1
 module load Anaconda3/5.0.1-fasrc02
 source activate dannce_cuda11

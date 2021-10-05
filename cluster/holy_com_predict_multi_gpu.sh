@@ -7,7 +7,7 @@
 # Time limit hrs:min:sec
 #SBATCH -N 1
 #SBATCH -n 8
-#SBATCH -p olveczkygpu,gpu,cox,gpu_requeue
+#SBATCH -p olveczkygpu,gpu,cox,gpu_test,gpu_requeue
 #SBATCH --gres=gpu:1
 #SBATCH --constraint=cc5.2
 module load Anaconda3/5.0.1-fasrc02
