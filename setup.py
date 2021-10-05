@@ -17,7 +17,7 @@ setup(
         "attrs",
         "multiprocess",
         "opencv-python",
-        "tensorflow==2.6.0",
+        "tensorflow==2.4.0",
         "torch",
         "psutil",
     ],

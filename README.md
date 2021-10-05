@@ -21,7 +21,7 @@ DANNCE (3-Dimensional Aligned Neural Network for Computational Ethology) is a co
 
 |      OS               | Python | TensorFlow | CUDA | cuDNN | PyTorch |
 |:---------------------:|:------:|:----------:|:----:|:-----:|:-------:|
-| Ubuntu 16.04 or 18.04 |  3.7.x |   2.2.0 - 2.6.0  | 11.1 |  8.1  |  1.5.0 - 1.9.1  |
+| Ubuntu 16.04 or 18.04 |  3.7.x |   2.2.0 - 2.3.0  | 10.1 |  7.6  |  1.5.0 - 1.7.0  |
 | Windows 10            |  3.7.x |   2.2.0 - 2.3.0  | 10.1 |  7.6  |  1.5.0 - 1.7.0  |
 
 We recommend installing DANNCE using the following steps:
@@ -35,13 +35,13 @@ cd dannce
 2. If you do not already have it, install [Anaconda](https://www.anaconda.com/products/individual).
 
 3. Set up a new Anaconda environment with the following configuration: \
-`conda create -n dannce python=3.7 cudatoolkit=11.1 cudnn=8.1 ffmpeg -c nvidia -c conda-forge`
+`conda create -n dannce python=3.7 cudatoolkit=10.1 cudnn ffmpeg`
 
 4. Activate the new Anaconda environment: \
 `conda activate dannce`
 
 5. Install PyTorch: \
-`conda install pytorch=1.9.1 -c pytorch`
+`conda install pytorch=1.7 -c pytorch`
 
 6. Update setuptools: \
 `pip install -U setuptools`
