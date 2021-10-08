@@ -234,14 +234,18 @@ class LoadVideoFrame:
             # close current vid
             # Without a sleep here, ffmpeg can hang on video close
             time.sleep(0.25)
-            if self.currvideo[camname] is not None:
-                self.currvideo[
-                    camname
-                ].close() if self.predict_flag else self.currvideo[
-                    camname
-                ]._reader_.release()
-            self.currvideo[camname] = vid
 
+            # Close previously opened and unneeded videos by their camera name
+            previous_camera_name = camname.split("_")[-1]
+            for key, value in self.currvideo.items():
+                if previous_camera_name in key:
+                    if value is not None:
+                        self.currvideo[
+                            key
+                        ].close() if self.predict_flag else self.currvideo[
+                            key
+                        ]._reader_.release()
+            self.currvideo[camname] = vid
         im = self._load_frame_multiple_attempts(frame_num, vid)
         return im
 
