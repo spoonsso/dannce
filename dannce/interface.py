@@ -1374,6 +1374,7 @@ def dannce_train(params: Dict):
             )
         callbacks = callbacks + [max_save_callback]
 
+    import pdb; pdb.set_trace()
     model.fit(
         x=train_generator,
         steps_per_epoch=len(train_generator),

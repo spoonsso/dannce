@@ -170,7 +170,7 @@ def add_shared_args(
     )
 
     parser.add_argument(
-        "--norm_method",
+        "--norm-method",
         dest="norm_method",
         help="Normalization method to use, can be 'batch', 'instance', or 'layer'.",
     )

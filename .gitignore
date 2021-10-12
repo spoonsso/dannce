@@ -31,6 +31,11 @@ demo/markerless_mouse_1/DANNCE/predict_results/
 demo/markerless_mouse_1/DANNCE/train_results/AVG/weights*
 demo/markerless_mouse_1/DANNCE/predict_test/
 
+demo/markerless_mouse_1/DANNCE/train_test_ln/
+demo/markerless_mouse_1/DANNCE/train_test_in/
+demo/markerless_mouse_1/DANNCE/train_test_in_dgp/
+demo/markerless_mouse_1/DANNCE/train_test_ln_dgp/
+
 demo/markerless_mouse_1/COM/train_test/
 demo/markerless_mouse_1/COM/train_test/logs/*
 demo/markerless_mouse_1/COM/train_test/*.pickle

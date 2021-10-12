@@ -2384,7 +2384,7 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
                     X[..., channel_ids], self.bright_val
                 )
 
-        if self.mirror_augmentation:
+        if self.mirror_augmentation and self.expval and aux is None:
             if np.random.rand() > 0.5:
                 X_grid = np.reshape(
                     X_grid,
@@ -2393,8 +2393,11 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
                 # Flip the image and the symmetric keypoints
                 X, y_3d, X_grid = self.mirror(X.copy(), y_3d.copy(), X_grid.copy())
                 X_grid = np.reshape(X_grid, (self.batch_size, -1, 3))
+        else:
+            pass
+            ##TODO: implement mirror augmentation for max and avg+max modes
 
-        return X, X_grid, y_3d
+        return X, X_grid, y_3d, aux
 
     def do_random(self, X):
         """Randomly re-order camera views
@@ -2807,7 +2810,7 @@ class DataGenerator_3Dconv_npy(DataGenerator_3Dconv_frommem):
 
         ncam = int(X.shape[-1] // self.chan_num)
 
-        X, X_grid, y_3d = self.do_augmentation(X, X_grid, y_3d)
+        X, X_grid, y_3d, aux = self.do_augmentation(X, X_grid, y_3d)
 
         # Randomly re-order, if desired
         X = self.do_random(X)

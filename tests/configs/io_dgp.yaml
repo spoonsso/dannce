@@ -8,8 +8,8 @@ com_predict_weights: ../../demo/markerless_mouse_1/COM/train_results/weights.250
 
 ### Dannce ###
 # path to folder where DANNCE weights and logs will be saved
-dannce_train_dir: ../../demo/markerless_mouse_1/DANNCE/train_test_dgp/
-dannce_predict_dir: ../../demo/markerless_mouse_1/DANNCE/predict_test_dgp/
+dannce_train_dir: ../../demo/markerless_mouse_1/DANNCE/train_test_in_dgp/
+dannce_predict_dir: ../../demo/markerless_mouse_1/DANNCE/predict_test_in_dgp/
 
 # During prediction, will look for the last epoch weights saved to ./DANNCE/train_results/. To load in a different weights file, add the path here
 # Note that this must be a FULL MODEL file, not just weights.

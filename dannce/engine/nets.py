@@ -56,7 +56,7 @@ def norm_fun(
 
         def fun(inputs):
             print("calling instance norm fun")
-            return ops.InstanceNormalization(axis=1)(inputs)
+            return ops.InstanceNormalization(axis=-1)(inputs)
     else:
         def fun(inputs):
             return inputs
@@ -407,7 +407,7 @@ def unet3d_big(
     # Gridsize unused, necessary for argument consistency with other nets
     fun = norm_fun(norm_method)
 
-    inputs = Input((None, None, None, input_dim * num_cams))
+    inputs = Input((64, 64, 64, input_dim * num_cams))
     conv1 = Conv3D(64, (3, 3, 3), padding="same")(inputs)
     conv1 = Activation("relu")(fun(conv1))
     conv1 = Conv3D(64, (3, 3, 3), padding="same")(conv1)
@@ -467,7 +467,10 @@ def unet3d_big(
     conv8 = Conv3D(64, (3, 3, 3), padding="same")(conv8)
     conv8 = Activation("relu")(fun(conv8))
 
-    conv10 = Conv3D(feature_num, last_kern_size, activation="sigmoid")(conv8)
+    if "gaussian_cross_entropy_loss" in str(lossfunc):
+        conv10 = Conv3D(feature_num, last_kern_size, activation="linear")(conv8)
+    else:
+        conv10 = Conv3D(feature_num, last_kern_size, activation="sigmoid")(conv8)
 
     if include_top:
         model = Model(inputs=[inputs], outputs=[conv10])
@@ -819,9 +822,14 @@ def finetune_MAX(
     old_out = model(input_)
 
     # Add new output conv. layer
-    new_conv = Conv3D(
+    if "gaussian_cross_entropy_loss" in str(lossfunc):
+        new_conv = Conv3D(
+        new_n_channels_out, new_last_kern_size, activation="linear", padding="same"
+        )(old_out)
+    else:
+        new_conv = Conv3D(
         new_n_channels_out, new_last_kern_size, activation="sigmoid", padding="same"
-    )(old_out)
+        )(old_out)
 
     model = Model(inputs=[input_], outputs=[new_conv])
 
