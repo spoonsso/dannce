@@ -692,12 +692,17 @@ def dannce_train(params: Dict):
     # possible.
     n_views = int(params["n_views"])
 
+    # Pass delta value into huber loss function
+    if params["huber-delta"] is not None:
+        losses.huber_loss(params["huber-delta"])
+
     # Convert all metric strings to objects
     metrics = nets.get_metrics(params)
 
     # set GPU ID
-    if not params["multi_gpu_train"]:
-        os.environ["CUDA_VISIBLE_DEVICES"] = params["gpu_id"]
+    # Temporarily commented out to test on dsplus gpu
+    # if not params["multi_gpu_train"]:
+        # os.environ["CUDA_VISIBLE_DEVICES"] = params["gpu_id"]
 
     # find the weights given config path
     if params["dannce_finetune_weights"] is not None:

@@ -11,12 +11,18 @@
 # Time limit hrs:min:sec
 #SBATCH -N 1
 #SBATCH -c 16
-#SBATCH -p common,tdunn
+#SBATCH -p gpu-common,dsplus-gpu --account=plusds
 #SBATCH --gres=gpu:1
 
 # module load Anaconda3/5.1.0
 . ~/.bashrc
-source activate dannce_cuda11
+# source activate dannce_cuda11
+conda activate dannce_tf26
+
+echo "CUDA VISIBLE DEVICES = "
+echo $CUDA_VISIBLE_DEVICES
+echo "Slurm Node = " 
+echo $SLURMD_NODENAME
 #module load cuda/11.0.3-fasrc01
 #module load cudnn/8.0.4.30_cuda11.0-fasrc01
 dannce-train-single-batch "$@"
