@@ -10,6 +10,7 @@ import gc
 import tensorflow as tf
 import tensorflow.keras as keras
 import tensorflow.keras.losses as keras_losses
+from tensorflow.keras import backend as K
 from tensorflow.keras.models import load_model, Model
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import ModelCheckpoint, CSVLogger, TensorBoard
@@ -159,6 +160,7 @@ def com_predict(params: Dict):
         float(params["lr"]),
         params["chan_num"],
         eff_n_channels_out,
+        params["norm_method"],
         ["mse"],
     )
 
@@ -433,6 +435,7 @@ def com_train(params: Dict):
         float(params["lr"]),
         params["chan_num"],
         eff_n_channels_out,
+        params["norm_method"],
         ["mse"],
     )
     print("COMPLETE\n")
@@ -992,6 +995,19 @@ def dannce_train(params: Dict):
                 X_valid[i] = rr[0]
             y_valid[i] = rr[1]
 
+    # For AVG+MAX training, need to update the expval flag in the generators 
+    # and re-generate the 3D training targets
+    # TODO: Add code to infer_params
+    y_train_aux = None
+    y_valid_aux = None
+    if params["avg+max"] is not None:
+        y_train_aux, y_valid_aux = \
+            processing.initAvgMax(y_train,
+                                  y_valid,
+                                  X_train_grid,
+                                  X_valid_grid,
+                                  params)
+
     # Now we can generate from memory with shuffling, rotation, etc.
     randflag = params["channel_combo"] == "random"
 
@@ -1075,28 +1091,29 @@ def dannce_train(params: Dict):
     else:
         genfunc = DataGenerator_3Dconv_frommem
         args_train = {
-            "list_IDs": np.arange(len(partition["train_sampleIDs"])),
-            "data": X_train,
-            "labels": y_train,
-        }
+                      "list_IDs": np.arange(len(partition["train_sampleIDs"])),
+                      "data": X_train,
+                      "labels": y_train,
+                      }
         args_train = {
-            **args_train,
-            **shared_args_train,
-            **shared_args,
-            "xgrid": X_train_grid,
-        }
-
+                      **args_train,
+                      **shared_args_train,
+                      **shared_args,
+                      "xgrid": X_train_grid,
+                      "aux_labels": y_train_aux,
+                      }
         args_valid = {
-            "list_IDs": np.arange(len(partition["valid_sampleIDs"])),
-            "data": X_valid,
-            "labels": y_valid,
-        }
+                      "list_IDs": np.arange(len(partition["valid_sampleIDs"])),
+                      "data": X_valid,
+                      "labels": y_valid,
+                      "aux_labels": y_valid_aux,
+                      }
         args_valid = {
-            **args_valid,
-            **shared_args_valid,
-            **shared_args,
-            "xgrid": X_valid_grid,
-        }
+                      **args_valid,
+                      **shared_args_valid,
+                      **shared_args,
+                      "xgrid": X_valid_grid,
+                      }
 
     train_generator = genfunc(**args_train)
     valid_generator = genfunc(**args_valid)
@@ -1113,8 +1130,6 @@ def dannce_train(params: Dict):
     strategy = tf.distribute.MirroredStrategy()
     print("Number of devices: {}".format(strategy.num_replicas_in_sync))
     scoping = strategy.scope()
-    # else:
-    #     scoping = True
 
     print("NUM CAMERAS: {}".format(len(camnames[0])))
 
@@ -1126,26 +1141,22 @@ def dannce_train(params: Dict):
                 params["chan_num"] + params["depth"],
                 params["n_channels_out"],
                 len(camnames[0]),
-                batch_norm=False,
-                instance_norm=True,
+                params["norm_method"],
                 include_top=True,
                 gridsize=gridsize,
             )
         elif params["train_mode"] == "finetune":
-            fargs = [
-                params["loss"],
-                float(params["lr"]),
-                params["chan_num"] + params["depth"],
-                params["n_channels_out"],
-                len(camnames[0]),
-                params["new_last_kernel_size"],
-                params["new_n_channels_out"],
-                params["dannce_finetune_weights"],
-                params["n_layers_locked"],
-                False,
-                True,
-                gridsize,
-            ]
+            fargs = [params["loss"],
+                     float(params["lr"]),
+                     params["chan_num"] + params["depth"],
+                     params["n_channels_out"],
+                     len(camnames[0]),
+                     params["new_last_kernel_size"],
+                     params["new_n_channels_out"],
+                     params["dannce_finetune_weights"],
+                     params["n_layers_locked"],
+                     params["norm_method"],
+                     gridsize]
             try:
                 model = params["net"](*fargs)
             except:
@@ -1179,8 +1190,7 @@ def dannce_train(params: Dict):
                 params["chan_num"] + params["depth"],
                 params["n_channels_out"],
                 3 if cam3_train else len(camnames[0]),
-                batch_norm=False,
-                instance_norm=True,
+                params["norm_method"],
                 include_top=True,
                 gridsize=gridsize,
             )
@@ -1191,15 +1201,22 @@ def dannce_train(params: Dict):
         if params["heatmap_reg"]:
             model = nets.add_heatmap_output(model)
 
+        if params["avg+max"] is not None and params["train_mode"] != "continued":
+            model = nets.add_exposed_heatmap(model)
+
         if params["heatmap_reg"] or params["train_mode"] != "continued":
             # recompiling a full model will reset the optimizer state
             model.compile(
                 optimizer=Adam(lr=float(params["lr"])),
-                loss=params["loss"]
-                if not params["heatmap_reg"]
-                else [params["loss"], losses.heatmap_max_regularizer],
+                loss=params["loss"] if not params["heatmap_reg"] else [params["loss"], losses.heatmap_max_regularizer],
+                loss_weights=[1, params["avg+max"]] if params["avg+max"] is not None else None,
                 metrics=metrics,
             )
+
+        if params["lr"] != model.optimizer.learning_rate:
+            print("Changing learning rate to {}".format(params["lr"]))
+            K.set_value(model.optimizer.learning_rate, params["lr"])
+            print("Confirming new learning rate: {}".format(model.optimizer.learning_rate))
 
     print("COMPLETE\n")
 
@@ -1249,25 +1266,70 @@ def dannce_train(params: Dict):
                     )
                 )
                 self.val_loss = logs[lkey]
-                pred_t = model.predict([self.td, self.tgrid], batch_size=1)
-                pred_v = model.predict([self.vd, self.vgrid], batch_size=1)
-                gc.collect()
-                keras.backend.clear_session()
-                print(process.memory_info().rss, flush=True)
-                ofile = os.path.join(
-                    self.odir, "checkpoint_predictions_e{}.mat".format(epoch)
+                pred_t = self.model.predict([self.td, self.tgrid], batch_size=1)
+                pred_v = self.model.predict([self.vd, self.vgrid], batch_size=1)
+                ofile = os.path.join(self.odir,'checkpoint_predictions_e{}.mat'.format(epoch))
+                sio.savemat(ofile, {'pred_train': pred_t,
+                                    'pred_valid': pred_v,
+                                    'target_train': self.tlabel,
+                                    'target_valid': self.vlabel,
+                                    'train_sampleIDs': self.tID,
+                                    'valid_sampleIDs': self.vID})
+
+    class saveMaxPreds(keras.callbacks.Callback):
+        """
+        This callback fully evaluates MAX predictions and logs the euclidean
+            distance error to a file.
+        """
+        def __init__(self, vID, vData, vLabel, odir, com, params):
+            self.vID = vID
+            self.vData = vData
+            self.odir = odir
+            self.com = com
+            self.param_mat = params
+
+            fn = os.path.join(odir, 'max_euclid_error.csv')
+            self.fn = fn
+
+            self.vLabel = np.zeros((len(vID),
+                                    3,
+                                    params["new_n_channels_out"]))
+
+            # Now run thru sample IDs, pull out the correct COM, and add it in
+            for j in range(len(self.vID)):
+                id_ = self.vID[j]
+                self.vLabel[j] = vLabel[id_]
+
+            with open(fn, 'w') as fd:
+                fd.write("epoch,error\n")
+
+        def on_epoch_end(self, epoch, logs=None):
+            pred_v = self.model.predict([self.vData], batch_size=1)
+            d_coords = np.zeros((pred_v.shape[0],
+                                 3,
+                                 pred_v.shape[-1]))
+            for j in range(pred_v.shape[0]):
+                xcoord, ycoord, zcoord = processing.plot_markers_3d(
+                    pred_v[j]
                 )
-                sio.savemat(
-                    ofile,
-                    {
-                        "pred_train": pred_t,
-                        "pred_valid": pred_v,
-                        "target_train": self.tlabel,
-                        "target_valid": self.vlabel,
-                        "train_sampleIDs": self.tID,
-                        "valid_sampleIDs": self.vID,
-                    },
-                )
+                d_coords[j] = np.stack([xcoord, ycoord, zcoord])
+
+            vsize = (self.param_mat["vmax"] - self.param_mat["vmin"]) / self.param_mat["nvox"]
+            # # First, need to move coordinates over to centers of voxels
+            pred_out_world = self.param_mat["vmin"] + d_coords * vsize + vsize / 2
+
+            # Now run thru sample IDs, pull out the correct COM, and add it in
+            for j in range(len(self.vID)):
+                id_ = self.vID[j]
+                tcom = self.com[id_]
+                pred_out_world[j] = pred_out_world[j] + tcom[:, np.newaxis]
+
+            # Calculate euclidean_distance_3d 
+            e3d = K.eval(losses.euclidean_distance_3D(self.vLabel, pred_out_world))
+
+            print("epoch {} euclidean_distance_3d: {}".format(epoch, e3d))
+            with open(self.fn, 'a') as fd:
+                fd.write("{},{}\n".format(epoch, e3d))
 
     class saveCheckPoint(keras.callbacks.Callback):
         def __init__(self, odir, total_epochs):
@@ -1309,10 +1371,20 @@ def dannce_train(params: Dict):
             partition["valid_sampleIDs"],
             params["dannce_train_dir"],
             y_train,
-            y_valid,
-        )
-        # callbacks = callbacks + [save_callback]
+            y_valid)
+        callbacks = callbacks + [save_callback]
+    elif not params["expval"] and not params["use_npy"] and not params["heatmap_reg"]:
+        max_save_callback = saveMaxPreds(
+            partition['train_sampleIDs'],
+            X_train,
+            datadict_3d,
+            params['dannce_train_dir'],
+            com3d_dict,
+            params
+            )
+        callbacks = callbacks + [max_save_callback]
 
+    import pdb; pdb.set_trace()
     model.fit(
         x=train_generator,
         steps_per_epoch=len(train_generator),
@@ -1646,8 +1718,7 @@ def build_model(params, netname, camnames):
                 params["new_n_channels_out"],
                 params["dannce_finetune_weights"],
                 params["n_layers_locked"],
-                batch_norm=False,
-                instance_norm=True,
+                params["norm_method"],
                 gridsize=gridsize,
             )
         else:
@@ -1659,8 +1730,7 @@ def build_model(params, netname, camnames):
                 params["chan_num"] + params["depth"],
                 params["n_channels_out"],
                 len(camnames[0]),
-                batch_norm=False,
-                instance_norm=True,
+                params["norm_method"],
                 include_top=True,
                 gridsize=gridsize,
             )
@@ -1688,9 +1758,13 @@ def build_model(params, netname, camnames):
     # and one for the probability map, here we splice on a new output layer after
     # the softmax on the last convolutional layer
     if params["expval"]:
+        print(model.summary())
         from tensorflow.keras.layers import GlobalMaxPooling3D
-
-        o2 = GlobalMaxPooling3D()(model.layers[-3].output)
+        from tensorflow.keras.layers import Activation
+        from tensorflow.keras import activations
+        sigmoid_output = Activation(activations.sigmoid,
+                                    name="sigmoid_exposed_hetmap")
+        o2 = GlobalMaxPooling3D()(sigmoid_output(model.layers[-4].output))
         model = Model(
             inputs=[model.layers[0].input, model.layers[-2].input],
             outputs=[model.layers[-1].output, o2],
