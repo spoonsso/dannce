@@ -144,14 +144,25 @@ def heatmap_max_regularizer(y_true, y_pred):
 # Huber and Cosh losses copied from implementation by robb
 def huber_loss(delta):
     def huber_model(y_true,y_pred):
-         model = tf.keras.losses.Huber(delta=delta,reduction=tf.keras.losses.Reduction.NONE)
-         h = model(y_true, y_pred) 
-         return K_nanmean_infmean(h)
+         y_pred, y_true, num_notnan = mask_nan(y_true, y_pred)
+
+         model = tf.keras.losses.Huber(delta=delta,reduction=tf.keras.losses.Reduction.SUM)
+         h = model((y_true), (y_pred))/num_notnan
+
+         loss = h
+         return tf.where(~tf.math.is_nan(loss), loss, 0)
+         
     return huber_model
 
 def log_cosh_loss(y_true, y_pred):
-    lc = tf.keras.losses.logcosh(y_true, y_pred)
-    return K_nanmean_infmean(lc)
+    y_pred, y_true, num_notnan = mask_nan(y_true, y_pred)
+    
+    lc_ = tf.keras.losses.LogCosh(reduction=tf.keras.losses.Reduction.SUM)
+    lc = lc_(y_true, y_pred)/num_notnan
+
+    loss = lc
+    
+    return tf.where(~tf.math.is_nan(loss), loss, 0)
 
 def gaussian_cross_entropy_loss(y_true, y_pred):
     """Get cross entropy loss of output distribution and Gaussian centered around target

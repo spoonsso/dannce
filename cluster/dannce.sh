@@ -12,7 +12,7 @@
 
 # module load Anaconda3/5.1.0
 . ~/.bashrc
-source activate dannce_cuda11
+conda activate dannce_tf26
 
 # Commented to make script DCC Compatible
 # module load cuda/11.0.3-fasrc01

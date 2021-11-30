@@ -96,7 +96,7 @@ class GridHandler:
         """
         batch_params = self.generate_batch_params_dannce()
 
-        use_array = False
+        use_array = True
 
         # with open("holy_dannce_train_grid.sh",'r') as train_script:
         #     if 'dsplus' in train_script.read():
