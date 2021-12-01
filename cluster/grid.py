@@ -5,7 +5,6 @@ import os
 import yaml
 import argparse
 import ast
-from scipy.io import savemat
 from dannce.engine.io import load_sync, load_com
 from dannce.engine.processing import prepare_save_metadata
 from dannce import (
@@ -96,7 +95,7 @@ class GridHandler:
         """
         batch_params = self.generate_batch_params_dannce()
 
-        use_array = False
+        use_array = True
 
         # with open("holy_dannce_train_grid.sh",'r') as train_script:
         #     if 'dsplus' in train_script.read():
@@ -114,7 +113,7 @@ class GridHandler:
             # This is a workaround to submit an array iteratively
             parent_job_id, slurm_uname = self.get_parent_job_id()
             cmd = [] 
-            for i in range(0, len(batch_params) - 1):
+            for i in range(0, len(batch_params)):
                 out_name = slurm_uname+"_"+parent_job_id+"_"+str(i)+"_%j.out"
                 cmd_i = "sbatch --output=%s holy_dannce_train_grid.sh %s %s" % (
                         out_name,
