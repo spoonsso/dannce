@@ -29,10 +29,6 @@ wait
 com-predict-multi-gpu $1
 com-merge $1
 
-# Train dannce network
-sbatch --wait holy_dannce_train.sh $2
-wait
-
 # Predict with dannce network in parallel and merge results
 dannce-predict-multi-gpu $2
 dannce-merge $2

@@ -169,6 +169,12 @@ def add_shared_args(
         help="If true, uses a single video file for multiple views.",
     )
 
+    parser.add_argument(
+        "--norm-method",
+        dest="norm_method",
+        help="Normalization method to use, can be 'batch', 'instance', or 'layer'.",
+    )
+
     return parser
 
 
@@ -521,6 +527,11 @@ def add_dannce_train_args(
         type=ast.literal_eval,
         help="If True, save predictions evaluated at checkpoints during training. Note that for large training datasets, this can cause memory issues.",
     )
+    parser.add_argument(
+        "--avg-max",
+        dest="avg+max",
+        type=float,
+        help="Pass a floating point value here for DANNCE to enter AVG+MAX training mode, where the 3D maps are MAX-like regularized to be Gaussian. The avg+max value is used to weight the contribution of the MAX-like loss.")
     return parser
 
 
