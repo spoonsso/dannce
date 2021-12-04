@@ -236,7 +236,9 @@ class LoadVideoFrame:
             time.sleep(0.25)
 
             # Close previously opened and unneeded videos by their camera name
-            previous_camera_name = "_".join(camname.split("_")[1:])
+            # Assumes the camera names do not contain underscores other than the expid. 
+            # previous_camera_name = "_".join(camname.split("_")[1:])
+            previous_camera_name = camname.split("_")[-1]
             for key, value in self.currvideo.items():
                 if previous_camera_name in key:
                     if value is not None:
