@@ -66,10 +66,14 @@ class GridHandler:
         listed in self.grid_config.
         """
         batch_params = self.generate_batch_params_dannce()
-        cmd = "sbatch --array=0-%d holy_dannce_train_grid.sh %s %s" % (
+
+        slurm_config = self.load_params(self.load_params(self.config)["slurm_config"])
+        cmd = "sbatch --wait --array=0-%d %s --wrap=\"%s dannce-train-single-batch %s %s\"" % (
             len(batch_params) - 1,
+            slurm_config["dannce_train_grid"],
+            slurm_config["setup"],
             self.config,
-            self.grid_config,
+            self.grid_config
         )
         if len(batch_params) > 0:
             self.save_batch_params(batch_params)

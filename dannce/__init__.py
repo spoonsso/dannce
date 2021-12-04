@@ -44,6 +44,7 @@ _param_defaults_shared = {
     "use_npy": False,
     "data_split_seed": None,
     "valid_exp": None,
+    "slurm_config": None,
 }
 _param_defaults_dannce = {
     "metric": ["euclidean_distance_3D"],

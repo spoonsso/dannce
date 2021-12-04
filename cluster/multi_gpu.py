@@ -261,10 +261,15 @@ class MultiGpuHandler:
         """
         n_samples = self.get_n_samples(self.dannce_file, use_com=True)
         batch_params = self.generate_batch_params_dannce(n_samples)
-        cmd = "sbatch --wait --array=0-%d holy_dannce_predict_multi_gpu.sh %s" % (
+        slurm_config = self.load_params(self.load_params(self.config)["slurm_config"])
+
+        cmd = "sbatch --wait --array=0-%d %s --wrap=\"%s dannce-predict-single-batch %s\"" % (
             len(batch_params) - 1,
+            slurm_config["dannce_multi_predict"],
+            slurm_config["setup"],
             self.config,
         )
+
         if len(batch_params) > 0:
             self.save_batch_params(batch_params)
             self.submit_jobs(batch_params, cmd)
@@ -280,8 +285,11 @@ class MultiGpuHandler:
         n_samples = self.get_n_samples(self.dannce_file, use_com=False)
         print(n_samples)
         batch_params = self.generate_batch_params_com(n_samples)
-        cmd = "sbatch --wait --array=0-%d holy_com_predict_multi_gpu.sh %s" % (
+        slurm_config = self.load_params(self.load_params(self.config)["slurm_config"])
+        cmd = "sbatch --wait --array=0-%d %s --wrap=\"%s com-predict-single-batch %s\"" % (
             len(batch_params) - 1,
+            slurm_config["com_multi_predict"],
+            slurm_config["setup"],
             self.config,
         )
         if len(batch_params) > 0:

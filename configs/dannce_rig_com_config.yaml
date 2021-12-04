@@ -50,3 +50,5 @@ max_num_samples: 'max'
 dsmode: dsm
 # Medianfilter window
 medfilt_window: 30
+
+slurm_config: /n/holylfs02/LABS/olveczky_lab/Diego/code/dannce/cluster/holyoke.yaml
