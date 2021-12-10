@@ -22,54 +22,55 @@ import shutil
 import time
 
 
-def initialize_vids(CONFIG_PARAMS, datadict, e, vids, pathonly=True):
+def initialize_vids(params, datadict, e, vids, pathonly=True):
     """
     Initializes video path dictionaries for a training session. This is different
         than a predict session because it operates over a single animal ("experiment")
         at a time
     """
-    for i in range(len(CONFIG_PARAMS["experiment"][e]["camnames"])):
+    for i in range(len(params["experiment"][e]["camnames"])):
         # Rather than opening all vids, only open what is needed based on the
         # maximum frame ID for this experiment and Camera
         flist = []
         for key in datadict.keys():
             if int(key.split("_")[0]) == e:
                 flist.append(
-                    datadict[key]["frames"][
-                        CONFIG_PARAMS["experiment"][e]["camnames"][i]
-                    ]
+                    datadict[key]["frames"][params["experiment"][e]["camnames"][i]]
                 )
 
         flist = max(flist)
 
         # For COM prediction, we don't prepend experiment IDs
         # So detect this case and act accordingly.
-        basecam = CONFIG_PARAMS["experiment"][e]["camnames"][i]
+        basecam = params["experiment"][e]["camnames"][i]
         if "_" in basecam:
             basecam = basecam.split("_")[1]
 
-        if CONFIG_PARAMS["vid_dir_flag"]:
+        if params["vid_dir_flag"]:
             addl = ""
         else:
             addl = os.listdir(
-                os.path.join(CONFIG_PARAMS["experiment"][e]["viddir"], basecam,)
+                os.path.join(
+                    params["experiment"][e]["viddir"],
+                    basecam,
+                )
             )[0]
         r = generate_readers(
-            CONFIG_PARAMS["experiment"][e]["viddir"],
+            params["experiment"][e]["viddir"],
             os.path.join(basecam, addl),
             maxopt=flist,  # Large enough to encompass all videos in directory.
-            extension=CONFIG_PARAMS["experiment"][e]["extension"],
+            extension=params["experiment"][e]["extension"],
             pathonly=pathonly,
         )
 
-        if "_" in CONFIG_PARAMS["experiment"][e]["camnames"][i]:
-            vids[CONFIG_PARAMS["experiment"][e]["camnames"][i]] = {}
+        if "_" in params["experiment"][e]["camnames"][i]:
+            vids[params["experiment"][e]["camnames"][i]] = {}
             for key in r:
-                vids[CONFIG_PARAMS["experiment"][e]["camnames"][i]][
-                    str(e) + "_" + key
-                ] = r[key]
+                vids[params["experiment"][e]["camnames"][i]][str(e) + "_" + key] = r[
+                    key
+                ]
         else:
-            vids[CONFIG_PARAMS["experiment"][e]["camnames"][i]] = r
+            vids[params["experiment"][e]["camnames"][i]] = r
 
     return vids
 
@@ -235,7 +236,9 @@ def infer_params(params, dannce_net, prediction):
             print_and_set(params, "vmax", params["vol_size"] / 2)
 
         if params["heatmap_reg"] and not params["expval"]:
-            raise Exception("Heatmap regularization enabled only for AVG networks -- you are using MAX")
+            raise Exception(
+                "Heatmap regularization enabled only for AVG networks -- you are using MAX"
+            )
 
         if params["n_rand_views"] == "None":
             print_and_set(params, "n_rand_views", None)
@@ -386,7 +389,9 @@ def make_data_splits(samples, params, RESULTSDIR, num_experiments):
                 )
                 valid_inds = list(np.sort(valid_inds))
 
-            train_inds = list(set(all_inds) - set(all_valid_inds))#[i for i in all_inds if i not in all_valid_inds]
+            train_inds = list(
+                set(all_inds) - set(all_valid_inds)
+            )  # [i for i in all_inds if i not in all_valid_inds]
         elif params["num_validation_per_exp"] > 0:  # if 0, do not perform validation
             for e in range(num_experiments):
                 tinds = [
@@ -408,7 +413,9 @@ def make_data_splits(samples, params, RESULTSDIR, num_experiments):
         train_samples = samples[train_inds]
         train_inds = []
         if params["valid_exp"] is not None:
-            train_expts = [f for f in range(num_experiments) if f not in params["valid_exp"]]
+            train_expts = [
+                f for f in range(num_experiments) if f not in params["valid_exp"]
+            ]
         else:
             train_expts = np.arange(num_experiments)
 
@@ -418,18 +425,20 @@ def make_data_splits(samples, params, RESULTSDIR, num_experiments):
             # Then sample randomly without replacement from training sampleIDs
             for e in train_expts:
                 tinds = [
-                        i for i in range(len(train_samples)) if int(train_samples[i].split("_")[0]) == e
-                    ]
+                    i
+                    for i in range(len(train_samples))
+                    if int(train_samples[i].split("_")[0]) == e
+                ]
                 print(e)
                 print(len(tinds))
                 train_inds = train_inds + list(
-                    np.random.choice(tinds, (params["num_train_per_exp"],), replace=False)
+                    np.random.choice(
+                        tinds, (params["num_train_per_exp"],), replace=False
+                    )
                 )
                 train_inds = list(np.sort(train_inds))
         else:
             train_inds = np.arange(len(train_samples))
-
-        
 
         partition["valid_sampleIDs"] = samples[valid_inds]
         partition["train_sampleIDs"] = train_samples[train_inds]
@@ -442,7 +451,10 @@ def make_data_splits(samples, params, RESULTSDIR, num_experiments):
             cPickle.dump(partition["train_sampleIDs"], f)
     else:
         # Load validation samples from elsewhere
-        with open(os.path.join(params["load_valid"], "val_samples.pickle"), "rb",) as f:
+        with open(
+            os.path.join(params["load_valid"], "val_samples.pickle"),
+            "rb",
+        ) as f:
             partition["valid_sampleIDs"] = cPickle.load(f)
         partition["train_sampleIDs"] = [
             f for f in samples if f not in partition["valid_sampleIDs"]
@@ -454,6 +466,7 @@ def make_data_splits(samples, params, RESULTSDIR, num_experiments):
 
     return partition
 
+
 def remove_samples_npy(npydir, samples, params):
     """
     Remove any samples from sample list if they do not have corresponding volumes in the image
@@ -463,22 +476,33 @@ def remove_samples_npy(npydir, samples, params):
     # grid_volumes
     samps = []
     for e in npydir.keys():
-        imvol = os.path.join(npydir[e], 'image_volumes')
-        gridvol = os.path.join(npydir[e], 'grid_volumes')
+        imvol = os.path.join(npydir[e], "image_volumes")
+        gridvol = os.path.join(npydir[e], "grid_volumes")
         ims = os.listdir(imvol)
         grids = os.listdir(gridvol)
-        npysamps = ['0_' + f.split("_")[1] + '.npy' for f in samples if int(f.split("_")[0]) == e]
+        npysamps = [
+            "0_" + f.split("_")[1] + ".npy"
+            for f in samples
+            if int(f.split("_")[0]) == e
+        ]
 
         goodsamps = list(set(npysamps) & set(ims) & set(grids))
 
-        samps = samps + [str(e) + '_' + f.split("_")[1].split(".")[0] for f in goodsamps]
+        samps = samps + [
+            str(e) + "_" + f.split("_")[1].split(".")[0] for f in goodsamps
+        ]
 
         sampdiff = len(npysamps) - len(goodsamps)
 
-        #import pdb; pdb.set_trace()
-        print("Removed {} samples from {} because corresponding image or grid files could not be found".format(sampdiff, params["experiment"][e]["label3d_file"]))
+        # import pdb; pdb.set_trace()
+        print(
+            "Removed {} samples from {} because corresponding image or grid files could not be found".format(
+                sampdiff, params["experiment"][e]["label3d_file"]
+            )
+        )
 
     return np.array(samps)
+
 
 def rename_weights(traindir, kkey, mon):
     """
@@ -703,7 +727,7 @@ def load_expdict(params, e, expdict, _DEFAULT_VIDDIR):
     Load in camnames and video directories and label3d files for a single experiment
         during training.
     """
-    _DEFAULT_NPY_DIR = 'npy_volumes'
+    _DEFAULT_NPY_DIR = "npy_volumes"
     exp = params.copy()
     exp = make_paths_safe(exp)
     exp["label3d_file"] = expdict["label3d_file"]
@@ -956,9 +980,9 @@ def read_config(filename):
     :param filename: Path to configuration file.
     """
     with open(filename) as f:
-        CONFIG_PARAMS = yaml.safe_load(f)
+        params = yaml.safe_load(f)
 
-    return CONFIG_PARAMS
+    return params
 
 
 def plot_markers_2d(im, markers, newfig=True):
@@ -1161,7 +1185,8 @@ def savedata_expval(
         }
     if write and data is None:
         sio.savemat(
-            fname.split(".pickle")[0] + ".mat", sdict,
+            fname.split(".pickle")[0] + ".mat",
+            sdict,
         )
     elif write and data is not None:
         sio.savemat(fname, sdict)
@@ -1229,11 +1254,13 @@ def savedata_tomat(
     }
     if write and data is None:
         sio.savemat(
-            fname.split(".pickle")[0] + ".mat", sdict,
+            fname.split(".pickle")[0] + ".mat",
+            sdict,
         )
     elif write and data is not None:
         sio.savemat(
-            fname, sdict,
+            fname,
+            sdict,
         )
     return pred_out_world, t_coords, p_max, log_p_max, sID
 
@@ -1270,7 +1297,7 @@ def dupe_params(exp, dupes, n_views):
     When The number of views (n_views) required
         as input to the network is greater than the
         number of actual cameras (e.g. when trying to
-        fine-tune a 6-camera network on data from a 
+        fine-tune a 6-camera network on data from a
         2-camera system), automatically duplicate necessary
         parameters to match the required n_views.
     """
@@ -1303,16 +1330,17 @@ def dupe_params(exp, dupes, n_views):
 
     return exp
 
+
 def write_npy(uri, gen):
     """
     Creates a new image folder and grid folder at the uri and uses
     the generator to generate samples and save them as npy files
     """
-    imdir = os.path.join(uri, 'image_volumes')
+    imdir = os.path.join(uri, "image_volumes")
     if not os.path.exists(imdir):
         os.makedirs(imdir)
 
-    griddir = os.path.join(uri, 'grid_volumes')
+    griddir = os.path.join(uri, "grid_volumes")
     if not os.path.exists(griddir):
         os.makedirs(griddir)
 
@@ -1333,10 +1361,10 @@ def write_npy(uri, gen):
         bch = gen.__getitem__(i)
         # loop over all examples in batch and save volume
         for j in range(bs):
-            #get the frame name / unique ID
-            fname = gen.list_IDs[gen.indexes[i*bs + j]]
+            # get the frame name / unique ID
+            fname = gen.list_IDs[gen.indexes[i * bs + j]]
 
-            #and save
+            # and save
             print(fname)
-            np.save(os.path.join(imdir, fname + '.npy'), bch[0][0][j].astype('uint8'))
-            np.save(os.path.join(griddir, fname + '.npy'), bch[0][1][j])
+            np.save(os.path.join(imdir, fname + ".npy"), bch[0][0][j].astype("uint8"))
+            np.save(os.path.join(griddir, fname + ".npy"), bch[0][1][j])
