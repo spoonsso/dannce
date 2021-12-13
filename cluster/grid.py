@@ -5,7 +5,6 @@ import os
 import yaml
 import argparse
 import ast
-<<<<<<< HEAD
 from dannce.engine.io import load_sync, load_com
 from dannce.engine.processing import prepare_save_metadata
 from dannce import (
@@ -13,10 +12,9 @@ from dannce import (
     _param_defaults_dannce,
     _param_defaults_com,
 )
-=======
 from typing import Text, List, Tuple
 from multi_gpu import build_params_from_config_and_batch
->>>>>>> 180acd06c76edec0fb07c0b9d377970eca1dcd50
+
 
 import subprocess
 import time
