@@ -1136,12 +1136,12 @@ def dannce_train(params: Dict):
     with scoping:
         if params["train_mode"] == "new":
             model = params["net"](
-                params["loss"],
-                float(params["lr"]),
-                params["chan_num"] + params["depth"],
-                params["n_channels_out"],
-                len(camnames[0]),
-                params["norm_method"],
+                lossfunc = params["loss"],
+                lr = float(params["lr"]),
+                input_dim = params["chan_num"] + params["depth"],
+                feature_num = params["n_channels_out"],
+                num_cams = len(camnames[0]),
+                norm_method = params["norm_method"],
                 include_top=True,
                 gridsize=gridsize,
             )
