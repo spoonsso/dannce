@@ -2091,6 +2091,7 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         n_rand_views (int): Number of reviews to sample randomly from the full set
         replace (bool): If True, samples n_rand_views with replacement
         aux_labels (np.ndarray): If not None, contains the 3D MAX training targets for AVG+MAX training.
+        use_temporal (np.ndarray): If not None, contains chunked sampleIDs -- useful when loading in temporally contiguous samples
     """
 
     def __init__(
@@ -2121,6 +2122,7 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         heatmap_reg=False,
         heatmap_reg_coeff=0.01,
         aux_labels=None,
+        temporal_chunk_list=None
     ):
         """Initialize data generator.
 
@@ -2146,6 +2148,7 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
             n_rand_views (int, optional): Number of reviews to sample randomly from the full set
             replace (bool, optional): If True, samples n_rand_views with replacement
             aux_labels (np.ndarray, optional): If not None, contains the 3D MAX training targets for AVG+MAX training.
+            temporal_chunk_list (np.ndarray, optional): If not None, contains chunked sampleIDs -- useful when loading in temporally contiguous samples
         """
         self.list_IDs = list_IDs
         self.data = data
@@ -2177,6 +2180,7 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         self.heatmap_reg = heatmap_reg
         self.heatmap_reg_coeff = heatmap_reg_coeff
         self.aux_labels = aux_labels
+        self.temporal_chunk_list = temporal_chunk_list
         self.on_epoch_end()
 
     def __len__(self):
@@ -2198,20 +2202,31 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
                 X (np.ndarray): Input volume
                 y (np.ndarray): Target
         """
-        # Generate indexes of the batch
-        indexes = self.indexes[index * self.batch_size : (index + 1) * self.batch_size]
 
-        # Find list of IDs
-        list_IDs_temp = [self.list_IDs[k] for k in indexes]
+        if not self.temporal_chunk_list is None:
+            # Generate indexes of the batch
+            indexes = self.indexes[index * self.batch_size : (index + 1) * self.batch_size]
 
+            # Find list of IDs
+            list_IDs_temp = [self.list_IDs[k] for k in indexes]
+
+        else:
+            # For using temporal chunks, we just set list_IDs_temp to be the corresponding subarray
+            # -----
+            # temporal_chunk_list: [[vol_{t},vol_{t+1}],[vol_{t+k},vol_{t+k+1}],...]
+            # -----
+
+            list_IDs_temp = self.temporal_chunk_list[self.indexes[index]]
         # Generate data
         X, y = self.__data_generation(list_IDs_temp)
-
         return X, y
 
     def on_epoch_end(self):
         """Update indexes after each epoch."""
-        self.indexes = np.arange(len(self.list_IDs))
+        if self.temporal_chunk_list is not None:
+            self.indexes = np.arange(len(self.list_IDs))
+        else:
+            self.indexes = np.arange(self.__len__())
         if self.shuffle:
             np.random.shuffle(self.indexes)
 
