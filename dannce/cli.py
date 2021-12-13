@@ -12,11 +12,68 @@ from dannce import (
     _param_defaults_shared,
     _param_defaults_com,
 )
+import os
 import sys
 import ast
 import argparse
+import yaml
 from typing import Dict, Text
 
+def load_params(param_path: Text) -> Dict:
+    """Load a params file
+
+    Args:
+        param_path (Text): Path to .yaml file
+
+    Returns:
+        Dict: Parameters
+    """    """Load a params file"""
+    with open(param_path, "rb") as file:
+        params = yaml.safe_load(file)
+    return params
+
+def parse_sbatch() -> Text:
+    """Parse sbatch call for base config
+
+    Returns:
+        Text: Base config path
+    """    
+    parser = argparse.ArgumentParser(
+        description="Com predict CLI",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser.add_argument(
+            "base_config", metavar="base_config", help="Path to base config."
+    )
+    return parser.parse_args().base_config
+
+def sbatch_dannce_predict_cli():
+    """CLI to submit dannce prediction through sbatch using the slurm config specified in the base config."""    
+    base_config = parse_sbatch()
+    slurm_config = load_params(load_params(base_config)["slurm_config"])
+    cmd = "sbatch %s --wrap=\"%s dannce-predict %s\"" % (slurm_config["dannce_predict"], slurm_config["setup"], base_config)
+    os.system(cmd)
+
+def sbatch_dannce_train_cli():
+    """CLI to submit dannce training through sbatch using the slurm config specified in the base config."""    
+    base_config = parse_sbatch()
+    slurm_config = load_params(load_params(base_config)["slurm_config"])
+    cmd = "sbatch %s --wrap=\"%s dannce-train %s\"" % (slurm_config["dannce_train"], slurm_config["setup"], base_config)
+    os.system(cmd)
+
+def sbatch_com_predict_cli():
+    """CLI to submit com predition through sbatch using the slurm config specified in the base config."""    
+    base_config = parse_sbatch()
+    slurm_config = load_params(load_params(base_config)["slurm_config"])
+    cmd = "sbatch %s --wrap=\"%s com-predict %s\"" % (slurm_config["com_predict"], slurm_config["setup"], base_config)
+    os.system(cmd)
+
+def sbatch_com_train_cli():
+    """CLI to submit com training through sbatch using the slurm config specified in the base config."""    
+    base_config = parse_sbatch()
+    slurm_config = load_params(load_params(base_config)["slurm_config"])
+    cmd = "sbatch %s --wrap=\"%s com-train %s\"" % (slurm_config["com_train"], slurm_config["setup"], base_config)
+    os.system(cmd)
 
 def com_predict_cli():
     """Entrypoint for com prediction."""

@@ -118,3 +118,5 @@ medfilt_window: 30
 rand_view_replace: True
 
 n_rand_views: 6
+
+slurm_config: /n/holylfs02/LABS/olveczky_lab/Diego/code/dannce/cluster/holyoke.yaml
