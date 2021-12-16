@@ -20,6 +20,72 @@ import matplotlib.pyplot as plt
 import yaml
 import shutil
 import time
+from typing import Dict
+from tensorflow.keras.models import Model
+
+
+def write_debug(
+    params: Dict,
+    ims_train: np.ndarray,
+    ims_valid: np.ndarray,
+    y_train: np.ndarray,
+    model: Model,
+    trainData: bool = True,
+):
+    """Factoring re-used debug output code.
+
+    Args:
+        params (Dict): Parameters dictionary
+        ims_train (np.ndarray): Training images
+        ims_valid (np.ndarray): Validation images
+        y_train (np.ndarray): Training targets
+        model (Model): Model
+        trainData (bool, optional): If True use training data for debug. Defaults to True.
+    """
+
+    def plot_out(imo, lo, imn):
+        plot_markers_2d(norm_im(imo), lo, newfig=False)
+        plt.gca().xaxis.set_major_locator(plt.NullLocator())
+        plt.gca().yaxis.set_major_locator(plt.NullLocator())
+
+        imname = imn
+        plt.savefig(os.path.join(debugdir, imname), bbox_inches="tight", pad_inches=0)
+
+    if params["debug"] and not params["multi_mode"]:
+
+        if trainData:
+            outdir = "debug_im_out"
+            ims_out = ims_train
+            label_out = y_train
+        else:
+            outdir = "debug_im_out_valid"
+            ims_out = ims_valid
+            label_out = model.predict(ims_valid, batch_size=1)
+
+        # Plot all training images and save
+        # create new directory for images if necessary
+        debugdir = os.path.join(params["com_train_dir"], outdir)
+        print("Saving debug images to: " + debugdir)
+        if not os.path.exists(debugdir):
+            os.makedirs(debugdir)
+
+        plt.figure()
+
+        for i in range(ims_out.shape[0]):
+            plt.cla()
+            if params["mirror"]:
+                for j in range(label_out.shape[-1]):
+                    plt.cla()
+                    plot_out(
+                        ims_out[i],
+                        label_out[i, :, :, j : j + 1],
+                        str(i) + "_cam_" + str(j) + ".png",
+                    )
+            else:
+                plot_out(ims_out[i], label_out[i], str(i) + ".png")
+
+    elif params["debug"] and params["multi_mode"]:
+        print("Note: Cannot output debug information in COM multi-mode")
 
 
 def initialize_vids(params, datadict, e, vids, pathonly=True):
@@ -1292,7 +1358,7 @@ def spatial_entropy(map_):
     return -1 * np.sum(map_ * np.log(map_))
 
 
-def dupe_params(exp, dupes, n_views):
+def dupe_params(exp, dupes):
     """
     When The number of views (n_views) required
         as input to the network is greater than the
@@ -1301,7 +1367,7 @@ def dupe_params(exp, dupes, n_views):
         2-camera system), automatically duplicate necessary
         parameters to match the required n_views.
     """
-
+    n_views = exp["n_views"]
     for d in dupes:
         val = exp[d]
         if n_views % len(val) == 0:
