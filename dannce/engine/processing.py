@@ -339,26 +339,26 @@ def check_net_expval(params):
         raise Exception("expval is set to False but you are using an AVG network")
 
 
-def copy_config(RESULTSDIR, main_config, io_config):
+def copy_config(results_dir, main_config, io_config):
     """
     Copies config files into the results directory, and creates results
         directory if necessary
     """
-    print("Saving results to: {}".format(RESULTSDIR))
+    print("Saving results to: {}".format(results_dir))
 
-    if not os.path.exists(RESULTSDIR):
-        os.makedirs(RESULTSDIR)
+    if not os.path.exists(results_dir):
+        os.makedirs(results_dir)
 
     mconfig = os.path.join(
-        RESULTSDIR, "copy_main_config_" + main_config.split(os.sep)[-1]
+        results_dir, "copy_main_config_" + main_config.split(os.sep)[-1]
     )
-    dconfig = os.path.join(RESULTSDIR, "copy_io_config_" + io_config.split(os.sep)[-1])
+    dconfig = os.path.join(results_dir, "copy_io_config_" + io_config.split(os.sep)[-1])
 
     shutil.copyfile(main_config, mconfig)
     shutil.copyfile(io_config, dconfig)
 
 
-def make_data_splits(samples, params, RESULTSDIR, num_experiments):
+def make_data_splits(samples, params, results_dir, num_experiments):
     """
     Make train/validation splits from list of samples, or load in a specific
         list of sampleIDs if desired.
@@ -444,10 +444,10 @@ def make_data_splits(samples, params, RESULTSDIR, num_experiments):
         partition["train_sampleIDs"] = train_samples[train_inds]
 
         # Save train/val inds
-        with open(os.path.join(RESULTSDIR, "val_samples.pickle"), "wb") as f:
+        with open(os.path.join(results_dir, "val_samples.pickle"), "wb") as f:
             cPickle.dump(partition["valid_sampleIDs"], f)
 
-        with open(os.path.join(RESULTSDIR, "train_samples.pickle"), "wb") as f:
+        with open(os.path.join(results_dir, "train_samples.pickle"), "wb") as f:
             cPickle.dump(partition["train_sampleIDs"], f)
     else:
         # Load validation samples from elsewhere
@@ -624,14 +624,14 @@ def save_COM_dannce_mat(params, com3d, sampleID):
 
 
 def save_COM_checkpoint(
-    save_data, RESULTSDIR, datadict_, cameras, params, file_name="com3d"
+    save_data, results_dir, datadict_, cameras, params, file_name="com3d"
 ):
     """
     Saves COM pickle and matfiles
 
     """
     # Save undistorted 2D COMs and their 3D triangulations
-    f = open(os.path.join(RESULTSDIR, file_name + ".pickle"), "wb")
+    f = open(os.path.join(results_dir, file_name + ".pickle"), "wb")
     cPickle.dump(save_data, f)
     f.close()
 
@@ -647,7 +647,7 @@ def save_COM_checkpoint(
         else:
             linking_method = "euclidean"
         _, com3d_dict = serve_data_DANNCE.prepare_COM_multi_instance(
-            os.path.join(RESULTSDIR, file_name + ".pickle"),
+            os.path.join(results_dir, file_name + ".pickle"),
             datadict_save,
             comthresh=0,
             weighted=False,
@@ -657,7 +657,7 @@ def save_COM_checkpoint(
     else:
         prepare_func = serve_data_DANNCE.prepare_COM
         _, com3d_dict = serve_data_DANNCE.prepare_COM(
-            os.path.join(RESULTSDIR, file_name + ".pickle"),
+            os.path.join(results_dir, file_name + ".pickle"),
             datadict_save,
             comthresh=0,
             weighted=False,
@@ -665,7 +665,7 @@ def save_COM_checkpoint(
             method="median",
         )
 
-    cfilename = os.path.join(RESULTSDIR, file_name + ".mat")
+    cfilename = os.path.join(results_dir, file_name + ".mat")
     print("Saving 3D COM to {}".format(cfilename))
     samples_keys = list(com3d_dict.keys())
 
@@ -961,14 +961,14 @@ def cropcom(im, com, size=512):
     return out
 
 
-def write_config(resultsdir, configdict, message, filename="modelconfig.cfg"):
+def write_config(results_dir, configdict, message, filename="modelconfig.cfg"):
     """Write a dictionary of k-v pairs to file.
 
     A much more customizable configuration writer. Accepts a dictionary of
     key-value pairs and just writes them all to file,
     together with a custom message
     """
-    f = open(resultsdir + filename, "w")
+    f = open(results_dir + filename, "w")
     for key in configdict:
         f.write("{}: {}\n".format(key, configdict[key]))
     f.write("message:" + message)
