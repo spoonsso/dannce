@@ -130,7 +130,7 @@ def com_predict(params: Dict):
 
     # The generator expects an experimentID in front of each sample key
     samples = ["0_" + str(f) for f in samples]
-    datadict = {"0_" + str(key): datadict.pop(key) for key in datadict.keys()}
+    datadict = {"0_" + str(key): datadict.pop(key) for key in list(datadict.keys())}
 
     # Initialize video dictionary. paths to videos only.
     vids = {}
@@ -330,7 +330,14 @@ def com_train(params: Dict):
     else:
         exps = params["exp"]
     num_experiments = len(exps)
-    params["experiment"], total_chunks, cameras, camnames = {}, {}, {}, {}
+
+    params["experiment"] = {}
+    total_chunks = {}
+    cameras = {}
+    camnames = {}
+    datadict = {}
+    datadict_3d = {}
+    samples = []
     for e, expdict in enumerate(exps):
 
         exp = processing.load_expdict(params, e, expdict, _DEFAULT_VIDDIR)
@@ -926,8 +933,7 @@ def dannce_train(params: Dict):
                         partition["train_sampleIDs"][i] + "_cam" + str(j) + ".tif",
                     )
                     imageio.mimwrite(of, np.transpose(im, [2, 0, 1, 3]))
-            print("Done! Exiting.")
-            sys.exit()
+            return
 
         print("Loading validation data into memory")
         for i in range(len(partition["valid_sampleIDs"])):
@@ -1321,6 +1327,7 @@ def dannce_predict(params: Dict):
     params["predict_mode"] = (
         params["predict_mode"] if params["predict_mode"] is not None else "numpy"
     )
+    params["multi_mode"] = False
     print("Using {} predict mode".format(params["predict_mode"]))
 
     print("Using camnames: {}".format(params["camnames"]))
@@ -1455,7 +1462,7 @@ def dannce_predict(params: Dict):
         **valid_params
     )
 
-    model = build_model(params, params["net_name"], camnames)
+    model = build_model(params, camnames)
 
     save_data = {}
 
@@ -1489,8 +1496,7 @@ def dannce_predict(params: Dict):
         # during training.
         print("Writing samples to .npy files")
         processing.write_npy(params["write_npy"], valid_generator)
-        print("Done, exiting program")
-        sys.exit()
+        return
 
     save_data = inference.infer_dannce(
         start_batch,
