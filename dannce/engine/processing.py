@@ -580,7 +580,10 @@ def rename_weights(traindir, kkey, mon):
     e = r["epoch"]
     q = r[mon]
     minq = np.min(q)
-    beste = e[np.argmin(q)]
+    if e.size == 1:
+        beste = e
+    else:
+        beste = e[np.argmin(q)]
 
     newname = "weights." + str(int(beste)) + "-" + "{:.5f}".format(minq) + ".hdf5"
 
