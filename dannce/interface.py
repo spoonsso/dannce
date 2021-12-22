@@ -15,6 +15,7 @@ from tensorflow.keras.models import load_model, Model
 from tensorflow.keras.layers import GlobalMaxPooling3D
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import ModelCheckpoint, CSVLogger, TensorBoard
+import dannce.callbacks as cb
 import dannce.engine.serve_data_DANNCE as serve_data_DANNCE
 import dannce.engine.generator as generator
 import dannce.engine.generator_aux as generator_aux
@@ -1205,126 +1206,11 @@ def dannce_train(params: Dict):
         update_freq=100,
     )
 
-    class savePredTargets(keras.callbacks.Callback):
-        def __init__(
-            self, total_epochs, td, tgrid, vd, vgrid, tID, vID, odir, tlabel, vlabel
-        ):
-            self.td = td
-            self.vd = vd
-            self.tID = tID
-            self.vID = vID
-            self.total_epochs = total_epochs
-            self.val_loss = 1e10
-            self.odir = odir
-            self.tgrid = tgrid
-            self.vgrid = vgrid
-            self.tlabel = tlabel
-            self.vlabel = vlabel
-
-        def on_epoch_end(self, epoch, logs=None):
-            lkey = "val_loss" if "val_loss" in logs else "loss"
-            if (
-                epoch == self.total_epochs - 1
-                or logs[lkey] < self.val_loss
-                and epoch > 25
-            ):
-                print(
-                    "Saving predictions on train and validation data, after epoch {}".format(
-                        epoch
-                    )
-                )
-                self.val_loss = logs[lkey]
-                pred_t = self.model.predict([self.td, self.tgrid], batch_size=1)
-                pred_v = self.model.predict([self.vd, self.vgrid], batch_size=1)
-                ofile = os.path.join(
-                    self.odir, "checkpoint_predictions_e{}.mat".format(epoch)
-                )
-                sio.savemat(
-                    ofile,
-                    {
-                        "pred_train": pred_t,
-                        "pred_valid": pred_v,
-                        "target_train": self.tlabel,
-                        "target_valid": self.vlabel,
-                        "train_sampleIDs": self.tID,
-                        "valid_sampleIDs": self.vID,
-                    },
-                )
-
-    class saveMaxPreds(keras.callbacks.Callback):
-        """
-        This callback fully evaluates MAX predictions and logs the euclidean
-            distance error to a file.
-        """
-
-        def __init__(self, vID, vData, vLabel, odir, com, params):
-            self.vID = vID
-            self.vData = vData
-            self.odir = odir
-            self.com = com
-            self.param_mat = params
-
-            fn = os.path.join(odir, "max_euclid_error.csv")
-            self.fn = fn
-
-            self.vLabel = np.zeros((len(vID), 3, params["new_n_channels_out"]))
-
-            # Now run thru sample IDs, pull out the correct COM, and add it in
-            for j in range(len(self.vID)):
-                id_ = self.vID[j]
-                self.vLabel[j] = vLabel[id_]
-
-            with open(fn, "w") as fd:
-                fd.write("epoch,error\n")
-
-        def on_epoch_end(self, epoch, logs=None):
-            pred_v = self.model.predict([self.vData], batch_size=1)
-            d_coords = np.zeros((pred_v.shape[0], 3, pred_v.shape[-1]))
-            for j in range(pred_v.shape[0]):
-                xcoord, ycoord, zcoord = processing.plot_markers_3d(pred_v[j])
-                d_coords[j] = np.stack([xcoord, ycoord, zcoord])
-
-            vsize = (self.param_mat["vmax"] - self.param_mat["vmin"]) / self.param_mat[
-                "nvox"
-            ]
-            # # First, need to move coordinates over to centers of voxels
-            pred_out_world = self.param_mat["vmin"] + d_coords * vsize + vsize / 2
-
-            # Now run thru sample IDs, pull out the correct COM, and add it in
-            for j in range(len(self.vID)):
-                id_ = self.vID[j]
-                tcom = self.com[id_]
-                pred_out_world[j] = pred_out_world[j] + tcom[:, np.newaxis]
-
-            # Calculate euclidean_distance_3d
-            e3d = K.eval(losses.euclidean_distance_3D(self.vLabel, pred_out_world))
-
-            print("epoch {} euclidean_distance_3d: {}".format(epoch, e3d))
-            with open(self.fn, "a") as fd:
-                fd.write("{},{}\n".format(epoch, e3d))
-
-    class saveCheckPoint(keras.callbacks.Callback):
-        def __init__(self, odir, total_epochs):
-            self.odir = odir
-            self.saveE = np.arange(0, total_epochs, 250)
-
-        def on_epoch_end(self, epoch, logs=None):
-            lkey = "val_loss" if "val_loss" in logs else "loss"
-            val_loss = logs[lkey]
-            if epoch in self.saveE:
-                # Do a garbage collect to combat keras memory leak
-                gc.collect()
-                print("Saving checkpoint weights at epoch {}".format(epoch))
-                savename = "weights.checkpoint.epoch{}.{}{:.5f}.hdf5".format(
-                    epoch, lkey, val_loss
-                )
-                self.model.save(os.path.join(self.odir, savename))
-
     callbacks = [
         csvlog,
         model_checkpoint,
         tboard,
-        saveCheckPoint(params["dannce_train_dir"], params["epochs"]),
+        cb.saveCheckPoint(params["dannce_train_dir"], params["epochs"]),
     ]
 
     if (
@@ -1333,7 +1219,7 @@ def dannce_train(params: Dict):
         and not params["heatmap_reg"]
         and params["save_pred_targets"]
     ):
-        save_callback = savePredTargets(
+        save_callback = cb.savePredTargets(
             params["epochs"],
             X_train,
             X_train_grid,
@@ -1347,7 +1233,7 @@ def dannce_train(params: Dict):
         )
         callbacks = callbacks + [save_callback]
     elif not params["expval"] and not params["use_npy"] and not params["heatmap_reg"]:
-        max_save_callback = saveMaxPreds(
+        max_save_callback = cb.saveMaxPreds(
             partition["train_sampleIDs"],
             X_train,
             datadict_3d,
@@ -1357,7 +1243,6 @@ def dannce_train(params: Dict):
         )
         callbacks = callbacks + [max_save_callback]
 
-    # import pdb; pdb.set_trace()
     model.fit(
         x=train_generator,
         steps_per_epoch=len(train_generator),
@@ -1366,7 +1251,6 @@ def dannce_train(params: Dict):
         verbose=params["verbose"],
         epochs=params["epochs"],
         callbacks=callbacks,
-        # workers=6,
     )
 
     print("Renaming weights file with best epoch description")
@@ -1380,52 +1264,16 @@ def dannce_train(params: Dict):
     model = nets.remove_heatmap_output(model, params)
     model.save(os.path.join(sdir, "fullmodel_end.hdf5"))
 
-    print("done!")
-
-
 def dannce_predict(params: Dict):
     """Predict with dannce network
 
     Args:
         params (Dict): Paremeters dictionary.
     """
-    # Depth disabled until next release.
-    params["depth"] = False
-    # Make the prediction directory if it does not exist.
+    os.environ["CUDA_VISIBLE_DEVICES"] = params["gpu_id"]
     make_folder("dannce_predict_dir", params)
 
-    # Load the appropriate loss function and network
-    try:
-        params["loss"] = getattr(losses, params["loss"])
-    except AttributeError:
-        params["loss"] = getattr(keras_losses, params["loss"])
-    params["net_name"] = params["net"]
-    params["net"] = getattr(nets, params["net_name"])
-    # Default to 6 views but a smaller number of views can be specified in the DANNCE config.
-    # If the legnth of the camera files list is smaller than n_views, relevant lists will be
-    # duplicated in order to match n_views, if possible.
-    params["n_views"] = int(params["n_views"])
-
-    os.environ["CUDA_VISIBLE_DEVICES"] = params["gpu_id"]
-
-    # While we can use experiment files for DANNCE training,
-    # for prediction we use the base data files present in the main config
-    # Grab the input file for prediction
-    params["label3d_file"] = processing.grab_predict_label3d_file()
-    params["base_exp_folder"] = os.path.dirname(params["label3d_file"])
-
-    # default to slow numpy backend if there is no predict_mode in config file. I.e. legacy support
-    params["predict_mode"] = (
-        params["predict_mode"] if params["predict_mode"] is not None else "numpy"
-    )
-    params["multi_mode"] = False
-    print("Using {} predict mode".format(params["predict_mode"]))
-
-    print("Using camnames: {}".format(params["camnames"]))
-    # Also add parent params under the 'experiment' key for compatibility
-    # with DANNCE's video loading function
-    params["experiment"] = {}
-    params["experiment"][0] = params
+    params = setup_dannce_predict(params)
 
     (
         params["experiment"][0],
@@ -1478,9 +1326,6 @@ def dannce_predict(params: Dict):
 
     samples = np.array(samples)
 
-    # For real mono prediction
-    params["chan_num"] = 1 if params["mono"] else params["n_channels_in"]
-
     # Initialize video dictionary. paths to videos only.
     # TODO: Remove this immode option if we decide not
     # to support tifs
@@ -1522,9 +1367,8 @@ def dannce_predict(params: Dict):
     }
 
     # Datasets
-    partition = {}
     valid_inds = np.arange(len(samples))
-    partition["valid_sampleIDs"] = samples[valid_inds]
+    partition = {"valid_sampleIDs": samples[valid_inds]}
 
     # TODO: Remove tifdirs arguments, which are deprecated
     tifdirs = []
@@ -1555,29 +1399,15 @@ def dannce_predict(params: Dict):
 
     model = build_model(params, camnames)
 
-    save_data = {}
-
-    max_eval_batch = params["maxbatch"]
-
-    if max_eval_batch != "max" and max_eval_batch > len(valid_generator):
+    if params["maxbatch"] != "max" and params["maxbatch"] > len(valid_generator):
         print(
             "Maxbatch was set to a larger number of matches than exist in the video. Truncating"
         )
-        max_eval_batch = len(valid_generator)
-        processing.print_and_set(params, "maxbatch", max_eval_batch)
+        processing.print_and_set(params, "maxbatch", len(valid_generator))
 
-    if max_eval_batch == "max":
-        max_eval_batch = len(valid_generator)
+    if params["maxbatch"] == "max":
+        processing.print_and_set(params, "maxbatch", len(valid_generator))
 
-    if params["start_batch"] is not None:
-        start_batch = params["start_batch"]
-    else:
-        start_batch = 0
-
-    if params["new_n_channels_out"] is not None:
-        n_chn = params["new_n_channels_out"]
-    else:
-        n_chn = params["n_channels_out"]
 
     if params["write_npy"] is not None:
         # Instead of running inference, generate all samples
@@ -1590,21 +1420,18 @@ def dannce_predict(params: Dict):
         return
 
     save_data = inference.infer_dannce(
-        start_batch,
-        max_eval_batch,
         valid_generator,
         params,
         model,
         partition,
-        save_data,
         device,
-        n_chn,
+        params["n_markers"],
     )
 
     if params["expval"]:
-        if params["start_batch"] is not None:
+        if params["save_tag"] is not None:
             path = os.path.join(
-                params["dannce_predict_dir"], "save_data_AVG%d.mat" % (start_batch)
+                params["dannce_predict_dir"], "save_data_AVG%d.mat" % (params["save_tag"])
             )
         else:
             path = os.path.join(params["dannce_predict_dir"], "save_data_AVG.mat")
@@ -1614,13 +1441,13 @@ def dannce_predict(params: Dict):
             write=True,
             data=save_data,
             tcoord=False,
-            num_markers=n_chn,
+            num_markers=params["n_markers"],
             pmax=True,
         )
     else:
         if params["start_batch"] is not None:
             path = os.path.join(
-                params["dannce_predict_dir"], "save_data_MAX%d.mat" % (start_batch)
+                params["dannce_predict_dir"], "save_data_MAX%d.mat" % (params["start_batch"])
             )
         else:
             path = os.path.join(params["dannce_predict_dir"], "save_data_MAX.mat")
@@ -1632,9 +1459,62 @@ def dannce_predict(params: Dict):
             params["nvox"],
             write=True,
             data=save_data,
-            num_markers=n_chn,
+            num_markers=params["n_markers"],
             tcoord=False,
         )
+
+def setup_dannce_predict(params):
+    # Depth disabled until next release.
+    params["depth"] = False
+    # Make the prediction directory if it does not exist.
+
+    # Load the appropriate loss function and network
+    try:
+        params["loss"] = getattr(losses, params["loss"])
+    except AttributeError:
+        params["loss"] = getattr(keras_losses, params["loss"])
+    params["net_name"] = params["net"]
+    params["net"] = getattr(nets, params["net_name"])
+    # Default to 6 views but a smaller number of views can be specified in the DANNCE config.
+    # If the legnth of the camera files list is smaller than n_views, relevant lists will be
+    # duplicated in order to match n_views, if possible.
+    params["n_views"] = int(params["n_views"])
+
+
+    # While we can use experiment files for DANNCE training,
+    # for prediction we use the base data files present in the main config
+    # Grab the input file for prediction
+    params["label3d_file"] = processing.grab_predict_label3d_file()
+    params["base_exp_folder"] = os.path.dirname(params["label3d_file"])
+
+    # default to slow numpy backend if there is no predict_mode in config file. I.e. legacy support
+    params["predict_mode"] = (
+        params["predict_mode"] if params["predict_mode"] is not None else "numpy"
+    )
+    params["multi_mode"] = False
+    print("Using {} predict mode".format(params["predict_mode"]))
+
+    print("Using camnames: {}".format(params["camnames"]))
+    # Also add parent params under the 'experiment' key for compatibility
+    # with DANNCE's video loading function
+    params["experiment"] = {}
+    params["experiment"][0] = params
+
+    if params["start_batch"] is None:
+        params["start_batch"] = 0
+        params["save_tag"] = None
+    else:
+        params["save_tag"] = params["start_batch"]
+
+    if params["new_n_channels_out"] is not None:
+        params["n_markers"] = params["new_n_channels_out"]
+    else:
+        params["n_markers"] = params["n_channels_out"]
+
+    # For real mono prediction
+    params["chan_num"] = 1 if params["mono"] else params["n_channels_in"]
+
+    return params
 
 
 def write_com_file(params, samples_, com3d_dict_):

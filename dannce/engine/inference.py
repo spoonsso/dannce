@@ -645,7 +645,6 @@ def infer_dannce(
     params: Dict,
     model: Model,
     partition: Dict,
-    save_data: Dict,
     device: Text,
     n_chn: int,
 ):
@@ -658,12 +657,14 @@ def infer_dannce(
         params (Dict): Parameters dictionary.
         model (Model): Inference model.
         partition (Dict): Partition dictionary
-        save_data (Dict): Saved data dictionary
         device (Text): Gpu device name
         n_chn (int): Number of output channels
     """
 
     end_time = time.time()
+    save_data = {}
+    start_ind = params["start_batch"]
+    end_ind = params["max_eval_batch"],
     for idx, i in enumerate(range(start_ind, end_ind)):
         print("Predicting on batch {}".format(i), flush=True)
         if (i - start_ind) % 10 == 0 and i != start_ind:
