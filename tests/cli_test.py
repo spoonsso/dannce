@@ -9,7 +9,8 @@ from unittest.mock import patch
 from typing import Text
 
 # Initialize the gpu prior to testing
-tf.test.is_gpu_available()
+# tf.test.is_gpu_available()
+tf.config.list_physical_devices('GPU')
 
 # Move to the testing project folder
 os.chdir("configs")
