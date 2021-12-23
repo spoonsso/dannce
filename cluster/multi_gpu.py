@@ -7,14 +7,13 @@ import argparse
 import ast
 from scipy.io import savemat
 from dannce.engine.io import load_sync, load_com
-from dannce.engine.processing import prepare_save_metadata
 from dannce import (
     _param_defaults_shared,
     _param_defaults_dannce,
     _param_defaults_com,
 )
 import scipy.io as spio
-from typing import Dict, List, Text, Union, Tuple
+from typing import Dict, List, Text
 
 DANNCE_BASE_NAME = "save_data_AVG"
 COM_BASE_NAME = "com3d"
