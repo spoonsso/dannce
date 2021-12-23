@@ -1264,6 +1264,7 @@ def dannce_train(params: Dict):
     model = nets.remove_heatmap_output(model, params)
     model.save(os.path.join(sdir, "fullmodel_end.hdf5"))
 
+
 def dannce_predict(params: Dict):
     """Predict with dannce network
 
@@ -1386,7 +1387,7 @@ def dannce_predict(params: Dict):
     else:
         genfunc = generator.DataGenerator_3Dconv
 
-    valid_generator = genfunc(
+    predict_generator = genfunc(
         partition["valid_sampleIDs"],
         datadict,
         datadict_3d,
@@ -1399,14 +1400,14 @@ def dannce_predict(params: Dict):
 
     model = build_model(params, camnames)
 
-    if params["maxbatch"] != "max" and params["maxbatch"] > len(valid_generator):
+    if params["maxbatch"] != "max" and params["maxbatch"] > len(predict_generator):
         print(
             "Maxbatch was set to a larger number of matches than exist in the video. Truncating"
         )
-        processing.print_and_set(params, "maxbatch", len(valid_generator))
+        processing.print_and_set(params, "maxbatch", len(predict_generator))
 
     if params["maxbatch"] == "max":
-        processing.print_and_set(params, "maxbatch", len(valid_generator))
+        processing.print_and_set(params, "maxbatch", len(predict_generator))
 
 
     if params["write_npy"] is not None:
@@ -1416,11 +1417,11 @@ def dannce_predict(params: Dict):
         # .npy files can be loaded in quickly with random access
         # during training.
         print("Writing samples to .npy files")
-        processing.write_npy(params["write_npy"], valid_generator)
+        processing.write_npy(params["write_npy"], predict_generator)
         return
 
     save_data = inference.infer_dannce(
-        valid_generator,
+        predict_generator,
         params,
         model,
         partition,
