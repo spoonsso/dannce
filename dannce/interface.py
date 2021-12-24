@@ -615,7 +615,7 @@ def com_train(params: Dict):
     model.save(os.path.join(sdir, "fullmodel_end.hdf5"))
 
 
-def setup_com_train(params):
+def setup_com_train(params: Dict) -> Dict:
     # Make the train directory if it does not exist.
     make_folder("com_train_dir", params)
 
@@ -1409,7 +1409,6 @@ def dannce_predict(params: Dict):
     if params["maxbatch"] == "max":
         processing.print_and_set(params, "maxbatch", len(predict_generator))
 
-
     if params["write_npy"] is not None:
         # Instead of running inference, generate all samples
         # from valid_generator and save them to npy files. Useful
@@ -1432,7 +1431,8 @@ def dannce_predict(params: Dict):
     if params["expval"]:
         if params["save_tag"] is not None:
             path = os.path.join(
-                params["dannce_predict_dir"], "save_data_AVG%d.mat" % (params["save_tag"])
+                params["dannce_predict_dir"],
+                "save_data_AVG%d.mat" % (params["save_tag"]),
             )
         else:
             path = os.path.join(params["dannce_predict_dir"], "save_data_AVG.mat")
@@ -1448,7 +1448,8 @@ def dannce_predict(params: Dict):
     else:
         if params["start_batch"] is not None:
             path = os.path.join(
-                params["dannce_predict_dir"], "save_data_MAX%d.mat" % (params["start_batch"])
+                params["dannce_predict_dir"],
+                "save_data_MAX%d.mat" % (params["start_batch"]),
             )
         else:
             path = os.path.join(params["dannce_predict_dir"], "save_data_MAX.mat")
@@ -1463,6 +1464,7 @@ def dannce_predict(params: Dict):
             num_markers=params["n_markers"],
             tcoord=False,
         )
+
 
 def setup_dannce_predict(params):
     # Depth disabled until next release.
@@ -1480,7 +1482,6 @@ def setup_dannce_predict(params):
     # If the legnth of the camera files list is smaller than n_views, relevant lists will be
     # duplicated in order to match n_views, if possible.
     params["n_views"] = int(params["n_views"])
-
 
     # While we can use experiment files for DANNCE training,
     # for prediction we use the base data files present in the main config
@@ -1527,7 +1528,16 @@ def write_com_file(params, samples_, com3d_dict_):
     sio.savemat(cfilename, {"sampleID": samples_, "com": c3d})
 
 
-def build_model(params, camnames):
+def build_model(params: Dict, camnames: List) -> Model:
+    """Build model for dannce prediction.
+
+    Args:
+        params (Dict): Parameters dictionary.
+        camnames (List): Camera names.
+
+    Returns:
+        (Model): Dannce model
+    """
     # Build net
     print("Initializing Network...")
 
