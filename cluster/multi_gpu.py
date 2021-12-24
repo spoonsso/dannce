@@ -296,6 +296,8 @@ class MultiGpuHandler:
 
         params = self.load_params(self.config)
         params = {**params, **self.load_params("io.yaml")}
+        if "n_instances" not in params:
+            params["n_instances"] = 1
 
         # If multi-instance, set the com_file and dannce predict path automatically
         if params["n_instances"] >= 2:

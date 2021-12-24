@@ -7,10 +7,11 @@ from absl.testing import absltest
 import numpy as np
 import os
 
-DEMO_PATH = "../demo/markerless_mouse1"
-CONFIG_PATH = "../tests/configs/config_mousetest.yaml"
-MULTI_INSTANCE_CONFIG_PATH = "../tests/configs/config_mousetest_multi_instance.yaml"
-DANNCE_PATH = "../tests/configs/label3d_dannce.mat"
+DEMO_PATH = "../demo/markerless_mouse_1"
+os.chdir(DEMO_PATH)
+CONFIG_PATH = "../../tests/configs/config_mousetest.yaml"
+MULTI_INSTANCE_CONFIG_PATH = "../../tests/configs/config_mousetest_multi_instance.yaml"
+DANNCE_PATH = "../../tests/configs/label3d_dannce.mat"
 
 
 class MultiGpuTest(absltest.TestCase):
@@ -42,6 +43,8 @@ class MultiGpuTest(absltest.TestCase):
         )
         batch_params, _ = handler.submit_dannce_predict_multi_gpu()
         print(batch_params)
+        self.assertTrue(len(batch_params) == 20)
+
 
     def test_com_predict_batch_params(self):
         handler = multi_gpu.MultiGpuHandler(
@@ -56,6 +59,8 @@ class MultiGpuTest(absltest.TestCase):
         self.assertTrue(len(batch_params) == 180)
 
     def test_raises_error_if_no_dannce_file(self):
+        # Move to a directory in which there is no dannce.mat file
+        os.chdir("..")
         with self.assertRaises(FileNotFoundError):
             handler = multi_gpu.MultiGpuHandler(
                 CONFIG_PATH, n_samples_per_gpu=100, verbose=False, test=True
