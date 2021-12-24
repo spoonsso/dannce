@@ -639,8 +639,6 @@ def infer_com(
 
 
 def infer_dannce(
-    start_ind: int,
-    end_ind: int,
     generator: keras.utils.Sequence,
     params: Dict,
     model: Model,
@@ -664,7 +662,7 @@ def infer_dannce(
     end_time = time.time()
     save_data = {}
     start_ind = params["start_batch"]
-    end_ind = params["max_eval_batch"],
+    end_ind = params["maxbatch"]
     for idx, i in enumerate(range(start_ind, end_ind)):
         print("Predicting on batch {}".format(i), flush=True)
         if (i - start_ind) % 10 == 0 and i != start_ind:
