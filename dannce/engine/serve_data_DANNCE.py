@@ -10,7 +10,6 @@ from scipy.ndimage import median_filter
 import warnings
 from copy import deepcopy
 
-
 def prepare_data(
     CONFIG_PARAMS,
     com_flag=True,
@@ -533,3 +532,14 @@ def prepend_experiment(
             ][key_]
 
     return cameras_, datadict_, CONFIG_PARAMS
+
+def get_temporal_chunks(samples, chunk_size=2):
+    """Split samples into contiguous chunks.
+    args: 
+        samples: numpy array of size n_frames
+    return: 
+        temporal_chunks: List of subarrays 
+        [[[vol_{t},vol_{t+1}],[vol_{t+k},vol_{t+k+1}],...]
+    """
+    chunks = [samples[i:i+chunk_size] for i in range(len(samples)-chunk_size)]
+    return chunks

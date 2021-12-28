@@ -1102,6 +1102,15 @@ def dannce_train(params: Dict):
                       "xgrid": X_train_grid,
                       "aux_labels": y_train_aux,
                       }
+
+        # if use temporal, add additional args `temporal_chunk_list`
+        if params["use_temporal"]:
+            args_train = {
+                        **args_train, 
+                        "temporal_chunk_list": serve_data_DANNCE.get_temporal_chunks(args_train['list_IDs'], 
+                                                                                     chunk_size=params["temporal_chunk_size"]),
+                        }
+
         args_valid = {
                       "list_IDs": np.arange(len(partition["valid_sampleIDs"])),
                       "data": X_valid,

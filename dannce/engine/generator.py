@@ -2203,7 +2203,7 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
                 y (np.ndarray): Target
         """
 
-        if not self.temporal_chunk_list is None:
+        if self.temporal_chunk_list is None:
             # Generate indexes of the batch
             indexes = self.indexes[index * self.batch_size : (index + 1) * self.batch_size]
 
@@ -2215,7 +2215,6 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
             # -----
             # temporal_chunk_list: [[vol_{t},vol_{t+1}],[vol_{t+k},vol_{t+k+1}],...]
             # -----
-
             list_IDs_temp = self.temporal_chunk_list[self.indexes[index]]
         # Generate data
         X, y = self.__data_generation(list_IDs_temp)
