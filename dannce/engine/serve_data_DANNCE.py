@@ -543,3 +543,37 @@ def get_temporal_chunks(samples, chunk_size=2):
     """
     chunks = [samples[i:i+chunk_size] for i in range(len(samples)-chunk_size)]
     return chunks
+
+def identify_exp_pairs(exps):
+    """For multi-instance social behaviorial dannce, 
+       identify social animal pairs from all the exps.
+
+       One example would be 
+       '.../dannce_rig/ratsInColor/2021_07_07_M1_M6/20210813_175716_Label3D_B_dannce.mat'
+       and 
+       '.../dannce_rig/ratsInColor/2021_07_07_M1_M6/20210813_195437_Label3D_R_dannce.mat'
+       each corresponding to one of the animals present in the same scene.
+    args: 
+        exps: Dict. Keys are integers [0, n_exps]. 
+              Each value is a Dict containing single experiment information
+    return:
+        pair_list: List of tuples of indices
+        [[1, 3], [0, 5, 10], ...]
+    """
+    exp_indices = sorted(exps.keys())
+    exp_base_folders = np.array([exps[i]["base_exp_folders"] for i in exp_indices])
+
+    # use np.unique to identify exps with the same base_exp_folders
+    uniques, counts = np.unique(exp_base_folders, return_counts=True)
+    pair_indices = (counts >= 2)
+    
+    # find all pairs
+    pairs = []
+    for i in pair_indices:
+        pairs.append(np.where(exp_base_folders == uniques[i]))
+    
+    return pairs
+
+
+
+
