@@ -212,4 +212,7 @@ demo/markerless_mouse_2/DANNCE/predict_results/copy*
 demo/markerless_mouse_1/videos/
 demo/markerless_mouse_2/videos/
 
+tests/configs/alabel3d_temp_dannce.mat
+tests/configs/log_file.txt
+
 .vscode/
