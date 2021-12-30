@@ -5,6 +5,7 @@ import os
 import numpy as np
 import scipy.io as sio
 import sys
+import unittest
 from unittest.mock import patch
 from typing import Text
 
@@ -421,4 +422,7 @@ class TestDanncePredict(absltest.TestCase):
             cli.dannce_predict_cli()
 
 if __name__ == "__main__":
-    absltest.main()
+    log_file = 'log_file.txt'
+    with open(log_file, "w") as f:
+       runner = unittest.TextTestRunner(f)
+       absltest.main(testRunner=runner)
