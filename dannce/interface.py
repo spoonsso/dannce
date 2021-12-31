@@ -132,7 +132,7 @@ def com_predict(params: Dict):
 
     # The generator expects an experimentID in front of each sample key
     samples = ["0_" + str(f) for f in samples]
-    datadict = {"0_" + str(key): datadict.pop(key) for key in list(datadict.keys())}
+    datadict = {"0_" + str(key): val for key, val in datadict.items()}
 
     # Initialize video dictionary. paths to videos only.
     vids = {}
@@ -1446,10 +1446,10 @@ def dannce_predict(params: Dict):
             pmax=True,
         )
     else:
-        if params["start_batch"] is not None:
+        if params["save_tag"] is not None:
             path = os.path.join(
                 params["dannce_predict_dir"],
-                "save_data_MAX%d.mat" % (params["start_batch"]),
+                "save_data_MAX%d.mat" % (params["save_tag"]),
             )
         else:
             path = os.path.join(params["dannce_predict_dir"], "save_data_MAX.mat")
