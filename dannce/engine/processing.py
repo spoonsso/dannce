@@ -1430,45 +1430,6 @@ def spatial_entropy(map_):
     return -1 * np.sum(map_ * np.log(map_))
 
 
-def dupe_params(exp, dupes):
-    """
-    When The number of views (n_views) required
-        as input to the network is greater than the
-        number of actual cameras (e.g. when trying to
-        fine-tune a 6-camera network on data from a
-        2-camera system), automatically duplicate necessary
-        parameters to match the required n_views.
-    """
-    n_views = exp["n_views"]
-    for d in dupes:
-        val = exp[d]
-        if n_views % len(val) == 0:
-            num_reps = n_views // len(val)
-            exp[d] = val * num_reps
-
-        else:
-            prompt = "The length of the {} list must divide evenly into {}. Duplicate a subset of the views starting from the first camera (y/n)?".format(
-                d, n_views
-            )
-            val_in = input(prompt)
-            if val_in == "y":
-                num_reps = n_views // len(val)
-                num_extra = n_views % len(val)
-                duped = val * num_reps
-                for i in range(num_extra):
-                    duped.append(duped[i])
-                print("Duping {}. Changed from {} to {}".format(d, val, duped))
-                exp[d] = duped
-            else:
-                raise Exception(
-                    "The length of the {} list must divide evenly into {}. Exiting".format(
-                        d, n_views
-                    )
-                )
-
-    return exp
-
-
 def write_npy(uri, gen):
     """
     Creates a new image folder and grid folder at the uri and uses

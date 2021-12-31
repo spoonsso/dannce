@@ -1657,12 +1657,6 @@ def do_COM_load(exp: Dict, expdict: Dict, e, params: Dict, training=True):
         cameras_,
     ) = serve_data_DANNCE.prepare_data(exp, prediction=False if training else True)
 
-    # If len(exp['camnames']) divides evenly into n_views, duplicate here
-    # This must come after loading in this experiment's data because there
-    # is an assertion that len(exp['camnames']) == the number of cameras
-    # in the label files (which will not be duplicated)
-    exp = processing.dupe_params(exp, ["camnames"])
-
     # If there is "clean" data (full marker set), can take the
     # 3D COM from the labels
     if exp["com_fromlabels"] and training:
