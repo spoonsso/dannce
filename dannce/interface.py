@@ -264,7 +264,8 @@ def build_com_network(params: Dict) -> Model:
         float(params["lr"]),
         params["chan_num"],
         eff_n_channels_out,
-        ["mse"],
+        norm_method=params["norm_method"],
+        metric=["mse"],
     )
 
     # If the weights are not specified, use the train directory.
@@ -435,8 +436,8 @@ def com_train(params: Dict):
         float(params["lr"]),
         params["chan_num"],
         eff_n_channels_out,
-        params["norm_method"],
-        ["mse"],
+        norm_method=params["norm_method"],
+        metric=["mse"],
     )
     print("COMPLETE\n")
 
@@ -453,7 +454,7 @@ def com_train(params: Dict):
                    Assuming that this is a fine-tune with a different number of outputs and removing \
                   the top of the net accordingly"
             )
-            model.layers[-1].name = "top_conv"
+            model.layers[-1]._name = "top_conv"
             model.load_weights(
                 os.path.join(params["com_finetune_weights"], weights),
                 by_name=True,
