@@ -2,6 +2,7 @@
 import multi_gpu
 
 import functools
+from unittest.mock import patch
 from absl.testing import absltest
 
 import numpy as np
@@ -45,6 +46,9 @@ class MultiGpuTest(absltest.TestCase):
         print(batch_params)
         self.assertTrue(len(batch_params) == 20)
 
+    def test_dannce_inference_submission(self):
+        with patch("sys.argv", ["dannce-inference", MULTI_INSTANCE_CONFIG_PATH, MULTI_INSTANCE_CONFIG_PATH, "--test=True"]):
+            multi_gpu.submit_inference()
 
     def test_com_predict_batch_params(self):
         handler = multi_gpu.MultiGpuHandler(
