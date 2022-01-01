@@ -65,6 +65,7 @@ class TestComTrain(absltest.TestCase):
             cli.com_train_cli()
 
     def test_com_train_mono(self):
+        train_setup()
         args = ["com-train", "config_com_mousetest.yaml", "--mono=True", "--downfac=8"]
         with patch("sys.argv", args):
             cli.com_train_cli()
