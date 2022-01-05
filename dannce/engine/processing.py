@@ -765,7 +765,6 @@ def grab_predict_label3d_file(defaultdir=""):
     print("Using the following *dannce.mat files: {}".format(label3d_files[0]))
     return label3d_files[0]
 
-
 def load_expdict(params, e, expdict, _DEFAULT_VIDDIR):
     """
     Load in camnames and video directories and label3d files for a single experiment

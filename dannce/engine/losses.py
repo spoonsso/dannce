@@ -172,3 +172,6 @@ def gaussian_cross_entropy_loss(y_true, y_pred):
     y_pred, y_true, num_notnan = mask_nan(y_true, y_pred)
     loss = K.sum(tf.nn.sigmoid_cross_entropy_with_logits(labels=K.flatten(y_true), logits=K.flatten(y_pred))) / num_notnan
     return tf.where(~tf.math.is_nan(loss), loss, 0)
+
+
+###
