@@ -12,10 +12,9 @@ from copy import deepcopy
 
 
 def prepare_data(
-    CONFIG_PARAMS,
+    params,
     com_flag=True,
-    nanflag=True,
-    multimode=False,
+    nanflag=False,
     prediction=False,
     return_cammat=False,
 ):
@@ -29,28 +28,32 @@ def prepare_data(
     multimode: when this True, we output all 2D markers AND their 2D COM
     """
     if prediction:
-        labels = load_sync(CONFIG_PARAMS["label3d_file"])
+        labels = load_sync(params["label3d_file"])
         nFrames = np.max(labels[0]["data_frame"].shape)
-        nKeypoints = CONFIG_PARAMS["n_channels_out"]
-        if "new_n_channels_out" in CONFIG_PARAMS.keys():
-            if CONFIG_PARAMS["new_n_channels_out"] is not None:
-                nKeypoints = CONFIG_PARAMS["new_n_channels_out"]
+        nKeypoints = params["n_channels_out"]
+        if "new_n_channels_out" in params.keys():
+            if params["new_n_channels_out"] is not None:
+                nKeypoints = params["new_n_channels_out"]
         for i in range(len(labels)):
             labels[i]["data_3d"] = np.zeros((nFrames, 3 * nKeypoints))
             labels[i]["data_2d"] = np.zeros((nFrames, 2 * nKeypoints))
         # import pdb
         # pdb.set_trace()
     else:
-        print(CONFIG_PARAMS["label3d_file"])
-        labels = load_labels(CONFIG_PARAMS["label3d_file"])
+        print(params["label3d_file"])
+        labels = load_labels(params["label3d_file"])
 
-    params = load_camera_params(CONFIG_PARAMS["label3d_file"])
-    cameras = {name: params[i] for i, name in enumerate(CONFIG_PARAMS["camnames"])}
+    camera_params = load_camera_params(params["label3d_file"])
+    cameras = {name: camera_params[i] for i, name in enumerate(params["camnames"])}
 
-    if "m" in params[0] and not CONFIG_PARAMS["mirror"]:
-        warnings.warn("found mirror field in camera params, but the network is not set to run in mirror mode")
-    elif CONFIG_PARAMS["mirror"] and "m" not in params[0]:
-        raise Exception("network set to run in mirror mode, but cannot find mirror (m) field in camera params")
+    if "m" in camera_params[0] and not params["mirror"]:
+        warnings.warn(
+            "found mirror field in camera params, but the network is not set to run in mirror mode"
+        )
+    elif params["mirror"] and "m" not in camera_params[0]:
+        raise Exception(
+            "network set to run in mirror mode, but cannot find mirror (m) field in camera params"
+        )
 
     samples = np.squeeze(labels[0]["data_sampleID"])
 
@@ -63,36 +66,28 @@ def prepare_data(
     # Collect data labels and matched frames info. We will keep the 2d labels
     # here just because we could in theory use this for training later.
     # No need to collect 3d data but it useful for checking predictions
-    if len(CONFIG_PARAMS["camnames"]) != len(labels):
+    if len(params["camnames"]) != len(labels):
         raise Exception("need an entry in label3d_file for every camera")
 
     framedict = {}
     ddict = {}
 
     for i, label in enumerate(labels):
-        framedict[CONFIG_PARAMS["camnames"][i]] = np.squeeze(
-            label["data_frame"]
-        )
+        framedict[params["camnames"][i]] = np.squeeze(label["data_frame"])
         data = label["data_2d"]
 
         # reshape data_2d so that it is shape (time points, 2, 20)
-        data = np.transpose(
-            np.reshape(data, [data.shape[0], -1, 2]), [0, 2, 1]
-        )
+        data = np.transpose(np.reshape(data, [data.shape[0], -1, 2]), [0, 2, 1])
 
         # Correct for Matlab "1" indexing
         data = data - 1
 
-        if CONFIG_PARAMS["mirror"] and cameras[CONFIG_PARAMS["camnames"][i]]["m"] == 1:
+        if params["mirror"] and cameras[params["camnames"][i]]["m"] == 1:
             # then we need to flip the 2D coords -- for now assuemd only horizontal flipping
-            data[:, 1] = CONFIG_PARAMS["raw_im_h"] - data[:, 1] - 1
+            data[:, 1] = params["raw_im_h"] - data[:, 1] - 1
 
-        if multimode:
-            print(
-                "Entering multi-mode with {} + 1 targets".format(
-                    data.shape[-1]
-                )
-            )
+        if params["multi_mode"]:
+            print("Entering multi-mode with {} + 1 targets".format(data.shape[-1]))
             if nanflag:
                 dcom = np.mean(data, axis=2, keepdims=True)
             else:
@@ -100,43 +95,39 @@ def prepare_data(
             data = np.concatenate((data, dcom), axis=-1)
         elif com_flag:
             # Convert to COM only if not already
-            if len(data.shape) == 3 and CONFIG_PARAMS["n_instances"] == 1:
+            if len(data.shape) == 3 and params["n_instances"] == 1:
                 if nanflag:
                     data = np.mean(data, axis=2)
                 else:
                     data = np.nanmean(data, axis=2)
                 data = data[:, :, np.newaxis]
-        ddict[CONFIG_PARAMS["camnames"][i]] = data
+        ddict[params["camnames"][i]] = data
 
     data_3d = labels[0]["data_3d"]
-    data_3d = np.transpose(
-        np.reshape(data_3d, [data_3d.shape[0], -1, 3]), [0, 2, 1]
-    )
+    data_3d = np.transpose(np.reshape(data_3d, [data_3d.shape[0], -1, 3]), [0, 2, 1])
 
-    #If specific markers are set to be excluded, set them to NaN here.
-    if CONFIG_PARAMS["drop_landmark"] is not None and not prediction:
-        print("Setting landmarks {} to NaN. These landmarks will not be included in loss or metric evaluations".format(CONFIG_PARAMS["drop_landmark"]))
-        data_3d[:, :, CONFIG_PARAMS["drop_landmark"]] = np.nan
+    # If specific markers are set to be excluded, set them to NaN here.
+    if params["drop_landmark"] is not None and not prediction:
+        print(
+            "Setting landmarks {} to NaN. These landmarks will not be included in loss or metric evaluations".format(
+                params["drop_landmark"]
+            )
+        )
+        data_3d[:, :, params["drop_landmark"]] = np.nan
 
     datadict = {}
     datadict_3d = {}
     for i in range(len(samples)):
         frames = {}
         data = {}
-        for j in range(len(CONFIG_PARAMS["camnames"])):
-            frames[CONFIG_PARAMS["camnames"][j]] = framedict[
-                CONFIG_PARAMS["camnames"][j]
-            ][i]
-            data[CONFIG_PARAMS["camnames"][j]] = ddict[
-                CONFIG_PARAMS["camnames"][j]
-            ][i]
+        for j in range(len(params["camnames"])):
+            frames[params["camnames"][j]] = framedict[params["camnames"][j]][i]
+            data[params["camnames"][j]] = ddict[params["camnames"][j]][i]
         datadict[samples[i]] = {"data": data, "frames": frames}
         datadict_3d[samples[i]] = data_3d[i]
 
-    params = load_camera_params(CONFIG_PARAMS["label3d_file"])
-    cameras = {
-        name: params[i] for i, name in enumerate(CONFIG_PARAMS["camnames"])
-    }
+    camera_params = load_camera_params(params["label3d_file"])
+    cameras = {name: camera_params[i] for i, name in enumerate(params["camnames"])}
     if return_cammat:
         camera_mats = {
             name: ops.camera_matrix(cam["K"], cam["r"], cam["t"])
@@ -174,9 +165,7 @@ def prepare_COM_multi_instance(
 
     firstkey = list(com.keys())[0]
 
-    camnames = np.array(
-        list(datadict[list(datadict.keys())[0]]["data"].keys())
-    )
+    camnames = np.array(list(datadict[list(datadict.keys())[0]]["data"].keys()))
 
     # Because I repeat cameras to fill up 6 camera quota, I need grab only
     # the unique names
@@ -267,9 +256,7 @@ def prepare_COM(
 
     firstkey = list(com.keys())[0]
 
-    camnames = np.array(
-        list(datadict[list(datadict.keys())[0]]["data"].keys())
-    )
+    camnames = np.array(list(datadict[list(datadict.keys())[0]]["data"].keys()))
 
     # Because I repeat cameras to fill up 6 camera quota, I need grab only
     # the unique names
@@ -290,18 +277,13 @@ def prepare_COM(
 
         if key in datadict.keys():
             for k in range(len(camnames)):
-                datadict[key]["data"][camnames[k]] = this_com[camnames[k]][
-                    "COM"
-                ][:, np.newaxis].astype("float32")
+                datadict[key]["data"][camnames[k]] = this_com[camnames[k]]["COM"][
+                    :, np.newaxis
+                ].astype("float32")
 
                 # Quick & dirty way to dynamically scale the confidence map output
-                if (
-                    conf_rescale is not None
-                    and camnames[k] in conf_rescale.keys()
-                ):
-                    this_com[camnames[k]]["pred_max"] *= conf_rescale[
-                        camnames[k]
-                    ]
+                if conf_rescale is not None and camnames[k] in conf_rescale.keys():
+                    this_com[camnames[k]]["pred_max"] *= conf_rescale[camnames[k]]
 
                 # then, set to nan
                 if this_com[camnames[k]]["pred_max"] <= comthresh:
@@ -468,20 +450,16 @@ def add_experiment(
         datadict_out[str(experiment) + "_" + str(int(key))] = datadict_in[key]
 
     for key in datadict_3d_in.keys():
-        datadict_3d_out[
-            str(experiment) + "_" + str(int(key))
-        ] = datadict_3d_in[key]
+        datadict_3d_out[str(experiment) + "_" + str(int(key))] = datadict_3d_in[key]
 
     for key in com3d_dict_in.keys():
-        com3d_dict_out[str(experiment) + "_" + str(int(key))] = com3d_dict_in[
-            key
-        ]
+        com3d_dict_out[str(experiment) + "_" + str(int(key))] = com3d_dict_in[key]
 
     return samples_out, datadict_out, datadict_3d_out, com3d_dict_out
 
 
 def prepend_experiment(
-    CONFIG_PARAMS,
+    params,
     datadict,
     num_experiments,
     camnames,
@@ -504,20 +482,18 @@ def prepend_experiment(
             cameras_[e][str(e) + "_" + key] = cameras[e][key]
 
         camnames[e] = [str(e) + "_" + f for f in camnames[e]]
-        CONFIG_PARAMS["experiment"][e]["camnames"] = camnames[e]
+        params["experiment"][e]["camnames"] = camnames[e]
 
         for n_cam, name in enumerate(camnames[e]):
             # print(name)
-            # print(CONFIG_PARAMS["experiment"][e]["chunks"][name])
+            # print(params["experiment"][e]["chunks"][name])
             if dannce_prediction:
-                new_chunks[name] = CONFIG_PARAMS["experiment"][e]["chunks"][
+                new_chunks[name] = params["experiment"][e]["chunks"][
                     prev_camnames[e][n_cam]
                 ]
             else:
-                new_chunks[name] = CONFIG_PARAMS["experiment"][e]["chunks"][
-                    name
-                ]
-        CONFIG_PARAMS["experiment"][e]["chunks"] = new_chunks
+                new_chunks[name] = params["experiment"][e]["chunks"][name]
+        params["experiment"][e]["chunks"] = new_chunks
 
     for key in datadict.keys():
         enum = key.split("_")[0]
@@ -525,11 +501,7 @@ def prepend_experiment(
         datadict_[key]["data"] = {}
         datadict_[key]["frames"] = {}
         for key_ in datadict[key]["data"]:
-            datadict_[key]["data"][enum + "_" + key_] = datadict[key]["data"][
-                key_
-            ]
-            datadict_[key]["frames"][enum + "_" + key_] = datadict[key][
-                "frames"
-            ][key_]
+            datadict_[key]["data"][enum + "_" + key_] = datadict[key]["data"][key_]
+            datadict_[key]["frames"][enum + "_" + key_] = datadict[key]["frames"][key_]
 
-    return cameras_, datadict_, CONFIG_PARAMS
+    return cameras_, datadict_, params
