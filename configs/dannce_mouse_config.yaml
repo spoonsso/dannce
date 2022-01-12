@@ -18,7 +18,7 @@ net_type: AVG
 # 'new': initializes and trains a network from scratch
 # 'finetune': loads in pre-trained weights and fine-tuned from there
 # 'continued': initializes a full model, including optimizer state, and continuous training from the last full model checkpoint
-train_mode: finetune
+train_mode: new
 
 # How many samples from each animal do you want to (randomly) set aside for a validation metric?
 num_validation_per_exp: 4
