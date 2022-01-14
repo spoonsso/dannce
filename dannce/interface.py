@@ -1155,17 +1155,19 @@ def dannce_train(params: Dict):
                 gridsize=gridsize,
             )
         elif params["train_mode"] == "finetune":
-            fargs = [params["loss"],
-                     float(params["lr"]),
-                     params["chan_num"] + params["depth"],
-                     params["n_channels_out"],
-                     len(camnames[0]),
-                     params["new_last_kernel_size"],
-                     params["new_n_channels_out"],
-                     params["dannce_finetune_weights"],
-                     params["n_layers_locked"],
-                     params["norm_method"],
-                     gridsize]
+            fargs = [
+                params["loss"],
+                float(params["lr"]),
+                params["chan_num"] + params["depth"],
+                params["n_channels_out"],
+                len(camnames[0]),
+                params["new_last_kernel_size"],
+                params["new_n_channels_out"],
+                params["dannce_finetune_weights"],
+                params["n_layers_locked"],
+                params["norm_method"],
+                gridsize,
+            ]
             try:
                 model = params["net"](*fargs)
             except:
