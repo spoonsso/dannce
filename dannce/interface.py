@@ -1118,7 +1118,7 @@ def dannce_train(params: Dict):
                 params["new_n_channels_out"],
                 params["dannce_finetune_weights"],
                 params["n_layers_locked"],
-                params["norm_method"],
+                norm_method=params["norm_method"],
                 gridsize,
             ]
             try:
@@ -1154,7 +1154,7 @@ def dannce_train(params: Dict):
                 params["chan_num"] + params["depth"],
                 params["n_channels_out"],
                 3 if cam3_train else len(camnames[0]),
-                params["norm_method"],
+                norm_method=params["norm_method"],
                 include_top=True,
                 gridsize=gridsize,
             )
@@ -1585,7 +1585,7 @@ def build_model(params: Dict, camnames: List) -> Model:
                 params["new_n_channels_out"],
                 params["dannce_finetune_weights"],
                 params["n_layers_locked"],
-                params["norm_method"],
+                norm_method=params["norm_method"],
                 gridsize=gridsize,
             )
         else:
@@ -1597,7 +1597,7 @@ def build_model(params: Dict, camnames: List) -> Model:
                 params["chan_num"] + params["depth"],
                 params["n_channels_out"],
                 len(camnames[0]),
-                params["norm_method"],
+                norm_method=params["norm_method"],
                 include_top=True,
                 gridsize=gridsize,
             )
