@@ -1118,7 +1118,7 @@ def dannce_train(params: Dict):
                 params["new_n_channels_out"],
                 params["dannce_finetune_weights"],
                 params["n_layers_locked"],
-                norm_method=params["norm_method"],
+                params["norm_method"],
                 gridsize,
             ]
             try:
