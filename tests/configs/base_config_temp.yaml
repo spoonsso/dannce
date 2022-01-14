@@ -35,7 +35,7 @@ max_queue_size: 20
 sigma: 10
 
 # DANNCE training option. Sets the number of epochs during training (default 1200)
-epochs: 3
+epochs: 1
 
 # DANNCE training option. Sets the verbosity of training output
 verbose: 1
@@ -121,7 +121,7 @@ cthresh: 350
 channel_combo: 'None'
 
 # max. number of batches to evaluate during prediction. set to 'max' to evaluate over all data/video frames
-maxbatch: 250
+max_num_samples: 10
 
 start_batch: 0
 

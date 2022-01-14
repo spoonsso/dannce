@@ -95,6 +95,7 @@ def debug_com(
     print("Writing " + params["com_debug"] + " confidence maps to " + cmapdir)
     print("Writing " + params["com_debug"] + "COM-image overlays to " + overlaydir)
 
+    batch_size = pred_batch.shape[0]
     # Write preds
     plt.figure(0)
     plt.cla()
@@ -102,13 +103,13 @@ def debug_com(
     plt.savefig(
         os.path.join(
             cmapdir,
-            params["com_debug"] + str(n_frame + n_batch) + ".png",
+            params["com_debug"] + str(n_frame * batch_size + n_batch) + ".png",
         )
     )
 
     plt.figure(1)
     plt.cla()
-    im = generator.__getitem__(n_frame * n_batches + n_batch)
+    im = generator.__getitem__(n_frame * batch_size + n_batch)
     plt.imshow(processing.norm_im(im[0][n_cam]))
     plt.plot(
         (ind[0] - params["crop_width"][0]) / params["downfac"],
@@ -118,7 +119,7 @@ def debug_com(
     plt.savefig(
         os.path.join(
             overlaydir,
-            params["com_debug"] + str(n_frame + n_batch) + ".png",
+            params["com_debug"] + str(n_frame * batch_size + n_batch) + ".png",
         )
     )
 
@@ -638,13 +639,10 @@ def infer_com(
 
 
 def infer_dannce(
-    start_ind: int,
-    end_ind: int,
     generator: keras.utils.Sequence,
     params: Dict,
     model: Model,
     partition: Dict,
-    save_data: Dict,
     device: Text,
     n_chn: int,
 ):
@@ -657,12 +655,14 @@ def infer_dannce(
         params (Dict): Parameters dictionary.
         model (Model): Inference model.
         partition (Dict): Partition dictionary
-        save_data (Dict): Saved data dictionary
         device (Text): Gpu device name
         n_chn (int): Number of output channels
     """
 
     end_time = time.time()
+    save_data = {}
+    start_ind = params["start_batch"]
+    end_ind = params["maxbatch"]
     for idx, i in enumerate(range(start_ind, end_ind)):
         print("Predicting on batch {}".format(i), flush=True)
         if (i - start_ind) % 10 == 0 and i != start_ind:

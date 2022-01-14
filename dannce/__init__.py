@@ -44,6 +44,7 @@ _param_defaults_shared = {
     "use_npy": False,
     "data_split_seed": None,
     "valid_exp": None,
+    "norm_method":"layer",
     "slurm_config": None,
 }
 _param_defaults_dannce = {
@@ -93,6 +94,8 @@ _param_defaults_dannce = {
     "heatmap_reg": False,
     "heatmap_reg_coeff": 0.01,
     "save_pred_targets": False,
+    "huber-delta": 1.35,            #Change Adapted from implementation by robb
+    "avg+max": None,
 }
 _param_defaults_com = {
     "dsmode": "nn",

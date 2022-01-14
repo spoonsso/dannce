@@ -25,6 +25,7 @@ MISSING_KEYPOINTS_MSG = (
 
 TF_GPU_MEMORY_FRACTION = 0.9
 
+
 class DataGenerator(keras.utils.Sequence):
     """Generate data for Keras.
 
@@ -2090,6 +2091,7 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         xgrid (np.ndarray): For the AVG network, this contains the 3D grid coordinates
         n_rand_views (int): Number of reviews to sample randomly from the full set
         replace (bool): If True, samples n_rand_views with replacement
+        aux_labels (np.ndarray): If not None, contains the 3D MAX training targets for AVG+MAX training.
     """
 
     def __init__(
@@ -2119,6 +2121,7 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         n_rand_views=None,
         heatmap_reg=False,
         heatmap_reg_coeff=0.01,
+        aux_labels=None,
     ):
         """Initialize data generator.
 
@@ -2143,6 +2146,7 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
             rotation_val (float, optional): Range of angles used for continuous rotation augmentation
             n_rand_views (int, optional): Number of reviews to sample randomly from the full set
             replace (bool, optional): If True, samples n_rand_views with replacement
+            aux_labels (np.ndarray, optional): If not None, contains the 3D MAX training targets for AVG+MAX training.
         """
         self.list_IDs = list_IDs
         self.data = data
@@ -2173,6 +2177,7 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         self.replace = replace
         self.heatmap_reg = heatmap_reg
         self.heatmap_reg_coeff = heatmap_reg_coeff
+        self.aux_labels = aux_labels
         self.on_epoch_end()
 
     def __len__(self):
@@ -2229,7 +2234,7 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         X = X[:, ::-1, ...]
         X_grid = X_grid[:, ::-1, ...]
 
-        # Flip the left and right keypoints. 
+        # Flip the left and right keypoints.
         temp = y_3d[..., self.left_keypoints].copy()
         y_3d[..., self.left_keypoints] = y_3d[..., self.right_keypoints]
         y_3d[..., self.right_keypoints] = temp
@@ -2247,13 +2252,13 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         X = X[::-1, ::-1, :, :]
         return X
 
-    def random_rotate(self, X, y_3d):
+    def random_rotate(self, X, y_3d, aux=None):
         """Rotate each sample by 0, 90, 180, or 270 degrees.
 
         Args:
             X (np.ndarray): Image volumes
             y_3d (np.ndarray): 3D grid coordinates (AVG) or training target volumes (MAX)
-
+            aux (np.ndarray or None): Populated in MAX+AVG mode with the training target volumes
         Returns:
             X (np.ndarray): Rotated image volumes
             y_3d (np.ndarray): Rotated 3D grid coordinates (AVG) or training target volumes (MAX)
@@ -2266,18 +2271,28 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
                 # Rotate180
                 X[i] = self.rot180(X[i])
                 y_3d[i] = self.rot180(y_3d[i])
+                if aux is not None:
+                    aux[i] = self.rot180(aux[i])
             elif rots[i] == 2:
                 # Rotate90
                 X[i] = self.rot90(X[i])
                 y_3d[i] = self.rot90(y_3d[i])
+                if aux is not None:
+                    aux[i] = self.rot90(aux[i])
             elif rots[i] == 3:
                 # Rotate -90/270
                 X[i] = self.rot90(X[i])
                 X[i] = self.rot180(X[i])
                 y_3d[i] = self.rot90(y_3d[i])
                 y_3d[i] = self.rot180(y_3d[i])
+                if aux is not None:
+                    aux[i] = self.rot90(aux[i])
+                    aux[i] = self.rot180(aux[i])
 
-        return X, y_3d
+        if aux is not None:
+            return X, y_3d, aux
+        else:
+            return X, y_3d
 
     def visualize(self, original, augmented):
         """Plots example image after augmentation
@@ -2299,13 +2314,14 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         plt.show()
         input("Press Enter to continue...")
 
-    def do_augmentation(self, X, X_grid, y_3d):
+    def do_augmentation(self, X, X_grid, y_3d, aux=None):
         """Applies augmentation
 
         Args:
             X (np.ndarray): image volumes
             X_grid (np.ndarray): 3D grid coordinates
             y_3d (np.ndarray): training targets
+            aux (np.ndarray or None): additional target volumes if using MAX+AVG mode
 
         Returns:
             X (np.ndarray): Augemented image volumes
@@ -2319,13 +2335,16 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
                     X_grid,
                     (self.batch_size, self.nvox, self.nvox, self.nvox, 3),
                 )
-                X, X_grid = self.random_rotate(X.copy(), X_grid.copy())
+                if aux is not None:
+                    X, X_grid, aux = self.random_rotate(X.copy(), X_grid.copy(), aux.copy())
+                else:
+                    X, X_grid = self.random_rotate(X.copy(), X_grid.copy())
                 # Need to reshape back to raveled version
                 X_grid = np.reshape(X_grid, (self.batch_size, -1, 3))
             else:
                 X, y_3d = self.random_rotate(X.copy(), y_3d.copy())
 
-        if self.augment_continuous_rotation:
+        if self.augment_continuous_rotation and aux is None:
             if self.expval:
                 # First make X_grid 3d
                 X_grid = np.reshape(
@@ -2366,7 +2385,7 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
                     X[..., channel_ids], self.bright_val
                 )
 
-        if self.mirror_augmentation:
+        if self.mirror_augmentation and self.expval and aux is None:
             if np.random.rand() > 0.5:
                 X_grid = np.reshape(
                     X_grid,
@@ -2375,8 +2394,11 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
                 # Flip the image and the symmetric keypoints
                 X, y_3d, X_grid = self.mirror(X.copy(), y_3d.copy(), X_grid.copy())
                 X_grid = np.reshape(X_grid, (self.batch_size, -1, 3))
+        else:
+            pass
+            ##TODO: implement mirror augmentation for max and avg+max modes
 
-        return X, X_grid, y_3d
+        return X, X_grid, y_3d, aux
 
     def do_random(self, X):
         """Randomly re-order camera views
@@ -2467,30 +2489,37 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         X = np.zeros((self.batch_size, *self.data.shape[1:]))
         y_3d = np.zeros((self.batch_size, *self.labels.shape[1:]))
 
-        # Only used when
+        # Only used for AVG mode
         if self.expval:
             X_grid = np.zeros((self.batch_size, *self.xgrid.shape[1:]))
         else:
             X_grid = None
+
+        # Only used for AVG+MAX mode
+        if self.aux_labels is not None:
+            aux = np.zeros((*X.shape[:4], y_3d.shape[-1]))
+        else:
+            aux = None
 
         for i, ID in enumerate(list_IDs_temp):
             X[i] = self.data[ID].copy()
             y_3d[i] = self.labels[ID]
             if self.expval:
                 X_grid[i] = self.xgrid[ID]
+            if aux is not None:
+                aux[i] = self.aux_labels[ID]
 
-        X, X_grid, y_3d = self.do_augmentation(X, X_grid, y_3d)
+        X, X_grid, y_3d, aux = self.do_augmentation(X, X_grid, y_3d, aux)
 
         # Randomly re-order, if desired
         X = self.do_random(X)
 
         if self.expval:
             if self.heatmap_reg:
-                return [X, X_grid, self.get_max_gt_ind(X_grid, y_3d)], [
-                    y_3d,
-                    self.heatmap_reg_coeff
-                    * np.ones((self.batch_size, y_3d.shape[-1]), dtype="float32"),
-                ]
+                return [X, X_grid, self.get_max_gt_ind(X_grid, y_3d)], [y_3d,
+                    self.heatmap_reg_coeff*np.ones((self.batch_size, y_3d.shape[-1]), dtype='float32')]
+            elif aux is not None:
+                return [X, X_grid], [y_3d, aux]
             return [X, X_grid], y_3d
         else:
             return X, y_3d
@@ -2552,6 +2581,9 @@ class DataGenerator_3Dconv_npy(DataGenerator_3Dconv_frommem):
         augment_brightness=True,
         augment_hue=True,
         augment_continuous_rotation=True,
+        mirror_augmentation=False,
+        right_keypoints=None,
+        left_keypoints=None,
         bright_val=0.05,
         hue_val=0.05,
         rotation_val=5,
@@ -2609,6 +2641,13 @@ class DataGenerator_3Dconv_npy(DataGenerator_3Dconv_frommem):
         self.augment_hue = augment_hue
         self.augment_continuous_rotation = augment_continuous_rotation
         self.augment_brightness = augment_brightness
+        self.mirror_augmentation = mirror_augmentation
+        self.right_keypoints = right_keypoints
+        self.left_keypoints = left_keypoints
+        if self.mirror_augmentation and (
+            self.right_keypoints is None or self.left_keypoints is None
+        ):
+            raise Exception(MISSING_KEYPOINTS_MSG)
         self.bright_val = bright_val
         self.hue_val = hue_val
         self.rotation_val = rotation_val
@@ -2782,7 +2821,7 @@ class DataGenerator_3Dconv_npy(DataGenerator_3Dconv_frommem):
 
         ncam = int(X.shape[-1] // self.chan_num)
 
-        X, X_grid, y_3d = self.do_augmentation(X, X_grid, y_3d)
+        X, X_grid, y_3d, aux = self.do_augmentation(X, X_grid, y_3d)
 
         # Randomly re-order, if desired
         X = self.do_random(X)

@@ -19,6 +19,7 @@ import argparse
 import yaml
 from typing import Dict, Text
 
+
 def load_params(param_path: Text) -> Dict:
     """Load a params file
 
@@ -27,53 +28,75 @@ def load_params(param_path: Text) -> Dict:
 
     Returns:
         Dict: Parameters
-    """    """Load a params file"""
+    """
     with open(param_path, "rb") as file:
         params = yaml.safe_load(file)
     return params
+
 
 def parse_sbatch() -> Text:
     """Parse sbatch call for base config
 
     Returns:
         Text: Base config path
-    """    
+    """
     parser = argparse.ArgumentParser(
         description="Com predict CLI",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument(
-            "base_config", metavar="base_config", help="Path to base config."
+        "base_config", metavar="base_config", help="Path to base config."
     )
     return parser.parse_args().base_config
 
+
 def sbatch_dannce_predict_cli():
-    """CLI to submit dannce prediction through sbatch using the slurm config specified in the base config."""    
+    """CLI to submit dannce prediction through sbatch using the slurm config specified in the base config."""
     base_config = parse_sbatch()
     slurm_config = load_params(load_params(base_config)["slurm_config"])
-    cmd = "sbatch %s --wrap=\"%s dannce-predict %s\"" % (slurm_config["dannce_predict"], slurm_config["setup"], base_config)
+    cmd = 'sbatch %s --wrap="%s dannce-predict %s"' % (
+        slurm_config["dannce_predict"],
+        slurm_config["setup"],
+        base_config,
+    )
     os.system(cmd)
+
 
 def sbatch_dannce_train_cli():
-    """CLI to submit dannce training through sbatch using the slurm config specified in the base config."""    
+    """CLI to submit dannce training through sbatch using the slurm config specified in the base config."""
     base_config = parse_sbatch()
     slurm_config = load_params(load_params(base_config)["slurm_config"])
-    cmd = "sbatch %s --wrap=\"%s dannce-train %s\"" % (slurm_config["dannce_train"], slurm_config["setup"], base_config)
+    cmd = 'sbatch %s --wrap="%s dannce-train %s"' % (
+        slurm_config["dannce_train"],
+        slurm_config["setup"],
+        base_config,
+    )
     os.system(cmd)
+
 
 def sbatch_com_predict_cli():
-    """CLI to submit com predition through sbatch using the slurm config specified in the base config."""    
+    """CLI to submit com predition through sbatch using the slurm config specified in the base config."""
     base_config = parse_sbatch()
     slurm_config = load_params(load_params(base_config)["slurm_config"])
-    cmd = "sbatch %s --wrap=\"%s com-predict %s\"" % (slurm_config["com_predict"], slurm_config["setup"], base_config)
+    cmd = 'sbatch %s --wrap="%s com-predict %s"' % (
+        slurm_config["com_predict"],
+        slurm_config["setup"],
+        base_config,
+    )
     os.system(cmd)
 
+
 def sbatch_com_train_cli():
-    """CLI to submit com training through sbatch using the slurm config specified in the base config."""    
+    """CLI to submit com training through sbatch using the slurm config specified in the base config."""
     base_config = parse_sbatch()
     slurm_config = load_params(load_params(base_config)["slurm_config"])
-    cmd = "sbatch %s --wrap=\"%s com-train %s\"" % (slurm_config["com_train"], slurm_config["setup"], base_config)
+    cmd = 'sbatch %s --wrap="%s com-train %s"' % (
+        slurm_config["com_train"],
+        slurm_config["setup"],
+        base_config,
+    )
     os.system(cmd)
+
 
 def com_predict_cli():
     """Entrypoint for com prediction."""
@@ -226,6 +249,12 @@ def add_shared_args(
         help="If true, uses a single video file for multiple views.",
     )
 
+    parser.add_argument(
+        "--norm-method",
+        dest="norm_method",
+        help="Normalization method to use, can be 'batch', 'instance', or 'layer'.",
+    )
+
     return parser
 
 
@@ -250,6 +279,13 @@ def add_shared_train_args(
         "--loss",
         dest="loss",
         help="Loss function to use during training. See losses.py.",
+    )
+    # Taken from changes by robb
+    parser.add_argument(
+        "--huber-delta",
+        dest="huber-delta",
+        type=float,
+        help="Delta Value if using huber loss",
     )
     parser.add_argument(
         "--epochs", dest="epochs", type=int, help="Number of epochs to train."
@@ -571,6 +607,11 @@ def add_dannce_train_args(
         type=ast.literal_eval,
         help="If True, save predictions evaluated at checkpoints during training. Note that for large training datasets, this can cause memory issues.",
     )
+    parser.add_argument(
+        "--avg-max",
+        dest="avg+max",
+        type=float,
+        help="Pass a floating point value here for DANNCE to enter AVG+MAX training mode, where the 3D maps are MAX-like regularized to be Gaussian. The avg+max value is used to weight the contribution of the MAX-like loss.")
     return parser
 
 
