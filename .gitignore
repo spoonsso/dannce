@@ -61,3 +61,6 @@ demo/markerless_mouse_1/videos/
 demo/markerless_mouse_2/videos/
 
 .vscode/
+prepare_data.ipynb
+prepare_data.py
+timm.ipynb
