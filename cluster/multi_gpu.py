@@ -268,7 +268,7 @@ class MultiGpuHandler:
             pred_files = [
                 f for f in os.listdir(self.predict_path) if COM_BASE_NAME in f
             ]
-            pred_files = [f for f in pred_files if f != (COM_BASE_NAME + ".mat")]
+            pred_files = [f for f in pred_files if not f.endswith(COM_BASE_NAME + ".mat")]
             if len(pred_files) > 1:
                 params = load_params(self.config)
                 pred_ids = [int(f.split(".")[0].split("3d")[1]) for f in pred_files]
@@ -303,11 +303,12 @@ class MultiGpuHandler:
             batch_params = []
             for n_instance in range(params["n_instances"]):
                 com_file = os.path.join(
-                    params["com_predict_dir"], "instance%d_com3d.mat" % (n_instance)
+                    params["com_predict_dir"], "instance%dcom3d.mat" % (n_instance)
                 )
                 dannce_predict_dir = os.path.join(
                     params["dannce_predict_dir"], "instance%d" % (n_instance)
                 )
+                os.makedirs(dannce_predict_dir, exist_ok=True)
                 for sb, mb in zip(start_samples, max_samples):
                     batch_params.append(
                         {
@@ -341,7 +342,7 @@ class MultiGpuHandler:
             (List): Updated batch parameters list.
         """
         dannce_predict_dirs = [param["dannce_predict_dir"] for param in batch_params]
-        dannce_predict_dirs = np.unique(dannce_predict_dirs)
+        dannce_predict_dirs = list(set(dannce_predict_dirs))
 
         # For each instance directory, find the completed batches and delete the params.
         for pred_dir in dannce_predict_dirs:
@@ -413,7 +414,7 @@ class MultiGpuHandler:
                 print("End sample:", batch_param["max_num_samples"])
             print("Command issued: ", cmd)
         if not self.test:
-            sys.exit(os.WEXITSTATUS(os.system(cmd)))
+            return os.WEXITSTATUS(os.system(cmd))
 
     def submit_dannce_predict_multi_gpu(self):
         """Predict dannce over multiple gpus in parallel.
@@ -677,17 +678,23 @@ def inference():
     args = inference_clargs()
 
     # Load in parameters to modify
-    handler = MultiGpuHandler(args["com_config"], only_unfinished=True)
+    handler = MultiGpuHandler(args["com_config"], only_unfinished=True, test=args["test"])
     handler.submit_com_predict_multi_gpu()
     handler.submit_com_predict_multi_gpu()
     handler.submit_com_predict_multi_gpu()
-    handler.com_merge()
+    if args["test"]:
+        print("Skipping com merge during test.")
+    else: 
+        handler.com_merge()
 
-    handler = MultiGpuHandler(args["dannce_config"], only_unfinished=True)
+    handler = MultiGpuHandler(args["dannce_config"], only_unfinished=True, test=args["test"])
     handler.submit_dannce_predict_multi_gpu()
     handler.submit_dannce_predict_multi_gpu()
     handler.submit_dannce_predict_multi_gpu()
-    handler.dannce_merge()
+    if args["test"]:
+        print("Skipping dannce merge during test.")
+    else: 
+        handler.dannce_merge()
 
 
 def submit_inference():
@@ -695,16 +702,20 @@ def submit_inference():
     # Make parser object
     args = inference_clargs()
     com_config = load_params(args["com_config"])
-    slurm_config = load_params(load_params(args["dannce_config"])["slurm_config"])
+    dannce_config = load_params(args["dannce_config"])
+    slurm_config = load_params(dannce_config["slurm_config"])
+    io_config = load_params("io.yaml")
     
     # Determine whether running multi instance or single instance
-    if "n_instances" in com_config:
-        if com_config["n_instances"] >= 2:
-            inference_command = "dannce-multi-instance-inference"
+    for config in [com_config, dannce_config, io_config]:
+        if "n_instances" in config:
+            if config["n_instances"] >= 2:
+                inference_command = "dannce-multi-instance-inference"
+                break
+            else:
+                inference_command = "dannce-inference"
         else:
             inference_command = "dannce-inference"
-    else:
-        inference_command = "dannce-inference"
 
     cmd = (
         'sbatch %s --wrap="%s %s %s %s"'
@@ -739,24 +750,34 @@ def inference_clargs():
 def multi_instance_inference():
     args = inference_clargs()
     # Load in parameters to modify
-    handler = MultiGpuHandler(args["com_config"], only_unfinished=True)
+    handler = MultiGpuHandler(args["com_config"], only_unfinished=True, test=args["test"])
     handler.submit_com_predict_multi_gpu()
     handler.submit_com_predict_multi_gpu()
     handler.submit_com_predict_multi_gpu()
-    handler.com_merge()
+    if args["test"]:
+        print("Skipping com merge during test.")
+    else: 
+        handler.com_merge()
 
-    handler = MultiGpuHandler(args["dannce_config"], only_unfinished=True)
+    handler = MultiGpuHandler(args["dannce_config"], only_unfinished=True, test=args["test"])
     handler.submit_dannce_predict_multi_gpu()
     handler.submit_dannce_predict_multi_gpu()
     handler.submit_dannce_predict_multi_gpu()
 
-    params = load_params["io.yaml"]
+    params = load_params("io.yaml")
     instance_0_path = os.path.join(params["dannce_predict_dir"], "instance0")
     instance_1_path = os.path.join(params["dannce_predict_dir"], "instance1")
-    handler = MultiGpuHandler(args["dannce_config"], predict_path=instance_0_path)
-    handler.dannce_merge()
-    handler = MultiGpuHandler(args["dannce_config"], predict_path=instance_1_path)
-    handler.dannce_merge()
+
+    handler = MultiGpuHandler(args["dannce_config"], predict_path=instance_0_path, test=args["test"])
+    if args["test"]:
+        print("Skipping dannce merge during test.")
+    else: 
+        handler.dannce_merge()
+    handler = MultiGpuHandler(args["dannce_config"], predict_path=instance_1_path, test=args["test"])
+    if args["test"]:
+        print("Skipping dannce merge during test.")
+    else: 
+        handler.dannce_merge()
 
 def dannce_predict_multi_gpu():
     """CLI entrypoint to submit batch jobs."""
