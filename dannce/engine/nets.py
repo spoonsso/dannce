@@ -564,6 +564,7 @@ def finetune_fullmodel_AVG(
     new_n_channels_out,
     weightspath,
     num_layers_locked=2,
+    norm_method="layer",
     gridsize=(64, 64, 64),
 ):
     """

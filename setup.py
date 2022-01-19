@@ -17,8 +17,8 @@ setup(
         "attrs",
         "multiprocess",
         "opencv-python",
-        "tensorflow==2.6.2",
-        "torch",
+        "tensorflow==2.6.0",
+        "keras==2.6.*", # Required to resolve pip keras install bug for tf 2.6
         "psutil",
     ],
     # scripts=[],
@@ -40,6 +40,9 @@ setup(
             "com-predict-single-batch = cluster.multi_gpu:com_predict_single_batch",
             "dannce-merge = cluster.multi_gpu:dannce_merge",
             "com-merge = cluster.multi_gpu:com_merge",
+            "dannce-inference-sbatch = cluster.multi_gpu:submit_inference",
+            "dannce-inference = cluster.multi_gpu:inference",
+            "dannce-multi-instance-inference = cluster.multi_gpu:multi_instance_inference",
         ]
     },
 )

@@ -25,6 +25,7 @@ MISSING_KEYPOINTS_MSG = (
 
 TF_GPU_MEMORY_FRACTION = 0.9
 
+
 class DataGenerator(keras.utils.Sequence):
     """Generate data for Keras.
 
@@ -2247,7 +2248,7 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         X = X[:, ::-1, ...]
         X_grid = X_grid[:, ::-1, ...]
 
-        # Flip the left and right keypoints. 
+        # Flip the left and right keypoints.
         temp = y_3d[..., self.left_keypoints].copy()
         y_3d[..., self.left_keypoints] = y_3d[..., self.right_keypoints]
         y_3d[..., self.right_keypoints] = temp
@@ -2594,6 +2595,9 @@ class DataGenerator_3Dconv_npy(DataGenerator_3Dconv_frommem):
         augment_brightness=True,
         augment_hue=True,
         augment_continuous_rotation=True,
+        mirror_augmentation=False,
+        right_keypoints=None,
+        left_keypoints=None,
         bright_val=0.05,
         hue_val=0.05,
         rotation_val=5,
@@ -2651,6 +2655,13 @@ class DataGenerator_3Dconv_npy(DataGenerator_3Dconv_frommem):
         self.augment_hue = augment_hue
         self.augment_continuous_rotation = augment_continuous_rotation
         self.augment_brightness = augment_brightness
+        self.mirror_augmentation = mirror_augmentation
+        self.right_keypoints = right_keypoints
+        self.left_keypoints = left_keypoints
+        if self.mirror_augmentation and (
+            self.right_keypoints is None or self.left_keypoints is None
+        ):
+            raise Exception(MISSING_KEYPOINTS_MSG)
         self.bright_val = bright_val
         self.hue_val = hue_val
         self.rotation_val = rotation_val

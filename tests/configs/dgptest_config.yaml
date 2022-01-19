@@ -9,7 +9,7 @@ n_channels_out: 22
 batch_size: 4
 
 # DANNCE training option. Sets the number of epochs during training (default 1200)
-epochs: 1000
+epochs: 1
 
 net_type: MAX
 
