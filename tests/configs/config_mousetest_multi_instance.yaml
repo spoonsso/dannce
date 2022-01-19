@@ -15,6 +15,8 @@ epochs: 1
 # 'continued': initializes a full model, including optimizer state, and continuous training from the last full model checkpoint
 train_mode: finetune
 
+n_instances: 2
+
 slurm_config: "/n/holylfs02/LABS/olveczky_lab/Diego/code/dannce/cluster/holyoke.yaml"
 
 # How many samples from each animal do you want to (randomly) set aside for a validation metric?

@@ -3,6 +3,7 @@
 io_config: io.yaml
 
 # New number of network output channels.
+n_channels_out: 22
 new_n_channels_out: 22
 
 # Batch size for training and prediction
@@ -18,7 +19,7 @@ net_type: AVG
 # 'new': initializes and trains a network from scratch
 # 'finetune': loads in pre-trained weights and fine-tuned from there
 # 'continued': initializes a full model, including optimizer state, and continuous training from the last full model checkpoint
-train_mode: finetune
+train_mode: new
 
 # How many samples from each animal do you want to (randomly) set aside for a validation metric?
 num_validation_per_exp: 4
@@ -33,4 +34,4 @@ nvox: 64
 max_num_samples: 1000
 
 # By default, will load in the first hdf5 file at this location for fine-tuning. If training from scratch, set to None
-dannce_finetune_weights: ./DANNCE/weights/weights.rat.MAX/
+dannce_finetune_weights: ./DANNCE/weights/

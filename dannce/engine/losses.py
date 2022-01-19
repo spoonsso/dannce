@@ -172,3 +172,38 @@ def gaussian_cross_entropy_loss(y_true, y_pred):
     y_pred, y_true, num_notnan = mask_nan(y_true, y_pred)
     loss = K.sum(tf.nn.sigmoid_cross_entropy_with_logits(labels=K.flatten(y_true), logits=K.flatten(y_pred))) / num_notnan
     return tf.where(~tf.math.is_nan(loss), loss, 0)
+
+
+###
+def mask_nan_pair(y1, y2):
+    nan_true = tf.math.logical_or(tf.math.is_nan(y1), tf.math.is_nan(y2))
+    notnan_true = ~nan_true #K.cast(~nan_true , "float32") 
+    num_notnan = K.sum(K.flatten(notnan_true))
+
+    y1 = K.cast(tf.where(notnan_true, y1, tf.zeros_like(y1)), "float32")
+    y2 = K.cast(tf.where(notnan_true, y2, tf.zeros_like(y2)), "float32")
+    return y1, y2, num_notnan
+
+def temporal_consistency(y_pred_t1, y_pred_t2):
+    """Unsupervised pairwise loss with respect to the temporal dimension.
+    """
+    assert y_pred_t1.shape == y_pred_t2.shape, "Imput shapes are inconsistent when computing the temporal consistency loss."
+    y_pred_t1, y_pred_t2, notnantrue = mask_nan_pair(y_pred_t1, y_pred_t2)
+
+    dists = tf.keras.metrics.mean_absolute_error(y_pred_t1, y_pred_t2)
+    min_dist, max_dist = K.max(dists), K.min(dists)
+    loss = (max_dist - min_dist) / max_dist
+
+    cosine_loss = tf.keras.losses.CosineSimilarity(axis=1)
+    sim = cosine_loss(y_pred_t1, y_pred_t2, dim=1)
+    sim = sim.sum() / len(sim)
+
+    return loss / K.max(sim, 1e-6)
+
+def pair_repulsion_loss(y_pred_s1, y_pred_s2):
+    """Unsupervised pairwise loss with respect to two subjects. 
+    The predictions should be as far as possible, i.e. repelling each other.
+    Input:
+        y_pred_s1, y_pred_s2: (B, N, 3)"""
+
+    return 1 / K.sum((y_pred_s1 - y_pred_s2)**2)

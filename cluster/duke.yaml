@@ -1,0 +1,13 @@
+# Dannce slurm configuration
+dannce_train: "--job-name=trainDannce -p gpu-common,dsplus-gpu --mem=80000 -t 3-00:00 --gres=gpu:1 -N 1 -c 16 --account=plusds"
+dannce_train_grid: "--job-name=trainDannce -p gpu-common,dsplus-gpu --mem=80000 -t 3-00:00 --gres=gpu:1 -N 1 -c 16 --account=plusds"
+dannce_predict: "--job-name=predictDannce -p gpu-common,dsplus-gpu --mem=30000 -t 1-00:00 --gres=gpu:1 -N 1 -c 8 --account=plusds"
+dannce_multi_predict: "--job-name=predictDannce -p gpu-common,dsplus-gpu --mem=30000 -t 0-03:00 --gres=gpu:1 -N 1 -n 8 --account=plusds"
+
+# Com slurm configuration
+com_train: "--job-name=trainCom -p gpu-common,dsplus-gpu --mem=30000 -t 3-00:00 --gres=gpu:1 -N 1 -c 8 --account=plusds"
+com_predict: "--job-name=predictCom -p gpu-common,dsplus-gpu --mem=10000 -t 3-00:00 --gres=gpu:1 -N 1 -c 8 --account=plusds"
+com_multi_predict: "--job-name=predictCom -p gpu-common,dsplus-gpu --mem=10000 -t 0-03:00 --gres=gpu:1 -N 1 -n 8 --account=plusds"
+
+# Setup functions (optional, set to "" if no setup is required. Trailing ; is required)
+setup: ". ~/.bashrc; conda activate dannce_tf26;"
