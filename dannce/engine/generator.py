@@ -652,26 +652,9 @@ class DataGenerator_3Dconv(DataGenerator):
             # Randomly reorder the cameras fed into the first layer
             elif self.channel_combo == "random":
                 X = X[:, :, :, :, :, self.torch.randperm(X.shape[-1])]
-
-                X = X.transpose(4, 5).reshape(
-                    (
-                        X.shape[0],
-                        X.shape[1],
-                        X.shape[2],
-                        X.shape[3],
-                        X.shape[4] * X.shape[5],
-                    )
-                )
+                X = X.transpose(4, 5).reshape(*X.shape[:4], -1)
             else:
-                X = X.transpose(4, 5).reshape(
-                    (
-                        X.shape[0],
-                        X.shape[1], 
-                        X.shape[2],
-                        X.shape[3],
-                        X.shape[4] * X.shape[5],
-                    )
-                )
+                X = X.transpose(4, 5).reshape(*X.shape[:4], -1)
         else:
             # Then leave the batch_size and num_cams combined
             y_3d = y_3d.repeat(num_cams, 1, 1, 1, 1)
@@ -683,22 +666,8 @@ class DataGenerator_3Dconv(DataGenerator):
         if self.mono and self.n_channels_in == 3:
             # Convert from RGB to mono using the skimage formula. Drop the duplicated frames.
             # Reshape so RGB can be processed easily.
-            X = self.torch.reshape(
-                X,
-                (
-                    X.shape[0],
-                    X.shape[1],
-                    X.shape[2],
-                    X.shape[3],
-                    len(self.camnames[first_exp]),
-                    -1,
-                ),
-            )
-            X = (
-                X[:, :, :, :, :, 0] * 0.2125
-                + X[:, :, :, :, :, 1] * 0.7154
-                + X[:, :, :, :, :, 2] * 0.0721
-            )
+            X = X.reshape(*X.shape[:4], len(self.camnames[first_exp]), -1)
+            X = X[..., 0] * 0.2125 + X[..., 1] * 0.7154 + X[..., 2] * 0.0721
 
         # Convert pytorch tensors back to numpy array
         ts = time.time()
