@@ -500,7 +500,6 @@ def prepend_experiment(
         datadict_[key]["data"] = {}
         datadict_[key]["frames"] = {}
         for key_ in datadict[key]["data"]:
-<<<<<<< HEAD
             datadict_[key]["data"][enum + "_" + key_] = datadict[key]["data"][
                 key_
             ]
@@ -554,9 +553,3 @@ def identify_exp_pairs(exps):
 
 
 
-=======
-            datadict_[key]["data"][enum + "_" + key_] = datadict[key]["data"][key_]
-            datadict_[key]["frames"][enum + "_" + key_] = datadict[key]["frames"][key_]
-
-    return cameras_, datadict_, params
->>>>>>> origin/release
