@@ -1054,59 +1054,6 @@ def norm_im(im):
     """Normalize image."""
     return (im - np.min(im)) / (np.max(im) - np.min(im))
 
-
-def plot_markers_3d(stack, nonan=True):
-    """Return the 3d coordinates for each of the peaks in probability maps."""
-    x = []
-    y = []
-    z = []
-    for mark in range(stack.shape[-1]):
-        ind = np.unravel_index(
-            np.argmax(stack[:, :, :, mark], axis=None), stack[:, :, :, mark].shape
-        )
-        if ~np.isnan(stack[0, 0, 0, mark]) and nonan:
-            x.append(ind[1])
-            y.append(ind[0])
-            z.append(ind[2])
-        elif ~np.isnan(stack[0, 0, 0, mark]) and not nonan:
-            x.append(ind[1])
-            y.append(ind[0])
-            z.append(ind[2])
-        elif not nonan:
-            x.append(np.nan)
-            y.append(np.nan)
-            z.append(np.nan)
-    return x, y, z
-
-
-def plot_markers_3d_tf(stack, nonan=True):
-    """Return the 3d coordinates for each of the peaks in probability maps."""
-    import tensorflow as tf
-
-    with tf.device(stack.device):
-        n_mark = stack.shape[-1]
-        indices = tf.math.argmax(tf.reshape(stack, [-1, n_mark]), output_type="int32")
-        inds = unravel_index(indices, stack.shape[:-1])
-
-        if ~tf.math.reduce_any(tf.math.is_nan(stack[0, 0, 0, :])) and (
-            nonan or not nonan
-        ):
-            x = inds[1]
-            y = inds[0]
-            z = inds[2]
-        elif not nonan:
-            x = tf.Variable(tf.cast(inds[1], "float32"))
-            y = tf.Variable(tf.cast(inds[0], "float32"))
-            z = tf.Variable(tf.cast(inds[3], "float32"))
-            nans = tf.math.is_nan(stack[0, 0, 0, :])
-            for mark in range(0, n_mark):
-                if nans[mark]:
-                    x[mark].assign(np.nan)
-                    y[mark].assign(np.nan)
-                    z[mark].assign(np.nan)
-        return x, y, z
-
-
 def plot_markers_3d_torch(stack, nonan=True):
     """Return the 3d coordinates for each of the peaks in probability maps."""
     import torch

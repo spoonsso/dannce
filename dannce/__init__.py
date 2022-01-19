@@ -55,7 +55,6 @@ _param_defaults_dannce = {
     "interp": "nearest",
     "depth": False,
     "rotate": True,
-    "predict_mode": "torch",
     "comthresh": 0,
     "weighted": False,
     "com_method": "median",

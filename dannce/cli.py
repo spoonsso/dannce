@@ -476,11 +476,6 @@ def add_dannce_shared_args(
         help="Dictates whether or not to randomly shuffle the camera order when processing volumes. Options: 'None', 'random'",
     )
     parser.add_argument(
-        "--predict-mode",
-        dest="predict_mode",
-        help="Method for unprojection. Options: numpy, torch, or tensorflow.",
-    )
-    parser.add_argument(
         "--n-views",
         dest="n_views",
         type=int,

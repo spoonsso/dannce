@@ -711,78 +711,25 @@ def infer_dannce(
                     "sampleID": sampleID,
                 }
         else:
-            predict_mode = (
-                params["predict_mode"]
-                if params["predict_mode"] is not None
-                else "numpy"
-            )
-            if predict_mode == "torch":
-                for j in range(pred.shape[0]):
-                    preds = torch.as_tensor(pred[j], dtype=torch.float32, device=device)
-                    pred_max = preds.max(0).values.max(0).values.max(0).values
-                    pred_total = preds.sum((0, 1, 2))
-                    (
-                        xcoord,
-                        ycoord,
-                        zcoord,
-                    ) = processing.plot_markers_3d_torch(preds)
-                    coord = torch.stack([xcoord, ycoord, zcoord])
-                    pred_log = pred_max.log() - pred_total.log()
-                    sampleID = partition["valid_sampleIDs"][i * pred.shape[0] + j]
 
-                    save_data[idx * pred.shape[0] + j] = {
-                        "pred_max": pred_max.cpu().numpy(),
-                        "pred_coord": coord.cpu().numpy(),
-                        "true_coord_nogrid": ims[1][j],
-                        "logmax": pred_log.cpu().numpy(),
-                        "sampleID": sampleID,
-                    }
+            for j in range(pred.shape[0]):
+                preds = torch.as_tensor(pred[j], dtype=torch.float32, device=device)
+                pred_max = preds.max(0).values.max(0).values.max(0).values
+                pred_total = preds.sum((0, 1, 2))
+                (
+                    xcoord,
+                    ycoord,
+                    zcoord,
+                ) = processing.plot_markers_3d_torch(preds)
+                coord = torch.stack([xcoord, ycoord, zcoord])
+                pred_log = pred_max.log() - pred_total.log()
+                sampleID = partition["valid_sampleIDs"][i * pred.shape[0] + j]
 
-            elif predict_mode == "tf":
-                # get coords for each map
-                with tf.device(device):
-                    for j in range(pred.shape[0]):
-                        preds = tf.constant(pred[j], dtype="float32")
-                        pred_max = tf.math.reduce_max(
-                            tf.math.reduce_max(tf.math.reduce_max(preds))
-                        )
-                        pred_total = tf.math.reduce_sum(
-                            tf.math.reduce_sum(tf.math.reduce_sum(preds))
-                        )
-                        (
-                            xcoord,
-                            ycoord,
-                            zcoord,
-                        ) = processing.plot_markers_3d_tf(preds)
-                        coord = tf.stack([xcoord, ycoord, zcoord], axis=0)
-                        pred_log = tf.math.log(pred_max) - tf.math.log(pred_total)
-                        sampleID = partition["valid_sampleIDs"][i * pred.shape[0] + j]
-
-                        save_data[idx * pred.shape[0] + j] = {
-                            "pred_max": pred_max.numpy(),
-                            "pred_coord": coord.numpy(),
-                            "true_coord_nogrid": ims[1][j],
-                            "logmax": pred_log.numpy(),
-                            "sampleID": sampleID,
-                        }
-
-            else:
-                # get coords for each map
-                for j in range(pred.shape[0]):
-                    pred_max = np.max(pred[j], axis=(0, 1, 2))
-                    pred_total = np.sum(pred[j], axis=(0, 1, 2))
-                    xcoord, ycoord, zcoord = processing.plot_markers_3d(
-                        pred[j, :, :, :, :]
-                    )
-                    coord = np.stack([xcoord, ycoord, zcoord])
-                    pred_log = np.log(pred_max) - np.log(pred_total)
-                    sampleID = partition["valid_sampleIDs"][i * pred.shape[0] + j]
-
-                    save_data[idx * pred.shape[0] + j] = {
-                        "pred_max": pred_max,
-                        "pred_coord": coord,
-                        "true_coord_nogrid": ims[1][j],
-                        "logmax": pred_log,
-                        "sampleID": sampleID,
-                    }
+                save_data[idx * pred.shape[0] + j] = {
+                    "pred_max": pred_max.cpu().numpy(),
+                    "pred_coord": coord.cpu().numpy(),
+                    "true_coord_nogrid": ims[1][j],
+                    "logmax": pred_log.cpu().numpy(),
+                    "sampleID": sampleID,
+                }
     return save_data

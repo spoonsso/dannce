@@ -19,7 +19,6 @@ from dannce.engine.generator import DataGenerator_3Dconv
 from dannce.engine.generator import DataGenerator_3Dconv_frommem
 from dannce.engine.generator import DataGenerator_3Dconv_npy
 from dannce.engine.generator import DataGenerator_3Dconv_torch
-from dannce.engine.generator import DataGenerator_3Dconv_tf
 from dannce.engine.generator_aux import (
     DataGenerator_downsample,
     DataGenerator_downsample_multi_instance,
@@ -1442,12 +1441,6 @@ def dannce_predict(params: Dict):
     params["label3d_file"] = processing.grab_predict_label3d_file()
     params["base_exp_folder"] = os.path.dirname(params["label3d_file"])
 
-    # default to slow numpy backend if there is no predict_mode in config file. I.e. legacy support
-    predict_mode = (
-        params["predict_mode"] if params["predict_mode"] is not None else "numpy"
-    )
-    print("Using {} predict mode".format(predict_mode))
-
     print("Using camnames: {}".format(params["camnames"]))
     # Also add parent params under the 'experiment' key for compatibility
     # with DANNCE's video loading function
@@ -1563,17 +1556,12 @@ def dannce_predict(params: Dict):
     tifdirs = []
 
     # Generators
-    if predict_mode == "torch":
-        import torch
 
-        # Because CUDA_VISBILE_DEVICES is already set to a single GPU, the gpu_id here should be "0"
-        device = "cuda:0"
-        genfunc = DataGenerator_3Dconv_torch
-    elif predict_mode == "tf":
-        device = "/GPU:0"
-        genfunc = DataGenerator_3Dconv_tf
-    else:
-        genfunc = DataGenerator_3Dconv
+    import torch
+
+    # Because CUDA_VISBILE_DEVICES is already set to a single GPU, the gpu_id here should be "0"
+    device = "cuda:0"
+    genfunc = DataGenerator_3Dconv_torch
 
     valid_generator = genfunc(
         partition["valid_sampleIDs"],
