@@ -507,7 +507,7 @@ def prepend_experiment(
                 "frames"
             ][key_]
 
-    return cameras_, datadict_, CONFIG_PARAMS
+    return cameras_, datadict_, params
 
 def get_temporal_chunks(samples, chunk_size=2):
     """Split samples into contiguous chunks.
