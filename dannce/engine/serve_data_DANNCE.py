@@ -42,6 +42,16 @@ def prepare_data(
         print(params["label3d_file"])
         labels = load_labels(params["label3d_file"])
 
+        # ------------- new chunk code to refactor / modularize
+        if params["use_temporal"]:
+                labels_extra = load_sync(params["label3d_file"])
+
+            # Generate the chunks so that we know which sampleIDs we need to pull in from sync
+
+            # Grab these extra sampleIDs and pu them into labels.
+
+            # Make sure to return the list of extra sampleIDs, and the full chunk structure
+
     camera_params = load_camera_params(params["label3d_file"])
     cameras = {name: camera_params[i] for i, name in enumerate(params["camnames"])}
 
@@ -56,11 +66,50 @@ def prepare_data(
 
     samples = np.squeeze(labels[0]["data_sampleID"])
 
+    # ------------- new chunk code to refactor / modularize
+    if not prediction and params["use_temporal"]:
+        samples_extra = np.squeeze(labels_extra[0]["data_sampleID"])
+        #temporal_chunk_list = 
+
+        extra_samples_inds = [np.where(samples_extra == samp)[0]-1 for samp in samples]
+
+        # concat sampleIDs
+        samples = np.concatenate((samples, samples_extra[extra_samples_inds]), axis=0)
+        # concat data_frames
+        sorted_inds = np.argsort(samples)
+
+        for i, label in enumerate(labels):
+            label["data_frame"] = np.concatenate((label["data_frame"],
+                                                  labels_extra[i]["data_frame"][extra_samples_inds]),
+                                                 axis=0)
+            label["data_frame"] = label["data_frame"][sorted_inds]
+            label["data_2d"] = np.concatenate((label["data_2d"],
+                                              labels_extra[i]["data_2d"][extra_samples_inds]*np.nan),
+                                              axis=0)
+            label["data_2d"] = label["data_2d"][sorted_inds]
+            label["data_3d"] = np.concatenate((label["data_3d"],
+                                               labels_extra[i]["data_3d"][extra_samples_inds]*np.nan),
+                                              axis=0)
+            label["data_3d"] = label["data_3d"][sorted_inds]
+
+        samples = samples[sorted_inds]
+
+    chunk_list = [(samples[i], samples[i+1]) for i in range(0, len(samples), 2)]
+
+
     if labels[0]["data_sampleID"].shape == (1, 1):
         # Then the squeezed value is just a number, so we add to to a list so
         # that is can be iterated over downstream
         samples = [samples]
         warnings.warn("Note: only 1 sample in label file")
+
+
+
+        # Generate the chunks so that we know which sampleIDs we need to pull in from sync
+
+        # Grab these extra sampleIDs and pu them into labels.
+
+        # Make sure to return the list of extra sampleIDs, and the full chunk structure
 
     # Collect data labels and matched frames info. We will keep the 2d labels
     # here just because we could in theory use this for training later.
