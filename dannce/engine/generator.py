@@ -376,7 +376,8 @@ class DataGenerator_3Dconv(DataGenerator):
         ).round()
 
         if self.torch.all(self.torch.isnan(this_y)):
-            com_precrop = self.torch.zeros_like(this_y[:, 0]) * self.torch.nan
+            #com_precrop = self.torch.zeros_like(this_y[:, 0]) * self.torch.nan
+            com_precrop = self.torch.zeros_like(this_y[:, 0])*float()
         else:
             # For projecting points, we should not use this offset
             com_precrop = self.torch.mean(this_y, axis=1)
@@ -868,6 +869,8 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         Returns:
             int: Batches per epoch
         """
+        if self.temporal_chunk_list is not None:
+            return len(self.temporal_chunk_list)
         return int(np.floor(len(self.list_IDs) / self.batch_size))
 
     def __getitem__(self, index):
@@ -888,7 +891,6 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
 
             # Find list of IDs
             list_IDs_temp = [self.list_IDs[k] for k in indexes]
-
         else:
             # For using temporal chunks, we just set list_IDs_temp to be the corresponding subarray
             # -----
@@ -902,7 +904,7 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
     def on_epoch_end(self):
         """Update indexes after each epoch."""
         if self.temporal_chunk_list is not None:
-            self.indexes = np.arange(len(self.list_IDs))
+            self.indexes = np.arange(len(self.temporal_chunk_list))
         else:
             self.indexes = np.arange(self.__len__())
         if self.shuffle:

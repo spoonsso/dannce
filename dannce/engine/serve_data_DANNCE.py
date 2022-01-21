@@ -1,6 +1,7 @@
 """Define routines for reading/structuring input data for DANNCE."""
 import numpy as np
 import scipy.io as sio
+from torch import chunk
 from dannce.engine import ops as ops
 from dannce.engine.io import load_camera_params, load_labels, load_sync
 import os
@@ -29,28 +30,20 @@ def prepare_data(
     if prediction:
         labels = load_sync(params["label3d_file"])
         nFrames = np.max(labels[0]["data_frame"].shape)
+        
         nKeypoints = params["n_channels_out"]
         if "new_n_channels_out" in params.keys():
             if params["new_n_channels_out"] is not None:
                 nKeypoints = params["new_n_channels_out"]
+
         for i in range(len(labels)):
             labels[i]["data_3d"] = np.zeros((nFrames, 3 * nKeypoints))
             labels[i]["data_2d"] = np.zeros((nFrames, 2 * nKeypoints))
-        # import pdb
-        # pdb.set_trace()
     else:
         print(params["label3d_file"])
         labels = load_labels(params["label3d_file"])
 
-        # ------------- new chunk code to refactor / modularize
-        if params["use_temporal"]:
-                labels_extra = load_sync(params["label3d_file"])
-
-            # Generate the chunks so that we know which sampleIDs we need to pull in from sync
-
-            # Grab these extra sampleIDs and pu them into labels.
-
-            # Make sure to return the list of extra sampleIDs, and the full chunk structure
+    samples = np.squeeze(labels[0]["data_sampleID"])
 
     camera_params = load_camera_params(params["label3d_file"])
     cameras = {name: camera_params[i] for i, name in enumerate(params["camnames"])}
@@ -64,52 +57,42 @@ def prepare_data(
             "network set to run in mirror mode, but cannot find mirror (m) field in camera params"
         )
 
-    samples = np.squeeze(labels[0]["data_sampleID"])
-
     # ------------- new chunk code to refactor / modularize
-    if not prediction and params["use_temporal"]:
+    if (not prediction) and params["use_temporal"]:
+        labels_extra = load_sync(params["label3d_file"])
+
+        n = params["temporal_chunk_size"]
         samples_extra = np.squeeze(labels_extra[0]["data_sampleID"])
-        #temporal_chunk_list = 
+        sample_inds = np.array([np.where(samples_extra == samp)[0][0] for samp in samples])
+        #print(sample_inds)
 
-        extra_samples_inds = [np.where(samples_extra == samp)[0]-1 for samp in samples]
+        extra_samples_inds = [sample_inds+i for i in range(-n//2, n//2) if i != 0] if n%2==0 \
+            else [sample_inds+i for i in range(-n//2, n//2+1) if i != 0]
+        extra_samples_inds = sorted(np.concatenate(extra_samples_inds))
 
-        # concat sampleIDs
+        ## TODO additional check on validity
+
+        # concat sampleIDs with extra sampleIDs without labels
         samples = np.concatenate((samples, samples_extra[extra_samples_inds]), axis=0)
-        # concat data_frames
+        # sort samples and obtain indices for later use
         sorted_inds = np.argsort(samples)
-
-        for i, label in enumerate(labels):
-            label["data_frame"] = np.concatenate((label["data_frame"],
-                                                  labels_extra[i]["data_frame"][extra_samples_inds]),
-                                                 axis=0)
-            label["data_frame"] = label["data_frame"][sorted_inds]
-            label["data_2d"] = np.concatenate((label["data_2d"],
-                                              labels_extra[i]["data_2d"][extra_samples_inds]*np.nan),
-                                              axis=0)
-            label["data_2d"] = label["data_2d"][sorted_inds]
-            label["data_3d"] = np.concatenate((label["data_3d"],
-                                               labels_extra[i]["data_3d"][extra_samples_inds]*np.nan),
-                                              axis=0)
-            label["data_3d"] = label["data_3d"][sorted_inds]
-
         samples = samples[sorted_inds]
 
-    chunk_list = [(samples[i], samples[i+1]) for i in range(0, len(samples), 2)]
+        for i, label in enumerate(labels):
+            for k in ['data_frame', 'data_2d', 'data_3d']:
+                if k == 'data_frame':
+                    label[k] = np.concatenate((label[k].T, labels_extra[i][k][extra_samples_inds]), axis=0)
+                else: 
+                    label[k] = np.concatenate((label[k], labels_extra[i][k][extra_samples_inds]*np.nan), axis=0)
+                label[k] = label[k][sorted_inds]
 
+    chunk_list = [samples[i:i+n] for i in range(0, len(samples), n)]
 
     if labels[0]["data_sampleID"].shape == (1, 1):
         # Then the squeezed value is just a number, so we add to to a list so
         # that is can be iterated over downstream
         samples = [samples]
         warnings.warn("Note: only 1 sample in label file")
-
-
-
-        # Generate the chunks so that we know which sampleIDs we need to pull in from sync
-
-        # Grab these extra sampleIDs and pu them into labels.
-
-        # Make sure to return the list of extra sampleIDs, and the full chunk structure
 
     # Collect data labels and matched frames info. We will keep the 2d labels
     # here just because we could in theory use this for training later.
@@ -183,7 +166,7 @@ def prepare_data(
         }
         return samples, datadict, datadict_3d, cameras, camera_mats
     else:
-        return samples, datadict, datadict_3d, cameras
+        return samples, datadict, datadict_3d, cameras, chunk_list
 
 
 def prepare_COM_multi_instance(
@@ -490,9 +473,17 @@ def add_experiment(
     datadict_in,
     datadict_3d_in,
     com3d_dict_in,
+    temporal_chunks_out=None,
+    temporal_chunks_in=None
 ):
     samples_in = [str(experiment) + "_" + str(int(x)) for x in samples_in]
     samples_out = samples_out + samples_in
+
+    if temporal_chunks_in is not None:
+        for chunk in temporal_chunks_in:
+            if experiment not in temporal_chunks_out.keys():
+                temporal_chunks_out[experiment] = []
+            temporal_chunks_out[experiment].append(np.array([str(experiment) + "_" + str(s) for s in chunk]))
 
     for key in datadict_in.keys():
         datadict_out[str(experiment) + "_" + str(int(key))] = datadict_in[key]
@@ -503,7 +494,7 @@ def add_experiment(
     for key in com3d_dict_in.keys():
         com3d_dict_out[str(experiment) + "_" + str(int(key))] = com3d_dict_in[key]
 
-    return samples_out, datadict_out, datadict_3d_out, com3d_dict_out
+    return samples_out, datadict_out, datadict_3d_out, com3d_dict_out, temporal_chunks_out
 
 
 def prepend_experiment(
@@ -557,17 +548,6 @@ def prepend_experiment(
             ][key_]
 
     return cameras_, datadict_, params
-
-def get_temporal_chunks(samples, chunk_size=2):
-    """Split samples into contiguous chunks.
-    args: 
-        samples: numpy array of size n_frames
-    return: 
-        temporal_chunks: List of subarrays 
-        [[[vol_{t},vol_{t+1}],[vol_{t+k},vol_{t+k+1}],...]
-    """
-    chunks = [samples[i:i+chunk_size] for i in range(len(samples)-chunk_size)]
-    return chunks
 
 def identify_exp_pairs(exps):
     """For multi-instance social behaviorial dannce, 

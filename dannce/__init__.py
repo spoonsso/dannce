@@ -95,6 +95,9 @@ _param_defaults_dannce = {
     "save_pred_targets": False,
     "huber-delta": 1.35,            #Change Adapted from implementation by robb
     "avg+max": None,
+    ## changes made to temporal
+    "use_temporal": True,
+    "temporal_chunk_size": 2
 }
 _param_defaults_com = {
     "dsmode": "nn",

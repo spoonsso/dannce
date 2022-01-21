@@ -1,4 +1,5 @@
 """Processing functions for dannce."""
+from dataclasses import replace
 import numpy as np
 from skimage.color import rgb2gray
 from skimage.transform import downscale_local_mean as dsm
@@ -440,7 +441,7 @@ def copy_config(results_dir, main_config, io_config):
     shutil.copyfile(io_config, dconfig)
 
 
-def make_data_splits(samples, params, results_dir, num_experiments):
+def make_data_splits(samples, params, results_dir, num_experiments, temporal_chunks=None):
     """
     Make train/validation splits from list of samples, or load in a specific
         list of sampleIDs if desired.
@@ -449,6 +450,31 @@ def make_data_splits(samples, params, results_dir, num_experiments):
     # and change.
 
     partition = {}
+    if params["use_temporal"]:
+        assert temporal_chunks != None, "If use temporal, do partitioning over chunks."
+        v = params["num_validation_per_exp"]
+        valid_chunks, train_chunks = [], []
+        for e in range(num_experiments):
+            if v > 0:
+                valid_chunk_idx = sorted(np.random.choice(len(temporal_chunks[e]), v, replace=False))
+                valid_chunks += list(np.array(temporal_chunks[e])[valid_chunk_idx])
+                train_chunks += list(np.delete(temporal_chunks[e], valid_chunk_idx, 0))
+
+        train_expts = np.arange(num_experiments)
+        print("TRAIN EXPTS: {}".format(train_expts))
+
+        partition["train_sampleIDs"] = list(np.concatenate(train_chunks))
+        partition["valid_sampleIDs"] = list(np.concatenate(valid_chunks))
+        chunk_size = len(train_chunks[0])
+        partition["train_chunks"] = [np.arange(i, i+chunk_size) for i in range(0, len(train_chunks), chunk_size)]
+        partition["valid_chunks"] = [np.arange(i, i+chunk_size) for i in range(0, len(valid_chunks), chunk_size)]
+
+        if params["data_split_seed"] is not None:
+            np.random.seed()
+
+        return partition
+
+
     if params["load_valid"] is None:
         # Set random seed if included in params
         if params["data_split_seed"] is not None:
@@ -459,7 +485,7 @@ def make_data_splits(samples, params, results_dir, num_experiments):
         # extract random inds from each set for validation
         v = params["num_validation_per_exp"]
         valid_inds = []
-        if params["valid_exp"] is not None and params["num_validation_per_exp"] > 0:
+        if params["valid_exp"] is not None and v > 0:
             all_valid_inds = []
             for e in params["valid_exp"]:
                 tinds = [
@@ -474,7 +500,7 @@ def make_data_splits(samples, params, results_dir, num_experiments):
             train_inds = list(
                 set(all_inds) - set(all_valid_inds)
             )  # [i for i in all_inds if i not in all_valid_inds]
-        elif params["num_validation_per_exp"] > 0:  # if 0, do not perform validation
+        elif v > 0:  # if 0, do not perform validation
             for e in range(num_experiments):
                 tinds = [
                     i for i in range(len(samples)) if int(samples[i].split("_")[0]) == e
@@ -495,9 +521,7 @@ def make_data_splits(samples, params, results_dir, num_experiments):
         train_samples = samples[train_inds]
         train_inds = []
         if params["valid_exp"] is not None:
-            train_expts = [
-                f for f in range(num_experiments) if f not in params["valid_exp"]
-            ]
+            train_expts = [f for f in range(num_experiments) if f not in params["valid_exp"]]
         else:
             train_expts = np.arange(num_experiments)
 

@@ -689,6 +689,8 @@ def dannce_train(params: Dict):
     params["experiment"] = {}
     total_chunks = {}
 
+    temporal_chunks = {}
+
     for e, expdict in enumerate(exps):
 
         exp = processing.load_expdict(params, e, expdict, _DEFAULT_VIDDIR)
@@ -700,6 +702,7 @@ def dannce_train(params: Dict):
             datadict_3d_,
             cameras_,
             com3d_dict_,
+            temporal_chunks_
         ) = do_COM_load(exp, expdict, e, params)
 
         print("Using {} samples total.".format(len(samples_)))
@@ -709,6 +712,7 @@ def dannce_train(params: Dict):
             datadict,
             datadict_3d,
             com3d_dict,
+            temporal_chunks
         ) = serve_data_DANNCE.add_experiment(
             e,
             samples,
@@ -719,6 +723,8 @@ def dannce_train(params: Dict):
             datadict_,
             datadict_3d_,
             com3d_dict_,
+            temporal_chunks,
+            temporal_chunks_
         )
 
         cameras[e] = cameras_
@@ -776,7 +782,8 @@ def dannce_train(params: Dict):
         cam3_train = False
 
     partition = processing.make_data_splits(
-        samples, params, dannce_train_dir, num_experiments
+        samples, params, dannce_train_dir, num_experiments, 
+        temporal_chunks=temporal_chunks if params["use_temporal"] else None
     )
 
     if params["use_npy"]:
@@ -1063,15 +1070,8 @@ def dannce_train(params: Dict):
                       **shared_args,
                       "xgrid": X_train_grid,
                       "aux_labels": y_train_aux,
+                      "temporal_chunk_list": partition["train_chunks"] if params["use_temporal"] else None
                       }
-
-        # if use temporal, add additional args `temporal_chunk_list`
-        #if params["use_temporal"]:
-        #    args_train = {
-        #                **args_train, 
-        #                "temporal_chunk_list": serve_data_DANNCE.get_temporal_chunks(args_train['list_IDs'], 
-        #                                                                             chunk_size=params["temporal_chunk_size"]),
-        #                }
 
         args_valid = {
             "list_IDs": np.arange(len(partition["valid_sampleIDs"])),
@@ -1660,7 +1660,8 @@ def do_COM_load(exp: Dict, expdict: Dict, e, params: Dict, training=True):
         datadict_,
         datadict_3d_,
         cameras_,
-    ) = serve_data_DANNCE.prepare_data(exp, prediction=False if training else True)
+        temporal_chunks
+    ) = serve_data_DANNCE.prepare_data(exp, prediction=not training)
 
     # If there is "clean" data (full marker set), can take the
     # 3D COM from the labels
@@ -1717,7 +1718,7 @@ def do_COM_load(exp: Dict, expdict: Dict, e, params: Dict, training=True):
     msg = "Removed {} samples from the dataset because they either had COM positions over cthresh, or did not have matching sampleIDs in the COM file"
     print(msg.format(pre - len(samples_)))
 
-    return exp, samples_, datadict_, datadict_3d_, cameras_, com3d_dict_
+    return exp, samples_, datadict_, datadict_3d_, cameras_, com3d_dict_, temporal_chunks
 
 
 def check_COM_load(c3dfile: Dict, kkey: Text, win_size: int):
