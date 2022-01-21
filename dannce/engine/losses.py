@@ -188,17 +188,24 @@ def temporal_consistency(y_pred_t1, y_pred_t2):
     """Unsupervised pairwise loss with respect to the temporal dimension.
     """
     assert y_pred_t1.shape == y_pred_t2.shape, "Imput shapes are inconsistent when computing the temporal consistency loss."
-    y_pred_t1, y_pred_t2, notnantrue = mask_nan_pair(y_pred_t1, y_pred_t2)
+    y_pred_t1, y_pred_t2, num_notnan = mask_nan_pair(y_pred_t1, y_pred_t2)
 
-    dists = tf.keras.metrics.mean_absolute_error(y_pred_t1, y_pred_t2)
-    min_dist, max_dist = K.max(dists), K.min(dists)
-    loss = (max_dist - min_dist) / max_dist
+    # dists = tf.keras.metrics.mean_absolute_error(y_pred_t1, y_pred_t2)
+    # min_dist, max_dist = K.max(dists), K.min(dists)
+    # loss = (max_dist - min_dist) / max_dist
+    loss = K.sum((K.flatten(y_pred_t1) - K.flatten(y_pred_t2)) ** 2) / num_notnan
+    loss = tf.where(~tf.math.is_nan(loss), loss, 0)
 
-    cosine_loss = tf.keras.losses.CosineSimilarity(axis=1)
-    sim = cosine_loss(y_pred_t1, y_pred_t2, dim=1)
-    sim = sim.sum() / len(sim)
+    # cosine_loss = tf.keras.losses.CosineSimilarity()
+    # sim = -cosine_loss(y_pred_t1, y_pred_t2) # tf implementation gives a loss, i.e. negative
+    #sim = sim.sum() / len(sim)
+    sim=1
 
     return loss / K.max(sim, 1e-6)
+
+def temporal_loss(y_true, y_pred):
+    temp_losses = [temporal_consistency(y_pred[i], y_pred[i+1]) for i in range(y_pred.shape[0])]
+    return sum(temp_losses) / len(temp_losses)
 
 def pair_repulsion_loss(y_pred_s1, y_pred_s2):
     """Unsupervised pairwise loss with respect to two subjects. 

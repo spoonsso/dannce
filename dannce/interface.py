@@ -1476,11 +1476,14 @@ def setup_dannce_predict(params):
     params["depth"] = False
     # Make the prediction directory if it does not exist.
 
-    # Load the appropriate loss function and network
+    # Load the appropriate loss function and network 
     try:
         params["loss"] = getattr(losses, params["loss"])
     except AttributeError:
         params["loss"] = getattr(keras_losses, params["loss"])
+    if params["use_temporal"]:
+        params["loss"] = [params["loss"], losses.temporal_loss]
+    
     params["net_name"] = params["net"]
     params["net"] = getattr(nets, params["net_name"])
     # Default to 6 views but a smaller number of views can be specified in the DANNCE config.
