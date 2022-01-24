@@ -203,9 +203,16 @@ def temporal_consistency(y_pred_t1, y_pred_t2):
 
     return loss / K.max(sim, 1e-6)
 
-def temporal_loss(y_true, y_pred):
-    temp_losses = [temporal_consistency(y_pred[i], y_pred[i+1]) for i in range(y_pred.shape[0])]
-    return sum(temp_losses) / len(temp_losses)
+def temporal_loss(chunk_size):
+    def loss(y_true, y_pred):
+        y_pred = y_pred.reshape(-1, chunk_size, *y_pred.shape[1:]) # [batch size, chunk size, N, 3]
+        temp_losses = 0
+        for chunk in y_pred:
+            chunk_loss = [temporal_consistency(chunk[i], chunk[i+1]) for i in range(chunk.shape[0])]
+            temp_losses += sum(chunk_loss) / len(chunk_loss)
+        
+        return temp_losses
+    return loss
 
 def pair_repulsion_loss(y_pred_s1, y_pred_s2):
     """Unsupervised pairwise loss with respect to two subjects. 
