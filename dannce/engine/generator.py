@@ -826,11 +826,11 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
             int: Batches per epoch
         """
         if self.temporal_chunk_list is not None:
-            return int(np.floor(len(self.temporal_chunk_list) / self._get_temporal_batch_size()))
-        return int(np.floor(len(self.list_IDs) / self.batch_size))
+            return len(self.temporal_chunk_list) // self._get_temporal_batch_size()
+        return len(self.list_IDs) // self.batch_size
     
     def _get_temporal_batch_size(self):
-        return int(np.floor(self.batch_size / len(self.temporal_chunk_list[0])))
+        return self.batch_size // len(self.temporal_chunk_list[0])
 
     def __getitem__(self, index):
         """Generate one batch of data.
@@ -845,7 +845,8 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         """
         if self.temporal_chunk_list is not None:
             temporal_batch_size = self._get_temporal_batch_size()
-            indexes = self.indexes[index * temporal_batch_size : (index + 1) * temporal_batch_size]
+            i = index * temporal_batch_size
+            indexes = self.indexes[i : i + temporal_batch_size]
             list_IDs_temp = list(np.concatenate([self.temporal_chunk_list[k] for k in indexes], axis=0))
         else: 
             indexes = self.indexes[index * self.batch_size : (index + 1) * self.batch_size]
