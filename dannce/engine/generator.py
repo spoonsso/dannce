@@ -75,25 +75,6 @@ class DataGenerator(keras.utils.Sequence):
         predict_flag: bool = False,
     ):
         """Initialize Generator.
-
-        Args:
-            list_IDs (List): List of sampleIDs
-            labels (Dict): Label dictionary
-            clusterIDs (List): List of sampleIDs
-            batch_size (int, optional): Batch size to generate
-            dim_in (Tuple, optional): Input dimension
-            n_channels_in (int, optional): Number of input channels
-            n_channels_out (int, optional): Number of output channels
-            out_scale (float, optional): Scale of the output gaussians.
-            shuffle (bool, optional): If True, shuffle the samples.
-            camnames (List, optional): List of camera names.
-            crop_width (Tuple, optional): (first, last) pixels in image width
-            crop_height (Tuple, optional): (first, last) pixels in image height
-            samples_per_cluster (int, optional): Samples per cluster
-            vidreaders (Dict, optional): Dict containing video readers.
-            chunks (int, optional): Size of chunks when using chunked mp4.
-            mono (bool, optional): If True, use grayscale image.
-            predict_flag (bool, optional): If True, use imageio for reading videos, rather than OpenCV
         """
         self.dim_in = dim_in
         self.dim_out = dim_in
@@ -308,7 +289,6 @@ class DataGenerator_3Dconv(DataGenerator):
         # importing torch here allows other modes to run without pytorch installed
         self.torch = __import__("torch")
         self.device = self.torch.device("cuda:" + self.gpu_id)
-        # self.device = self.torch.device('cpu')
 
         self.threadpool = ThreadPool(len(self.camnames[0]))
 
@@ -771,7 +751,7 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         n_rand_views (int): Number of reviews to sample randomly from the full set
         replace (bool): If True, samples n_rand_views with replacement
         aux_labels (np.ndarray): If not None, contains the 3D MAX training targets for AVG+MAX training.
-        use_temporal (np.ndarray): If not None, contains chunked sampleIDs -- useful when loading in temporally contiguous samples
+        temporal_chunk_list (np.ndarray, optional): If not None, contains chunked sampleIDs -- useful when loading in temporally contiguous samples
     """
 
     def __init__(
@@ -805,30 +785,6 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         temporal_chunk_list=None
     ):
         """Initialize data generator.
-
-        Args:
-            list_IDs (List): List of sampleIDs
-            data data (np.ndarray): Image volumes
-            labels (Dict): Label dictionar
-            batch_size (int): batch size
-            rotation (bool, optional): If True, applies rotation augmentation in 90 degree increments
-            random (bool, optional): If True, shuffles camera order for each batch
-            chan_num (int, optional): Number of input channels
-            shuffle (bool, optional): If True, shuffle the samples before each epoch
-            expval (bool, optional): If True, crafts input for an AVG network
-            xgrid (None, optional): For the AVG network, this contains the 3D grid coordinates
-            var_reg (bool, optional): If True, returns input used for variance regularization
-            nvox (int, optional): Number of voxels in each grid dimension
-            augment_brightness (bool, optional): If True, applies brightness augmentation
-            augment_hue (bool, optional): If True, applies hue augmentation
-            augment_continuous_rotation (bool, optional): If True, applies rotation augmentation in increments smaller than 90 degree
-            bright_val (float, optional): brightness augmentation range (-bright_val, bright_val), as fraction of raw image brightness
-            hue_val (float, optional): Hue augmentation range (-hue_val, hue_val), as fraction of raw image hue range
-            rotation_val (float, optional): Range of angles used for continuous rotation augmentation
-            n_rand_views (int, optional): Number of reviews to sample randomly from the full set
-            replace (bool, optional): If True, samples n_rand_views with replacement
-            aux_labels (np.ndarray, optional): If not None, contains the 3D MAX training targets for AVG+MAX training.
-            temporal_chunk_list (np.ndarray, optional): If not None, contains chunked sampleIDs -- useful when loading in temporally contiguous samples
         """
         self.list_IDs = list_IDs
         self.data = data
@@ -870,8 +826,11 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
             int: Batches per epoch
         """
         if self.temporal_chunk_list is not None:
-            return len(self.temporal_chunk_list)
+            return int(np.floor(len(self.temporal_chunk_list) / self._get_temporal_batch_size()))
         return int(np.floor(len(self.list_IDs) / self.batch_size))
+    
+    def _get_temporal_batch_size(self):
+        return int(np.floor(self.batch_size / len(self.temporal_chunk_list[0])))
 
     def __getitem__(self, index):
         """Generate one batch of data.
@@ -884,19 +843,13 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
                 X (np.ndarray): Input volume
                 y (np.ndarray): Target
         """
-
-        if self.temporal_chunk_list is None:
-            # Generate indexes of the batch
+        if self.temporal_chunk_list is not None:
+            temporal_batch_size = self._get_temporal_batch_size()
+            indexes = self.indexes[index * temporal_batch_size : (index + 1) * temporal_batch_size]
+            list_IDs_temp = list(np.concatenate([self.temporal_chunk_list[k] for k in indexes], axis=0))
+        else: 
             indexes = self.indexes[index * self.batch_size : (index + 1) * self.batch_size]
-
-            # Find list of IDs
             list_IDs_temp = [self.list_IDs[k] for k in indexes]
-        else:
-            # For using temporal chunks, we just set list_IDs_temp to be the corresponding subarray
-            # -----
-            # temporal_chunk_list: [[vol_{t},vol_{t+1}],[vol_{t+k},vol_{t+k+1}],...]
-            # -----
-            list_IDs_temp = self.temporal_chunk_list[self.indexes[index]]
         # Generate data
         X, y = self.__data_generation(list_IDs_temp)
         return X, y
@@ -907,6 +860,7 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
             self.indexes = np.arange(len(self.temporal_chunk_list))
         else:
             self.indexes = np.arange(self.__len__())
+            
         if self.shuffle:
             np.random.shuffle(self.indexes)
 
@@ -1104,50 +1058,22 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
             X (np.ndarray): Shuffled image volumes
         """
         if self.random:
-            X = np.reshape(
-                X,
-                (X.shape[0], X.shape[1], X.shape[2], X.shape[3], self.chan_num, -1),
-                order="F",
-            )
-            X = X[:, :, :, :, :, np.random.permutation(X.shape[-1])]
-            X = np.reshape(
-                X,
-                (
-                    X.shape[0],
-                    X.shape[1],
-                    X.shape[2],
-                    X.shape[3],
-                    X.shape[4] * X.shape[5],
-                ),
-                order="F",
-            )
+            X = X.reshape((*X.shape[:4], self.chan_num, -1), order="F")
+            X = X[..., np.random.permutation(X.shape[-1])]
+            X = X.reshape((*X.shape[:4], -1), order="F")
 
         if self.n_rand_views is not None:
             # Select a set of cameras randomly with replacement.
-            X = np.reshape(
-                X,
-                (X.shape[0], X.shape[1], X.shape[2], X.shape[3], self.chan_num, -1),
-                order="F",
-            )
+            X = X.reshape((*X.shape[:4], self.chan_num, -1), order="F")
             if self.replace:
                 X = X[..., np.random.randint(X.shape[-1], size=(self.n_rand_views,))]
             else:
                 if not self.random:
                     raise Exception(
                         "For replace=False for n_rand_views, random must be turned on"
-                    )
-                X = X[:, :, :, :, :, : self.n_rand_views]
-            X = np.reshape(
-                X,
-                (
-                    X.shape[0],
-                    X.shape[1],
-                    X.shape[2],
-                    X.shape[3],
-                    X.shape[4] * X.shape[5],
-                ),
-                order="F",
-            )
+                    ) 
+                X = X[..., :self.n_rand_views]
+            X = X.reshape((*X.shape[:4], -1), order="F")
 
         return X
 
