@@ -216,6 +216,23 @@ def unet3d_big_expectedvalue(
 
     fun = norm_fun(norm_method)
 
+    # # Entry block
+    # inputs = Input((*gridsize, input_dim * num_cams), name="image_input")
+    # x = Conv3D(64, (3, 3, 3), padding="same")(inputs)
+    # x = Activation("relu")(fun(x))
+    # x = Conv3D(64, (3, 3, 3), padding="same")(x)
+    # x = Activation("relu")(fun(x))
+    # x = MaxPooling3D(pool_size=(2, 2, 2))(x)
+
+    # # encoder blocks
+    # for filters in [128, 256, 512]:
+    #     x = Conv3D(filters, (3, 3, 3), padding='same')
+    #     x = Activation("relu")(fun(x))
+    #     x = Conv3D(filters, (3, 3, 3), padding="same")(x)
+    #     x = Activation("relu")(fun(x))
+    #     if filters != 512:
+    #         x = MaxPooling3D(pool_size=(2, 2, 2))(x)
+
     inputs = Input((*gridsize, input_dim * num_cams), name="image_input")
     conv1_layer = Conv3D(64, (3, 3, 3), padding="same")
 

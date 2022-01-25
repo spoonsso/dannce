@@ -177,17 +177,18 @@ def gaussian_cross_entropy_loss(y_true, y_pred):
 ###
 def mask_nan_pair(y1, y2):
     nan_true = tf.math.logical_or(tf.math.is_nan(y1), tf.math.is_nan(y2))
-    notnan_true = ~nan_true #K.cast(~nan_true , "float32") 
+    notnan_true = K.cast(~nan_true , "float32") 
     num_notnan = K.sum(K.flatten(notnan_true))
 
-    y1 = K.cast(tf.where(notnan_true, y1, tf.zeros_like(y1)), "float32")
-    y2 = K.cast(tf.where(notnan_true, y2, tf.zeros_like(y2)), "float32")
+    y1 = K.cast(tf.where(~nan_true, y1, tf.zeros_like(y1)), "float32")
+    y2 = K.cast(tf.where(~nan_true, y2, tf.zeros_like(y2)), "float32")
     return y1, y2, num_notnan
 
 def temporal_consistency(y_pred_t1, y_pred_t2):
     """Unsupervised pairwise loss with respect to the temporal dimension.
     """
     assert y_pred_t1.shape == y_pred_t2.shape, "Imput shapes are inconsistent when computing the temporal consistency loss."
+    #print(y_pred_t1.shape)
     y_pred_t1, y_pred_t2, num_notnan = mask_nan_pair(y_pred_t1, y_pred_t2)
 
     # dists = tf.keras.metrics.mean_absolute_error(y_pred_t1, y_pred_t2)
@@ -199,19 +200,24 @@ def temporal_consistency(y_pred_t1, y_pred_t2):
     # cosine_loss = tf.keras.losses.CosineSimilarity()
     # sim = -cosine_loss(y_pred_t1, y_pred_t2) # tf implementation gives a loss, i.e. negative
     #sim = sim.sum() / len(sim)
-    sim=1
-
-    return loss / K.max(sim, 1e-6)
+    #sim=1
+    #print(loss.shape)
+    return loss #/ K.max(sim, 1e-6)
 
 def temporal_loss(chunk_size):
     def loss(y_true, y_pred):
-        y_pred = y_pred.reshape(-1, chunk_size, *y_pred.shape[1:]) # [batch size, chunk size, N, 3]
-        temp_losses = 0
+        y_pred = K.reshape(y_pred, (-1, chunk_size, *y_pred.shape[1:])) # [batch size, chunk size, N, 3]
+        temp_losses = tf.zeros(())
         for chunk in y_pred:
-            chunk_loss = [temporal_consistency(chunk[i], chunk[i+1]) for i in range(chunk.shape[0])]
-            temp_losses += sum(chunk_loss) / len(chunk_loss)
-        
+            for i in range(chunk.shape[0]-1):
+                temp_losses += temporal_consistency(chunk[i], chunk[i+1])
         return temp_losses
+        #temp_losses = tf.Tensor()
+        # for chunk in y_pred:
+        #     chunk_loss = [temporal_consistency(chunk[i], chunk[i+1]) for i in range(chunk.shape[0]-1)]
+        #     temp_losses.append(tf.math.add_n(chunk_loss) / len(chunk_loss))
+        # return 
+
     return loss
 
 def pair_repulsion_loss(y_pred_s1, y_pred_s2):

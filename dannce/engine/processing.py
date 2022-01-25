@@ -752,7 +752,7 @@ def prepare_save_metadata(params):
     if "experiment" in meta:
         del meta["experiment"]
     if "loss" in meta:
-        meta["loss"] = meta["loss"].__name__
+        meta["loss"] = [loss.__name__ for loss in meta["loss"]]
     if "net" in meta:
         meta["net"] = meta["net"].__name__
     if "metric" in meta:

@@ -652,6 +652,9 @@ def dannce_train(params: Dict):
         params["loss"] = losses.huber_loss(params["huber-delta"])
     else:
         params["loss"] = getattr(losses, params["loss"])
+    
+    if params["use_temporal"]:
+        params["loss"] = [params["loss"], losses.temporal_loss(params["temporal_chunk_size"])]
 
     params["net"] = getattr(nets, params["net"])
 
@@ -1178,16 +1181,31 @@ def dannce_train(params: Dict):
             model = nets.add_exposed_heatmap(model)
 
         if params["heatmap_reg"] or params["train_mode"] != "continued":
+            if params["use_temporal"]:
+                print("Compile with temporal loss")
+                #import pdb
+                #pdb.set_trace()
+                model = Model(
+                    inputs=[model.input], 
+                    outputs=[model.layers[-1].output, model.layers[-1].output]
+                )
+                model.compile(
+                    optimizer=Adam(lr=float(params["lr"])),
+                    loss=params["loss"],
+                    loss_weights=[1, params["temporal_loss_weight"]],
+                    metrics=metrics,
+                )
             # recompiling a full model will reset the optimizer state
-            model.compile(
-                optimizer=Adam(lr=float(params["lr"])),
-                loss=params["loss"]
-                if not params["heatmap_reg"]
-                else [params["loss"], losses.heatmap_max_regularizer],
-                loss_weights=[1, params["avg+max"]]
-                if params["avg+max"] is not None
-                else None,
-                metrics=metrics,
+            else: 
+                model.compile(
+                    optimizer=Adam(lr=float(params["lr"])),
+                    loss=params["loss"]
+                    if not params["heatmap_reg"]
+                    else [params["loss"], losses.heatmap_max_regularizer],
+                    loss_weights=[1, params["avg+max"]]
+                    if params["avg+max"] is not None
+                    else None,
+                    metrics=metrics,
             )
 
         if params["lr"] != model.optimizer.learning_rate:
@@ -1481,8 +1499,6 @@ def setup_dannce_predict(params):
         params["loss"] = getattr(losses, params["loss"])
     except AttributeError:
         params["loss"] = getattr(keras_losses, params["loss"])
-    if params["use_temporal"]:
-        params["loss"] = [params["loss"], losses.temporal_loss]
     
     params["net_name"] = params["net"]
     params["net"] = getattr(nets, params["net_name"])

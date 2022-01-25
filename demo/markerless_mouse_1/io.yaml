@@ -18,6 +18,6 @@ dannce_predict_model: ./DANNCE/train_results/AVG/weights.1200-12.77642.hdf5
 exp:
     - label3d_file: './label3d_dannce.mat'
       viddir: ../../demo/markerless_mouse_1/videos/
-    - label3d_file: '../markerless_mouse_2/label3d_dannce.mat'
-      viddir: ../../demo/markerless_mouse_2/videos/
+    # - label3d_file: '../markerless_mouse_2/label3d_dannce.mat'
+    #   viddir: ../../demo/markerless_mouse_2/videos/
 
