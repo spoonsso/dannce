@@ -714,10 +714,10 @@ def infer_dannce(
                 if params["predict_mode"] is not None
                 else "numpy"
             )
-            device = pred.device
+            
             if predict_mode == "torch":
                 for j in range(pred.shape[0]):
-                    preds = torch.as_tensor(pred[j], dtype=torch.float32, device=device)
+                    preds = torch.as_tensor(pred[j], dtype=torch.float32)
                     pred_max = preds.max(0).values.max(0).values.max(0).values
                     pred_total = preds.sum((0, 1, 2))
                     (
@@ -739,31 +739,30 @@ def infer_dannce(
 
             elif predict_mode == "tf":
                 # get coords for each map
-                with tf.device(device):
-                    for j in range(pred.shape[0]):
-                        preds = tf.constant(pred[j], dtype="float32")
-                        pred_max = tf.math.reduce_max(
-                            tf.math.reduce_max(tf.math.reduce_max(preds))
-                        )
-                        pred_total = tf.math.reduce_sum(
-                            tf.math.reduce_sum(tf.math.reduce_sum(preds))
-                        )
-                        (
-                            xcoord,
-                            ycoord,
-                            zcoord,
-                        ) = processing.plot_markers_3d_tf(preds)
-                        coord = tf.stack([xcoord, ycoord, zcoord], axis=0)
-                        pred_log = tf.math.log(pred_max) - tf.math.log(pred_total)
-                        sampleID = partition["valid_sampleIDs"][i * pred.shape[0] + j]
+                for j in range(pred.shape[0]):
+                    preds = tf.constant(pred[j], dtype="float32")
+                    pred_max = tf.math.reduce_max(
+                        tf.math.reduce_max(tf.math.reduce_max(preds))
+                    )
+                    pred_total = tf.math.reduce_sum(
+                        tf.math.reduce_sum(tf.math.reduce_sum(preds))
+                    )
+                    (
+                        xcoord,
+                        ycoord,
+                        zcoord,
+                    ) = processing.plot_markers_3d_tf(preds)
+                    coord = tf.stack([xcoord, ycoord, zcoord], axis=0)
+                    pred_log = tf.math.log(pred_max) - tf.math.log(pred_total)
+                    sampleID = partition["valid_sampleIDs"][i * pred.shape[0] + j]
 
-                        save_data[idx * pred.shape[0] + j] = {
-                            "pred_max": pred_max.numpy(),
-                            "pred_coord": coord.numpy(),
-                            "true_coord_nogrid": ims[1][j],
-                            "logmax": pred_log.numpy(),
-                            "sampleID": sampleID,
-                        }
+                    save_data[idx * pred.shape[0] + j] = {
+                        "pred_max": pred_max.numpy(),
+                        "pred_coord": coord.numpy(),
+                        "true_coord_nogrid": ims[1][j],
+                        "logmax": pred_log.numpy(),
+                        "sampleID": sampleID,
+                    }
 
             else:
                 # get coords for each map
