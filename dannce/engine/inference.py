@@ -714,8 +714,8 @@ def infer_dannce(
                 if params["predict_mode"] is not None
                 else "numpy"
             )
+            device = pred.device
             if predict_mode == "torch":
-                device = pred.device
                 for j in range(pred.shape[0]):
                     preds = torch.as_tensor(pred[j], dtype=torch.float32, device=device)
                     pred_max = preds.max(0).values.max(0).values.max(0).values
