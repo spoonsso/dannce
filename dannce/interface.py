@@ -1380,10 +1380,8 @@ def dannce_predict(params: Dict):
         import torch
 
         # Because CUDA_VISBILE_DEVICES is already set to a single GPU, the gpu_id here should be "0"
-        device = "cuda:" + os.environ["CUDA_VISIBLE_DEVICES"]
         genfunc = generator.DataGenerator_3Dconv_torch
     elif params["predict_mode"] == "tf":
-        device = "/GPU:" + os.environ["CUDA_VISIBLE_DEVICES"]
         genfunc = generator.DataGenerator_3Dconv_tf
     else:
         genfunc = generator.DataGenerator_3Dconv
@@ -1425,7 +1423,6 @@ def dannce_predict(params: Dict):
         params,
         model,
         partition,
-        device,
         params["n_markers"],
     )
 

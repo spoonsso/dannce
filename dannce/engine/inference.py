@@ -643,7 +643,6 @@ def infer_dannce(
     params: Dict,
     model: Model,
     partition: Dict,
-    device: Text,
     n_chn: int,
 ):
     """Perform dannce detection over a set of frames.
@@ -716,6 +715,7 @@ def infer_dannce(
                 else "numpy"
             )
             if predict_mode == "torch":
+                device = pred.device
                 for j in range(pred.shape[0]):
                     preds = torch.as_tensor(pred[j], dtype=torch.float32, device=device)
                     pred_max = preds.max(0).values.max(0).values.max(0).values
