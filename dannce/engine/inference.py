@@ -1,5 +1,6 @@
 """Handle inference procedures for dannce and com networks.
 """
+from Dannce.repos.dannce.dannce.engine.generator import FILE_PATH
 import numpy as np
 import os
 import time
@@ -12,9 +13,12 @@ from typing import List, Dict, Text, Tuple, Union
 import torch
 import matplotlib
 from dannce.engine.processing import savedata_tomat, savedata_expval
+import logging
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+
+FILE_PATH = "dannce.engine.inference"
 
 
 def print_checkpoint(
@@ -31,10 +35,11 @@ def print_checkpoint(
     No Longer Returned:
         float: New timing reference.
     """
-    print("Predicting on sample %d" % (n_frame), flush=True)
+    prepend_log_msg = FILE_PATH + ".print_checkpoint "
+    logging.info(prepend_log_msg + "Predicting on sample %d" % (n_frame), flush=True)
     if (n_frame - start_ind) % sample_save == 0 and n_frame != start_ind:
-        print(n_frame)
-        print("{} samples took {} seconds".format(sample_save, time.time() - end_time))
+        logging.info(prepend_log_msg + n_frame)
+        logging.info(prepend_log_msg + "{} samples took {} seconds".format(sample_save, time.time() - end_time))
         end_time = time.time()
     return end_time
 
@@ -85,6 +90,7 @@ def debug_com(
         n_batch (int): Batch number
         n_cam (int): Camera number
     """
+    prepend_log_msg = FILE_PATH + ".debug_com "
     com_predict_dir = params["com_predict_dir"]
     cmapdir = os.path.join(com_predict_dir, "cmap")
     overlaydir = os.path.join(com_predict_dir, "overlay")
@@ -92,8 +98,8 @@ def debug_com(
         os.makedirs(cmapdir)
     if not os.path.exists(overlaydir):
         os.makedirs(overlaydir)
-    print("Writing " + params["com_debug"] + " confidence maps to " + cmapdir)
-    print("Writing " + params["com_debug"] + "COM-image overlays to " + overlaydir)
+    logging.info(prepend_log_msg + "Writing " + params["com_debug"] + " confidence maps to " + cmapdir)
+    logging.info(prepend_log_msg + "Writing " + params["com_debug"] + "COM-image overlays to " + overlaydir)
 
     batch_size = pred_batch.shape[0]
     # Write preds
@@ -662,17 +668,17 @@ def infer_dannce(
         device (Text): Gpu device name
         n_chn (int): Number of output channels
     """
-
+    prepend_log_msg = FILE_PATH + ".infer_dannce "
     end_time = time.time()
     for idx, i in enumerate(range(start_ind, end_ind)):
-        print("Predicting on batch {}".format(i), flush=True)
+        logging.debug("Predicting on batch {}".format(i), flush=True)
         if (i - start_ind) % 10 == 0 and i != start_ind:
-            print(i)
-            print("10 batches took {} seconds".format(time.time() - end_time))
+            logging.debug(i)
+            logging.debug("10 batches took {} seconds".format(time.time() - end_time))
             end_time = time.time()
 
         if (i - start_ind) % 1000 == 0 and i != start_ind:
-            print("Saving checkpoint at {}th batch".format(i))
+            logging.debug("Saving checkpoint at {}th batch".format(i))
             if params["expval"]:
                 p_n = savedata_expval(
                     params["dannce_predict_dir"] + "save_data_AVG.mat",

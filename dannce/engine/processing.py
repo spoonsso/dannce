@@ -22,6 +22,9 @@ import shutil
 import time
 from typing import Dict
 from tensorflow.keras.models import Model
+import logging
+
+FILE_PATH = "dannce.engine.preprocessing.py"
 
 
 def write_debug(
@@ -42,6 +45,8 @@ def write_debug(
         model (Model): Model
         trainData (bool, optional): If True use training data for debug. Defaults to True.
     """
+
+    prepend_log_msg = FILE_PATH + ".write_debug "
 
     def plot_out(imo, lo, imn):
         plot_markers_2d(norm_im(imo), lo, newfig=False)
@@ -65,7 +70,7 @@ def write_debug(
         # Plot all training images and save
         # create new directory for images if necessary
         debugdir = os.path.join(params["com_train_dir"], outdir)
-        print("Saving debug images to: " + debugdir)
+        logging.info(prepend_log_msg + "Saving debug images to: " + debugdir)
         if not os.path.exists(debugdir):
             os.makedirs(debugdir)
 
@@ -85,7 +90,7 @@ def write_debug(
                 plot_out(ims_out[i], label_out[i], str(i) + ".png")
 
     elif params["debug"] and params["multi_mode"]:
-        print("Note: Cannot output debug information in COM multi-mode")
+        logging.info( prepend_log_msg + "Note: Cannot output debug information in COM multi-mode")
 
 
 def initialize_vids(params, datadict, e, vids, pathonly=True):
@@ -146,6 +151,10 @@ def infer_params(params, dannce_net, prediction):
     Some parameters that were previously specified in configs can just be inferred
         from others, thus relieving config bloat
     """
+    # Setting up logging
+    logging.basicConfig(filename=params["log_dest"], level=params["log_level"], 
+                        format='%(asctime)s %(levelname)s:%(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
+
     # Grab the camnames from *dannce.mat if not in config
     if params["camnames"] is None:
         f = grab_predict_label3d_file()
@@ -339,8 +348,9 @@ def infer_params(params, dannce_net, prediction):
 
 def print_and_set(params, varname, value):
     # Should add new values to params in place, no need to return
+    prepend_log_msg = FILE_PATH + ".print_and_set "
     params[varname] = value
-    print("Setting {} to {}.".format(varname, params[varname]))
+    logging.info(prepend_log_msg + "Setting {} to {}.".format(varname, params[varname]))
 
 
 def check_config(params, dannce_net, prediction):
@@ -426,6 +436,7 @@ def copy_config(results_dir, main_config, io_config):
     Copies config files into the results directory, and creates results
         directory if necessary
     """
+    # Leaving this print statement as is since there does not seem to be any references going out or into it
     print("Saving results to: {}".format(results_dir))
 
     if not os.path.exists(results_dir):
@@ -445,6 +456,8 @@ def make_data_splits(samples, params, results_dir, num_experiments):
     Make train/validation splits from list of samples, or load in a specific
         list of sampleIDs if desired.
     """
+    # Setup prepend for log messages
+    prepend_log_msg = FILE_PATH + ".make_data_split "
     # TODO: Switch to .mat from .pickle so that these lists are easier to read
     # and change.
 
@@ -501,7 +514,7 @@ def make_data_splits(samples, params, results_dir, num_experiments):
         else:
             train_expts = np.arange(num_experiments)
 
-        print("TRAIN EXPTS: {}".format(train_expts))
+        logging.info(prepend_log_msg + "TRAIN EXPTS: {}".format(train_expts))
 
         if params["num_train_per_exp"] is not None:
             # Then sample randomly without replacement from training sampleIDs
@@ -511,8 +524,8 @@ def make_data_splits(samples, params, results_dir, num_experiments):
                     for i in range(len(train_samples))
                     if int(train_samples[i].split("_")[0]) == e
                 ]
-                print(e)
-                print(len(tinds))
+                logging.debug(e)
+                logging.debug(len(tinds))
                 train_inds = train_inds + list(
                     np.random.choice(
                         tinds, (params["num_train_per_exp"],), replace=False
@@ -607,6 +620,7 @@ def remove_samples_npy(npydir, samples, params):
     Remove any samples from sample list if they do not have corresponding volumes in the image
         or grid directories
     """
+    prepend_log_msg = FILE_PATH + ".remove_samples_npy "
     # image_volumes
     # grid_volumes
     samps = []
@@ -630,7 +644,7 @@ def remove_samples_npy(npydir, samples, params):
         sampdiff = len(npysamps) - len(goodsamps)
 
         # import pdb; pdb.set_trace()
-        print(
+        logging.info(prepend_log_msg +
             "Removed {} samples from {} because corresponding image or grid files could not be found".format(
                 sampdiff, params["experiment"][e]["label3d_file"]
             )
@@ -745,13 +759,18 @@ def save_COM_dannce_mat(params, com3d, sampleID):
     Instead of saving 3D COM to com3d.mat, save it into the dannce.mat file, which
     streamlines subsequent dannce access.
     """
+    # Setup Logging
+    logging.basicConfig(filename=params["log_dest"], level=params["log_level"], 
+                        format='%(asctime)s %(levelname)s:%(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
+    prepend_log_msg = FILE_PATH + ".save_COM_dannce_mat "
+
     com = {}
     com["com3d"] = com3d
     com["sampleID"] = sampleID
     com["metadata"] = prepare_save_metadata(params)
 
     # Open dannce.mat file, add com and re-save
-    print("Saving COM predictions to " + params["label3d_file"])
+    logging.info(prepend_log_msg + "Saving COM predictions to " + params["label3d_file"])
     rr = sio.loadmat(params["label3d_file"])
     # For safety, save old file to temp and delete it at the end
     sio.savemat(params["label3d_file"] + ".temp", rr)
@@ -768,6 +787,9 @@ def save_COM_checkpoint(
     Saves COM pickle and matfiles
 
     """
+    # Set Prepend log message
+    prepend_log_msg = FILE_PATH + ".save_COM_dannce_mat "
+
     # Save undistorted 2D COMs and their 3D triangulations
     f = open(os.path.join(results_dir, file_name + ".pickle"), "wb")
     cPickle.dump(save_data, f)
@@ -804,7 +826,7 @@ def save_COM_checkpoint(
         )
 
     cfilename = os.path.join(results_dir, file_name + ".mat")
-    print("Saving 3D COM to {}".format(cfilename))
+    logging.info(prepend_log_msg + "Saving 3D COM to {}".format(cfilename))
     samples_keys = list(com3d_dict.keys())
 
     if params["n_instances"] > 1:
@@ -836,6 +858,7 @@ def inherit_config(child, parent, keys):
     for key in keys:
         if key not in child.keys():
             child[key] = parent[key]
+            # Leaving this print statement as is, since params are not built at this point
             print(
                 "{} not found in io.yaml file, falling back to main config".format(key)
             )
@@ -847,6 +870,8 @@ def grab_predict_label3d_file(defaultdir=""):
     """
     Finds the paths to the training experiment yaml files.
     """
+    # Set Logging prepend message
+    prepend_log_msg = FILE_PATH + ".grab_predict_label3d_file "
     def_ep = os.path.join(".", defaultdir)
     label3d_files = os.listdir(def_ep)
     label3d_files = [
@@ -856,7 +881,7 @@ def grab_predict_label3d_file(defaultdir=""):
 
     if len(label3d_files) == 0:
         raise Exception("Did not find any *dannce.mat file in {}".format(def_ep))
-    print("Using the following *dannce.mat files: {}".format(label3d_files[0]))
+    logging.debug(prepend_log_msg + "Using the following *dannce.mat files: {}".format(label3d_files[0]))
     return label3d_files[0]
 
 
@@ -865,6 +890,9 @@ def load_expdict(params, e, expdict, _DEFAULT_VIDDIR):
     Load in camnames and video directories and label3d files for a single experiment
         during training.
     """
+    # Set Logging prepend msg
+    prepend_log_msg = FILE_PATH + ".load_expdict "
+
     _DEFAULT_NPY_DIR = "npy_volumes"
     exp = params.copy()
     exp = make_paths_safe(exp)
@@ -877,14 +905,14 @@ def load_expdict(params, e, expdict, _DEFAULT_VIDDIR):
         exp["viddir"] = os.path.join(exp["base_exp_folder"], _DEFAULT_VIDDIR)
     else:
         exp["viddir"] = expdict["viddir"]
-    print("Experiment {} using videos in {}".format(e, exp["viddir"]))
+    logging.debug(prepend_log_msg + "Experiment {} using videos in {}".format(e, exp["viddir"]))
 
     l3d_camnames = io.load_camnames(expdict["label3d_file"])
     if "camnames" in expdict:
         exp["camnames"] = expdict["camnames"]
     elif l3d_camnames is not None:
         exp["camnames"] = l3d_camnames
-    print("Experiment {} using camnames: {}".format(e, exp["camnames"]))
+    logging.debug(prepend_log_msg + "Experiment {} using camnames: {}".format(e, exp["camnames"]))
 
     # Use the camnames to find the chunks for each video
     chunks = {}
@@ -902,7 +930,7 @@ def load_expdict(params, e, expdict, _DEFAULT_VIDDIR):
             [int(x.split(".")[0]) for x in video_files]
         )
     exp["chunks"] = chunks
-    print(chunks)
+    logging.debug(prepend_log_msg + chunks)
 
     # For npy volume training
     if params["use_npy"]:
@@ -1028,6 +1056,9 @@ def generate_readers(
     viddir, camname, minopt=0, maxopt=300000, pathonly=False, extension=".mp4"
 ):
     """Open all mp4 objects with imageio, and return them in a dictionary."""
+    # Set prepend message
+    prepend_log_msg = FILE_PATH + ".generate_readers "
+
     out = {}
     mp4files = [
         os.path.join(camname, f)
@@ -1054,7 +1085,7 @@ def generate_readers(
         if pathonly:
             out[mp4files_scrub[i]] = os.path.join(viddir, mp4files[i])
         else:
-            print(
+            logging.info(
                 "NOTE: Ignoring {} files numbered above {}".format(extensions, maxopt)
             )
             out[mp4files_scrub[i]] = imageio.get_reader(
@@ -1439,6 +1470,9 @@ def dupe_params(exp, dupes):
         2-camera system), automatically duplicate necessary
         parameters to match the required n_views.
     """
+    # Set log prepend msg
+    prepend_log_msg = FILE_PATH + ".dupe_params "
+
     n_views = exp["n_views"]
     for d in dupes:
         val = exp[d]
@@ -1457,7 +1491,7 @@ def dupe_params(exp, dupes):
                 duped = val * num_reps
                 for i in range(num_extra):
                     duped.append(duped[i])
-                print("Duping {}. Changed from {} to {}".format(d, val, duped))
+                logging.info(prepend_log_msg + "Duping {}. Changed from {} to {}".format(d, val, duped))
                 exp[d] = duped
             else:
                 raise Exception(
@@ -1474,6 +1508,9 @@ def write_npy(uri, gen):
     Creates a new image folder and grid folder at the uri and uses
     the generator to generate samples and save them as npy files
     """
+    # Set log prepend msg
+    prepend_log_msg = FILE_PATH + ".write_npy "
+
     imdir = os.path.join(uri, "image_volumes")
     if not os.path.exists(imdir):
         os.makedirs(imdir)
@@ -1494,7 +1531,7 @@ def write_npy(uri, gen):
     bs = gen.batch_size
     for i in range(len(gen)):
         if i % 1000 == 0:
-            print(i)
+            logging.debug(i)
         # Generate batch
         bch = gen.__getitem__(i)
         # loop over all examples in batch and save volume
@@ -1503,6 +1540,6 @@ def write_npy(uri, gen):
             fname = gen.list_IDs[gen.indexes[i * bs + j]]
 
             # and save
-            print(fname)
+            logging.debug(fname)
             np.save(os.path.join(imdir, fname + ".npy"), bch[0][0][j].astype("uint8"))
             np.save(os.path.join(griddir, fname + ".npy"), bch[0][1][j])

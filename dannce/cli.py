@@ -255,6 +255,18 @@ def add_shared_args(
         help="Normalization method to use, can be 'batch', 'instance', or 'layer'.",
     )
 
+    parser.add_argument(
+        "--log-level",
+        dest="log_level",
+        help="Level of logging to use, can be 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'. Default is 'INFO'.",
+    )
+
+    parser.add_argument(
+        "--log-dest",
+        dest="log_dest",
+        help="Log File location to where logs are to be written to. By default, location is set to logs/dannce.log ",
+    )
+
     return parser
 
 
