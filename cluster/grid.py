@@ -5,19 +5,15 @@ import os
 import yaml
 import argparse
 import ast
-from dannce.engine.io import load_sync, load_com
-from dannce.engine.processing import prepare_save_metadata
-from dannce import (
-    _param_defaults_shared,
-    _param_defaults_dannce,
-    _param_defaults_com,
-)
 from typing import Text, List, Tuple
 from multi_gpu import build_params_from_config_and_batch
 
 
 import subprocess
 import time
+import logging
+
+FILE_PATH = "dance.cluster.grid"
 
 class GridHandler:
     def __init__(
@@ -91,10 +87,13 @@ class GridHandler:
             batch_params (List): List of batch training parameters.
             cmd (Text): System command to be issued.
         """
+        # Set logging prepend
+        prepend_log_msg = FILE_PATH + ".GridHandler.submit_jobs "
+
         if self.verbose:
             for batch_param in batch_params:
-                print(batch_param)
-            print("Command issued: ", cmd)
+                logging.info(prepend_log_msg + batch_param)
+            logging.info(prepend_log_msg + "Command issued: ", cmd)
         if not self.test:
             if isinstance(cmd, list): 
                 for i in range(len(cmd)):
@@ -136,6 +135,10 @@ class GridHandler:
         """
         batch_params = self.generate_batch_params_dannce()
 
+        # Setup Logging for dannce_train_single_batch
+        logging.basicConfig(filename=self.load_params(self.config)["log_dest"], level=self.load_params(self.config)["log_level"], 
+                            format='%(asctime)s %(levelname)s:%(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
+
         slurm_config = self.load_params(self.load_params(self.config)["slurm_config"])
         cmd = (
             'sbatch --wait --array=0-%d %s --wrap="%s dannce-train-single-batch %s %s"'
@@ -163,12 +166,19 @@ def dannce_train_single_batch():
     handler = GridHandler(config, grid_config)
     batch_params = handler.load_batch_params()
     task_id = int(os.getenv("SLURM_ARRAY_TASK_ID"))
-    print("Task ID = ", task_id)
     batch_param = batch_params[task_id]
-    print(batch_param)
+    
 
     # Build final parameter dictionary
     params = build_params_from_config_and_batch(config, batch_param)
+
+    # Setup Logging for dannce_train_single_batch
+    logging.basicConfig(filename=params["log_dest"], level=params["log_level"], 
+                        format='%(asctime)s %(levelname)s:%(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
+    prepend_log_msg = FILE_PATH + ".dannce_train_single_batch "
+
+    logging.info(prepend_log_msg + "Task ID = ", task_id)
+    logging.info(prepend_log_msg + batch_param)
 
     # Train
     dannce_train(params)

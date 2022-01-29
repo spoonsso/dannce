@@ -9,6 +9,9 @@ from scipy.special import comb
 from scipy.ndimage import median_filter
 import warnings
 from copy import deepcopy
+import logging
+
+FILE_PATH = "dannce.engine.serve_data_DANNCE"
 
 
 def prepare_data(
@@ -27,6 +30,9 @@ def prepare_data(
 
     multimode: when this True, we output all 2D markers AND their 2D COM
     """
+    # Set Log Prepend Msg
+    prepend_log_msg = FILE_PATH + ".prepare_data "
+
     if prediction:
         labels = load_sync(params["label3d_file"])
         nFrames = np.max(labels[0]["data_frame"].shape)
@@ -40,7 +46,7 @@ def prepare_data(
         # import pdb
         # pdb.set_trace()
     else:
-        print(params["label3d_file"])
+        logging.info(prepend_log_msg + params["label3d_file"])
         labels = load_labels(params["label3d_file"])
 
     camera_params = load_camera_params(params["label3d_file"])
@@ -87,7 +93,7 @@ def prepare_data(
             data[:, 1] = params["raw_im_h"] - data[:, 1] - 1
 
         if params["multi_mode"]:
-            print("Entering multi-mode with {} + 1 targets".format(data.shape[-1]))
+            logging.debug(prepend_log_msg + "Entering multi-mode with {} + 1 targets".format(data.shape[-1]))
             if nanflag:
                 dcom = np.mean(data, axis=2, keepdims=True)
             else:
@@ -108,7 +114,7 @@ def prepare_data(
 
     # If specific markers are set to be excluded, set them to NaN here.
     if params["drop_landmark"] is not None and not prediction:
-        print(
+        logging.debug( prepend_log_msg + 
             "Setting landmarks {} to NaN. These landmarks will not be included in loss or metric evaluations".format(
                 params["drop_landmark"]
             )
@@ -243,16 +249,18 @@ def prepare_COM(
     detected by the generator to return nans such that bad camera
     frames do not get averaged in to image data
     """
+    # Set log prepend msg
+    prepend_log_msg = FILE_PATH + ".prepare_COM "
 
     with open(comfile, "rb") as f:
         com = cPickle.load(f)
     com3d_dict = {}
 
     if method == "mean":
-        print("using mean to get 3D COM")
+        logging.debug(prepend_log_msg + "using mean to get 3D COM")
 
     elif method == "median":
-        print("using median to get 3D COM")
+        logging.debug(prepend_log_msg + "using median to get 3D COM")
 
     firstkey = list(com.keys())[0]
 
@@ -395,6 +403,7 @@ def remove_samples(s, d3d, mode="clean", auxmode=None):
                 sample_mask[i] = 0
 
     if auxmode == "JDM52d2":
+        # Leaving this print statement as is, since there are no calls to this module
         print("removing bad JDM52d2 frames")
         for i in range(len(s)):
             if s[i] >= 20000 and s[i] <= 32000:
