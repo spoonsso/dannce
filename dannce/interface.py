@@ -222,7 +222,7 @@ def setup_com_predict(params: Dict):
         params["loss"] = getattr(keras_losses, params["loss"])
     params["net"] = getattr(nets, params["net"])
 
-    os.environ["CUDA_VISIBLE_DEVICES"] = params["gpu_id"]
+    #os.environ["CUDA_VISIBLE_DEVICES"] = params["gpu_id"]
 
     # If params['n_channels_out'] is greater than one, we enter a mode in
     # which we predict all available labels + the COM
@@ -623,7 +623,7 @@ def setup_com_train(params: Dict) -> Dict:
     params["loss"] = getattr(losses, params["loss"])
     params["net"] = getattr(nets, params["net"])
 
-    os.environ["CUDA_VISIBLE_DEVICES"] = params["gpu_id"]
+    #os.environ["CUDA_VISIBLE_DEVICES"] = params["gpu_id"]
 
     # MULTI_MODE is where the full set of markers is trained on, rather than
     # the COM only. In some cases, this can help improve COMfinder performance.
@@ -1272,7 +1272,7 @@ def dannce_predict(params: Dict):
     Args:
         params (Dict): Paremeters dictionary.
     """
-    os.environ["CUDA_VISIBLE_DEVICES"] = params["gpu_id"]
+    #os.environ["CUDA_VISIBLE_DEVICES"] = params["gpu_id"]
     make_folder("dannce_predict_dir", params)
 
     params = setup_dannce_predict(params)
@@ -1380,10 +1380,8 @@ def dannce_predict(params: Dict):
         import torch
 
         # Because CUDA_VISBILE_DEVICES is already set to a single GPU, the gpu_id here should be "0"
-        device = "cuda:0"
         genfunc = generator.DataGenerator_3Dconv_torch
     elif params["predict_mode"] == "tf":
-        device = "/GPU:0"
         genfunc = generator.DataGenerator_3Dconv_tf
     else:
         genfunc = generator.DataGenerator_3Dconv
@@ -1425,7 +1423,6 @@ def dannce_predict(params: Dict):
         params,
         model,
         partition,
-        device,
         params["n_markers"],
     )
 
