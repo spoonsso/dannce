@@ -1137,13 +1137,23 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
 
         if self.expval:
             if self.heatmap_reg:
-                return [X, X_grid, self.get_max_gt_ind(X_grid, y_3d)], [y_3d,
+                return_input = [X, X_grid, self.get_max_gt_ind(X_grid, y_3d)]
+                return_target = [y_3d,
                     self.heatmap_reg_coeff*np.ones((self.batch_size, y_3d.shape[-1]), dtype='float32')]
+            elif aux is not None and self.temporal_chunk_list is not None:
+                return_input = [X, X_grid]
+                return_target = [y_3d, y_3d, aux]
             elif aux is not None:
-                return [X, X_grid], [y_3d, aux]
-            return [X, X_grid], y_3d
+                return_input = [X, X_grid]
+                return_target = [y_3d, aux]
+            else:
+                return_input = [X, X_grid]
+                return_target = y_3d
         else:
-            return X, y_3d
+            return_input = X
+            return_target = y_3d
+
+        return return_input, return_target
 
 
 class DataGenerator_3Dconv_npy(DataGenerator_3Dconv_frommem):

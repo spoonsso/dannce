@@ -89,7 +89,7 @@ def write_debug(
         print("Note: Cannot output debug information in COM multi-mode")
 
 
-def initialize_vids(params, datadict, e, vids, pathonly=True):
+def initialize_vids(params, datadict, e, vids, pathonly=True, vidkey="viddir"):
     """
     Initializes video path dictionaries for a training session. This is different
         than a predict session because it operates over a single animal ("experiment")
@@ -118,12 +118,12 @@ def initialize_vids(params, datadict, e, vids, pathonly=True):
         else:
             addl = os.listdir(
                 os.path.join(
-                    params["experiment"][e]["viddir"],
+                    params["experiment"][e][vidkey],
                     basecam,
                 )
             )[0]
         r = generate_readers(
-            params["experiment"][e]["viddir"],
+            params["experiment"][e][vidkey],
             os.path.join(basecam, addl),
             maxopt=flist,  # Large enough to encompass all videos in directory.
             extension=params["experiment"][e]["extension"],
@@ -316,6 +316,9 @@ def infer_params(params, dannce_net, prediction):
 
         if params["n_rand_views"] == "None":
             print_and_set(params, "n_rand_views", None)
+
+        if params["silhouette_loss_weight"] is not None:
+            print_and_set(params, "use_silhouette", True)
 
     # There will be strange behavior if using a mirror acquisition system and are cropping images
     if params["mirror"] and params["crop_height"][-1] != params["raw_im_h"]:
@@ -885,7 +888,7 @@ def grab_predict_label3d_file(defaultdir=""):
     print("Using the following *dannce.mat files: {}".format(label3d_files[0]))
     return label3d_files[0]
 
-def load_expdict(params, e, expdict, _DEFAULT_VIDDIR):
+def load_expdict(params, e, expdict, _DEFAULT_VIDDIR, _DEFAULT_VIDDIR_SIL):
     """
     Load in camnames and video directories and label3d files for a single experiment
         during training.
@@ -900,9 +903,17 @@ def load_expdict(params, e, expdict, _DEFAULT_VIDDIR):
         # if the videos are not at the _DEFAULT_VIDDIR, then it must
         # be specified in the io.yaml experiment portion
         exp["viddir"] = os.path.join(exp["base_exp_folder"], _DEFAULT_VIDDIR)
+        if params["use_silhouette"]:
+            exp["viddir_sil"] = os.path.join(exp["base_exp_folder"], _DEFAULT_VIDDIR_SIL)
     else:
         exp["viddir"] = expdict["viddir"]
+        if params["use_silhouette"]:
+            exp["viddir_sil"] = expdict["viddir_sil"]
+
     print("Experiment {} using videos in {}".format(e, exp["viddir"]))
+
+    if params["use_silhouette"]:
+        print("Experiment {} also using masked videos in {}".format(e, exp["viddir_sil"]))
 
     l3d_camnames = io.load_camnames(expdict["label3d_file"])
     if "camnames" in expdict:

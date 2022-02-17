@@ -635,6 +635,39 @@ def finetune_fullmodel_AVG(
 
     return model
 
+def add_exposed_normed_heatmap(model):
+    """
+    Given a normal AVG model, add an extra output for supervision of the penultimate heatmap representation after softmax
+    """
+    lay = [l.name for l in model.layers]
+    if "normed_map" not in lay:
+        model.layers[-1]._name = "final_output"
+        model.layers[-3]._name = "normed_map"
+
+        model = Model(
+            inputs=[model.layers[0].input, model.layers[-2].input],
+            outputs=[model.layers[-1].output, model.layers[-3].output],
+        )
+    return model
+
+def remove_exposed_normed_heatmap(model):
+    """
+    Given an AVG+MAX model, removes the exposes heatmap output so that only the continuous AVG output is
+        generated.
+
+    To fully support "continued" mode training, this should only be called during dannce-predict, and before
+        the p_max output is added to the network.
+    """
+
+    lay = [l.name for l in model.layers]
+    if "normed_map" in lay:
+        model = Model(
+            inputs=[model.get_layer("image_input").input, model.get_layer("grid_input").input],
+            outputs=[model.get_layer("final_output").output],
+        )
+
+    return model
+
 def add_exposed_heatmap(model):
     """
     Given a normal AVG model, add an extra output for supervision of the penultimate heatmap representation

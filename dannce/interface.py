@@ -34,6 +34,7 @@ import os, psutil
 process = psutil.Process(os.getpid())
 
 _DEFAULT_VIDDIR = "videos"
+_DEFAULT_VIDDIR_SIL = "videos_sil"
 _DEFAULT_COMSTRING = "COM"
 _DEFAULT_COMFILENAME = "com3d.mat"
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"
@@ -343,7 +344,11 @@ def com_train(params: Dict):
     samples = []
     for e, expdict in enumerate(exps):
 
-        exp = processing.load_expdict(params, e, expdict, _DEFAULT_VIDDIR)
+        exp = processing.load_expdict(params, 
+                                      e, 
+                                      expdict, 
+                                      _DEFAULT_VIDDIR, 
+                                      _DEFAULT_VIDDIR_MASK)
 
         params["experiment"][e] = exp
         (samples_, datadict_, datadict_3d_, cameras_,) = serve_data_DANNCE.prepare_data(
@@ -762,8 +767,13 @@ def dannce_train(params: Dict):
     else:
         # Initialize video objects
         vids = {}
+        vids_sil = {}
         for e in range(num_experiments):
             if params["immode"] == "vid":
+                if params["use_silhouette"]:
+                    vids_sil = processing.initialize_vids(
+                        params, datadict, e, vids_sil, pathonly=True, vidkey="viddir_sil"
+                    )
                 vids = processing.initialize_vids(
                     params, datadict, e, vids, pathonly=True
                 )
@@ -831,26 +841,51 @@ def dannce_train(params: Dict):
         # Setup a generator that will read videos and labels
         tifdirs = []  # Training from single images not yet supported in this demo
 
+        train_gen_params = [partition["train_sampleIDs"],
+                            datadict,
+                            datadict_3d,
+                            cameras,
+                            partition["train_sampleIDs"],
+                            com3d_dict,
+                            tifdirs]
+        valid_gen_params = [partition["valid_sampleIDs"],
+                            datadict,
+                            datadict_3d,
+                            cameras,
+                            partition["valid_sampleIDs"],
+                            com3d_dict,
+                            tifdirs]
+
         train_generator = generator.DataGenerator_3Dconv(
-            partition["train_sampleIDs"],
-            datadict,
-            datadict_3d,
-            cameras,
-            partition["train_sampleIDs"],
-            com3d_dict,
-            tifdirs,
+            *train_gen_params,
             **valid_params
         )
         valid_generator = generator.DataGenerator_3Dconv(
-            partition["valid_sampleIDs"],
-            datadict,
-            datadict_3d,
-            cameras,
-            partition["valid_sampleIDs"],
-            com3d_dict,
-            tifdirs,
+            *valid_gen_params,
             **valid_params
         )
+
+        if params["use_silhouette"]:
+            valid_params_sil = deepcopy(valid_params)
+            valid_params_sil["vidreaders"] = vids_sil
+
+            # Set this to false so that all of our voxels stay positive, allowing us
+            # to convert to binary below
+            valid_params_sil["norm_im"] = False
+
+            # expval gets set to True here sop that even in MAX mode the
+            # silhouette generator behaves in a predictable way
+            valid_params_sil["expval"] = True
+
+            train_generator_sil = generator.DataGenerator_3Dconv(
+                *train_gen_params,
+                **valid_params_sil
+            )
+
+            valid_generator_sil = generator.DataGenerator_3Dconv(
+                *valid_gen_params,
+                **valid_params_sil
+            )
 
         # We should be able to load everything into memory...
         gridsize = tuple([params["nvox"]] * 3)
@@ -973,9 +1008,57 @@ def dannce_train(params: Dict):
     # For AVG+MAX training, need to update the expval flag in the generators
     # and re-generate the 3D training targets
     # TODO: Add code to infer_params
+    if params["avg+max"] is not None and params["use_silhouette"]:
+        print("******Cannot combine AVG+MAX with silhouette - Using ONLY silhouette*******")
+
     y_train_aux = None
     y_valid_aux = None
-    if params["avg+max"] is not None:
+
+    # Tianqing, can you please put this data loading code into a function somewhere else, like processing.py?
+    if params["silhouette"]:
+        y_train_aux = np.zeros(
+            (
+                len(partition["train_sampleIDs"]),
+                *gridsize,
+                params["chan_num"] * len(camnames[0]),
+            ),
+            dtype="float32",
+        )
+        y_valid_aux = np.zeros(
+            (
+                len(partition["valid_sampleIDs"]),
+                *gridsize,
+                params["chan_num"] * len(camnames[0]),
+            ),
+            dtype="float32",
+        )
+        print("Now loading silhouettes")
+        # Because we forced expval to True for these sil generators, we know
+        # exactly how to index into the output
+        for i in range(len(partition["train_sampleIDs"])):
+            print(i, end="\r")
+            rr = train_generator_sil.__getitem__(i)
+            y_train_aux[i] = rr[0][0]
+        for i in range(len(partition["valid_sampleIDs"])):
+            print(i, end="\r")
+            rr = valid_generator_sil.__getitem__(i)
+            y_valid_aux[i] = rr[0][0]
+
+        def extract_3d_sil(vol):
+            vol[vol > 0] = 1
+            vol = np.sum(vol, axis=-1, keepdims=True)
+
+            vol[vol < (params["chan_num"] * len(camnames[0]))] = 0
+            vol[vol > 0] = 1
+
+        y_train_aux = extract_3d_sil(y_train_aux)
+        print("{}\% of silhouette training voxels are occupied".format(
+                        np.sum(y_train_aux)/len(y_train_aux.ravel())))
+        y_valid_aux = extract_3d_sil(y_valid_aux)
+        print("{}\% of silhouette training voxels are occupied".format(
+                        np.sum(y_valid_aux)/len(y_valid_aux.ravel())))
+
+    elif params["avg+max"] is not None:
         y_train_aux, y_valid_aux = processing.initAvgMax(
             y_train, y_valid, X_train_grid, X_valid_grid, params
         )
@@ -1177,36 +1260,52 @@ def dannce_train(params: Dict):
         if params["heatmap_reg"]:
             model = nets.add_heatmap_output(model)
 
-        if params["avg+max"] is not None and params["train_mode"] != "continued":
+        if params["use_silhouette"] and params["train_mode"] != "continued":
+            model = nets.add_exposed_normed_heatmap(model)
+        elif params["avg+max"] is not None and params["train_mode"] != "continued":
             model = nets.add_exposed_heatmap(model)
 
+
+        # Tianqing: we need an elegant and flexible strategy for controlling the list of model
+        # outputs  and loss_weights in a way that can incorporate an arbitary number of 
+        # outputs, losses, and loss weights, depending on the combination of losses that
+        # the user requests. This must then be reflected in the frommem generator.
+
         if params["heatmap_reg"] or params["train_mode"] != "continued":
-            if params["use_temporal"]:
+            if params["use_silhouette"] and params["use_temporal"]:
+                print("Compile with temporal and silhouette loss")
+                model = Model(
+                    inputs=[model.input], 
+                    outputs=[model.get_layer("final_output").output, 
+                             model.get_layer("final_output").output,
+                             model.get_layer("normed_map").output]
+                )
+                compile_loss = params["loss"]
+                compile_loss_weights = [1, 
+                                        params["temporal_loss_weight"], 
+                                        params["silhouette_loss_weight"]]
+            if params["use_temporal"] and not params["use_silhouette"]:
                 print("Compile with temporal loss")
-                #import pdb
-                #pdb.set_trace()
                 model = Model(
                     inputs=[model.input], 
                     outputs=[model.layers[-1].output, model.layers[-1].output]
                 )
-                model.compile(
-                    optimizer=Adam(lr=float(params["lr"])),
-                    loss=params["loss"],
-                    loss_weights=[1, params["temporal_loss_weight"]],
-                    metrics=metrics,
-                )
+                compile_loss = params["loss"]
+                compile_loss_weights = [1, 
+                                        params["temporal_loss_weight"]]
             # recompiling a full model will reset the optimizer state
             else: 
-                model.compile(
-                    optimizer=Adam(lr=float(params["lr"])),
-                    loss=params["loss"]
-                    if not params["heatmap_reg"]
-                    else [params["loss"], losses.heatmap_max_regularizer],
-                    loss_weights=[1, params["avg+max"]]
-                    if params["avg+max"] is not None
-                    else None,
-                    metrics=metrics,
-            )
+                compile_loss = params["loss"] \
+                               if not params["heatmap_reg"] \
+                               else [params["loss"], losses.heatmap_max_regularizer]
+                compile_loss_weights = [1, params["avg+max"]] \
+                                       if params["avg+max"] is not None \
+                                       else None
+
+            model.compile(optimizer=Adam(lr=float(params["lr"])),
+                          loss=compile_loss,
+                          loss_weights = compile_loss_weights,
+                          metrics=metrics)
 
         if params["lr"] != model.optimizer.learning_rate:
             print("Changing learning rate to {}".format(params["lr"]))
@@ -1643,6 +1742,8 @@ def build_model(params: Dict, camnames: List) -> Model:
 
     # If there was an exposed heatmap for AVG+MAX training, remove it
     model = nets.remove_exposed_heatmap(model)
+
+    model = nets.remove_exposed_normed_heatmap(model)
 
     # To speed up expval prediction, rather than doing two forward passes: one for the 3d coordinate
     # and one for the probability map, here we splice on a new output layer after

@@ -93,12 +93,13 @@ _param_defaults_dannce = {
     "heatmap_reg": False,
     "heatmap_reg_coeff": 0.01,
     "save_pred_targets": False,
-    "huber-delta": 1.35,            #Change Adapted from implementation by robb
+    "huber-delta": 1.35,            #Change Adapted from implementation by Rob
     "avg+max": None,
     ## changes made to temporal
     "use_temporal": True,
     "temporal_chunk_size": 2,
     "temporal_loss_weight": 1,
+    "silhouette_loss_weight": None,
 }
 _param_defaults_com = {
     "dsmode": "nn",
