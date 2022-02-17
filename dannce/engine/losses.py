@@ -188,21 +188,13 @@ def temporal_consistency(y_pred_t1, y_pred_t2):
     """Unsupervised pairwise loss with respect to the temporal dimension.
     """
     assert y_pred_t1.shape == y_pred_t2.shape, "Imput shapes are inconsistent when computing the temporal consistency loss."
-    #print(y_pred_t1.shape)
+
     y_pred_t1, y_pred_t2, num_notnan = mask_nan_pair(y_pred_t1, y_pred_t2)
 
-    # dists = tf.keras.metrics.mean_absolute_error(y_pred_t1, y_pred_t2)
-    # min_dist, max_dist = K.max(dists), K.min(dists)
-    # loss = (max_dist - min_dist) / max_dist
     loss = K.sum((K.flatten(y_pred_t1) - K.flatten(y_pred_t2)) ** 2) / num_notnan
     loss = tf.where(~tf.math.is_nan(loss), loss, 0)
 
-    # cosine_loss = tf.keras.losses.CosineSimilarity()
-    # sim = -cosine_loss(y_pred_t1, y_pred_t2) # tf implementation gives a loss, i.e. negative
-    #sim = sim.sum() / len(sim)
-    #sim=1
-    #print(loss.shape)
-    return loss #/ K.max(sim, 1e-6)
+    return loss
 
 def temporal_loss(chunk_size):
     def loss(y_true, y_pred):
@@ -212,11 +204,6 @@ def temporal_loss(chunk_size):
             for i in range(chunk.shape[0]-1):
                 temp_losses += temporal_consistency(chunk[i], chunk[i+1])
         return temp_losses
-        #temp_losses = tf.Tensor()
-        # for chunk in y_pred:
-        #     chunk_loss = [temporal_consistency(chunk[i], chunk[i+1]) for i in range(chunk.shape[0]-1)]
-        #     temp_losses.append(tf.math.add_n(chunk_loss) / len(chunk_loss))
-        # return 
 
     return loss
 

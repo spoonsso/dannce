@@ -98,7 +98,7 @@ _param_defaults_dannce = {
     ## changes made to temporal
     "use_temporal": True,
     "temporal_chunk_size": 2,
-    "temporal_loss_weight": 0.2,
+    "temporal_loss_weight": 1,
 }
 _param_defaults_com = {
     "dsmode": "nn",

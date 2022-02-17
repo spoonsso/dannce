@@ -85,8 +85,9 @@ def prepare_data(
                 else: 
                     label[k] = np.concatenate((label[k], labels_extra[i][k][extra_samples_inds]*np.nan), axis=0)
                 label[k] = label[k][sorted_inds]
-
-    chunk_list = [samples[i:i+n] for i in range(0, len(samples), n)]
+    chunk_list = None
+    if params["use_temporal"]:
+        chunk_list = [samples[i:i+n] for i in range(0, len(samples), n)]
 
     if labels[0]["data_sampleID"].shape == (1, 1):
         # Then the squeezed value is just a number, so we add to to a list so
@@ -165,8 +166,8 @@ def prepare_data(
             for name, cam in cameras.items()
         }
         return samples, datadict, datadict_3d, cameras, camera_mats
-    else:
-        return samples, datadict, datadict_3d, cameras, chunk_list
+    
+    return samples, datadict, datadict_3d, cameras, chunk_list
 
 
 def prepare_COM_multi_instance(
