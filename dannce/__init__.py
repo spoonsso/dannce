@@ -4,7 +4,7 @@
 _param_defaults_shared = {
     "immode": "vid",
     "verbose": 1,
-    "gpu_id": "0",
+    "gpu_id": None,
     "loss": "mask_nan_keep_loss",
     "start_batch": 0,
     "exp": None,

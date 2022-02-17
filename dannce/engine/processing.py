@@ -334,6 +334,15 @@ def infer_params(params, dannce_net, prediction):
     if not dannce_net:
         print_and_set(params, "net", "unet2d_full")
 
+    # set GPU ID
+    # Because of issues with the Duke Compute Cluster, the default behavior is
+    # to not set any gpu_id and let --gres handle it. But for local workstatioins
+    # where specific GPUs need to be targeted, there is still an option to do so.
+    # Addign the CUDA_VISIBLE_DEVICES assignment here makes this extend to all downstream
+    # types of calls to interface.py (i.e. dannce-train, dannce-predict, etc..)
+    if params["gpu_id"] is not None:
+        os.environ["CUDA_VISIBLE_DEVICES"] = params["gpu_id"]
+
     return params
 
 

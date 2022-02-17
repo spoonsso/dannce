@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="dannce",
-    version="1.2.0",
+    version="1.3.0r",
     packages=find_packages(),
     install_requires=[
         "six",
@@ -17,8 +17,8 @@ setup(
         "attrs",
         "multiprocess",
         "opencv-python",
-        "tensorflow==2.6.0",
-        "keras==2.6.*", # Required to resolve pip keras install bug for tf 2.6
+        "tensorflow==2.4",
+        #"keras==2.6.*", # Required to resolve pip keras install bug for tf 2.6
         "psutil",
     ],
     # scripts=[],

@@ -671,7 +671,9 @@ def dannce_train(params: Dict):
     # set GPU ID
     # Temporarily commented out to test on dsplus gpu
     # if not params["multi_gpu_train"]:
-    # os.environ["CUDA_VISIBLE_DEVICES"] = params["gpu_id"]
+
+    if params["gpu_id"] is not None:
+        os.environ["CUDA_VISIBLE_DEVICES"] = params["gpu_id"]
 
     # find the weights given config path
     if params["dannce_finetune_weights"] is not None:
