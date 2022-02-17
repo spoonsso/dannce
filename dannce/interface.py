@@ -668,13 +668,6 @@ def dannce_train(params: Dict):
     # Convert all metric strings to objects
     metrics = nets.get_metrics(params)
 
-    # set GPU ID
-    # Temporarily commented out to test on dsplus gpu
-    # if not params["multi_gpu_train"]:
-
-    if params["gpu_id"] is not None:
-        os.environ["CUDA_VISIBLE_DEVICES"] = params["gpu_id"]
-
     # find the weights given config path
     if params["dannce_finetune_weights"] is not None:
         params["dannce_finetune_weights"] = processing.get_ft_wt(params)
