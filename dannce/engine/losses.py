@@ -214,3 +214,13 @@ def pair_repulsion_loss(y_pred_s1, y_pred_s2):
         y_pred_s1, y_pred_s2: (B, N, 3)"""
 
     return 1 / K.sum((y_pred_s1 - y_pred_s2)**2)
+
+def silhouette_loss(y_true, y_pred, dim=2):
+    # y_true and y_pred will both have shape
+    # (n_batch, width, height, n_keypts)
+    assert dim == 2 or dim == 3, "The silhouette loss only supports 2D or 3D"
+    reduce_axes = [1, 2] if dim == 2 else [1, 2, 3]
+    sil = K.sum(y_pred * y_true, axis=reduce_axes)
+    sil = K.mean(-K.log(sil + 1e-12), axis=-1)
+    
+    return K.mean(sil, axis=0)
