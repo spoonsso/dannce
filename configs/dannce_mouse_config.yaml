@@ -37,5 +37,3 @@ max_num_samples: 100
 dannce_finetune_weights: ./DANNCE/weights/
 
 data_split_seed: 42
-
-norm_method: instance

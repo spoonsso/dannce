@@ -477,6 +477,13 @@ def make_data_splits(samples, params, results_dir, num_experiments, temporal_chu
         partition["train_chunks"] = [np.arange(i, i+chunk_size) for i in range(0, len(train_chunks), chunk_size)]
         partition["valid_chunks"] = [np.arange(i, i+chunk_size) for i in range(0, len(valid_chunks), chunk_size)]
 
+        # Save train/val inds
+        with open(os.path.join(results_dir, "val_samples.pickle"), "wb") as f:
+            cPickle.dump(partition["valid_sampleIDs"], f)
+
+        with open(os.path.join(results_dir, "train_samples.pickle"), "wb") as f:
+            cPickle.dump(partition["train_sampleIDs"], f)
+
         return partition
 
 
@@ -574,7 +581,7 @@ def make_data_splits(samples, params, results_dir, num_experiments, temporal_chu
     # Reset any seeding so that future batch shuffling, etc. are not tied to this seed
     if params["data_split_seed"] is not None:
         np.random.seed()
-
+    
     return partition
 
 

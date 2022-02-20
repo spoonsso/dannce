@@ -771,6 +771,9 @@ def keep_model_single_output(model):
 
 def update_model_multi_outputs(params, model):
     MULTILOSS_FLAG = False
+    if params["use_temporal"]:
+        MULTILOSS_FLAG = True
+
     if params["heatmap_reg"]:
         model = add_heatmap_output(model)
         MULTILOSS_FLAG = True
