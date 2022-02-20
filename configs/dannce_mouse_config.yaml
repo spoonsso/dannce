@@ -31,9 +31,11 @@ vol_size: 120
 nvox: 64
 
 # max. number of batches to evaluate during prediction. set to 'max' to evaluate over all data/video frames
-max_num_samples: 1000
+max_num_samples: 100
 
 # By default, will load in the first hdf5 file at this location for fine-tuning. If training from scratch, set to None
 dannce_finetune_weights: ./DANNCE/weights/
 
 data_split_seed: 42
+
+norm_method: instance

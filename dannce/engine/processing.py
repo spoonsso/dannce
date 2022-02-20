@@ -316,9 +316,10 @@ def infer_params(params, dannce_net, prediction):
 
         if params["n_rand_views"] == "None":
             print_and_set(params, "n_rand_views", None)
-
-        if params["silhouette_loss_weight"] is not None:
-            print_and_set(params, "use_silhouette", True)
+        
+        TEMPORAL_FLAG = (params["temporal_loss_weight"] is not None) and (params["temporal_chunk_size"] is not None) 
+        print_and_set(params, "use_temporal", TEMPORAL_FLAG)
+        print_and_set(params, "use_silhouette", params["silhouette_loss_weight"] is not None)
 
     # There will be strange behavior if using a mirror acquisition system and are cropping images
     if params["mirror"] and params["crop_height"][-1] != params["raw_im_h"]:
@@ -456,6 +457,10 @@ def make_data_splits(samples, params, results_dir, num_experiments, temporal_chu
     if params["use_temporal"]:
         assert temporal_chunks != None, "If use temporal, do partitioning over chunks."
         v = params["num_validation_per_exp"]
+        # fix random seeds
+        if params["data_split_seed"] is not None:
+            np.random.seed(params["data_split_seed"])
+        
         valid_chunks, train_chunks = [], []
         for e in range(num_experiments):
             if v > 0:
@@ -471,9 +476,6 @@ def make_data_splits(samples, params, results_dir, num_experiments, temporal_chu
         chunk_size = len(train_chunks[0])
         partition["train_chunks"] = [np.arange(i, i+chunk_size) for i in range(0, len(train_chunks), chunk_size)]
         partition["valid_chunks"] = [np.arange(i, i+chunk_size) for i in range(0, len(valid_chunks), chunk_size)]
-
-        if params["data_split_seed"] is not None:
-            np.random.seed()
 
         return partition
 
@@ -903,16 +905,13 @@ def load_expdict(params, e, expdict, _DEFAULT_VIDDIR, _DEFAULT_VIDDIR_SIL):
         # if the videos are not at the _DEFAULT_VIDDIR, then it must
         # be specified in the io.yaml experiment portion
         exp["viddir"] = os.path.join(exp["base_exp_folder"], _DEFAULT_VIDDIR)
-        if params["use_silhouette"]:
-            exp["viddir_sil"] = os.path.join(exp["base_exp_folder"], _DEFAULT_VIDDIR_SIL)
     else:
         exp["viddir"] = expdict["viddir"]
-        if params["use_silhouette"]:
-            exp["viddir_sil"] = expdict["viddir_sil"]
 
     print("Experiment {} using videos in {}".format(e, exp["viddir"]))
 
     if params["use_silhouette"]:
+        exp["viddir_sil"] = os.path.join(exp["base_exp_folder"], _DEFAULT_VIDDIR_SIL) if "viddir_sil" not in expdict else expdict["viddir_sil"]
         print("Experiment {} also using masked videos in {}".format(e, exp["viddir_sil"]))
 
     l3d_camnames = io.load_camnames(expdict["label3d_file"])
@@ -1450,3 +1449,47 @@ def write_npy(uri, gen):
             print(fname)
             np.save(os.path.join(imdir, fname + ".npy"), bch[0][0][j].astype("uint8"))
             np.save(os.path.join(griddir, fname + ".npy"), bch[0][1][j])
+
+def load_volumes_into_mem(params, partition, n_cams, generator, train=True, silhouette=False):
+    n_samples = len(partition["train_sampleIDs"]) if train else len(partition["valid_sampleIDs"]) 
+    message = "Loading training data into memory" if train else "Loading validation data into memory"
+    gridsize = tuple([params["nvox"]] * 3)
+
+    X = np.zeros((n_samples, *gridsize, params["chan_num"]*n_cams), dtype="float32")
+    print(message)
+
+    X_grid = None
+    if params["expval"]:
+        y = np.zeros((n_samples, 3, params["new_n_channels_out"]), dtype="float32")
+        X_grid = np.zeros((n_samples, params["nvox"] ** 3, 3), dtype="float32")
+    else:
+        y = np.zeros((n_samples, *gridsize, params["new_n_channels_out"]), dtype="float32")
+
+    for i in range(n_samples):
+        print(i, end="\r")
+        rr = generator.__getitem__(i)
+        if params["expval"]:
+            X[i] = rr[0][0]
+            X_grid[i] = rr[0][1]
+        else:
+            X[i] = rr[0]
+        y[i] = rr[1]
+
+    if silhouette:
+        print("Now loading silhouettes")
+        def extract_3d_sil(vol):
+            vol[vol > 0] = 1
+            vol = np.sum(vol, axis=-1, keepdims=True)
+
+            vol[vol < (params["chan_num"] * n_cams)] = 0
+            vol[vol > 0] = 1
+
+            print("{}\% of silhouette training voxels are occupied".format(
+                    100*np.sum(vol)/len(vol.ravel())))
+            return vol
+    
+        X = extract_3d_sil(X)
+        return None, None, X
+    
+    return X, X_grid, y
+

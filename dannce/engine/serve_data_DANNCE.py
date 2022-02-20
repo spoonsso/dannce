@@ -58,19 +58,27 @@ def prepare_data(
         )
 
     # ------------- new chunk code to refactor / modularize
-    if (not prediction) and params["use_temporal"]:
-        labels_extra = load_sync(params["label3d_file"])
+    TEMPORAL_FLAG = (not prediction) and params["use_temporal"]
+    chunk_list = None
 
-        n = params["temporal_chunk_size"]
+    if TEMPORAL_FLAG:
+        assert params["temporal_chunk_size"], "PLease specify the temporal chunk size when using temporal loss."
+        temp_n = params["temporal_chunk_size"]
+
+        # load in extra samples for unsupervised learning     
+        labels_extra = load_sync(params["label3d_file"])
         samples_extra = np.squeeze(labels_extra[0]["data_sampleID"])
         sample_inds = np.array([np.where(samples_extra == samp)[0][0] for samp in samples])
-        #print(sample_inds)
 
-        extra_samples_inds = [sample_inds+i for i in range(-n//2, n//2) if i != 0] if n%2==0 \
-            else [sample_inds+i for i in range(-n//2, n//2+1) if i != 0]
-        extra_samples_inds = sorted(np.concatenate(extra_samples_inds))
+        # select extra samples from the neighborhood of labeled samples
+        # each of which is referred as a "temporal chunk"
+        left_bound, right_bound = -int(temp_n // 2), int(np.round(temp_n/2))
+        extra_samples_inds = [sample_inds+i for i in range(left_bound, right_bound) if i != 0]
 
-        ## TODO additional check on validity
+        # force validity of the extra sampleIDs
+        extra_samples_inds = np.concatenate(extra_samples_inds)
+        extra_samples_inds[extra_samples_inds < 0] = 0
+        extra_samples_inds[extra_samples_inds >= len(samples_extra)] = len(samples_extra)-1
 
         # concat sampleIDs with extra sampleIDs without labels
         samples = np.concatenate((samples, samples_extra[extra_samples_inds]), axis=0)
@@ -85,9 +93,8 @@ def prepare_data(
                 else: 
                     label[k] = np.concatenate((label[k], labels_extra[i][k][extra_samples_inds]*np.nan), axis=0)
                 label[k] = label[k][sorted_inds]
-    chunk_list = None
-    if params["use_temporal"]:
-        chunk_list = [samples[i:i+n] for i in range(0, len(samples), n)]
+                
+        chunk_list = [samples[i:i + temp_n] for i in range(0, len(samples), temp_n)]
 
     if labels[0]["data_sampleID"].shape == (1, 1):
         # Then the squeezed value is just a number, so we add to to a list so

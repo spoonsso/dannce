@@ -96,9 +96,8 @@ _param_defaults_dannce = {
     "huber-delta": 1.35,            #Change Adapted from implementation by Rob
     "avg+max": None,
     ## changes made to temporal
-    "use_temporal": True,
-    "temporal_chunk_size": 2,
-    "temporal_loss_weight": 1,
+    "temporal_chunk_size": None,
+    "temporal_loss_weight": None,
     "silhouette_loss_weight": None,
 }
 _param_defaults_com = {

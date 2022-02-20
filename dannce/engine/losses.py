@@ -102,7 +102,7 @@ def K_nanmean_infmean(tensor):
 
     loss = K.sum(nonan) / num_notnan
 
-    return loss#tf.where(~tf.math.is_inf(loss), loss, 0)
+    return loss #tf.where(~tf.math.is_inf(loss), loss, 0)
 
 
 def euclidean_distance_3D(y_true, y_pred):
@@ -176,12 +176,13 @@ def gaussian_cross_entropy_loss(y_true, y_pred):
 
 ###
 def mask_nan_pair(y1, y2):
-    nan_true = tf.math.logical_or(tf.math.is_nan(y1), tf.math.is_nan(y2))
-    notnan_true = K.cast(~nan_true , "float32") 
-    num_notnan = K.sum(K.flatten(notnan_true))
+    # need a different mask nan function for unsupervised losses
+    # since there's no "ground truth"
+    notnan = ~tf.math.logical_or(tf.math.is_nan(y1), tf.math.is_nan(y2))
+    num_notnan = K.sum(K.flatten(K.cast(notnan, "float32") ))
 
-    y1 = K.cast(tf.where(~nan_true, y1, tf.zeros_like(y1)), "float32")
-    y2 = K.cast(tf.where(~nan_true, y2, tf.zeros_like(y2)), "float32")
+    y1 = K.cast(tf.where(notnan, y1, tf.zeros_like(y1)), "float32")
+    y2 = K.cast(tf.where(notnan, y2, tf.zeros_like(y2)), "float32")
     return y1, y2, num_notnan
 
 def temporal_consistency(y_pred_t1, y_pred_t2):
@@ -207,15 +208,7 @@ def temporal_loss(chunk_size):
 
     return loss
 
-def pair_repulsion_loss(y_pred_s1, y_pred_s2):
-    """Unsupervised pairwise loss with respect to two subjects. 
-    The predictions should be as far as possible, i.e. repelling each other.
-    Input:
-        y_pred_s1, y_pred_s2: (B, N, 3)"""
-
-    return 1 / K.sum((y_pred_s1 - y_pred_s2)**2)
-
-def silhouette_loss(y_true, y_pred, dim=2):
+def silhouette_loss(y_true, y_pred, dim=3):
     # y_true and y_pred will both have shape
     # (n_batch, width, height, n_keypts)
     assert dim == 2 or dim == 3, "The silhouette loss only supports 2D or 3D"
@@ -224,3 +217,12 @@ def silhouette_loss(y_true, y_pred, dim=2):
     sil = K.mean(-K.log(sil + 1e-12), axis=-1)
     
     return K.mean(sil, axis=0)
+
+def pair_repulsion_loss(y_pred_s1, y_pred_s2):
+    """Unsupervised pairwise loss with respect to two subjects. 
+    The predictions should be as far as possible, i.e. repelling each other.
+    Input:
+        y_pred_s1, y_pred_s2: (B, N, 3)"""
+
+    return 1 / K.sum((y_pred_s1 - y_pred_s2)**2)
+

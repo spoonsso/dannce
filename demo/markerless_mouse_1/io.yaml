@@ -8,16 +8,16 @@ com_predict_weights: ./COM/train_results/weights.250-0.00036.hdf5
 
 ### Dannce ###
 # path to folder where DANNCE weights and logs will be saved
-dannce_train_dir: ./DANNCE/train_test_in_dgp
-dannce_predict_dir: ./DANNCE/predict_results/
+dannce_train_dir: ./DANNCE/train_silhouette_dev/
+dannce_predict_dir: ./DANNCE/predict_results_silhouette_dev/
 
 # During prediction, will look for the last epoch weights saved to ./DANNCE/train_results/. To load in a different weights file, add the path here
 # Note that this must be a FULL MODEL file, not just weights.
-dannce_predict_model: ./DANNCE/train_results/AVG/weights.1200-12.77642.hdf5
+dannce_predict_model: /home/tianqingli/dl-projects/dannce/demo/markerless_mouse_1/DANNCE/train_silhouette_dev/weights.checkpoint.epoch0.val_loss46.40373.hdf5
 
 exp:
     - label3d_file: './label3d_dannce.mat'
       viddir: ../../demo/markerless_mouse_1/videos/
-    - label3d_file: '../markerless_mouse_2/label3d_dannce.mat'
-      viddir: ../../demo/markerless_mouse_2/videos/
+    # - label3d_file: '../markerless_mouse_2/label3d_dannce.mat'
+    #   viddir: ../../demo/markerless_mouse_2/videos/
 

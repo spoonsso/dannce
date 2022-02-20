@@ -817,6 +817,7 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         self.heatmap_reg_coeff = heatmap_reg_coeff
         self.aux_labels = aux_labels
         self.temporal_chunk_list = temporal_chunk_list
+        self._get_temporal_batch_size()
         self.on_epoch_end()
 
     def __len__(self):
@@ -826,11 +827,13 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
             int: Batches per epoch
         """
         if self.temporal_chunk_list is not None:
-            return len(self.temporal_chunk_list) // self._get_temporal_batch_size()
+            return len(self.temporal_chunk_list) // self.temporal_batch_size
+
         return len(self.list_IDs) // self.batch_size
     
     def _get_temporal_batch_size(self):
-        return self.batch_size // len(self.temporal_chunk_list[0])
+        if self.temporal_chunk_list is not None:
+            self.temporal_batch_size = self.batch_size // len(self.temporal_chunk_list[0])
 
     def __getitem__(self, index):
         """Generate one batch of data.
@@ -844,9 +847,8 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
                 y (np.ndarray): Target
         """
         if self.temporal_chunk_list is not None:
-            temporal_batch_size = self._get_temporal_batch_size()
-            i = index * temporal_batch_size
-            indexes = self.indexes[i : i + temporal_batch_size]
+            i = index * self.temporal_batch_size
+            indexes = self.indexes[i : i + self.temporal_batch_size]
             list_IDs_temp = list(np.concatenate([self.temporal_chunk_list[k] for k in indexes], axis=0))
         else: 
             indexes = self.indexes[index * self.batch_size : (index + 1) * self.batch_size]
@@ -859,7 +861,7 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         """Update indexes after each epoch."""
         if self.temporal_chunk_list is not None:
             self.indexes = np.arange(len(self.temporal_chunk_list))
-        else:
+        else:    
             self.indexes = np.arange(self.__len__())
             
         if self.shuffle:
@@ -1135,23 +1137,20 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         # Randomly re-order, if desired
         X = self.do_random(X)
 
-        if self.expval:
-            if self.heatmap_reg:
-                return_input = [X, X_grid, self.get_max_gt_ind(X_grid, y_3d)]
-                return_target = [y_3d,
-                    self.heatmap_reg_coeff*np.ones((self.batch_size, y_3d.shape[-1]), dtype='float32')]
-            elif aux is not None and self.temporal_chunk_list is not None:
-                return_input = [X, X_grid]
-                return_target = [y_3d, y_3d, aux]
-            elif aux is not None:
-                return_input = [X, X_grid]
-                return_target = [y_3d, aux]
-            else:
-                return_input = [X, X_grid]
-                return_target = y_3d
-        else:
-            return_input = X
-            return_target = y_3d
+        return_input, return_target = [X], [y_3d]
+        if not self.expval:
+            return return_input, return_target
+
+        return_input.append(X_grid)
+        if self.heatmap_reg:
+            return_input.append(self.get_max_gt_ind(X_grid, y_3d))
+            return_target.append(self.heatmap_reg_coeff*np.ones((self.batch_size, y_3d.shape[-1]), dtype='float32'))
+        
+        if self.temporal_chunk_list is not None:
+            return_target.append(y_3d)
+        
+        if aux is not None:
+            return_target.append(aux)
 
         return return_input, return_target
 

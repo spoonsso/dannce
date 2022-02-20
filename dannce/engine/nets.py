@@ -32,6 +32,8 @@ def get_metrics(params):
 
 # TODO (JOSH). Move the if/else normalization block to its own function. And in this function
 # add the correct InstanceNormalization() call, using the appropriate axis setting.
+fun = lambda x: ops.InstanceNormalization(axis=None)(x) 
+
 def norm_fun(
     norm_method=None,
 ):
@@ -43,19 +45,16 @@ def norm_fun(
         print("using batch normalization")
 
         def fun(inputs):
-            print("calling batch norm fun")
             return BatchNormalization()(inputs)
     elif method_parse.startswith("layer"):
         print("using layer normalization")
 
         def fun(inputs):
-            print("calling layer norm fun")
             return ops.InstanceNormalization(axis=None)(inputs)
     elif method_parse.startswith("instance"):
         print("using instance normalization")
 
         def fun(inputs):
-            print("calling instance norm fun")
             return ops.InstanceNormalization(axis=-1)(inputs)
     else:
         def fun(inputs):
@@ -215,23 +214,6 @@ def unet3d_big_expectedvalue(
 ):
 
     fun = norm_fun(norm_method)
-
-    # # Entry block
-    # inputs = Input((*gridsize, input_dim * num_cams), name="image_input")
-    # x = Conv3D(64, (3, 3, 3), padding="same")(inputs)
-    # x = Activation("relu")(fun(x))
-    # x = Conv3D(64, (3, 3, 3), padding="same")(x)
-    # x = Activation("relu")(fun(x))
-    # x = MaxPooling3D(pool_size=(2, 2, 2))(x)
-
-    # # encoder blocks
-    # for filters in [128, 256, 512]:
-    #     x = Conv3D(filters, (3, 3, 3), padding='same')
-    #     x = Activation("relu")(fun(x))
-    #     x = Conv3D(filters, (3, 3, 3), padding="same")(x)
-    #     x = Activation("relu")(fun(x))
-    #     if filters != 512:
-    #         x = MaxPooling3D(pool_size=(2, 2, 2))(x)
 
     inputs = Input((*gridsize, input_dim * num_cams), name="image_input")
     conv1_layer = Conv3D(64, (3, 3, 3), padding="same")
@@ -776,6 +758,76 @@ def remove_heatmap_output(model, params):
             optimizer=opt,
             loss=l,
             metrics=mets)
+
+    return model
+
+def keep_model_single_output(model):
+    model = Model(
+        inputs=[model.get_layer("image_input").input, model.get_layer("grid_input").input],
+        outputs=[model.get_layer("final_output").output],
+    )
+
+    return model
+
+def update_model_multi_outputs(params, model):
+    MULTILOSS_FLAG = False
+    if params["heatmap_reg"]:
+        model = add_heatmap_output(model)
+        MULTILOSS_FLAG = True
+
+    if params["use_silhouette"]:
+        model = add_exposed_normed_heatmap(model)
+        MULTILOSS_FLAG = True
+    
+    if params["avg+max"] is not None:
+        model = add_exposed_heatmap(model)
+        MULTILOSS_FLAG = True
+
+    return model, MULTILOSS_FLAG
+
+
+def update_model_multi_losses(params, metrics, model):
+    """
+    Re-compile Keras model for multi-loss.
+    """
+    if params["train_mode"] == "continued":
+        return model
+
+    model, MULTILOSS_FLAG = update_model_multi_outputs(params, model)
+    if not MULTILOSS_FLAG:
+        print("Compile with single loss")
+        model.compile(optimizer=Adam(lr=float(params["lr"])), loss=params["loss"], metrics=metrics)
+        return model
+
+    inputs, outputs = [model.input], [model.output]
+    compile_loss = {"final_output": params["loss"]}
+    compile_loss_weights = {"final_output": 1}
+    compile_metrics = {'final_output': metrics}
+
+    if params["use_temporal"]:
+        print("Compile with temporal loss.")
+        outputs.append(model.get_layer("final_output").output)
+        compile_loss["final_output_1"] = losses.temporal_loss(params["temporal_chunk_size"])
+        compile_loss_weights["final_output_1"] = params["temporal_loss_weight"]
+
+    if params["use_silhouette"]:
+        print("Compile with silhouette loss.")
+        outputs.append(model.get_layer("normed_map").output)
+        compile_loss["normed_map"] = losses.silhouette_loss
+        compile_loss_weights["normed_map"] = params["silhouette_loss_weight"]
+
+    if params["heatmap_reg"]:
+        print("Compile with heatmap regularization loss.")
+        outputs.append(model.get_layer("heatmap_output").output)
+        compile_loss["heatmap_output"] = losses.heatmap_max_regularizer
+        compile_loss_weights["heatmap_output"] = params["avg+max"] if params["avg+max"] is not None else None
+
+    model = Model(inputs=inputs, outputs=outputs)
+
+    model.compile(optimizer=Adam(lr=float(params["lr"])),
+                loss=compile_loss,
+                loss_weights = compile_loss_weights,
+                metrics=compile_metrics)
 
     return model
 

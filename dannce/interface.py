@@ -649,29 +649,24 @@ def dannce_train(params: Dict):
     # Depth disabled until next release.
     params["depth"] = False
     params["multi_mode"] = False
-    # Make the training directory if it does not exist.
-    make_folder("dannce_train_dir", params)
-
-    # Adopted from implementation by robb
-    if "huber_loss" in params["loss"]:
-        params["loss"] = losses.huber_loss(params["huber-delta"])
-    else:
-        params["loss"] = getattr(losses, params["loss"])
-    
-    if params["use_temporal"]:
-        params["loss"] = [params["loss"], losses.temporal_loss(params["temporal_chunk_size"])]
-
-    params["net"] = getattr(nets, params["net"])
-
     # Default to 6 views but a smaller number of views can be specified in the
     # DANNCE config. If the legnth of the camera files list is smaller than
     # n_views, relevant lists will be duplicated in order to match n_views, if
     # possible.
     params["n_views"] = int(params["n_views"])
 
-    # Pass delta value into huber loss function
-    if params["huber-delta"] is not None:
-        losses.huber_loss(params["huber-delta"])
+    # Make the training directory if it does not exist.
+    make_folder("dannce_train_dir", params)
+
+    # Adopted from implementation by robb
+    if "huber_loss" in params["loss"] and params["huber-delta"] is not None:
+        params["loss"] = losses.huber_loss(params["huber-delta"])
+    else:
+        params["loss"] = getattr(losses, params["loss"])
+    
+    params["loss"] = [params["loss"]]
+
+    params["net"] = getattr(nets, params["net"])
 
     # Convert all metric strings to objects
     metrics = nets.get_metrics(params)
@@ -696,12 +691,11 @@ def dannce_train(params: Dict):
     num_experiments = len(exps)
     params["experiment"] = {}
     total_chunks = {}
-
     temporal_chunks = {}
 
     for e, expdict in enumerate(exps):
 
-        exp = processing.load_expdict(params, e, expdict, _DEFAULT_VIDDIR)
+        exp = processing.load_expdict(params, e, expdict, _DEFAULT_VIDDIR, _DEFAULT_VIDDIR_SIL)
 
         (
             exp,
@@ -796,8 +790,7 @@ def dannce_train(params: Dict):
 
     partition = processing.make_data_splits(
         samples, params, dannce_train_dir, num_experiments, 
-        temporal_chunks=temporal_chunks if params["use_temporal"] else None
-    )
+        temporal_chunks=temporal_chunks)
 
     if params["use_npy"]:
         # mono conversion will happen from RGB npy files, and the generator
@@ -887,88 +880,11 @@ def dannce_train(params: Dict):
                 **valid_params_sil
             )
 
-        # We should be able to load everything into memory...
-        gridsize = tuple([params["nvox"]] * 3)
-        X_train = np.zeros(
-            (
-                len(partition["train_sampleIDs"]),
-                *gridsize,
-                params["chan_num"] * len(camnames[0]),
-            ),
-            dtype="float32",
-        )
-
-        X_valid = np.zeros(
-            (
-                len(partition["valid_sampleIDs"]),
-                *gridsize,
-                params["chan_num"] * len(camnames[0]),
-            ),
-            dtype="float32",
-        )
-
-        X_train_grid = None
-        X_valid_grid = None
-        if params["expval"]:
-            y_train = np.zeros(
-                (
-                    len(partition["train_sampleIDs"]),
-                    3,
-                    params["new_n_channels_out"],
-                ),
-                dtype="float32",
-            )
-            X_train_grid = np.zeros(
-                (len(partition["train_sampleIDs"]), params["nvox"] ** 3, 3),
-                dtype="float32",
-            )
-
-            y_valid = np.zeros(
-                (
-                    len(partition["valid_sampleIDs"]),
-                    3,
-                    params["new_n_channels_out"],
-                ),
-                dtype="float32",
-            )
-            X_valid_grid = np.zeros(
-                (len(partition["valid_sampleIDs"]), params["nvox"] ** 3, 3),
-                dtype="float32",
-            )
-        else:
-            y_train = np.zeros(
-                (
-                    len(partition["train_sampleIDs"]),
-                    *gridsize,
-                    params["new_n_channels_out"],
-                ),
-                dtype="float32",
-            )
-
-            y_valid = np.zeros(
-                (
-                    len(partition["valid_sampleIDs"]),
-                    *gridsize,
-                    params["new_n_channels_out"],
-                ),
-                dtype="float32",
-            )
-
-        print(
-            "Loading training data into memory. This can take a while to seek through",
-            "large sets of video. This process is much faster if the frame indices",
-            "are sorted in ascending order in your label data file.",
-        )
-        for i in range(len(partition["train_sampleIDs"])):
-            print(i, end="\r")
-            rr = train_generator.__getitem__(i)
-            if params["expval"]:
-                X_train[i] = rr[0][0]
-                X_train_grid[i] = rr[0][1]
-            else:
-                X_train[i] = rr[0]
-            y_train[i] = rr[1]
-
+        # # We should be able to load everything into memory...
+        n_cams = len(camnames[0])
+        X_train, X_train_grid, y_train = processing.load_volumes_into_mem(params, partition, n_cams, train_generator, train=True)
+        X_valid, X_valid_grid, y_valid = processing.load_volumes_into_mem(params, partition, n_cams, valid_generator, train=False)
+        
         if params["debug_volume_tifdir"] is not None:
             # When this option is toggled in the config, rather than
             # training, the image volumes are dumped to tif stacks.
@@ -994,17 +910,6 @@ def dannce_train(params: Dict):
                     imageio.mimwrite(of, np.transpose(im, [2, 0, 1, 3]))
             return
 
-        print("Loading validation data into memory")
-        for i in range(len(partition["valid_sampleIDs"])):
-            print(i, end="\r")
-            rr = valid_generator.__getitem__(i)
-            if params["expval"]:
-                X_valid[i] = rr[0][0]
-                X_valid_grid[i] = rr[0][1]
-            else:
-                X_valid[i] = rr[0]
-            y_valid[i] = rr[1]
-
     # For AVG+MAX training, need to update the expval flag in the generators
     # and re-generate the 3D training targets
     # TODO: Add code to infer_params
@@ -1013,50 +918,9 @@ def dannce_train(params: Dict):
 
     y_train_aux = None
     y_valid_aux = None
-
-    # Tianqing, can you please put this data loading code into a function somewhere else, like processing.py?
-    if params["silhouette"]:
-        y_train_aux = np.zeros(
-            (
-                len(partition["train_sampleIDs"]),
-                *gridsize,
-                params["chan_num"] * len(camnames[0]),
-            ),
-            dtype="float32",
-        )
-        y_valid_aux = np.zeros(
-            (
-                len(partition["valid_sampleIDs"]),
-                *gridsize,
-                params["chan_num"] * len(camnames[0]),
-            ),
-            dtype="float32",
-        )
-        print("Now loading silhouettes")
-        # Because we forced expval to True for these sil generators, we know
-        # exactly how to index into the output
-        for i in range(len(partition["train_sampleIDs"])):
-            print(i, end="\r")
-            rr = train_generator_sil.__getitem__(i)
-            y_train_aux[i] = rr[0][0]
-        for i in range(len(partition["valid_sampleIDs"])):
-            print(i, end="\r")
-            rr = valid_generator_sil.__getitem__(i)
-            y_valid_aux[i] = rr[0][0]
-
-        def extract_3d_sil(vol):
-            vol[vol > 0] = 1
-            vol = np.sum(vol, axis=-1, keepdims=True)
-
-            vol[vol < (params["chan_num"] * len(camnames[0]))] = 0
-            vol[vol > 0] = 1
-
-        y_train_aux = extract_3d_sil(y_train_aux)
-        print("{}\% of silhouette training voxels are occupied".format(
-                        np.sum(y_train_aux)/len(y_train_aux.ravel())))
-        y_valid_aux = extract_3d_sil(y_valid_aux)
-        print("{}\% of silhouette training voxels are occupied".format(
-                        np.sum(y_valid_aux)/len(y_valid_aux.ravel())))
+    if params["use_silhouette"]:
+        _, _, y_train_aux = processing.load_volumes_into_mem(params, partition, n_cams, train_generator_sil, train=True, silhouette=True)
+        _, _, y_valid_aux = processing.load_volumes_into_mem(params, partition, n_cams, valid_generator_sil, train=False, silhouette=True)
 
     elif params["avg+max"] is not None:
         y_train_aux, y_valid_aux = processing.initAvgMax(
@@ -1257,55 +1121,7 @@ def dannce_train(params: Dict):
         else:
             raise Exception("Invalid training mode")
 
-        if params["heatmap_reg"]:
-            model = nets.add_heatmap_output(model)
-
-        if params["use_silhouette"] and params["train_mode"] != "continued":
-            model = nets.add_exposed_normed_heatmap(model)
-        elif params["avg+max"] is not None and params["train_mode"] != "continued":
-            model = nets.add_exposed_heatmap(model)
-
-
-        # Tianqing: we need an elegant and flexible strategy for controlling the list of model
-        # outputs  and loss_weights in a way that can incorporate an arbitary number of 
-        # outputs, losses, and loss weights, depending on the combination of losses that
-        # the user requests. This must then be reflected in the frommem generator.
-
-        if params["heatmap_reg"] or params["train_mode"] != "continued":
-            if params["use_silhouette"] and params["use_temporal"]:
-                print("Compile with temporal and silhouette loss")
-                model = Model(
-                    inputs=[model.input], 
-                    outputs=[model.get_layer("final_output").output, 
-                             model.get_layer("final_output").output,
-                             model.get_layer("normed_map").output]
-                )
-                compile_loss = params["loss"]
-                compile_loss_weights = [1, 
-                                        params["temporal_loss_weight"], 
-                                        params["silhouette_loss_weight"]]
-            if params["use_temporal"] and not params["use_silhouette"]:
-                print("Compile with temporal loss")
-                model = Model(
-                    inputs=[model.input], 
-                    outputs=[model.layers[-1].output, model.layers[-1].output]
-                )
-                compile_loss = params["loss"]
-                compile_loss_weights = [1, 
-                                        params["temporal_loss_weight"]]
-            # recompiling a full model will reset the optimizer state
-            else: 
-                compile_loss = params["loss"] \
-                               if not params["heatmap_reg"] \
-                               else [params["loss"], losses.heatmap_max_regularizer]
-                compile_loss_weights = [1, params["avg+max"]] \
-                                       if params["avg+max"] is not None \
-                                       else None
-
-            model.compile(optimizer=Adam(lr=float(params["lr"])),
-                          loss=compile_loss,
-                          loss_weights = compile_loss_weights,
-                          metrics=metrics)
+        model = nets.update_model_multi_losses(params, metrics, model)
 
         if params["lr"] != model.optimizer.learning_rate:
             print("Changing learning rate to {}".format(params["lr"]))
@@ -1410,6 +1226,7 @@ def dannce_predict(params: Dict):
         datadict_3d_,
         cameras_,
         com3d_dict_,
+        temporal_chunks_
     ) = do_COM_load(
         params["experiment"][0],
         params["experiment"][0],
@@ -1429,7 +1246,7 @@ def dannce_predict(params: Dict):
     datadict = {}
     datadict_3d = {}
     com3d_dict = {}
-    (samples, datadict, datadict_3d, com3d_dict,) = serve_data_DANNCE.add_experiment(
+    (samples, datadict, datadict_3d, com3d_dict, _) = serve_data_DANNCE.add_experiment(
         0,
         samples,
         datadict,
@@ -1503,11 +1320,11 @@ def dannce_predict(params: Dict):
 
     # Generators
 
-    import torch
+    # import torch
 
     # Because CUDA_VISBILE_DEVICES is already set to a single GPU, the gpu_id here should be "0"
     device = "cuda:0"
-    genfunc = generator.DataGenerator_3Dconv_torch
+    genfunc = generator.DataGenerator_3Dconv
 
     predict_generator = genfunc(
         partition["valid_sampleIDs"],
@@ -1613,11 +1430,11 @@ def setup_dannce_predict(params):
     params["base_exp_folder"] = os.path.dirname(params["label3d_file"])
 
     # default to slow numpy backend if there is no predict_mode in config file. I.e. legacy support
-    params["predict_mode"] = (
-        params["predict_mode"] if params["predict_mode"] is not None else "numpy"
-    )
+    # params["predict_mode"] = (
+    #     params["predict_mode"] if params["predict_mode"] is not None else "numpy"
+    # )
     params["multi_mode"] = False
-    print("Using {} predict mode".format(params["predict_mode"]))
+    # print("Using {} predict mode".format(params["predict_mode"]))
 
     print("Using camnames: {}".format(params["camnames"]))
     # Also add parent params under the 'experiment' key for compatibility
@@ -1727,6 +1544,7 @@ def build_model(params: Dict, camnames: List) -> Model:
     else:
         model = load_model(
             mdl_file,
+            # can we just avoid declaring custom_objects by using 'compile=False'
             custom_objects={
                 "ops": ops,
                 "slice_input": nets.slice_input,
@@ -1735,15 +1553,10 @@ def build_model(params: Dict, camnames: List) -> Model:
                 "euclidean_distance_3D": losses.euclidean_distance_3D,
                 "centered_euclidean_distance_3D": losses.centered_euclidean_distance_3D,
             },
+            compile=False
         )
 
-    # If there is a heatmap regularization i/o, remove it
-    model = nets.remove_heatmap_output(model, params)
-
-    # If there was an exposed heatmap for AVG+MAX training, remove it
-    model = nets.remove_exposed_heatmap(model)
-
-    model = nets.remove_exposed_normed_heatmap(model)
+    model = nets.keep_model_single_output(model)
 
     # To speed up expval prediction, rather than doing two forward passes: one for the 3d coordinate
     # and one for the probability map, here we splice on a new output layer after
