@@ -1457,46 +1457,86 @@ def write_npy(uri, gen):
             np.save(os.path.join(imdir, fname + ".npy"), bch[0][0][j].astype("uint8"))
             np.save(os.path.join(griddir, fname + ".npy"), bch[0][1][j])
 
+def extract_3d_sil(vol, upper_thres):
+    vol[vol > 0] = 1
+    vol = np.sum(vol, axis=-1, keepdims=True)
+
+    vol[vol < upper_thres] = 0
+    vol[vol > 0] = 1
+
+    print("{}\% of silhouette training voxels are occupied".format(
+            100*np.sum(vol)/len(vol.ravel())))
+    return vol
+
 def load_volumes_into_mem(params, partition, n_cams, generator, train=True, silhouette=False):
     n_samples = len(partition["train_sampleIDs"]) if train else len(partition["valid_sampleIDs"]) 
     message = "Loading training data into memory" if train else "Loading validation data into memory"
     gridsize = tuple([params["nvox"]] * 3)
 
-    X = np.zeros((n_samples, *gridsize, params["chan_num"]*n_cams), dtype="float32")
+    X = np.empty((n_samples, *gridsize, params["chan_num"]*n_cams), dtype="float32")
     print(message)
 
     X_grid = None
     if params["expval"]:
-        y = np.zeros((n_samples, 3, params["new_n_channels_out"]), dtype="float32")
-        X_grid = np.zeros((n_samples, params["nvox"] ** 3, 3), dtype="float32")
+        if not silhouette: 
+            y = np.empty((n_samples, 3, params["new_n_channels_out"]), dtype="float32")
+            X_grid = np.empty((n_samples, params["nvox"] ** 3, 3), dtype="float32")
     else:
-        y = np.zeros((n_samples, *gridsize, params["new_n_channels_out"]), dtype="float32")
+        y = np.empty((n_samples, *gridsize, params["new_n_channels_out"]), dtype="float32")
 
     for i in range(n_samples):
         print(i, end="\r")
         rr = generator.__getitem__(i)
         if params["expval"]:
             X[i] = rr[0][0]
-            X_grid[i] = rr[0][1]
+            if not silhouette: 
+                X_grid[i], y[i] = rr[0][1], rr[1]
         else:
-            X[i] = rr[0]
-        y[i] = rr[1]
+            X[i], y[i] = rr[0], rr[1]
 
     if silhouette:
         print("Now loading silhouettes")
-        def extract_3d_sil(vol):
-            vol[vol > 0] = 1
-            vol = np.sum(vol, axis=-1, keepdims=True)
-
-            vol[vol < (params["chan_num"] * n_cams)] = 0
-            vol[vol > 0] = 1
-
-            print("{}\% of silhouette training voxels are occupied".format(
-                    100*np.sum(vol)/len(vol.ravel())))
-            return vol
     
-        X = extract_3d_sil(X)
+        X = extract_3d_sil(X, params["chan_num"]*n_cams)
         return None, None, X
     
     return X, X_grid, y
+
+# def load_volumes_into_mem(params, partition, n_cams, generator, train=True, silhouette=False):
+#     n_samples = len(partition["train_sampleIDs"]) if train else len(partition["valid_sampleIDs"]) 
+#     message = "Loading training data into memory" if train else "Loading validation data into memory"
+
+#     X = []
+#     print(message)
+
+#     y = []
+#     X_grid = None
+#     if params["expval"]:
+#         if not silhouette: 
+#             X_grid = []
+
+#     for i in range(n_samples):
+#         print(i, end="\r")
+#         rr = generator.__getitem__(i)
+#         if params["expval"]:
+#             X.append(rr[0][0])
+#             if not silhouette: 
+#                 X_grid.append(rr[0][1])
+#                 y.append(rr[1])
+#         else:
+#             X.append(rr[0])
+#             y.append(rr[1])
+
+#     X = np.concatenate(X, axis=0)
+#     if silhouette:
+#         print("Now loading silhouettes")
+    
+#         X = extract_3d_sil(X, params["chan_num"]*n_cams)
+#         return None, None, X
+
+#     if X_grid is not None:
+#         X_grid = np.concatenate(X_grid, axis=0)
+#     y = np.concatenate(y, axis=0)
+    
+#     return X, X_grid, y
 

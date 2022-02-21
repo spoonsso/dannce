@@ -817,7 +817,9 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         self.heatmap_reg_coeff = heatmap_reg_coeff
         self.aux_labels = aux_labels
         self.temporal_chunk_list = temporal_chunk_list
-        self._get_temporal_batch_size()
+        self.temporal_chunk_size = 1
+        self.temporal_batch_size = batch_size
+        self._update_temporal_batch_size()
         self.on_epoch_end()
 
     def __len__(self):
@@ -831,9 +833,10 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
 
         return len(self.list_IDs) // self.batch_size
     
-    def _get_temporal_batch_size(self):
+    def _update_temporal_batch_size(self):
         if self.temporal_chunk_list is not None:
-            self.temporal_batch_size = self.batch_size // len(self.temporal_chunk_list[0])
+            self.temporal_chunk_size = len(self.temporal_chunk_list[0])
+            self.temporal_batch_size = self.batch_size // self.temporal_chunk_size
 
     def __getitem__(self, index):
         """Generate one batch of data.
@@ -914,36 +917,33 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
             X (np.ndarray): Rotated image volumes
             y_3d (np.ndarray): Rotated 3D grid coordinates (AVG) or training target volumes (MAX)
         """
-        rots = np.random.choice(np.arange(4), X.shape[0])
-        for i in range(X.shape[0]):
+        # if use temporal, rotation augmentations have to be consistent within each temporal chunks
+        # for example, assume the temporal chunk size to be 2, each batch contains exactly 2 chunks
+        # then, only 2 different rotation schemes need to be generated
+        rots = np.random.choice(np.arange(4), self.temporal_batch_size)
+        for i in range(0, self.temporal_chunk_size, self.batch_size):
             if rots[i] == 0:
                 pass
             elif rots[i] == 1:
                 # Rotate180
-                X[i] = self.rot180(X[i])
-                y_3d[i] = self.rot180(y_3d[i])
-                if aux is not None:
-                    aux[i] = self.rot180(aux[i])
+                for j in range(i, i+self.temporal_chunk_size):
+                    X[j], y_3d[j] = self.rot180(X[j]), self.rot180(y_3d[i])
+                    if aux is not None:
+                        aux[i] = self.rot180(aux[i])
             elif rots[i] == 2:
                 # Rotate90
-                X[i] = self.rot90(X[i])
-                y_3d[i] = self.rot90(y_3d[i])
-                if aux is not None:
-                    aux[i] = self.rot90(aux[i])
+                for j in range(i, i+self.temporal_chunk_size):
+                    X[j], y_3d[j] = self.rot90(X[j]), self.rot90(y_3d[i])
+                    if aux is not None:
+                        aux[i] = self.rot90(aux[i])
             elif rots[i] == 3:
                 # Rotate -90/270
-                X[i] = self.rot90(X[i])
-                X[i] = self.rot180(X[i])
-                y_3d[i] = self.rot90(y_3d[i])
-                y_3d[i] = self.rot180(y_3d[i])
-                if aux is not None:
-                    aux[i] = self.rot90(aux[i])
-                    aux[i] = self.rot180(aux[i])
+                for j in range(i, i+self.temporal_chunk_size):
+                    X[j], y_3d[j] = self.rot180(self.rot90(X[j])), self.rot180(self.rot90(y_3d[i]))
+                    if aux is not None:
+                        aux[i] = self.rot180(self.rot90(aux[i]))
 
-        if aux is not None:
-            return X, y_3d, aux
-        else:
-            return X, y_3d
+        return X, y_3d, aux
 
     def visualize(self, original, augmented):
         """Plots example image after augmentation
@@ -989,7 +989,7 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
                 if aux is not None:
                     X, X_grid, aux = self.random_rotate(X.copy(), X_grid.copy(), aux.copy())
                 else:
-                    X, X_grid = self.random_rotate(X.copy(), X_grid.copy())
+                    X, X_grid, aux = self.random_rotate(X.copy(), X_grid.copy(), aux)
                 # Need to reshape back to raveled version
                 X_grid = np.reshape(X_grid, (self.batch_size, -1, 3))
             else:
@@ -1137,6 +1137,7 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         # Randomly re-order, if desired
         X = self.do_random(X)
 
+        # adjust inputs & outputs according to targeted losses
         return_input, return_target = [X], [y_3d]
         if not self.expval:
             return return_input, return_target

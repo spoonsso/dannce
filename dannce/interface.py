@@ -1034,6 +1034,7 @@ def dannce_train(params: Dict):
             **shared_args_valid,
             **shared_args,
             "xgrid": X_valid_grid,
+            "temporal_chunk_list": partition["valid_chunks"] if params["use_temporal"] else None
         }
 
     train_generator = genfunc(**args_train)
@@ -1102,6 +1103,8 @@ def dannce_train(params: Dict):
                     "mask_nan_l1_loss": losses.mask_nan_l1_loss,
                     "euclidean_distance_3D": losses.euclidean_distance_3D,
                     "centered_euclidean_distance_3D": losses.centered_euclidean_distance_3D,
+                    "temporal_loss": losses.temporal_loss,
+                    "silhouette_loss": losses.silhouette_loss,
                 },
             )
         elif params["train_mode"] == "continued_weights_only":
@@ -1542,19 +1545,7 @@ def build_model(params: Dict, camnames: List) -> Model:
             )
         model.load_weights(mdl_file)
     else:
-        model = load_model(
-            mdl_file,
-            # can we just avoid declaring custom_objects by using 'compile=False'
-            custom_objects={
-                "ops": ops,
-                "slice_input": nets.slice_input,
-                "mask_nan_keep_loss": losses.mask_nan_keep_loss,
-                "mask_nan_l1_loss": losses.mask_nan_l1_loss,
-                "euclidean_distance_3D": losses.euclidean_distance_3D,
-                "centered_euclidean_distance_3D": losses.centered_euclidean_distance_3D,
-            },
-            compile=False
-        )
+        model = load_model(mdl_file, compile=False)
 
     model = nets.keep_model_single_output(model)
 
