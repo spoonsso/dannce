@@ -773,6 +773,9 @@ def update_model_multi_outputs(params, model):
     MULTILOSS_FLAG = False
     if params["use_temporal"]:
         MULTILOSS_FLAG = True
+    
+    if params["use_separation"]:
+        MULTILOSS_FLAG = True
 
     if params["heatmap_reg"]:
         model = add_heatmap_output(model)
@@ -807,11 +810,22 @@ def update_model_multi_losses(params, metrics, model):
     compile_loss_weights = {"final_output": 1}
     compile_metrics = {'final_output': metrics}
 
+    # for now, have to keep output layers with names "final_output", "final_output_1", "final_output_2" ...
+    # if want to use custom loss on keypoints
+    # to allow multiple ones, use a dummy counter
+    final_output_count = 1
     if params["use_temporal"]:
         print("Compile with temporal loss.")
         outputs.append(model.get_layer("final_output").output)
-        compile_loss["final_output_1"] = losses.temporal_loss(params["temporal_chunk_size"])
-        compile_loss_weights["final_output_1"] = params["temporal_loss_weight"]
+        compile_loss[f"final_output_{final_output_count}"] = losses.temporal_loss(params["temporal_chunk_size"])
+        compile_loss_weights[f"final_output_{final_output_count}"] = params["temporal_loss_weight"]
+        final_output_count += 1
+
+    if params["use_separation"]:
+        print("Compile with separation loss.")
+        outputs.append(model.get_layer("final_output").output)
+        compile_loss[f"final_output_{final_output_count}"] = losses.separation_loss()
+        compile_loss_weights[f"final_output_{final_output_count}"] = params["separation_loss_weight"]
 
     if params["use_silhouette"]:
         print("Compile with silhouette loss.")

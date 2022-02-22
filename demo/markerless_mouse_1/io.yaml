@@ -8,8 +8,8 @@ com_predict_weights: ./COM/train_results/weights.250-0.00036.hdf5
 
 ### Dannce ###
 # path to folder where DANNCE weights and logs will be saved
-dannce_train_dir: ./DANNCE/train_silhouette_dev/
-dannce_predict_dir: ./DANNCE/predict_results_silhouette_dev/
+dannce_train_dir: ./DANNCE/train_sep/
+dannce_predict_dir: ./DANNCE/predict_results_sep/
 
 # During prediction, will look for the last epoch weights saved to ./DANNCE/train_results/. To load in a different weights file, add the path here
 # Note that this must be a FULL MODEL file, not just weights.

@@ -99,6 +99,7 @@ _param_defaults_dannce = {
     "temporal_chunk_size": None,
     "temporal_loss_weight": None,
     "silhouette_loss_weight": None,
+    "separation_loss_weight": None
 }
 _param_defaults_com = {
     "dsmode": "nn",

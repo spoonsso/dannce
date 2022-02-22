@@ -226,3 +226,19 @@ def pair_repulsion_loss(y_pred_s1, y_pred_s2):
 
     return 1 / K.sum((y_pred_s1 - y_pred_s2)**2)
 
+
+def separation_loss(delta=10):
+    def _separation_loss(y_true, y_pred):
+        """
+        Loss which penalizes 3D keypoint predictions being too close.
+        """
+        num_kpts = y_pred.shape[1]
+
+        t1 = K.tile(y_pred, [1, num_kpts, 1])
+        t2 = K.reshape(K.tile(y_pred, [1, 1, num_kpts]), K.shape(t1))
+
+        lensqr = K.sum((t1 - t2) ** 2, axis=2)
+        sep = K.sum(K.maximum(delta-lensqr, 0.0), axis=1) / K.cast(num_kpts*num_kpts, "float32")
+
+        return K.mean(sep)
+    return _separation_loss

@@ -320,6 +320,7 @@ def infer_params(params, dannce_net, prediction):
         TEMPORAL_FLAG = (params["temporal_loss_weight"] is not None) and (params["temporal_chunk_size"] is not None) 
         print_and_set(params, "use_temporal", TEMPORAL_FLAG)
         print_and_set(params, "use_silhouette", params["silhouette_loss_weight"] is not None)
+        print_and_set(params, "use_separation", params["separation_loss_weight"] is not None)
 
     # There will be strange behavior if using a mirror acquisition system and are cropping images
     if params["mirror"] and params["crop_height"][-1] != params["raw_im_h"]:
