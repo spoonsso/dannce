@@ -658,16 +658,8 @@ def dannce_train(params: Dict):
     # Make the training directory if it does not exist.
     make_folder("dannce_train_dir", params)
 
-    # Adopted from implementation by robb
-    if "huber_loss" in params["loss"] and params["huber-delta"] is not None:
-        params["loss"] = losses.huber_loss(params["huber-delta"])
-    else:
-        params["loss"] = getattr(losses, params["loss"])
-    
-    params["loss"] = [params["loss"]]
-
+    nets.get_losses(params)
     params["net"] = getattr(nets, params["net"])
-
     # Convert all metric strings to objects
     metrics = nets.get_metrics(params)
 
@@ -1230,7 +1222,7 @@ def dannce_predict(params: Dict):
         datadict_3d_,
         cameras_,
         com3d_dict_,
-        temporal_chunks_
+        _
     ) = do_COM_load(
         params["experiment"][0],
         params["experiment"][0],
@@ -1323,8 +1315,6 @@ def dannce_predict(params: Dict):
     tifdirs = []
 
     # Generators
-
-    # import torch
 
     # Because CUDA_VISBILE_DEVICES is already set to a single GPU, the gpu_id here should be "0"
     device = "cuda:0"

@@ -30,9 +30,16 @@ def get_metrics(params):
 
     return metrics
 
+def get_losses(params):
+    if "huber_loss" in params["loss"] and params["huber-delta"] is not None:
+        params["loss"] = losses.huber_loss(params["huber-delta"])
+    else:
+        params["loss"] = getattr(losses, params["loss"])
+    
+    params["loss"] = [params["loss"]]
+
 # TODO (JOSH). Move the if/else normalization block to its own function. And in this function
 # add the correct InstanceNormalization() call, using the appropriate axis setting.
-fun = lambda x: ops.InstanceNormalization(axis=None)(x) 
 
 def norm_fun(
     norm_method=None,
