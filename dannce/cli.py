@@ -607,6 +607,24 @@ def add_dannce_train_args(
         dest="avg+max",
         type=float,
         help="Pass a floating point value here for DANNCE to enter AVG+MAX training mode, where the 3D maps are MAX-like regularized to be Gaussian. The avg+max value is used to weight the contribution of the MAX-like loss.")
+    parser.add_argument(
+        "--silhouette-loss-weight",
+        dest="silhouette_loss_weight",
+    )
+    parser.add_argument(
+        "--temporal-loss-weight",
+        dest="temporal_loss_weight",
+    )
+    parser.add_argument(
+        "--temporal-chunk_size",
+        dest="temporal_chunk_size",
+    )
+
+    parser.add_argument(
+        "--separation-loss-weight",
+        dest="separation_loss_weight",
+    )
+    
     return parser
 
 
