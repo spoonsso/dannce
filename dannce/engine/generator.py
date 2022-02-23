@@ -831,7 +831,7 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
             int: Batches per epoch
         """
         if self.temporal_chunk_list is not None:
-            return len(self.temporal_chunk_list) // self.temporal_batch_size
+           return len(self.temporal_chunk_list) // self.temporal_batch_size
 
         return len(self.list_IDs) // self.batch_size
     
@@ -855,6 +855,7 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
             i = index * self.temporal_batch_size
             indexes = self.indexes[i : i + self.temporal_batch_size]
             list_IDs_temp = list(np.concatenate([self.temporal_chunk_list[k] for k in indexes], axis=0))
+            
         else: 
             indexes = self.indexes[index * self.batch_size : (index + 1) * self.batch_size]
             list_IDs_temp = [self.list_IDs[k] for k in indexes]
@@ -929,23 +930,24 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
             elif rots[i] == 1:
                 # Rotate180
                 for j in range(i, i+self.temporal_chunk_size):
-                    X[j], y_3d[j] = self.rot180(X[j]), self.rot180(y_3d[i])
+                    X[j], y_3d[j] = self.rot180(X[j]), self.rot180(y_3d[j])
                     if aux is not None:
-                        aux[i] = self.rot180(aux[i])
+                        aux[j] = self.rot180(aux[j])
             elif rots[i] == 2:
                 # Rotate90
                 for j in range(i, i+self.temporal_chunk_size):
-                    X[j], y_3d[j] = self.rot90(X[j]), self.rot90(y_3d[i])
+                    X[j], y_3d[j] = self.rot90(X[j]), self.rot90(y_3d[j])
                     if aux is not None:
-                        aux[i] = self.rot90(aux[i])
+                        aux[j] = self.rot90(aux[j])
             elif rots[i] == 3:
                 # Rotate -90/270
                 for j in range(i, i+self.temporal_chunk_size):
-                    X[j], y_3d[j] = self.rot180(self.rot90(X[j])), self.rot180(self.rot90(y_3d[i]))
+                    X[j], y_3d[j] = self.rot180(self.rot90(X[j])), self.rot180(self.rot90(y_3d[j]))
                     if aux is not None:
-                        aux[i] = self.rot180(self.rot90(aux[i]))
-
-        return X, y_3d, aux
+                        aux[j] = self.rot180(self.rot90(aux[j]))
+        if aux is not None:
+            return X, y_3d, aux
+        return X, y_3d
 
     def visualize(self, original, augmented):
         """Plots example image after augmentation
@@ -991,7 +993,7 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
                 if aux is not None:
                     X, X_grid, aux = self.random_rotate(X.copy(), X_grid.copy(), aux.copy())
                 else:
-                    X, X_grid, aux = self.random_rotate(X.copy(), X_grid.copy(), aux)
+                    X, X_grid = self.random_rotate(X.copy(), X_grid.copy())
                 # Need to reshape back to raveled version
                 X_grid = np.reshape(X_grid, (self.batch_size, -1, 3))
             else:
@@ -1139,26 +1141,46 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         # Randomly re-order, if desired
         X = self.do_random(X)
 
-        # adjust inputs & outputs according to targeted losses
-        return_input, return_target = [X], [y_3d]
+        # # adjust inputs & outputs according to targeted losses
+        # return_input, return_target = [X], [y_3d]
+        # if not self.expval:
+        #     return return_input, return_target
+
+        # return_input.append(X_grid)
+        # if self.heatmap_reg:
+        #     return_input.append(self.get_max_gt_ind(X_grid, y_3d))
+        #     return_target.append(self.heatmap_reg_coeff*np.ones((self.batch_size, y_3d.shape[-1]), dtype='float32'))
+        
+        # if self.temporal_chunk_list is not None:
+        #     return_target.append(y_3d)
+        
+        # if self.separation_loss:
+        #     return_target.append(y_3d)
+        
+        # if aux is not None:
+        #     return_target.append(aux)
+
+        # return return_input, return_target
+        return_input, return_target = [X], {'final_output': y_3d}
         if not self.expval:
             return return_input, return_target
-
         return_input.append(X_grid)
         if self.heatmap_reg:
             return_input.append(self.get_max_gt_ind(X_grid, y_3d))
-            return_target.append(self.heatmap_reg_coeff*np.ones((self.batch_size, y_3d.shape[-1]), dtype='float32'))
+            return_target['heatmap_output'] = self.heatmap_reg_coeff*np.ones((self.batch_size, y_3d.shape[-1]), dtype='float32')
         
         if self.temporal_chunk_list is not None:
-            return_target.append(y_3d)
+            return_target['final_output_1'] = y_3d
         
-        if self.separation_loss:
-            return_target.append(y_3d)
+        # if self.separation_loss:
+        #     return_target.append(y_3d)
         
         if aux is not None:
-            return_target.append(aux)
-
+            return_target['normed_map'] = aux 
+        
         return return_input, return_target
+
+
 
 
 class DataGenerator_3Dconv_npy(DataGenerator_3Dconv_frommem):
