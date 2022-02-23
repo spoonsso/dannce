@@ -472,11 +472,11 @@ def make_data_splits(samples, params, results_dir, num_experiments, temporal_chu
         train_expts = np.arange(num_experiments)
         print("TRAIN EXPTS: {}".format(train_expts))
 
-        partition["train_sampleIDs"] = list(np.concatenate(train_chunks))
-        partition["valid_sampleIDs"] = list(np.concatenate(valid_chunks))
+        train_sampleIDs, valid_sampleIDs = list(np.concatenate(train_chunks)), list(np.concatenate(valid_chunks))
+        partition["train_sampleIDs"], partition["valid_sampleIDs"] = train_sampleIDs, valid_sampleIDs
         chunk_size = len(train_chunks[0])
-        partition["train_chunks"] = [np.arange(i, i+chunk_size) for i in range(0, len(train_chunks), chunk_size)]
-        partition["valid_chunks"] = [np.arange(i, i+chunk_size) for i in range(0, len(valid_chunks), chunk_size)]
+        partition["train_chunks"] = [np.arange(i, i+chunk_size) for i in range(0, len(train_sampleIDs), chunk_size)]
+        partition["valid_chunks"] = [np.arange(i, i+chunk_size) for i in range(0, len(valid_sampleIDs), chunk_size)]
 
         # Save train/val inds
         with open(os.path.join(results_dir, "val_samples.pickle"), "wb") as f:
