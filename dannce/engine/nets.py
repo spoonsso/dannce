@@ -967,7 +967,7 @@ def finetune_MAX(
 # learning rate schedulers
 from tensorflow.keras.callbacks import LearningRateScheduler
 
-def step_lr(decay_factor=0.1, step_size=200):
+def step_lr(decay_factor=0.1, step_size=600):
     '''
     Wrapper function to create a LearningRateScheduler with step decay schedule.
     '''
@@ -984,10 +984,12 @@ def warmup_lr(warmup_duration=25):
     
     return LearningRateScheduler(schedule, verbose=1)
 
-def warmup_step_lr(warmup_duration=25, decay_factor=0.1, step_size=200):
-     def schedule(epoch, lr):
+def warmup_step_lr(warmup_duration=25, decay_factor=0.1, step_size=600):
+    def schedule(epoch, lr):
         if epoch < warmup_duration:
             return lr * (epoch / warmup_duration) 
         return lr * (decay_factor ** np.floor(epoch/step_size))
+    
+    return LearningRateScheduler(schedule, verbose=1)
     
     
