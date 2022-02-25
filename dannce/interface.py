@@ -7,6 +7,7 @@ import scipy.io as sio
 import imageio
 import time
 import gc
+from datetime import datetime
 import tensorflow as tf
 import tensorflow.keras as keras
 import tensorflow.keras.losses as keras_losses
@@ -96,10 +97,16 @@ def make_folder(key: Text, params: Dict):
     """
     # Make the prediction directory if it does not exist.
     if params[key] is not None:
-        if not os.path.exists(params[key]):
+        if not os.path.exists(params[key]):            
             os.makedirs(params[key])
     else:
         raise ValueError(key + " must be defined.")
+
+    if key == "dannce_train_dir":
+        curr_time = datetime.now().strftime('%Y-%m-%d-%H')
+        new_dir = os.path.join(params[key], curr_time)
+        os.makedirs(new_dir)
+        params[key] = new_dir
 
 
 def com_predict(params: Dict):
@@ -1138,6 +1145,7 @@ def dannce_train(params: Dict):
         save_best_only=True,
         save_weights_only=False,
     )
+
     csvlog = CSVLogger(os.path.join(dannce_train_dir, "training.csv"))
     tboard = TensorBoard(
         log_dir=os.path.join(dannce_train_dir, "logs"),
@@ -1151,6 +1159,11 @@ def dannce_train(params: Dict):
         tboard,
         cb.saveCheckPoint(params["dannce_train_dir"], params["epochs"]),
     ]
+
+    if params["lr_scheduler"] is not None:
+        assert params["lr_scheduler"] in ["step_lr", "warmup_lr"]
+        lr_scheduler = getattr(nets, params["lr_scheduler"])
+        callbacks.append(lr_scheduler())
 
     if (
         params["expval"]

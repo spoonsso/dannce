@@ -85,6 +85,7 @@ _param_defaults_dannce = {
     "downfac": None,
     "net_type": None,
     "net": None,
+    "lr_scheduler": None,
     "from_weights": None,
     "dannce_predict_vol_tifdir": None,
     "n_rand_views": 0,

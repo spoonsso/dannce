@@ -1,4 +1,5 @@
 """Define networks for dannce."""
+from tabnanny import verbose
 from tensorflow.keras.models import Model, load_model
 from tensorflow.keras.layers import Input, concatenate, Conv2D, MaxPooling2D
 from tensorflow.keras.layers import Conv2DTranspose, Conv3D, Lambda
@@ -961,3 +962,32 @@ def finetune_MAX(
     model = Model(inputs=[input_], outputs=[new_conv])
 
     return model
+
+######################################################
+# learning rate schedulers
+from tensorflow.keras.callbacks import LearningRateScheduler
+
+def step_lr(decay_factor=0.1, step_size=200):
+    '''
+    Wrapper function to create a LearningRateScheduler with step decay schedule.
+    '''
+    def schedule(epoch, lr):
+        return lr * (decay_factor ** np.floor(epoch/step_size))
+    
+    return LearningRateScheduler(schedule, verbose=1)
+
+def warmup_lr(warmup_duration=25):
+    def schedule(epoch, lr):
+        if epoch < warmup_duration:
+            return lr * (epoch / warmup_duration) 
+        return lr
+    
+    return LearningRateScheduler(schedule, verbose=1)
+
+def warmup_step_lr(warmup_duration=25, decay_factor=0.1, step_size=200):
+     def schedule(epoch, lr):
+        if epoch < warmup_duration:
+            return lr * (epoch / warmup_duration) 
+        return lr * (decay_factor ** np.floor(epoch/step_size))
+    
+    

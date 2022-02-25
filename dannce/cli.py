@@ -629,6 +629,12 @@ def add_dannce_train_args(
         type=float,
         dest="separation_loss_weight",
     )
+
+    parser.add_argument(
+        "--lr-scheduler",
+        type=str,
+        dest="lr_scheduler",
+    )
     
     return parser
 
