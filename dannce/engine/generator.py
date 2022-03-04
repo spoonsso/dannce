@@ -868,7 +868,7 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         if self.temporal_chunk_list is not None:
             self.indexes = np.arange(len(self.temporal_chunk_list))
         else:    
-            self.indexes = np.arange(self.__len__())
+            self.indexes = np.arange(len(self.list_IDs))
             
         if self.shuffle:
             np.random.shuffle(self.indexes)
