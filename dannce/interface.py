@@ -103,7 +103,7 @@ def make_folder(key: Text, params: Dict):
         raise ValueError(key + " must be defined.")
 
     if key == "dannce_train_dir":
-        curr_time = datetime.now().strftime('%Y-%m-%d-%H')
+        curr_time = datetime.now().strftime('%Y-%m-%d-%H-%M')
         new_dir = os.path.join(params[key], curr_time)
         os.makedirs(new_dir)
         params[key] = new_dir
@@ -355,7 +355,7 @@ def com_train(params: Dict):
                                       e, 
                                       expdict, 
                                       _DEFAULT_VIDDIR, 
-                                      _DEFAULT_VIDDIR_MASK)
+                                      _DEFAULT_VIDDIR_SIL)
 
         params["experiment"][e] = exp
         (samples_, datadict_, datadict_3d_, cameras_,) = serve_data_DANNCE.prepare_data(

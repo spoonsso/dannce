@@ -808,15 +808,21 @@ def update_model_multi_losses(params, metrics, model):
         return model
 
     model, MULTILOSS_FLAG = update_model_multi_outputs(params, model)
-    if not MULTILOSS_FLAG:
-        print("Compile with single loss")
-        model.compile(optimizer=Adam(lr=float(params["lr"])), loss=params["loss"], metrics=metrics)
-        return model
-
-    inputs, outputs = [model.input], [model.output]
+    
     compile_loss = {"final_output": params["loss"]}
     compile_loss_weights = {"final_output": 1}
     compile_metrics = {'final_output': metrics}
+    
+    if not MULTILOSS_FLAG:
+        print("Compile with single loss")
+        model.compile(
+            optimizer=Adam(lr=float(params["lr"])), 
+            loss=compile_loss,
+            loss_weights = compile_loss_weights,
+            metrics=compile_metrics)
+        return model
+
+    inputs, outputs = [model.input], [model.output]
 
     # for now, have to keep output layers with names "final_output", "final_output_1", "final_output_2" ...
     # if want to use custom loss on keypoints
@@ -832,7 +838,7 @@ def update_model_multi_losses(params, metrics, model):
     if params["use_separation"]:
         print("Compile with separation loss.")
         outputs.append(model.get_layer("final_output").output)
-        compile_loss[f"final_output_{final_output_count}"] = losses.separation_loss()
+        compile_loss[f"final_output_{final_output_count}"] = losses.separation_loss(params["separation_delta"])
         compile_loss_weights[f"final_output_{final_output_count}"] = params["separation_loss_weight"]
 
     if params["use_silhouette"]:

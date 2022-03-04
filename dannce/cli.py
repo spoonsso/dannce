@@ -619,7 +619,7 @@ def add_dannce_train_args(
         dest="temporal_loss_weight",
     )
     parser.add_argument(
-        "--temporal-chunk_size",
+        "--temporal-chunk-size",
         type=int,
         dest="temporal_chunk_size",
     )
@@ -628,6 +628,12 @@ def add_dannce_train_args(
         "--separation-loss-weight",
         type=float,
         dest="separation_loss_weight",
+    )
+
+    parser.add_argument(
+        "--separation-delta",
+        type=float,
+        dest="separation_delta",
     )
 
     parser.add_argument(
