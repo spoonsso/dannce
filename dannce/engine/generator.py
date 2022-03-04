@@ -357,7 +357,7 @@ class DataGenerator_3Dconv(DataGenerator):
 
         if self.torch.all(self.torch.isnan(this_y)):
             #com_precrop = self.torch.zeros_like(this_y[:, 0]) * self.torch.nan
-            com_precrop = self.torch.zeros_like(this_y[:, 0])*float()
+            com_precrop = self.torch.zeros_like(this_y[:, 0])*float("nan")
         else:
             # For projecting points, we should not use this offset
             com_precrop = self.torch.mean(this_y, axis=1)
