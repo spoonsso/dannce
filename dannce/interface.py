@@ -992,12 +992,16 @@ def dannce_train(params: Dict):
             **shared_args,
             "sigma": params["sigma"],
             "mono": params["mono"],
+            "aux_labels": y_train_aux,
+            "temporal_chunk_list": partition["train_chunks"] if params["use_temporal"] else None,
+            "separation_loss": params["use_separation"]
         }
 
         args_valid = {
             "list_IDs": partition["valid_sampleIDs"],
             "labels_3d": datadict_3d,
             "npydir": npydir,
+            "aux_labels": y_valid_aux,
         }
         args_valid = {
             **args_valid,
@@ -1005,6 +1009,7 @@ def dannce_train(params: Dict):
             **shared_args,
             "sigma": params["sigma"],
             "mono": params["mono"],
+            "temporal_chunk_list": partition["valid_chunks"] if params["use_temporal"] else None
         }
     else:
         genfunc = generator.DataGenerator_3Dconv_frommem

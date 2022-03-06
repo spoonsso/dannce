@@ -1,5 +1,6 @@
 """Generator module for dannce training.
 """
+from contextlib import suppress
 import os
 import numpy as np
 from tensorflow import keras
@@ -1097,6 +1098,31 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         inds = np.unravel_index(inds, (grid_d, grid_d, grid_d))
         return np.stack(inds, axis=1)
 
+    def return_multi_inputs_targets(self, X, X_grid, y_3d, aux):
+        # # adjust inputs & outputs according to targeted losses
+        return_input, return_target = [X], {'final_output': y_3d}
+        if not self.expval:
+            return return_input, return_target
+
+        return_input.append(X_grid)
+        final_output_count = 1
+        if self.heatmap_reg:
+            return_input.append(self.get_max_gt_ind(X_grid, y_3d))
+            return_target['heatmap_output'] = self.heatmap_reg_coeff*np.ones((self.batch_size, y_3d.shape[-1]), dtype='float32')
+        
+        if self.temporal_chunk_list is not None:
+            return_target[f'final_output_{final_output_count}'] = y_3d
+            final_output_count += 1
+        
+        if self.separation_loss:
+            return_target[f'final_output_{final_output_count}'] = y_3d
+            final_output_count += 1
+        
+        if aux is not None:
+            return_target['normed_map'] = aux 
+        
+        return return_input, return_target
+
     def __data_generation(self, list_IDs_temp):
         """Generate data containing batch_size samples.
         X : (n_samples, *dim, n_channels)
@@ -1141,46 +1167,8 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         # Randomly re-order, if desired
         X = self.do_random(X)
 
-        # # adjust inputs & outputs according to targeted losses
-        # return_input, return_target = [X], [y_3d]
-        # if not self.expval:
-        #     return return_input, return_target
-
-        # return_input.append(X_grid)
-        # if self.heatmap_reg:
-        #     return_input.append(self.get_max_gt_ind(X_grid, y_3d))
-        #     return_target.append(self.heatmap_reg_coeff*np.ones((self.batch_size, y_3d.shape[-1]), dtype='float32'))
-        
-        # if self.temporal_chunk_list is not None:
-        #     return_target.append(y_3d)
-        
-        # if self.separation_loss:
-        #     return_target.append(y_3d)
-        
-        # if aux is not None:
-        #     return_target.append(aux)
-
-        # return return_input, return_target
-        return_input, return_target = [X], {'final_output': y_3d}
-        if not self.expval:
-            return return_input, return_target
-        return_input.append(X_grid)
-        if self.heatmap_reg:
-            return_input.append(self.get_max_gt_ind(X_grid, y_3d))
-            return_target['heatmap_output'] = self.heatmap_reg_coeff*np.ones((self.batch_size, y_3d.shape[-1]), dtype='float32')
-        
-        if self.temporal_chunk_list is not None:
-            return_target['final_output_1'] = y_3d
-        
-        # if self.separation_loss:
-        #     return_target.append(y_3d)
-        
-        if aux is not None:
-            return_target['normed_map'] = aux 
-        
-        return return_input, return_target
-
-
+        # # adjust inputs & outputs according to targeted losses        
+        return self.return_multi_inputs_targets(X, X_grid, y_3d, aux)
 
 
 class DataGenerator_3Dconv_npy(DataGenerator_3Dconv_frommem):
@@ -1221,32 +1209,13 @@ class DataGenerator_3Dconv_npy(DataGenerator_3Dconv_frommem):
         labels_3d,
         npydir,
         batch_size,
-        rotation=True,
-        random=False,
-        chan_num=3,
-        shuffle=True,
-        expval=False,
-        var_reg=False,
         imdir="image_volumes",
         griddir="grid_volumes",
-        nvox=64,
-        n_rand_views=None,
+        prefeat=False,        
         mono=False,
-        cam1=False,
-        replace=True,
-        prefeat=False,
+        cam1=False,    
         sigma=10,
-        augment_brightness=True,
-        augment_hue=True,
-        augment_continuous_rotation=True,
-        mirror_augmentation=False,
-        right_keypoints=None,
-        left_keypoints=None,
-        bright_val=0.05,
-        hue_val=0.05,
-        rotation_val=5,
-        heatmap_reg=False,
-        heatmap_reg_coeff=0.01,
+        **kwargs
     ):
         """Generates 3d conv data from npy files.
 
@@ -1255,71 +1224,30 @@ class DataGenerator_3Dconv_npy(DataGenerator_3Dconv_frommem):
             labels_3d (Dict): training targets
             npydir (Dict): path to each npy volume folder for each recording (i.e. experiment)
             batch_size (int): Batch size
-            rotation (bool, optional): If True, applies rotation augmentation in 90 degree increments
-            random (bool, optional): If True, shuffles camera order for each batch
-            chan_num (int, optional): Number of input channels
-            shuffle (bool, optional): If True, shuffle the samples before each epoch
-            expval (bool, optional): If True, crafts input for an AVG network
-            var_reg (bool, optional): If True, returns input used for variance regularization
             imdir (Text, optional): Name of image volume npy subfolder
             griddir (Text, optional): Name of grid volumw npy subfolder
-            nvox (int, optional): Number of voxels in each grid dimension
-            n_rand_views (int, optional): Number of reviews to sample randomly from the full set
             mono (bool, optional): If True, return monochrome image volumes
             cam1 (bool, optional): If True, prepares input for training a single camea network
-            replace (bool, optional): If True, samples n_rand_views with replacement
             prefeat (bool, optional): If True, prepares input for a network performing volume feature extraction before fusion
             sigma (float, optional): For MAX network, size of target Gaussian (mm)
-            augment_brightness (bool, optional): If True, applies brightness augmentation
-            augment_hue (bool, optional): If True, applies hue augmentation
-            augment_continuous_rotation (bool, optional): If True, applies rotation augmentation in increments smaller than 90 degrees
-            bright_val (float, optional): Brightness augmentation range (-bright_val, bright_val), as fraction of raw image brightness
-            hue_val (float, optional): Hue augmentation range (-hue_val, hue_val), as fraction of raw image hue range
-            rotation_val (float, optional): Range of angles used for continuous rotation augmentation
         """
-        self.list_IDs = list_IDs
+        super(DataGenerator_3Dconv_npy, self).__init__(
+            list_IDs=list_IDs,
+            data=None,
+            labels=None,
+            batch_size=batch_size,
+            **kwargs
+        )
+        # self.list_IDs = list_IDs
         self.labels_3d = labels_3d
         self.npydir = npydir
-        self.rotation = rotation
-        self.batch_size = batch_size
-        self.random = random
-        self.chan_num = chan_num
-        self.shuffle = shuffle
-        self.expval = expval
-        self.var_reg = var_reg
         self.griddir = griddir
         self.imdir = imdir
-        self.nvox = nvox
-        self.n_rand_views = n_rand_views
         self.mono = mono
         self.cam1 = cam1
-        self.replace = replace
+        #self.replace = replace
         self.prefeat = prefeat
         self.sigma = sigma
-        self.augment_hue = augment_hue
-        self.augment_continuous_rotation = augment_continuous_rotation
-        self.augment_brightness = augment_brightness
-        self.mirror_augmentation = mirror_augmentation
-        self.right_keypoints = right_keypoints
-        self.left_keypoints = left_keypoints
-        if self.mirror_augmentation and (
-            self.right_keypoints is None or self.left_keypoints is None
-        ):
-            raise Exception(MISSING_KEYPOINTS_MSG)
-        self.bright_val = bright_val
-        self.hue_val = hue_val
-        self.rotation_val = rotation_val
-        self.heatmap_reg = heatmap_reg
-        self.heatmap_reg_coeff = heatmap_reg_coeff
-        self.on_epoch_end()
-
-    def __len__(self):
-        """Denote the number of batches per epoch.
-
-        Returns:
-            int: Batches per epoch
-        """
-        return int(np.floor(len(self.list_IDs) / self.batch_size))
 
     def __getitem__(self, index):
         """Generate one batch of data.
@@ -1332,64 +1260,17 @@ class DataGenerator_3Dconv_npy(DataGenerator_3Dconv_frommem):
                 X (np.ndarray): Input volume
                 y (np.ndarray): Target
         """
-        # Generate indexes of the batch
-        indexes = self.indexes[index * self.batch_size : (index + 1) * self.batch_size]
-
-        # Find list of IDs
-        list_IDs_temp = [self.list_IDs[k] for k in indexes]
-
+        if self.temporal_chunk_list is not None:
+            i = index * self.temporal_batch_size
+            indexes = self.indexes[i : i + self.temporal_batch_size]
+            indexes = list(np.concatenate([self.temporal_chunk_list[k] for k in indexes], axis=0))
+            list_IDs_temp = [self.list_IDs[k] for k in indexes]
+        else: 
+            indexes = self.indexes[index * self.batch_size : (index + 1) * self.batch_size]
+            list_IDs_temp = [self.list_IDs[k] for k in indexes]
         # Generate data
         X, y = self.__data_generation(list_IDs_temp)
-
         return X, y
-
-    def on_epoch_end(self):
-        """Update indexes after each epoch."""
-        self.indexes = np.arange(len(self.list_IDs))
-        if self.shuffle == True:
-            print("SHUFFLING DATA INDICES")
-            np.random.shuffle(self.indexes)
-
-    def rot90(self, X):
-        # Rotate 90
-        X = np.transpose(X, [1, 0, 2, 3])
-        X = X[:, ::-1, :, :]
-
-        return X
-
-    def rot180(self, X):
-        # Rotate 180
-        X = X[::-1, ::-1, :, :]
-
-        return X
-
-    def random_rotate(self, X, y_3d):
-        """
-        Rotate each sample by 0, 90, 180, or 270 degrees
-        """
-        rots = np.random.choice(np.arange(4), X.shape[0])
-
-        for i in range(X.shape[0]):
-            if rots[i] == 0:
-                pass
-            elif rots[i] == 1:
-                # Rotate180
-                X[i] = self.rot180(X[i])
-                y_3d[i] = self.rot180(y_3d[i])
-            elif rots[i] == 2:
-                # Rotate90
-                X[i] = self.rot90(X[i])
-                y_3d[i] = self.rot90(y_3d[i])
-            elif rots[i] == 3:
-                # Rotate -90/270
-                X[i] = self.rot90(X[i])
-                X[i] = self.rot180(X[i])
-                y_3d[i] = self.rot90(y_3d[i])
-                y_3d[i] = self.rot180(y_3d[i])
-            else:
-                raise Exception("Failed to rotate properly")
-
-        return X, y_3d
 
     def __data_generation(self, list_IDs_temp):
         """Generate data containing batch_size samples.
@@ -1499,26 +1380,8 @@ class DataGenerator_3Dconv_npy(DataGenerator_3Dconv_frommem):
             else:
                 y_3d = np.tile(y_3d, [ncam, 1, 1, 1, 1])
 
-        X = processing.preprocess_3d(X)
+        # TODO: confirm that this line is redundant
+        # X = processing.preprocess_3d(X) 
 
-        XX = []
-        if self.prefeat:
-            for ix in range(ncam):
-                XX.append(X[..., ix * self.chan_num : (ix + 1) * self.chan_num])
-            X = XX
-
-        if self.expval:
-            if not self.prefeat:
-                X = [X]
-            X = X + [X_grid]
-
-        if self.expval:
-            if self.heatmap_reg:
-                return [X, X_grid, self.get_max_gt_ind(X_grid, y_3d)], [
-                    y_3d,
-                    self.heatmap_reg_coeff
-                    * np.ones((self.batch_size, y_3d.shape[-1]), dtype="float32"),
-                ]
-            return X, y_3d
-        else:
-            return X, y_3d_max
+        # # adjust inputs & outputs according to targeted losses
+        return self.return_multi_inputs_targets(X, X_grid, y_3d, aux)
