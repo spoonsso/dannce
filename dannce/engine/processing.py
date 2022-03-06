@@ -464,8 +464,16 @@ def make_data_splits(samples, params, results_dir, num_experiments, temporal_chu
             np.random.seed(params["data_split_seed"])
         
         valid_chunks, train_chunks = [], []
-        for e in range(num_experiments):
-            if v > 0:
+        if params["valid_exp"] is not None and v > 0:
+            for e in range(num_experiments):
+                if e in params["valid_exp"]:
+                    valid_chunk_idx = sorted(np.random.choice(len(temporal_chunks[e]), v, replace=False))
+                    valid_chunks += list(np.array(temporal_chunks[e])[valid_chunk_idx])
+                    train_chunks += list(np.delete(temporal_chunks[e], valid_chunk_idx, 0))
+                else:
+                    train_chunks += temporal_chunks[e]
+        elif v > 0:
+            for e in range(num_experiments):
                 valid_chunk_idx = sorted(np.random.choice(len(temporal_chunks[e]), v, replace=False))
                 valid_chunks += list(np.array(temporal_chunks[e])[valid_chunk_idx])
                 train_chunks += list(np.delete(temporal_chunks[e], valid_chunk_idx, 0))
