@@ -517,6 +517,13 @@ def add_dannce_shared_args(
         dest="dannce_finetune_weights",
         help="Path to weights of initial model for dannce fine tuning.",
     )
+
+    parser.add_argument(
+        "--use-silhouette-in-volume",
+        action='store_true',
+        dest="use_silhouette_in_volume",
+    )
+
     return parser
 
 
@@ -641,6 +648,7 @@ def add_dannce_train_args(
         type=str,
         dest="lr_scheduler",
     )
+
     
     return parser
 

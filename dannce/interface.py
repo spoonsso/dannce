@@ -1,5 +1,6 @@
 """Handle training and prediction for DANNCE and COM networks."""
 import sys
+from matplotlib.pyplot import axis
 import numpy as np
 import os
 from copy import deepcopy
@@ -661,6 +662,8 @@ def dannce_train(params: Dict):
     # n_views, relevant lists will be duplicated in order to match n_views, if
     # possible.
     params["n_views"] = int(params["n_views"])
+    if params["use_silhouette_in_volume"]:
+        params["use_silhouette"] = True
 
     # Make the training directory if it does not exist.
     make_folder("dannce_train_dir", params)
@@ -926,6 +929,18 @@ def dannce_train(params: Dict):
             y_train, y_valid, X_train_grid, X_valid_grid, params
         )
 
+    if params["use_silhouette_in_volume"]:
+        # concatenate RGB image volumes with silhouette volumes
+        X_train = np.concatenate((X_train, y_train_aux, y_train_aux, y_train_aux), axis=-1)
+        X_valid = np.concatenate((X_valid, y_valid_aux, y_valid_aux, y_valid_aux), axis=-1)
+        print("Input dimension is now {}".format(X_train.shape))
+
+        params["use_silhouette"] = False
+        print("Turn off silhouette loss.")
+
+        y_train_aux = None
+        y_valid_aux = None
+
     # Now we can generate from memory with shuffling, rotation, etc.
     randflag = params["channel_combo"] == "random"
 
@@ -1032,7 +1047,7 @@ def dannce_train(params: Dict):
             "list_IDs": np.arange(len(partition["valid_sampleIDs"])),
             "data": X_valid,
             "labels": y_valid,
-            "aux_labels": y_valid_aux,
+            "aux_labels": y_valid_aux
         }
         args_valid = {
             **args_valid,
@@ -1041,7 +1056,7 @@ def dannce_train(params: Dict):
             "xgrid": X_valid_grid,
             "temporal_chunk_list": partition["valid_chunks"] if params["use_temporal"] else None
         }
-
+    
     train_generator = genfunc(**args_train)
     valid_generator = genfunc(**args_valid)
 
@@ -1059,7 +1074,6 @@ def dannce_train(params: Dict):
     scoping = strategy.scope()
 
     print("NUM CAMERAS: {}".format(len(camnames[0])))
-
     with scoping:
         if params["train_mode"] == "new":
             model = params["net"](
@@ -1067,7 +1081,7 @@ def dannce_train(params: Dict):
                 lr=float(params["lr"]),
                 input_dim=params["chan_num"] + params["depth"],
                 feature_num=params["n_channels_out"],
-                num_cams=len(camnames[0]),
+                num_cams=len(camnames[0]) + int(params["use_silhouette_in_volume"]),
                 norm_method=params["norm_method"],
                 include_top=True,
                 gridsize=gridsize,
@@ -1078,7 +1092,7 @@ def dannce_train(params: Dict):
                 float(params["lr"]),
                 params["chan_num"] + params["depth"],
                 params["n_channels_out"],
-                len(camnames[0]),
+                len(camnames[0]) + int(params["use_silhouette_in_volume"]),
                 params["new_last_kernel_size"],
                 params["new_n_channels_out"],
                 params["dannce_finetune_weights"],
@@ -1120,7 +1134,7 @@ def dannce_train(params: Dict):
                 float(params["lr"]),
                 params["chan_num"] + params["depth"],
                 params["n_channels_out"],
-                3 if cam3_train else len(camnames[0]),
+                3 if cam3_train else len(camnames[0]) + int(params["use_silhouette_in_volume"]),
                 norm_method=params["norm_method"],
                 include_top=True,
                 gridsize=gridsize,
@@ -1338,16 +1352,35 @@ def dannce_predict(params: Dict):
     device = "cuda:0"
     genfunc = generator.DataGenerator_3Dconv
 
-    predict_generator = genfunc(
+    predict_params = [
         partition["valid_sampleIDs"],
         datadict,
         datadict_3d,
         cameras,
         partition["valid_sampleIDs"],
         com3d_dict,
-        tifdirs,
+        tifdirs,        
+    ]
+    predict_generator = genfunc(
+        *predict_params,
         **valid_params
     )
+
+    predict_generator_sil = None
+    if params["use_silhouette_in_volume"]:
+        # require silhouette + RGB volume
+        vids_sil = processing.initialize_vids(
+            params, datadict, 0, {}, pathonly=True, vidkey="viddir_sil"
+        )
+        valid_params_sil = deepcopy(valid_params)
+        valid_params_sil["vidreaders"] = vids_sil
+        valid_params_sil["norm_im"] = False
+        valid_params_sil["expval"] = True
+
+        predict_generator_sil = generator.DataGenerator_3Dconv(
+            *predict_params,
+            **valid_params_sil
+        )
 
     model = build_model(params, camnames)
 
@@ -1377,6 +1410,7 @@ def dannce_predict(params: Dict):
         partition,
         device,
         params["n_markers"],
+        predict_generator_sil
     )
 
     if params["expval"]:
@@ -1451,6 +1485,9 @@ def setup_dannce_predict(params):
     print("Using camnames: {}".format(params["camnames"]))
     # Also add parent params under the 'experiment' key for compatibility
     # with DANNCE's video loading function
+    if params["use_silhouette_in_volume"]:
+        params["viddir_sil"] = os.path.join(params["base_exp_folder"], _DEFAULT_VIDDIR_SIL)
+        
     params["experiment"] = {}
     params["experiment"][0] = params
 

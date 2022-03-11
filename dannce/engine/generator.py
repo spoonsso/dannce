@@ -1065,6 +1065,7 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         Returns:
             X (np.ndarray): Shuffled image volumes
         """
+
         if self.random:
             X = X.reshape((*X.shape[:4], self.chan_num, -1), order="F")
             X = X[..., np.random.permutation(X.shape[-1])]
@@ -1161,12 +1162,10 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
                 X_grid[i] = self.xgrid[ID]
             if aux is not None:
                 aux[i] = self.aux_labels[ID]
-
         X, X_grid, y_3d, aux = self.do_augmentation(X, X_grid, y_3d, aux)
-
         # Randomly re-order, if desired
         X = self.do_random(X)
-
+        
         # # adjust inputs & outputs according to targeted losses        
         return self.return_multi_inputs_targets(X, X_grid, y_3d, aux)
 

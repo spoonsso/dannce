@@ -18,6 +18,6 @@ dannce_predict_model: /home/tianqingli/dl-projects/dannce/demo/markerless_mouse_
 exp:
     - label3d_file: './label3d_dannce.mat'
       viddir: ../../demo/markerless_mouse_1/videos/
-    - label3d_file: '../markerless_mouse_2/label3d_dannce.mat'
-      viddir: ../../demo/markerless_mouse_2/videos/
+    # - label3d_file: '../markerless_mouse_2/label3d_dannce.mat'
+    #   viddir: ../../demo/markerless_mouse_2/videos/
 

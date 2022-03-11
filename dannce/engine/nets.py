@@ -223,7 +223,7 @@ def unet3d_big_expectedvalue(
 
     fun = norm_fun(norm_method)
 
-    inputs = Input((*gridsize, input_dim * num_cams), name="image_input")
+    inputs = Input((*gridsize, int(input_dim * num_cams)), name="image_input")
     conv1_layer = Conv3D(64, (3, 3, 3), padding="same")
 
     conv1 = conv1_layer(inputs)

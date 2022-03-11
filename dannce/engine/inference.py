@@ -1,5 +1,6 @@
 """Handle inference procedures for dannce and com networks.
 """
+from concurrent.futures import process
 import numpy as np
 import os
 import time
@@ -645,6 +646,7 @@ def infer_dannce(
     partition: Dict,
     device: Text,
     n_chn: int,
+    sil_generator=None,
 ):
     """Perform dannce detection over a set of frames.
 
@@ -696,6 +698,10 @@ def infer_dannce(
                 )
 
         ims = generator.__getitem__(i)
+        if sil_generator is not None:
+            sil_ims = sil_generator.__getitem__(i)
+            sil_ims = processing.extract_3d_sil(sil_ims[0][0], 18)
+            ims[0][0] = [np.concatenate((ims[0][0], sil_ims, sil_ims, sil_ims), axis=-1)]
         pred = model.predict(ims[0])
 
         if params["expval"]:

@@ -34,7 +34,7 @@ nvox: 64
 max_num_samples: 3000
 
 # By default, will load in the first hdf5 file at this location for fine-tuning. If training from scratch, set to None
-dannce_finetune_weights: ./DANNCE/weights/
+dannce_finetune_weights: # ./DANNCE/weights/
 
 data_split_seed: 1024
 

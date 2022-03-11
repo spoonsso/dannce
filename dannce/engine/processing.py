@@ -266,7 +266,7 @@ def infer_params(params, dannce_net, prediction):
                     viddir = os.path.join(
                         params["viddir"], params["camnames"][i], os.listdir(viddir)[0]
                     )
-                video_files = os.listdir(viddir)
+                video_files = sorted(os.listdir(viddir))
                 camf = os.path.join(viddir, video_files[0])
                 v = imageio.get_reader(camf)
                 im = v.get_data(0)
