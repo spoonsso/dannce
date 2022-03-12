@@ -1180,10 +1180,14 @@ def dannce_train(params: Dict):
     ]
 
     if params["lr_scheduler"] is not None:
-        assert params["lr_scheduler"] in ["step_lr", "warmup_lr"]
-        lr_scheduler = getattr(nets, params["lr_scheduler"])
-        callbacks.append(lr_scheduler())
-
+        if params["lr_scheduler"] in ["step_lr", "warmup_lr"]:
+            lr_scheduler = getattr(nets, params["lr_scheduler"])
+            callbacks.append(lr_scheduler())
+        elif params["lr_scheduler"] == "reduce_on_plateau":
+            reduce_lr = keras.callbacks.ReduceLROnPlateau(
+                monitor='val_final_output_euclidean_distance_3D', 
+                factor=0.5, patience=30, min_lr=0.00001, verbose=1)
+            callbacks.append(reduce_lr)
     if (
         params["expval"]
         and not params["use_npy"]
