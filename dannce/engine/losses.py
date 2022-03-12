@@ -185,14 +185,16 @@ def mask_nan_pair(y1, y2):
     y2 = K.cast(tf.where(notnan, y2, tf.zeros_like(y2)), "float32")
     return y1, y2, num_notnan
 
-def temporal_consistency(y_pred_t1, y_pred_t2):
+def temporal_consistency(y_pred_t1, y_pred_t2, method='l1'):
     """Unsupervised pairwise loss with respect to the temporal dimension.
     """
     assert y_pred_t1.shape == y_pred_t2.shape, "Imput shapes are inconsistent when computing the temporal consistency loss."
 
     y_pred_t1, y_pred_t2, num_notnan = mask_nan_pair(y_pred_t1, y_pred_t2)
-
-    loss = K.sum((K.flatten(y_pred_t1) - K.flatten(y_pred_t2)) ** 2) / num_notnan
+    if method == 'l1':
+        loss = K.sum(K.abs(K.flatten(y_pred_t1) - K.flatten(y_pred_t2))) / num_notnan
+    else:
+        loss = K.sum((K.flatten(y_pred_t1) - K.flatten(y_pred_t2)) ** 2) / num_notnan
     loss = tf.where(~tf.math.is_nan(loss), loss, 0)
 
     return loss
