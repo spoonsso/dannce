@@ -320,8 +320,11 @@ def infer_params(params, dannce_net, prediction):
         TEMPORAL_FLAG = (params["temporal_loss_weight"] is not None) and (params["temporal_chunk_size"] is not None) 
         print_and_set(params, "use_temporal", TEMPORAL_FLAG)
         print_and_set(params, "use_silhouette", params["silhouette_loss_weight"] is not None)
+
         SEPARATION_FLAG = (params["separation_loss_weight"] is not None) and (params["separation_delta"] is not None)
         print_and_set(params, "use_separation", SEPARATION_FLAG)
+
+        print_and_set(params, "use_symmetry", params["symmetry_loss_weight"] is not None)
 
     # There will be strange behavior if using a mirror acquisition system and are cropping images
     if params["mirror"] and params["crop_height"][-1] != params["raw_im_h"]:
@@ -1478,6 +1481,18 @@ def extract_3d_sil(vol, upper_thres):
             100*np.sum(vol)/len(vol.ravel())))
     return vol
 
+def extract_3d_sil_soft(vol, upper_thres, keeprange=3):
+    vol[vol > 0] = 1
+    vol = np.sum(vol, axis=-1, keepdims=True)
+
+    lower_thres = upper_thres - keeprange
+    vol[vol <= lower_thres] = 0
+    vol[vol > 0] = (vol[vol > 0] - lower_thres) / keeprange
+
+    print("{}\% of silhouette training voxels are occupied".format(
+            100*np.sum((vol > 0))/len(vol.ravel())))
+    return vol
+
 def load_volumes_into_mem(params, partition, n_cams, generator, train=True, silhouette=False):
     n_samples = len(partition["train_sampleIDs"]) if train else len(partition["valid_sampleIDs"]) 
     message = "Loading training data into memory" if train else "Loading validation data into memory"
@@ -1508,45 +1523,8 @@ def load_volumes_into_mem(params, partition, n_cams, generator, train=True, silh
         print("Now loading silhouettes")
     
         X = extract_3d_sil(X, params["chan_num"]*n_cams)
+        #X = extract_3d_sil_soft(X, params["chan_num"]*n_cams)
         return None, None, X
     
     return X, X_grid, y
-
-# def load_volumes_into_mem(params, partition, n_cams, generator, train=True, silhouette=False):
-#     n_samples = len(partition["train_sampleIDs"]) if train else len(partition["valid_sampleIDs"]) 
-#     message = "Loading training data into memory" if train else "Loading validation data into memory"
-
-#     X = []
-#     print(message)
-
-#     y = []
-#     X_grid = None
-#     if params["expval"]:
-#         if not silhouette: 
-#             X_grid = []
-
-#     for i in range(n_samples):
-#         print(i, end="\r")
-#         rr = generator.__getitem__(i)
-#         if params["expval"]:
-#             X.append(rr[0][0])
-#             if not silhouette: 
-#                 X_grid.append(rr[0][1])
-#                 y.append(rr[1])
-#         else:
-#             X.append(rr[0])
-#             y.append(rr[1])
-
-#     X = np.concatenate(X, axis=0)
-#     if silhouette:
-#         print("Now loading silhouettes")
-    
-#         X = extract_3d_sil(X, params["chan_num"]*n_cams)
-#         return None, None, X
-
-#     if X_grid is not None:
-#         X_grid = np.concatenate(X_grid, axis=0)
-#     y = np.concatenate(y, axis=0)
-    
-#     return X, X_grid, y
 

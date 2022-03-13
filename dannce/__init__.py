@@ -102,7 +102,8 @@ _param_defaults_dannce = {
     "silhouette_loss_weight": None,
     "separation_loss_weight": None,
     "separation_delta": None,
-    "use_silhouette_in_volume": None
+    "use_silhouette_in_volume": None,
+    "symmetry_loss_weight": None
 }
 _param_defaults_com = {
     "dsmode": "nn",

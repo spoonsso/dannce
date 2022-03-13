@@ -784,7 +784,8 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         heatmap_reg_coeff=0.01,
         aux_labels=None,
         temporal_chunk_list=None,
-        separation_loss=False
+        separation_loss=False,
+        symmetry_loss=False
     ):
         """Initialize data generator.
         """
@@ -822,6 +823,7 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         self.temporal_chunk_size = 1
         self.temporal_batch_size = batch_size
         self.separation_loss=separation_loss
+        self.symmetry_loss = symmetry_loss
         self._update_temporal_batch_size()
         self.on_epoch_end()
 
@@ -1116,6 +1118,10 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
             final_output_count += 1
         
         if self.separation_loss:
+            return_target[f'final_output_{final_output_count}'] = y_3d
+            final_output_count += 1
+        
+        if self.symmetry_loss:
             return_target[f'final_output_{final_output_count}'] = y_3d
             final_output_count += 1
         

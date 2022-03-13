@@ -650,6 +650,11 @@ def add_dannce_train_args(
         dest="lr_scheduler",
     )
 
+    parser.add_argument(
+        "--symmetry-loss-weight",
+        type=float,
+        dest="symmetry_loss_weight",
+    )
     
     return parser
 

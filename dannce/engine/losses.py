@@ -201,7 +201,7 @@ def temporal_consistency(y_pred_t1, y_pred_t2, method='l1'):
 
 def temporal_loss(chunk_size):
     def loss(y_true, y_pred):
-        y_pred = K.reshape(y_pred, (-1, chunk_size, *y_pred.shape[1:])) # [batch size, chunk size, N, 3]
+        y_pred = K.reshape(y_pred, (-1, chunk_size, *y_pred.shape[1:])) # [batch size, chunk size, 3, n_kpts]
         temp_losses = tf.zeros(())
         for chunk in y_pred:
             for i in range(chunk.shape[0]-1):
@@ -234,13 +234,26 @@ def separation_loss(delta=10):
         """
         Loss which penalizes 3D keypoint predictions being too close.
         """
-        num_kpts = y_pred.shape[1]
+        num_kpts = y_pred.shape[-1]
 
-        t1 = K.tile(y_pred, [1, num_kpts, 1])
-        t2 = K.reshape(K.tile(y_pred, [1, 1, num_kpts]), K.shape(t1))
+        t1 = K.tile(y_pred, [1, 1, num_kpts])
+        t2 = K.reshape(K.tile(y_pred, [1, num_kpts, 1]), K.shape(t1))
 
-        lensqr = K.sum((t1 - t2) ** 2, axis=2)
+        lensqr = K.sum((t1 - t2) ** 2, axis=1)
         sep = K.sum(K.maximum(delta-lensqr, 0.0), axis=1) / K.cast(num_kpts*num_kpts, "float32")
 
         return K.mean(sep)
     return _separation_loss
+
+from .body_limb import SYMMETRY
+
+def body_symmetry_loss(y_true, y_pred):
+    loss = tf.zeros(())
+    for limbA, limbB in SYMMETRY["mouse22"]:
+        limbA_len = K.mean((K.flatten(y_pred[..., limbA[0]]) - K.flatten(y_pred[..., limbA[1]])) ** 2)
+        limbA_len = K.sqrt(limbA_len)
+        limbB_len = K.mean((K.flatten(y_pred[..., limbB[0]]) - K.flatten(y_pred[..., limbB[1]])) ** 2)
+        limbB_len = K.sqrt(limbB_len)
+        loss += K.abs(limbA_len - limbB_len)
+        
+    return loss

@@ -12,7 +12,7 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.layers import BatchNormalization
 from tensorflow.keras import backend as K
 from tensorflow.keras import regularizers
-from dannce.engine import ops as ops
+from dannce.engine import body_limb, ops as ops
 from dannce.engine import losses as losses
 import numpy as np
 import h5py
@@ -784,6 +784,9 @@ def update_model_multi_outputs(params, model):
     
     if params["use_separation"]:
         MULTILOSS_FLAG = True
+    
+    if params["use_symmetry"]:
+        MULTILOSS_FLAG = True
 
     if params["heatmap_reg"]:
         model = add_heatmap_output(model)
@@ -799,6 +802,7 @@ def update_model_multi_outputs(params, model):
 
     return model, MULTILOSS_FLAG
 
+from . import body_limb
 
 def update_model_multi_losses(params, metrics, model):
     """
@@ -840,6 +844,13 @@ def update_model_multi_losses(params, metrics, model):
         outputs.append(model.get_layer("final_output").output)
         compile_loss[f"final_output_{final_output_count}"] = losses.separation_loss(params["separation_delta"])
         compile_loss_weights[f"final_output_{final_output_count}"] = params["separation_loss_weight"]
+        final_output_count += 1
+    
+    if params["use_symmetry"]:
+        print("Compile with body symmetry loss.")
+        outputs.append(model.get_layer("final_output").output)
+        compile_loss[f"final_output_{final_output_count}"] = losses.body_symmetry_loss
+        compile_loss_weights[f"final_output_{final_output_count}"] = params["symmetry_loss_weight"]
 
     if params["use_silhouette"]:
         print("Compile with silhouette loss.")
