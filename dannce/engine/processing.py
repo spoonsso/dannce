@@ -1521,9 +1521,12 @@ def load_volumes_into_mem(params, partition, n_cams, generator, train=True, silh
 
     if silhouette:
         print("Now loading silhouettes")
-    
-        X = extract_3d_sil(X, params["chan_num"]*n_cams)
-        #X = extract_3d_sil_soft(X, params["chan_num"]*n_cams)
+
+        if params["soft_silhouette"]:
+            X = extract_3d_sil_soft(X, params["chan_num"]*n_cams)
+        else:
+            X = extract_3d_sil(X, params["chan_num"]*n_cams)
+        
         return None, None, X
     
     return X, X_grid, y

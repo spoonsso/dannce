@@ -664,6 +664,7 @@ def dannce_train(params: Dict):
     params["n_views"] = int(params["n_views"])
     if params["use_silhouette_in_volume"]:
         params["use_silhouette"] = True
+        params["n_rand_views"] = None
 
     # Make the training directory if it does not exist.
     make_folder("dannce_train_dir", params)

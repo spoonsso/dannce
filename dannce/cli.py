@@ -525,6 +525,13 @@ def add_dannce_shared_args(
         dest="use_silhouette_in_volume",
     )
 
+    parser.add_argument(
+        "--soft-silhouette",
+        default=True,
+        type=ast.literal_eval,
+        dest="soft_silhouette",
+    )
+
     return parser
 
 
