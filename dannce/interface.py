@@ -984,7 +984,7 @@ def dannce_train(params: Dict):
         "n_rand_views": params["n_rand_views"],
     }
     shared_args_valid = {
-        "batch_size": 4,
+        "batch_size": params["batch_size"],
         "rotation": False,
         "augment_hue": False,
         "augment_brightness": False,
