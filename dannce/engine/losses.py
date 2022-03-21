@@ -28,7 +28,7 @@ def mask_nan_keep_loss(y_true, y_pred):
 def mask_nan_l1_loss(y_true, y_pred):
     y_pred, y_true, num_notnan = mask_nan(y_true, y_pred)
     loss = K.sum(K.abs(K.flatten(y_pred) - K.flatten(y_true))) / num_notnan
-    return tf.where(~tf.math.is_nan(loss), loss, 0)
+    return tf.where(~tf.math.is_nan(loss) & ~tf.math.is_inf(loss), loss, 0)
 
 
 def multiview_consistency(y_true, y_pred):
@@ -102,7 +102,7 @@ def K_nanmean_infmean(tensor):
 
     loss = K.sum(nonan) / num_notnan
 
-    return loss #tf.where(~tf.math.is_inf(loss), loss, 0)
+    return tf.where(~tf.math.is_inf(loss), loss, 0) # there could be all nans
 
 
 def euclidean_distance_3D(y_true, y_pred):

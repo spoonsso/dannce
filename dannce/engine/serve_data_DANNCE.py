@@ -88,8 +88,13 @@ def prepare_data(
 
         for i, label in enumerate(labels):
             for k in ['data_frame', 'data_2d', 'data_3d']:
+                if label[k].shape[0] == 1:
+                    label[k] = label[k].T
+                if labels_extra[i][k].shape[0] == 1:
+                    labels_extra[i][k] = labels_extra[i][k].T
+                    
                 if k == 'data_frame':
-                    label[k] = np.concatenate((label[k].T, labels_extra[i][k][extra_samples_inds]), axis=0)
+                    label[k] = np.concatenate((label[k], labels_extra[i][k][extra_samples_inds]), axis=0)
                 else: 
                     label[k] = np.concatenate((label[k], labels_extra[i][k][extra_samples_inds]*np.nan), axis=0)
                 label[k] = label[k][sorted_inds]

@@ -216,3 +216,4 @@ tests/configs/alabel3d_temp_dannce.mat
 tests/configs/log_file.txt
 
 .vscode/
+.setup.py

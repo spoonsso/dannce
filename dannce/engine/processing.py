@@ -1474,20 +1474,20 @@ def extract_3d_sil(vol, upper_thres):
     vol[vol > 0] = 1
     vol = np.sum(vol, axis=-1, keepdims=True)
 
-    vol[vol < upper_thres] = 0
+    vol[vol < upper_thres] = -1 #0
     vol[vol > 0] = 1
 
     print("{}\% of silhouette training voxels are occupied".format(
             100*np.sum(vol)/len(vol.ravel())))
     return vol
 
-def extract_3d_sil_soft(vol, upper_thres, keeprange=3):
+def extract_3d_sil_soft(vol, upper_thres, chan_num, keeprange=3):
     vol[vol > 0] = 1
     vol = np.sum(vol, axis=-1, keepdims=True)
 
-    lower_thres = upper_thres - keeprange
-    vol[vol <= lower_thres] = 0
-    vol[vol > 0] = (vol[vol > 0] - lower_thres) / keeprange
+    lower_thres = upper_thres - keeprange*chan_num
+    vol[vol <= lower_thres] = -1 #0
+    vol[vol > 0] = (vol[vol > 0] - lower_thres) / (keeprange*chan_num)
 
     print("{}\% of silhouette training voxels are occupied".format(
             100*np.sum((vol > 0))/len(vol.ravel())))
@@ -1523,7 +1523,7 @@ def load_volumes_into_mem(params, partition, n_cams, generator, train=True, silh
         print("Now loading silhouettes")
 
         if params["soft_silhouette"]:
-            X = extract_3d_sil_soft(X, params["chan_num"]*n_cams)
+            X = extract_3d_sil_soft(X, params["chan_num"]*n_cams, params["chan_num"])
         else:
             X = extract_3d_sil(X, params["chan_num"]*n_cams)
         

@@ -1061,7 +1061,7 @@ def dannce_train(params: Dict):
     
     train_generator = genfunc(**args_train)
     valid_generator = genfunc(**args_valid)
-
+    
     # Build net
     print("Initializing Network...")
 
