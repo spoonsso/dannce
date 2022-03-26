@@ -72,13 +72,20 @@ def prepare_data(
 
         # select extra samples from the neighborhood of labeled samples
         # each of which is referred as a "temporal chunk"
-        left_bound, right_bound = -int(temp_n // 2), int(np.round(temp_n/2))
+        if temp_n % 2 == 0:
+            left_bound, right_bound = -int(temp_n // 2), int(np.round(temp_n/2))
+        else:
+            left_bound, right_bound = -int(temp_n // 2), int(np.round(temp_n/2)) + 1
         extra_samples_inds = [sample_inds+i for i in range(left_bound, right_bound) if i != 0]
 
         # force validity of the extra sampleIDs
+        # extra_samples_inds = np.concatenate(extra_samples_inds)
+        # extra_samples_inds[extra_samples_inds < 0] = 0
+        # extra_samples_inds[extra_samples_inds >= len(samples_extra)] = len(samples_extra)-1
+        for i in range(len(extra_samples_inds)):
+            extra_samples_inds[i][extra_samples_inds[i] < 0] = sample_inds[extra_samples_inds[i] < 0] + i + 1
+            extra_samples_inds[i][extra_samples_inds[i] >= len(samples_extra)] = sample_inds[extra_samples_inds[i] >= len(samples_extra)] - 1 - i
         extra_samples_inds = np.concatenate(extra_samples_inds)
-        extra_samples_inds[extra_samples_inds < 0] = 0
-        extra_samples_inds[extra_samples_inds >= len(samples_extra)] = len(samples_extra)-1
 
         # concat sampleIDs with extra sampleIDs without labels
         samples = np.concatenate((samples, samples_extra[extra_samples_inds]), axis=0)
