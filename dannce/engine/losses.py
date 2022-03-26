@@ -199,15 +199,23 @@ def temporal_consistency(y_pred_t1, y_pred_t2, method='l1'):
 
     return loss
 
-def temporal_loss(chunk_size):
+def temporal_loss(chunk_size, method='l1'):
     def loss(y_true, y_pred):
         y_pred = K.reshape(y_pred, (-1, chunk_size, *y_pred.shape[1:])) # [batch size, chunk size, 3, n_kpts]
-        temp_losses = tf.zeros(())
-        for chunk in y_pred:
-            for i in range(chunk.shape[0]-1):
-                temp_losses += temporal_consistency(chunk[i], chunk[i+1])
-        return temp_losses
 
+        if method == 'l1':
+            diff = K.mean(K.abs((y_pred[:, 1:] - y_pred[:, :-1])))
+        else:
+            diff = K.mean((y_pred[:, 1:] - y_pred[:, :-1])**2)
+
+        diff = tf.where(~tf.math.is_nan(diff) & ~tf.math.is_inf(diff), diff, 0)
+        return diff
+
+        # temp_losses = tf.zeros(())
+        # for chunk in y_pred:
+        #     for i in range(chunk.shape[0]-1):
+        #         temp_losses += temporal_consistency(chunk[i], chunk[i+1])
+        # return temp_losses
     return loss
 
 def silhouette_loss(y_true, y_pred, dim=3):
