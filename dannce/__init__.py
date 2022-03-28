@@ -96,6 +96,8 @@ _param_defaults_dannce = {
     "save_pred_targets": False,
     "huber-delta": 1.35,            #Change Adapted from implementation by robb
     "avg+max": None,
+    "intermediate_supervision": None,
+    "int_supervision_layers": [-4],
 }
 _param_defaults_com = {
     "dsmode": "nn",

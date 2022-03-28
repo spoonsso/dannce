@@ -481,6 +481,136 @@ def unet3d_big(
 
     return model
 
+def get_unet3d_cont_stage(
+    inputs,
+    filters,
+    norm_fun
+):
+    conv1 = Conv3D(filters, (3, 3, 3), padding="same")(inputs)
+    conv1 = Activation("relu")(norm_fun(conv1))
+    conv1 = Conv3D(filters, (3, 3, 3), padding="same")(conv1)
+    conv1 = Activation("relu")(norm_fun(conv1))
+    pool1 = MaxPooling3D(pool_size=(2, 2, 2))(conv1)
+
+    return conv1,pool1
+
+def get_unet3d_contpath(
+    inputs,
+    norm_fun,
+    depth=4,
+):
+    conv_outs = []
+    stage_out = inputs
+
+    # Loop for all stages till the bottleneck
+    for i in range(depth-1):
+        conv_out, stage_out = get_unet3d_cont_stage(inputs = stage_out, 
+                                    filters = 32 * (i+1),
+                                    norm_fun = norm_fun)
+        conv_outs.append(conv_out)
+    
+    # The bottleneck stage doesn't have a pooling layer, hence define it separately
+    convn = Conv3D(32*depth, (3, 3, 3), padding="same")(stage_out)
+    convn = Activation("relu")(norm_fun(convn))
+    convn = Conv3D(32*depth, (3, 3, 3), padding="same")(convn)
+    convn = Activation("relu")(norm_fun(convn))
+
+    conv_outs.append(convn)
+    
+    return conv_outs
+
+def get_unet3d_exp_path_stage(
+    inputs,
+    filters,
+    norm_fun,
+):
+    conv6 = Conv3D(filters, (3, 3, 3), padding="same")(inputs)
+    conv6 = Activation("relu")(norm_fun(conv6))
+    conv6 = Conv3D(filters, (3, 3, 3), padding="same")(conv6)
+    conv6 = Activation("relu")(norm_fun(conv6))
+
+    return conv6
+
+
+def get_unet3d_exppath(
+    convs,
+    stages,
+    norm_fun,
+):
+    prev_out = convs[-1]
+    up = concatenate(
+            [
+                Conv3DTranspose(32*stages, (2, 2, 2), strides=(2, 2, 2), padding="same")(prev_out),
+                convs[stages-2],
+            ],
+            axis=4,
+        )
+
+    for i in reversed(range(2,stages)):
+        prev_out = get_unet_exp_path_stage(up,32*i,norm_fun)
+        up = concatenate(
+            [
+                Conv3DTranspose(32*i, (2, 2, 2), strides=(2, 2, 2), padding="same")(prev_out),
+                convs[i-2],
+            ],
+            axis=4,
+        )
+    
+    conv = get_unet3d_exp_path_stage(up,32,norm_fun)
+
+    return conv
+
+
+def get_unet3d_skeleton(
+    input_dim,
+    num_cams,
+    norm_method="layer",
+    stages=4,
+):
+    fun = norm_fun(norm_method)
+    inputs = Input((64, 64, 64, input_dim * num_cams))
+
+    conv_outs = get_unet3d_contpath (inputs = inputs, norm_fun = fun,stages = stages)
+    final_out = get_unet3d_exppath (convs = conv_outs, stages = stages,norm_fun = fun)
+
+    return inputs,final_out
+
+def unet3d_satellite(
+    lossfunc,
+    lr,
+    input_dim,
+    feature_num,
+    num_cams,
+    norm_method="layer",
+    include_top=True,
+    last_kern_size=(1, 1, 1),
+    gridsize=None,
+    satellite_stages = 2,
+):
+    inputs,unet_skel = get_unet3d_skeleton (input_dim, num_cams, norm_method,)
+    unet_skel._name = "int_supervision_0"
+    unet_satellite = get_unet3d_exppath (convs = get_unet3d_contpath(unet_skel,
+                                                                    norm_fun = norm_fun(norm_method),
+                                                                    stages = satellite_stages), 
+                    stages = satellite_stages,
+                    norm_fun = norm_fun(norm_method))
+    
+    if "gaussian_cross_entropy_loss" in str(lossfunc):
+        conv10 = Conv3D(feature_num, last_kern_size, activation="linear")(unet_satellite)
+    else:
+        conv10 = Conv3D(feature_num, last_kern_size, activation="sigmoid")(unet_satellite)
+
+    if include_top:
+        model = Model(inputs=[inputs], outputs=[unet_skel, conv10])
+    else:
+        model = Model(inputs=[inputs], outputs=[unet_skel, unet_satellite])
+
+    model.compile(optimizer=Adam(lr=lr), loss=lossfunc, metrics=["mse"])
+
+    return model
+    
+
+
 def finetune_AVG(
     lossfunc,
     lr,
@@ -617,6 +747,46 @@ def finetune_fullmodel_AVG(
     model = Model(inputs=[input_, grid_centers], outputs=[output])
 
     return model
+
+def add_int_supervision(model,int_layers=[-4,-5]):
+    """
+    Add intermediate supervision at the int_layers provided. 
+    int_layers can be an array of layer names or layer indices.
+
+    TODO: 
+    (1) make the function accept model with some int_supervision layers
+    and a new point where supervision needs to be added, and add heatmap output there
+    (2) The function should be able to generate heatmaps from layers that are not penultimate
+    """
+    import pdb
+    pdb.set_trace()
+    lay = [l.name for l in model.layers]
+    sigmoid_output = Activation(activations.sigmoid,
+                                name="sigmoid_exposed_hetmap")
+    mod_outputs = [model.layers[-1].output]
+
+    # Create intermediate supervision outputs at the given layers, if not present
+    if not any("int_supervision" in s for s in lay):
+        for i,el in enumerate(int_layers):
+            if isinstance(el,str):
+                sup_layer = model.get_layer[el]
+            else:
+                sup_layer = model.layers[el]
+            # if layer.output_shape[1] != 32:
+            #     intsup = Conv3DTranspose(32, (2, 2, 2), strides=(2, 2, 2), padding="same", name="int_supervision_"+str(i))(layer)
+            # else:
+            #     intsup = Conv3D(32, (3, 3, 3), padding="same", name="int_supervision_"+str(i))(layer)
+            sup_layer._name = "int_supervision_"+str(i)   
+            mod_outputs.append(sigmoid_output(sup_layer.output))
+        
+    model = Model(
+        inputs=[model.layers[0].input, model.layers[-2].input],
+        outputs=mod_outputs
+    )
+    print ("Intermediate Supervision heads successfully added.")
+
+    return model
+
 
 def add_exposed_heatmap(model):
     """

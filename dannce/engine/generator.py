@@ -2122,6 +2122,8 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         heatmap_reg=False,
         heatmap_reg_coeff=0.01,
         aux_labels=None,
+        int_sup=None,
+        num_isup_layers=1,
     ):
         """Initialize data generator.
 
@@ -2147,6 +2149,8 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
             n_rand_views (int, optional): Number of reviews to sample randomly from the full set
             replace (bool, optional): If True, samples n_rand_views with replacement
             aux_labels (np.ndarray, optional): If not None, contains the 3D MAX training targets for AVG+MAX training.
+            int_sup (bool, optional): If True, outputs for intermediate supervision are generated
+            num_isup_layers (int, optional): Used to specify the number of intermediate supervision outputs
         """
         self.list_IDs = list_IDs
         self.data = data
@@ -2178,6 +2182,8 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         self.heatmap_reg = heatmap_reg
         self.heatmap_reg_coeff = heatmap_reg_coeff
         self.aux_labels = aux_labels
+        self.int_sup=int_sup
+        self.num_isup_layers = num_isup_layers
         self.on_epoch_end()
 
     def __len__(self):
@@ -2519,7 +2525,12 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
                 return [X, X_grid, self.get_max_gt_ind(X_grid, y_3d)], [y_3d,
                     self.heatmap_reg_coeff*np.ones((self.batch_size, y_3d.shape[-1]), dtype='float32')]
             elif aux is not None:
-                return [X, X_grid], [y_3d, aux]
+                # return [X, X_grid], [y_3d, aux]
+                if self.int_sup is not None:
+                    print ("Generating for int supervision")
+                    return [X, X_grid], [y_3d].extend([aux]*self.num_isup_layers)
+                else:
+                    return [X, X_grid], [y_3d, aux]
             return [X, X_grid], y_3d
         else:
             return X, y_3d

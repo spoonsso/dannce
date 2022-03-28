@@ -960,7 +960,7 @@ def dannce_train(params: Dict):
     # TODO: Add code to infer_params
     y_train_aux = None
     y_valid_aux = None
-    if params["avg+max"] is not None:
+    if params["avg+max"] is not None or params["intermediate_supervision"] is not None:
         y_train_aux, y_valid_aux = processing.initAvgMax(
             y_train, y_valid, X_train_grid, X_valid_grid, params
         )
@@ -1058,6 +1058,8 @@ def dannce_train(params: Dict):
             **shared_args,
             "xgrid": X_train_grid,
             "aux_labels": y_train_aux,
+            "int_sup": params["intermediate_supervision"],
+            "num_isup_layers": len(params["int_supervision_layers"]),
         }
         args_valid = {
             "list_IDs": np.arange(len(partition["valid_sampleIDs"])),
@@ -1162,16 +1164,26 @@ def dannce_train(params: Dict):
 
         if params["avg+max"] is not None and params["train_mode"] != "continued":
             model = nets.add_exposed_heatmap(model)
+        
+        if params["intermediate_supervision"]:
+            if len(params["int_supervision_layers"]) == 1:
+                model = nets.add_exposed_heatmap(model)
+            else:
+                model = nets.add_int_supervision(model, params["int_supervision_layers"])
 
-        if params["heatmap_reg"] or params["train_mode"] != "continued":
+        if params["heatmap_reg"] or params["intermediate_supervision"] or params["train_mode"] != "continued":
             # recompiling a full model will reset the optimizer state
             model.compile(
                 optimizer=Adam(lr=float(params["lr"])),
                 loss=params["loss"]
-                if not params["heatmap_reg"]
+                if not params["heatmap_reg"] and not params["intermediate_supervision"]
+                else [params["loss"]]*(len(params["int_supervision_layers"])+1)
+                if params["intermediate_supervision"]
                 else [params["loss"], losses.heatmap_max_regularizer],
                 loss_weights=[1, params["avg+max"]]
                 if params["avg+max"] is not None
+                else [1].extend([1]*len(params["int_supervision_layers"]))
+                if params["intermediate_supervision"] is not None
                 else None,
                 metrics=metrics,
             )
