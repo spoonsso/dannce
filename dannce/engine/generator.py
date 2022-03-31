@@ -559,6 +559,21 @@ class DataGenerator_3Dconv(DataGenerator):
             (x_coord_3d, y_coord_3d, z_coord_3d) = self.torch.meshgrid(
                 xgrid, ygrid, zgrid
             )
+            
+            if self.mode == "3dprob":
+                for j in range(self.n_channels_out):
+                    y_3d[i, j] = np.exp(
+                        -(
+                            (y_coord_3d - this_y_3d[1, j]) ** 2
+                            + (x_coord_3d - this_y_3d[0, j]) ** 2
+                            + (z_coord_3d - this_y_3d[2, j]) ** 2
+                        )
+                        / (2 * self.out_scale ** 2)
+                    )
+                    # When the voxel grid is coarse, we will likely miss
+                    # the peak of the probability distribution, as it
+                    # will lie somewhere in the middle of a large voxel.
+                    # So here we renormalize to [~, 1]
 
             if self.mode == "coordinates":
                 if this_y_3d.shape == y_3d[i].shape:
@@ -785,7 +800,8 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         aux_labels=None,
         temporal_chunk_list=None,
         separation_loss=False,
-        symmetry_loss=False
+        symmetry_loss=False,
+        gaussian_reg=False
     ):
         """Initialize data generator.
         """
@@ -824,6 +840,7 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         self.temporal_batch_size = batch_size
         self.separation_loss=separation_loss
         self.symmetry_loss = symmetry_loss
+        self.gaussian_reg = gaussian_reg
         self._update_temporal_batch_size()
         self.on_epoch_end()
 
@@ -1109,9 +1126,7 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
 
         return_input.append(X_grid)
         final_output_count = 1
-        if self.heatmap_reg:
-            return_input.append(self.get_max_gt_ind(X_grid, y_3d))
-            return_target['heatmap_output'] = self.heatmap_reg_coeff*np.ones((self.batch_size, y_3d.shape[-1]), dtype='float32')
+
         
         if self.temporal_chunk_list is not None:
             return_target[f'final_output_{final_output_count}'] = y_3d
@@ -1125,6 +1140,13 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
             return_target[f'final_output_{final_output_count}'] = y_3d
             final_output_count += 1
         
+        if self.heatmap_reg:
+            return_input.append(self.get_max_gt_ind(X_grid, y_3d))
+            return_target['heatmap_output'] = self.heatmap_reg_coeff*np.ones((self.batch_size, y_3d.shape[-1]), dtype='float32')
+
+        if self.gaussian_reg:
+            return_target['gaussian_output'] = y_3d
+
         if aux is not None:
             return_target['normed_map'] = aux 
         

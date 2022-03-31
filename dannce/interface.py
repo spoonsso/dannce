@@ -1042,7 +1042,8 @@ def dannce_train(params: Dict):
                       "aux_labels": y_train_aux,
                       "temporal_chunk_list": partition["train_chunks"] if params["use_temporal"] else None,
                       "separation_loss": params["use_separation"],
-                      "symmetry_loss": params["use_symmetry"]
+                      "symmetry_loss": params["use_symmetry"],
+                      "gaussian_reg": params["gaussian_reg"]
                       }
 
         args_valid = {

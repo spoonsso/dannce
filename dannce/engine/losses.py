@@ -265,3 +265,7 @@ def body_symmetry_loss(y_true, y_pred):
         loss += K.abs(limbA_len - limbB_len)
         
     return loss
+
+def gaussian_reg_loss(y_true, y_pred):
+    loss = K.mean(K.sum((y_pred[:, 0] - y_pred[:, 1]) ** 2))
+    return tf.where(~tf.math.is_nan(loss), loss, 0)

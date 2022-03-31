@@ -740,7 +740,52 @@ def add_heatmap_output(model):
             inputs=[model.get_layer(image_input_layer).input, model.get_layer(grid_input_layer).input, gt_vox_ind],
             outputs=[model.get_layer(final_output_layer).output, gt_vox_val])
 
+        # import pdb;pdb.set_trace()
+
+    return model
+
+def generate_gaussian_target(centers, grids, normed_map, sigma, bs):
+    """
+    Generate gaussian targets from model predictions.
+    centers: [batch_size, 3, n_joints]
+    grids: [batch_size, n_vox**3, 3]
+    """
+    gt = grids[:, :, :, tf.newaxis] - centers[:, tf.newaxis, :, :]
+    gt = tf.exp(-tf.reduce_sum(gt **2, axis=[2]))
+    gt /= 2 * (tf.cast(sigma, "float32") ** 2)
+    concat_gt = tf.stack([tf.reshape(gt, [bs, -1]), tf.reshape(normed_map, [bs, -1])])
+    return concat_gt
+
+def add_unsupervised_gaussian_heatmap_output(model, sigma, bs):
+    """
+    Given an AVG model, splice on a new input (GT voxel index) and output (amplitude of normalized heatmap at that GT index)
+    """
+    lay = [l.name for l in model.layers]
+    if "heatmap_output" not in lay:
+        #print("Adding heatmap regularization arm")
+        norm_layer = "normed_map"
+        image_input_layer = "image_input"
+        grid_input_layer = "grid_input"
+        final_output_layer = "final_output"
+        if norm_layer not in lay:
+            # for backwards compatibility with older models running in "continued" mode
+            model.get_layer("lambda_4")._name = norm_layer
+            model.get_layer("input_3")._name = image_input_layer
+            model.get_layer("input_4")._name = grid_input_layer
+            model.get_layer("lambda_5")._name = final_output_layer
+
+        pred_coords = model.get_layer("final_output").output
+        grid_centers = model.get_layer("grid_input").input
+        normed_map = model.get_layer("normed_map").output
+        gaussian_target = Lambda(lambda x: generate_gaussian_target(x[0], x[1], x[2], x[3], x[4]), 
+            name="gaussian_output")([pred_coords, grid_centers, normed_map, sigma, bs])
+
         #import pdb;pdb.set_trace()
+        model = Model(
+            inputs=[model.get_layer(image_input_layer).input, model.get_layer(grid_input_layer).input],
+            outputs=[model.get_layer(final_output_layer).output, gaussian_target])
+
+        # import pdb;pdb.set_trace()
 
     return model
 
@@ -791,6 +836,10 @@ def update_model_multi_outputs(params, model):
     if params["heatmap_reg"]:
         model = add_heatmap_output(model)
         MULTILOSS_FLAG = True
+    
+    if params["gaussian_reg"]:
+        model = add_unsupervised_gaussian_heatmap_output(model, params["sigma"], params["batch_size"])
+        MULTILOSS_FLAG = True
 
     if params["use_silhouette"]:
         model = add_exposed_normed_heatmap(model)
@@ -816,7 +865,7 @@ def update_model_multi_losses(params, metrics, model):
     compile_loss = {"final_output": params["loss"]}
     compile_loss_weights = {"final_output": 1}
     compile_metrics = {'final_output': metrics}
-    
+
     if not MULTILOSS_FLAG:
         print("Compile with single loss")
         model.compile(
@@ -826,8 +875,11 @@ def update_model_multi_losses(params, metrics, model):
             metrics=compile_metrics)
         return model
 
-    inputs, outputs = [model.input], [model.output]
-
+    
+    inputs = [model.input] if not isinstance(model.input, list) else model.input
+    outputs = [model.output] if not isinstance(model.output, list) else model.output
+    #inputs, outputs = [model.input], [model.output]
+    # breakpoint()
     # for now, have to keep output layers with names "final_output", "final_output_1", "final_output_2" ...
     # if want to use custom loss on keypoints
     # to allow multiple ones, use a dummy counter
@@ -860,11 +912,18 @@ def update_model_multi_losses(params, metrics, model):
 
     if params["heatmap_reg"]:
         print("Compile with heatmap regularization loss.")
-        outputs.append(model.get_layer("heatmap_output").output)
+        # outputs.append(model.get_layer("heatmap_output").output)
         compile_loss["heatmap_output"] = losses.heatmap_max_regularizer
-        compile_loss_weights["heatmap_output"] = params["avg+max"] if params["avg+max"] is not None else None
+        compile_loss_weights["heatmap_output"] = 1
 
+    if params["gaussian_reg"]:
+        print("Compile with Gaussian unsupervised loss.")
+        outputs.append(model.get_layer("gaussian_output").output)
+        compile_loss["gaussian_output"] = losses.gaussian_reg_loss
+        compile_loss_weights["gaussian_output"] = params["gaussian_reg_loss_weight"]
+    
     model = Model(inputs=inputs, outputs=outputs)
+    # breakpoint()
 
     model.compile(optimizer=Adam(lr=float(params["lr"])),
                 loss=compile_loss,

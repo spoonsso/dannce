@@ -662,7 +662,17 @@ def add_dannce_train_args(
         type=float,
         dest="symmetry_loss_weight",
     )
-    
+
+    parser.add_argument(
+        "--gaussian-reg",
+        dest="gaussian_reg",
+        type=ast.literal_eval,
+    )
+    parser.add_argument(
+        "--gaussian-reg-loss-weight",
+        type=float,
+        dest="gaussian_reg_loss_weight",
+    )
     return parser
 
 
