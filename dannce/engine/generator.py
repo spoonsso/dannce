@@ -850,13 +850,13 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         Returns:
             int: Batches per epoch
         """
-        if self.temporal_chunk_list is not None:
+        if (self.temporal_chunk_list is not None) and (len(self.temporal_chunk_list) != 0):
            return len(self.temporal_chunk_list) // self.temporal_batch_size
 
         return len(self.list_IDs) // self.batch_size
     
     def _update_temporal_batch_size(self):
-        if self.temporal_chunk_list is not None:
+        if (self.temporal_chunk_list is not None) and (len(self.temporal_chunk_list) != 0):
             self.temporal_chunk_size = len(self.temporal_chunk_list[0])
             self.temporal_batch_size = self.batch_size // self.temporal_chunk_size
 

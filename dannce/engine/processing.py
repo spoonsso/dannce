@@ -465,6 +465,7 @@ def make_data_splits(samples, params, results_dir, num_experiments, temporal_chu
         # fix random seeds
         if params["data_split_seed"] is not None:
             np.random.seed(params["data_split_seed"])
+            
         
         valid_chunks, train_chunks = [], []
         if params["valid_exp"] is not None and v > 0:
@@ -480,12 +481,23 @@ def make_data_splits(samples, params, results_dir, num_experiments, temporal_chu
                 valid_chunk_idx = sorted(np.random.choice(len(temporal_chunks[e]), v, replace=False))
                 valid_chunks += list(np.array(temporal_chunks[e])[valid_chunk_idx])
                 train_chunks += list(np.delete(temporal_chunks[e], valid_chunk_idx, 0))
+        elif params["valid_exp"] is not None:
+            raise Exception("Need to set num_validation_per_exp in using valid_exp")
+        else:
+            for e in range(num_experiments):
+                train_chunks += list(temporal_chunks[e])
 
         train_expts = np.arange(num_experiments)
         print("TRAIN EXPTS: {}".format(train_expts))
 
-        train_sampleIDs, valid_sampleIDs = list(np.concatenate(train_chunks)), list(np.concatenate(valid_chunks))
+        train_sampleIDs = list(np.concatenate(train_chunks))
+        try: 
+            valid_sampleIDs = list(np.concatenate(valid_chunks))
+        except:
+            valid_sampleIDs = []
+
         partition["train_sampleIDs"], partition["valid_sampleIDs"] = train_sampleIDs, valid_sampleIDs
+
         chunk_size = len(train_chunks[0])
         partition["train_chunks"] = [np.arange(i, i+chunk_size) for i in range(0, len(train_sampleIDs), chunk_size)]
         partition["valid_chunks"] = [np.arange(i, i+chunk_size) for i in range(0, len(valid_sampleIDs), chunk_size)]
