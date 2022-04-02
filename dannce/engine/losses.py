@@ -260,16 +260,24 @@ def separation_loss(delta=10):
 
 from .body_limb import SYMMETRY
 
-def body_symmetry_loss(y_true, y_pred):
-    loss = tf.zeros(())
-    for limbA, limbB in SYMMETRY["mouse22"]:
-        limbA_len = K.mean((K.flatten(y_pred[..., limbA[0]]) - K.flatten(y_pred[..., limbA[1]])) ** 2)
-        limbA_len = K.sqrt(limbA_len)
-        limbB_len = K.mean((K.flatten(y_pred[..., limbB[0]]) - K.flatten(y_pred[..., limbB[1]])) ** 2)
-        limbB_len = K.sqrt(limbB_len)
-        loss += K.abs(limbA_len - limbB_len)
-        
-    return loss
+def body_symmetry_loss(animal="mouse22"):        
+    n_limbs = len(SYMMETRY[animal])
+    limbL_index = K.flatten(K.variable([limbs[0] for limbs in SYMMETRY[animal]], dtype="int32"))
+    limbR_index = K.flatten(K.variable([limbs[1] for limbs in SYMMETRY[animal]], dtype="int32"))
+    
+    def _body_symmetry_loss(y_true, y_pred):
+        kpts_L = tf.gather(y_pred, indices=limbL_index, axis=-1) 
+        kpts_R = tf.gather(y_pred, indices=limbR_index, axis=-1) 
+        kpts_L = K.reshape(kpts_L, (-1, 3, n_limbs, 2)) # [bs, 3, 9, 2]
+        kpts_R = K.reshape(kpts_R, (-1, 3, n_limbs, 2)) 
+
+        len_L = K.sqrt(K.sum(((kpts_L[..., 1:] - kpts_L[..., :-1])**2), axis=[1, 3])) #[bs, 9]
+        len_R = K.sqrt(K.sum(((kpts_R[..., 1:] - kpts_R[..., :-1])**2), axis=[1, 3]))
+
+        loss = K.mean(K.abs(len_L - len_R), axis=-1)
+            
+        return loss
+    return _body_symmetry_loss
 
 def gaussian_reg_loss(y_true, y_pred):
     loss = K.mean(K.sum((y_pred[:, 0] - y_pred[:, 1]) ** 2))

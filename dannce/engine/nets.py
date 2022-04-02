@@ -901,7 +901,7 @@ def update_model_multi_losses(params, metrics, model):
     if params["use_symmetry"]:
         print("Compile with body symmetry loss.")
         outputs.append(model.get_layer("final_output").output)
-        compile_loss[f"final_output_{final_output_count}"] = losses.body_symmetry_loss
+        compile_loss[f"final_output_{final_output_count}"] = losses.body_symmetry_loss()
         compile_loss_weights[f"final_output_{final_output_count}"] = params["symmetry_loss_weight"]
 
     if params["use_silhouette"]:
