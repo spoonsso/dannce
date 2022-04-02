@@ -460,55 +460,61 @@ def make_data_splits(samples, params, results_dir, num_experiments, temporal_chu
 
     partition = {}
     if params["use_temporal"]:
-        assert temporal_chunks != None, "If use temporal, do partitioning over chunks."
-        v = params["num_validation_per_exp"]
-        # fix random seeds
-        if params["data_split_seed"] is not None:
-            np.random.seed(params["data_split_seed"])
+        if params["load_valid"] is None:
+            assert temporal_chunks != None, "If use temporal, do partitioning over chunks."
+            v = params["num_validation_per_exp"]
+            # fix random seeds
+            if params["data_split_seed"] is not None:
+                np.random.seed(params["data_split_seed"])
+                
             
-        
-        valid_chunks, train_chunks = [], []
-        if params["valid_exp"] is not None and v > 0:
-            for e in range(num_experiments):
-                if e in params["valid_exp"]:
+            valid_chunks, train_chunks = [], []
+            if params["valid_exp"] is not None and v > 0:
+                for e in range(num_experiments):
+                    if e in params["valid_exp"]:
+                        valid_chunk_idx = sorted(np.random.choice(len(temporal_chunks[e]), v, replace=False))
+                        valid_chunks += list(np.array(temporal_chunks[e])[valid_chunk_idx])
+                        train_chunks += list(np.delete(temporal_chunks[e], valid_chunk_idx, 0))
+                    else:
+                        train_chunks += temporal_chunks[e]
+            elif v > 0:
+                for e in range(num_experiments):
                     valid_chunk_idx = sorted(np.random.choice(len(temporal_chunks[e]), v, replace=False))
                     valid_chunks += list(np.array(temporal_chunks[e])[valid_chunk_idx])
                     train_chunks += list(np.delete(temporal_chunks[e], valid_chunk_idx, 0))
-                else:
-                    train_chunks += temporal_chunks[e]
-        elif v > 0:
-            for e in range(num_experiments):
-                valid_chunk_idx = sorted(np.random.choice(len(temporal_chunks[e]), v, replace=False))
-                valid_chunks += list(np.array(temporal_chunks[e])[valid_chunk_idx])
-                train_chunks += list(np.delete(temporal_chunks[e], valid_chunk_idx, 0))
-        elif params["valid_exp"] is not None:
-            raise Exception("Need to set num_validation_per_exp in using valid_exp")
-        else:
-            for e in range(num_experiments):
-                train_chunks += list(temporal_chunks[e])
+            elif params["valid_exp"] is not None:
+                raise Exception("Need to set num_validation_per_exp in using valid_exp")
+            else:
+                for e in range(num_experiments):
+                    train_chunks += list(temporal_chunks[e])
 
-        train_expts = np.arange(num_experiments)
-        print("TRAIN EXPTS: {}".format(train_expts))
+            train_expts = np.arange(num_experiments)
+            print("TRAIN EXPTS: {}".format(train_expts))
 
-        train_sampleIDs = list(np.concatenate(train_chunks))
-        try: 
-            valid_sampleIDs = list(np.concatenate(valid_chunks))
-        except:
-            valid_sampleIDs = []
+            train_sampleIDs = list(np.concatenate(train_chunks))
+            try: 
+                valid_sampleIDs = list(np.concatenate(valid_chunks))
+            except:
+                valid_sampleIDs = []
 
-        partition["train_sampleIDs"], partition["valid_sampleIDs"] = train_sampleIDs, valid_sampleIDs
+            partition["train_sampleIDs"], partition["valid_sampleIDs"] = train_sampleIDs, valid_sampleIDs
 
-        chunk_size = len(train_chunks[0])
-        partition["train_chunks"] = [np.arange(i, i+chunk_size) for i in range(0, len(train_sampleIDs), chunk_size)]
-        partition["valid_chunks"] = [np.arange(i, i+chunk_size) for i in range(0, len(valid_sampleIDs), chunk_size)]
-
+        else: 
+            # Load validation samples from elsewhere
+            with open(os.path.join(params["load_valid"], "val_samples.pickle"), "rb") as f:
+                partition["valid_sampleIDs"] = cPickle.load(f)
+            partition["train_sampleIDs"] = [f for f in samples if f not in partition["valid_sampleIDs"]]
+        
+        chunk_size = len(temporal_chunks[0][0])
+        partition["train_chunks"] = [np.arange(i, i+chunk_size) for i in range(0, len(partition["train_sampleIDs"]), chunk_size)]
+        partition["valid_chunks"] = [np.arange(i, i+chunk_size) for i in range(0, len(partition["valid_sampleIDs"]), chunk_size)]
+        # breakpoint()
         # Save train/val inds
         with open(os.path.join(results_dir, "val_samples.pickle"), "wb") as f:
             cPickle.dump(partition["valid_sampleIDs"], f)
 
         with open(os.path.join(results_dir, "train_samples.pickle"), "wb") as f:
             cPickle.dump(partition["train_sampleIDs"], f)
-
         return partition
 
 
