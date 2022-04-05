@@ -8,7 +8,7 @@ com_predict_weights: ./COM/train_results/weights.250-0.00036.hdf5
 
 ### Dannce ###
 # path to folder where DANNCE weights and logs will be saved
-dannce_train_dir: ./DANNCE/train_test_in_dgp
+dannce_train_dir: ./DANNCE/train_results/AVG_demo/
 dannce_predict_dir: ./DANNCE/predict_results/
 
 # During prediction, will look for the last epoch weights saved to ./DANNCE/train_results/. To load in a different weights file, add the path here
@@ -16,8 +16,10 @@ dannce_predict_dir: ./DANNCE/predict_results/
 dannce_predict_model: ./DANNCE/train_results/AVG/weights.1200-12.77642.hdf5
 
 exp:
-    - label3d_file: './label3d_dannce.mat'
+    - label3d_file: './label3d_demo.mat'
       viddir: ../../demo/markerless_mouse_1/videos/
-    - label3d_file: '../markerless_mouse_2/label3d_dannce.mat'
+    - label3d_file: '../markerless_mouse_2/label3d_demo.mat'
       viddir: ../../demo/markerless_mouse_2/videos/
+
+epochs: 3
 
