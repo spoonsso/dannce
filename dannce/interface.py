@@ -60,6 +60,7 @@ def check_unrecognized_params(params: Dict):
         in_com = key in _param_defaults_com
         in_dannce = key in _param_defaults_dannce
         in_shared = key in _param_defaults_shared
+        print (in_com, in_dannce, in_shared)
         if not (in_com or in_dannce or in_shared):
             invalid_keys.append(key)
 
