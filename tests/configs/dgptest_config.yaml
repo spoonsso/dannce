@@ -1,0 +1,43 @@
+io_config: io.yaml
+
+# New number of network output channels.
+new_n_channels_out: 22
+
+n_channels_out: 22
+
+# batch_size
+batch_size: 4
+
+# DANNCE training option. Sets the number of epochs during training (default 1200)
+epochs: 1
+
+net_type: MAX
+
+net: unet3d_big
+
+# so that you look at the same exact frames for validation between training conditions
+data_split_seed: 2
+
+# Options:
+# 'new': initializes and trains a network from scratch
+# 'finetune': loads in pre-trained weights and fine-tuned from there
+# 'continued': initializes a full model, including optimizer state, and continuous training from the last full model checkpoint
+train_mode: new
+
+loss: mask_nan_keep_loss
+
+# How many samples from each animal do you want to (randomly) set aside for a validation metric?
+num_validation_per_exp: 4
+
+# Size of 3D volume (in mm) anchored on animal
+vol_size: 120
+
+# Number of voxels along each spatial dimension
+nvox: 64
+
+# max. number of batches to evaluate during prediction. set to 'max' to evaluate over all data/video frames
+max_num_samples: max
+
+start_batch: 0
+
+metric: [euclidean_distance_3D, centered_euclidean_distance_3D] 

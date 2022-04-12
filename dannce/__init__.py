@@ -8,7 +8,7 @@ _param_defaults_shared = {
     "loss": "mask_nan_keep_loss",
     "start_batch": 0,
     "exp": None,
-    "viddir": 'videos',
+    "viddir": "videos",
     "io_config": None,
     "crop_height": None,
     "crop_width": None,
@@ -30,6 +30,9 @@ _param_defaults_shared = {
     "augment_hue_val": 0.05,
     "augment_bright_val": 0.05,
     "augment_rotation_val": 5,
+    "mirror_augmentation": False,
+    "right_keypoints": None,
+    "left_keypoints": None,
     "drop_landmark": None,
     "raw_im_h": None,
     "raw_im_w": None,
@@ -41,6 +44,10 @@ _param_defaults_shared = {
     "use_npy": False,
     "data_split_seed": None,
     "valid_exp": None,
+    "norm_method":"layer",
+    "slurm_config": None,
+    "log_level": "INFO",
+    "log_dest": "../logs/dannce.log",
 }
 _param_defaults_dannce = {
     "metric": ["euclidean_distance_3D"],
@@ -89,6 +96,8 @@ _param_defaults_dannce = {
     "heatmap_reg": False,
     "heatmap_reg_coeff": 0.01,
     "save_pred_targets": False,
+    "huber-delta": 1.35,            #Change Adapted from implementation by robb
+    "avg+max": None,
 }
 _param_defaults_com = {
     "dsmode": "nn",

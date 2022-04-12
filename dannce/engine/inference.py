@@ -1,5 +1,6 @@
 """Handle inference procedures for dannce and com networks.
 """
+from Dannce.repos.dannce.dannce.engine.generator import FILE_PATH
 import numpy as np
 import os
 import time
@@ -12,29 +13,33 @@ from typing import List, Dict, Text, Tuple, Union
 import torch
 import matplotlib
 from dannce.engine.processing import savedata_tomat, savedata_expval
+import logging
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+
+FILE_PATH = "dannce.engine.inference"
 
 
 def print_checkpoint(
     n_frame: int, start_ind: int, end_time: float, sample_save: int = 100
 ) -> float:
     """Print checkpoint messages indicating frame and fps for inference.
-    
+
     Args:
         n_frame (int): Frame number
         start_ind (int): Start index
         end_time (float): Timing reference
         sample_save (int, optional): Number of samples to use in fps estimation.
-    
+
     No Longer Returned:
         float: New timing reference.
     """
-    print("Predicting on sample %d" % (n_frame), flush=True)
+    prepend_log_msg = FILE_PATH + ".print_checkpoint "
+    logging.info(prepend_log_msg + "Predicting on sample %d" % (n_frame), flush=True)
     if (n_frame - start_ind) % sample_save == 0 and n_frame != start_ind:
-        print(n_frame)
-        print("{} samples took {} seconds".format(sample_save, time.time() - end_time))
+        logging.info(prepend_log_msg + n_frame)
+        logging.info(prepend_log_msg + "{} samples took {} seconds".format(sample_save, time.time() - end_time))
         end_time = time.time()
     return end_time
 
@@ -43,13 +48,13 @@ def predict_batch(
     model: Model, generator: keras.utils.Sequence, n_frame: int, params: Dict
 ) -> np.ndarray:
     """Predict for a single batch and reformat output.
-    
+
     Args:
         model (Model): interence model
         generator (keras.utils.Sequence): Data generator
         n_frame (int): Frame number
         params (Dict): Parameters dictionary.
-    
+
     No Longer Returned:
         np.ndarray: n_batch x n_cam x h x w x c predictions
     """
@@ -74,7 +79,7 @@ def debug_com(
     n_cam: int,
 ):
     """Print useful figures for COM debugging.
-    
+
     Args:
         params (Dict): Parameters dictionary.
         pred (np.ndarray): Reformatted batch predictions.
@@ -85,6 +90,7 @@ def debug_com(
         n_batch (int): Batch number
         n_cam (int): Camera number
     """
+    prepend_log_msg = FILE_PATH + ".debug_com "
     com_predict_dir = params["com_predict_dir"]
     cmapdir = os.path.join(com_predict_dir, "cmap")
     overlaydir = os.path.join(com_predict_dir, "overlay")
@@ -92,9 +98,10 @@ def debug_com(
         os.makedirs(cmapdir)
     if not os.path.exists(overlaydir):
         os.makedirs(overlaydir)
-    print("Writing " + params["com_debug"] + " confidence maps to " + cmapdir)
-    print("Writing " + params["com_debug"] + "COM-image overlays to " + overlaydir)
+    logging.info(prepend_log_msg + "Writing " + params["com_debug"] + " confidence maps to " + cmapdir)
+    logging.info(prepend_log_msg + "Writing " + params["com_debug"] + "COM-image overlays to " + overlaydir)
 
+    batch_size = pred_batch.shape[0]
     # Write preds
     plt.figure(0)
     plt.cla()
@@ -102,13 +109,13 @@ def debug_com(
     plt.savefig(
         os.path.join(
             cmapdir,
-            params["com_debug"] + str(n_frame + n_batch) + ".png",
+            params["com_debug"] + str(n_frame * batch_size + n_batch) + ".png",
         )
     )
 
     plt.figure(1)
     plt.cla()
-    im = generator.__getitem__(n_frame * n_batches + n_batch)
+    im = generator.__getitem__(n_frame * batch_size + n_batch)
     plt.imshow(processing.norm_im(im[0][n_cam]))
     plt.plot(
         (ind[0] - params["crop_width"][0]) / params["downfac"],
@@ -118,7 +125,7 @@ def debug_com(
     plt.savefig(
         os.path.join(
             overlaydir,
-            params["com_debug"] + str(n_frame + n_batch) + ".png",
+            params["com_debug"] + str(n_frame * batch_size + n_batch) + ".png",
         )
     )
 
@@ -136,7 +143,7 @@ def extract_multi_instance_single_channel(
     generator: keras.utils.Sequence,
 ) -> Dict:
     """Extract prediction indices for multi-instance single-channel tracking.
-    
+
     Args:
         pred (np.ndarray): Reformatted batch predictions.
         pred_batch (np.ndarray): Batch prediction.
@@ -148,7 +155,7 @@ def extract_multi_instance_single_channel(
         save_data (Dict): Saved data dictionary.
         cameras (Dict): Camera dictionary
         generator (keras.utils.Sequence): DataGenerator
-    
+
     No Longer Returned:
         (Dict): Updated saved data dictionary.
     """
@@ -224,7 +231,7 @@ def extract_multi_instance_multi_channel(
     generator: keras.utils.Sequence,
 ) -> Dict:
     """Extract prediction indices for multi-instance multi-channel tracking.
-    
+
     Args:
         pred (np.ndarray): Reformatted batch predictions.
         pred_batch (np.ndarray): Batch prediction.
@@ -236,7 +243,7 @@ def extract_multi_instance_multi_channel(
         save_data (Dict): Saved data dictionary.
         cameras (Dict): Camera dictionary
         generator (keras.utils.Sequence): DataGenerator
-    
+
     No Longer Returned:
         (Dict): Updated saved data dictionary.
     """
@@ -302,7 +309,7 @@ def extract_single_instance(
     generator: keras.utils.Sequence,
 ):
     """Extract prediction indices for single-instance tracking.
-    
+
     Args:
         pred (np.ndarray): Reformatted batch predictions.
         pred_batch (np.ndarray): Batch prediction.
@@ -314,7 +321,7 @@ def extract_single_instance(
         save_data (Dict): Saved data dictionary.
         cameras (Dict): Camera dictionary
         generator (keras.utils.Sequence): DataGenerator
-    
+
     No Longer Returned:
         (Dict): Updated saved data dictionary.
     """
@@ -329,7 +336,7 @@ def extract_single_instance(
     # mirror flip each coord if indicated
     if params["mirror"] and cameras[params["camnames"][n_cam]]["m"] == 1:
         ind[1] = params["raw_im_h"] - ind[1] - 1
-        
+
     # now, the center of mass is (x,y) instead of (i,j)
     # now, we need to use camera calibration to triangulate
     # from 2D to 3D
@@ -371,14 +378,14 @@ def triangulate_single_instance(
     n_cams: int, sample_id: Text, params: Dict, camera_mats: Dict, save_data: Dict
 ) -> Dict:
     """Triangulate for a single instance.
-    
+
     Args:
         n_cams (int): Numver of cameras
         sample_id (Text): Sample identifier.
         params (Dict): Parameters dictionary.
         camera_mats (Dict): Camera matrices dictioanry.
         save_data (Dict): Saved data dictionary.
-    
+
     No Longer Returned:
         Dict: Updated saved data dictionary.
     """
@@ -407,14 +414,14 @@ def triangulate_multi_instance_multi_channel(
     n_cams: int, sample_id: Text, params: Dict, camera_mats: Dict, save_data: Dict
 ) -> Dict:
     """Triangulate for multi-instance multi-channel.
-    
+
     Args:
         n_cams (int): Numver of cameras
         sample_id (Text): Sample identifier.
         params (Dict): Parameters dictionary.
         camera_mats (Dict): Camera matrices dictioanry.
         save_data (Dict): Saved data dictionary.
-    
+
     No Longer Returned:
         Dict: Updated saved data dictionary.
     """
@@ -465,7 +472,7 @@ def triangulate_multi_instance_single_channel(
     save_data: Dict,
 ) -> Dict:
     """Triangulate for multi-instance single-channel.
-    
+
     Args:
         n_cams (int): Numver of cameras
         sample_id (Text): Sample identifier.
@@ -473,7 +480,7 @@ def triangulate_multi_instance_single_channel(
         camera_mats (Dict): Camera matrices dictioanry.
         cameras (Dict): Camera dictionary.
         save_data (Dict): Saved data dictionary.
-    
+
     No Longer Returned:
         Dict: Updated saved data dictionary.
     """
@@ -558,7 +565,7 @@ def infer_com(
     sample_save: int = 100,
 ):
     """Perform COM detection over a set of frames.
-    
+
     Args:
         start_ind (int): Starting frame index
         end_ind (int): Ending frame index
@@ -589,7 +596,9 @@ def infer_com(
                 pred = pred_batch[n_batch, 0]
                 pred = np.transpose(pred, (2, 0, 1))
             elif params["mirror"]:
-                raise Exception("mirror mode with multiple animal instances not currently supported.")
+                raise Exception(
+                    "mirror mode with multiple animal instances not currently supported."
+                )
             elif params["n_instances"] > 1 and params["n_channels_out"] > 1:
                 pred = pred_batch[n_batch, ...]
             else:
@@ -636,18 +645,15 @@ def infer_com(
 
 
 def infer_dannce(
-    start_ind: int,
-    end_ind: int,
     generator: keras.utils.Sequence,
     params: Dict,
     model: Model,
     partition: Dict,
-    save_data: Dict,
     device: Text,
     n_chn: int,
 ):
     """Perform dannce detection over a set of frames.
-    
+
     Args:
         start_ind (int): Starting frame index
         end_ind (int): Ending frame index
@@ -655,21 +661,23 @@ def infer_dannce(
         params (Dict): Parameters dictionary.
         model (Model): Inference model.
         partition (Dict): Partition dictionary
-        save_data (Dict): Saved data dictionary
         device (Text): Gpu device name
         n_chn (int): Number of output channels
     """
-
+    prepend_log_msg = FILE_PATH + ".infer_dannce "
     end_time = time.time()
+    save_data = {}
+    start_ind = params["start_batch"]
+    end_ind = params["maxbatch"]
     for idx, i in enumerate(range(start_ind, end_ind)):
-        print("Predicting on batch {}".format(i), flush=True)
+        logging.debug("Predicting on batch {}".format(i), flush=True)
         if (i - start_ind) % 10 == 0 and i != start_ind:
-            print(i)
-            print("10 batches took {} seconds".format(time.time() - end_time))
+            logging.debug(i)
+            logging.debug("10 batches took {} seconds".format(time.time() - end_time))
             end_time = time.time()
 
         if (i - start_ind) % 1000 == 0 and i != start_ind:
-            print("Saving checkpoint at {}th batch".format(i))
+            logging.debug("Saving checkpoint at {}th batch".format(i))
             if params["expval"]:
                 p_n = savedata_expval(
                     params["dannce_predict_dir"] + "save_data_AVG.mat",

@@ -5,6 +5,8 @@ from tensorflow.keras.layers import Conv2DTranspose, Conv3D, Lambda
 from tensorflow.keras.layers import MaxPooling3D, Conv3DTranspose
 from tensorflow.keras.layers import Add
 from tensorflow.keras.layers import Activation
+from tensorflow.keras.layers import GlobalMaxPooling3D
+from tensorflow.keras import activations
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.layers import BatchNormalization
 from tensorflow.keras import backend as K
@@ -14,6 +16,23 @@ from dannce.engine import losses as losses
 import numpy as np
 import h5py
 import tensorflow as tf
+import logging
+
+FILE_PATH = "dannce.engine.nets"
+
+def setup_logging(logfile_path, log_lvl, params=None):
+    if logfile_path != None and log_lvl != None:
+        logging.basicConfig(filename= logfile_path,
+                            level= log_lvl,
+                            format='%(asctime)s %(levelname)s:%(message)s', 
+                            datefmt='%m/%d/%Y %I:%M:%S %p')
+    elif params != None:
+        logging.basicConfig(filename=params["log_dest"], 
+                            level=params["log_level"], 
+                            format='%(asctime)s %(levelname)s:%(message)s', 
+                            datefmt='%m/%d/%Y %I:%M:%S %p')
+    else:
+        print("log file path anf log level, or params dictionary must be passed")
 
 def get_metrics(params):
     """
@@ -28,10 +47,45 @@ def get_metrics(params):
 
     return metrics
 
+# TODO (JOSH). Move the if/else normalization block to its own function. And in this function
+# add the correct InstanceNormalization() call, using the appropriate axis setting.
+def norm_fun(
+    norm_method=None,
+):
+    """
+    method: Normalization method can be "batch", "instance", or "layer"
+    """
+    prepend_log_msg = FILE_PATH + ".norm_fun "
+
+    method_parse = norm_method.lower()
+    if method_parse.startswith("batch"):
+        logging.info(prepend_log_msg + "using batch normalization")
+
+        def fun(inputs):
+            logging.info(prepend_log_msg + "calling batch norm fun")
+            return BatchNormalization()(inputs)
+    elif method_parse.startswith("layer"):
+        logging.info(prepend_log_msg + "using layer normalization")
+
+        def fun(inputs):
+            logging.info(prepend_log_msg + "calling layer norm fun")
+            return ops.InstanceNormalization(axis=None)(inputs)
+    elif method_parse.startswith("instance"):
+        logging.info(prepend_log_msg + "using instance normalization")
+
+        def fun(inputs):
+            logging.info(prepend_log_msg + "calling instance norm fun")
+            return ops.InstanceNormalization(axis=-1)(inputs)
+    else:
+        def fun(inputs):
+            return inputs
+    
+    return fun
+
 def unet2d_fullbn(
     lossfunc, lr, input_dim, feature_num, metric="mse", include_top=True
 ):
-    """Initialize 2D U-net.
+    """Initialize 2D U-net with batch normalization
 
     Uses the Keras functional API to construct a U-Net. The net is fully
         convolutional, so it can be trained and tested on variable size input
@@ -44,89 +98,14 @@ def unet2d_fullbn(
     outputs--
         model: Keras model object
     """
-    inputs = Input((None, None, input_dim))
-    conv1 = Conv2D(32, (3, 3), padding="same")(inputs)
-    conv1 = Activation("relu")(BatchNormalization()(conv1))
-    conv1 = Conv2D(32, (3, 3), padding="same")(conv1)
-    conv1 = Activation("relu")(BatchNormalization()(conv1))
-    pool1 = MaxPooling2D(pool_size=(2, 2))(conv1)
-
-    conv2 = Conv2D(64, (3, 3), padding="same")(pool1)
-    conv2 = Activation("relu")(BatchNormalization()(conv2))
-    conv2 = Conv2D(64, (3, 3), padding="same")(conv2)
-    conv2 = Activation("relu")(BatchNormalization()(conv2))
-    pool2 = MaxPooling2D(pool_size=(2, 2))(conv2)
-
-    conv3 = Conv2D(128, (3, 3), padding="same")(pool2)
-    conv3 = Activation("relu")(BatchNormalization()(conv3))
-    conv3 = Conv2D(128, (3, 3), padding="same")(conv3)
-    conv3 = Activation("relu")(BatchNormalization()(conv3))
-    pool3 = MaxPooling2D(pool_size=(2, 2))(conv3)
-
-    conv4 = Conv2D(256, (3, 3), padding="same")(pool3)
-    conv4 = Activation("relu")(BatchNormalization()(conv4))
-    conv4 = Conv2D(256, (3, 3), padding="same")(conv4)
-    conv4 = Activation("relu")(BatchNormalization()(conv4))
-    pool4 = MaxPooling2D(pool_size=(2, 2))(conv4)
-
-    conv5 = Conv2D(512, (3, 3), padding="same")(pool4)
-    conv5 = Activation("relu")(BatchNormalization()(conv5))
-    conv5 = Conv2D(512, (3, 3), padding="same")(conv5)
-    conv5 = Activation("relu")(BatchNormalization()(conv5))
-
-    up6 = concatenate(
-        [Conv2DTranspose(256, (2, 2), strides=(2, 2), padding="same")(conv5), conv4],
-        axis=3,
-    )
-    conv6 = Conv2D(256, (3, 3), padding="same")(up6)
-    conv6 = Activation("relu")(BatchNormalization()(conv6))
-    conv6 = Conv2D(256, (3, 3), padding="same")(conv6)
-    conv6 = Activation("relu")(BatchNormalization()(conv6))
-
-    up7 = concatenate(
-        [Conv2DTranspose(128, (2, 2), strides=(2, 2), padding="same")(conv6), conv3],
-        axis=3,
-    )
-    conv7 = Conv2D(128, (3, 3), padding="same")(up7)
-    conv7 = Activation("relu")(BatchNormalization()(conv7))
-    conv7 = Conv2D(128, (3, 3), padding="same")(conv7)
-    conv7 = Activation("relu")(BatchNormalization()(conv7))
-
-    up8 = concatenate(
-        [Conv2DTranspose(64, (2, 2), strides=(2, 2), padding="same")(conv7), conv2],
-        axis=3,
-    )
-    conv8 = Conv2D(64, (3, 3), padding="same")(up8)
-    conv8 = Activation("relu")(BatchNormalization()(conv8))
-    conv8 = Conv2D(64, (3, 3), padding="same")(conv8)
-    conv8 = Activation("relu")(BatchNormalization()(conv8))
-
-    up9 = concatenate(
-        [Conv2DTranspose(32, (2, 2), strides=(2, 2), padding="same")(conv8), conv1],
-        axis=3,
-    )
-    conv9 = Conv2D(32, (3, 3), padding="same")(up9)
-    conv9 = Activation("relu")(BatchNormalization()(conv9))
-    conv9 = Conv2D(32, (3, 3), padding="same")(conv9)
-    conv9 = Activation("relu")(BatchNormalization()(conv9))
-
-    conv10 = Conv2D(feature_num, (1, 1), activation="sigmoid")(conv9)
-
-    if include_top:
-        model = Model(inputs=[inputs], outputs=[conv10])
-    else:
-        model = Model(inputs=[inputs], outputs=[conv9])
-
-    model.compile(optimizer=Adam(lr=lr), loss=lossfunc, metrics=[metric])
-
-    return model
-
+    return unet2d_full(lossfunc, lr, input_dim, feature_num, metric=metric, 
+                       include_top=include_top, norm_method="batch")
 
 def unet2d_fullIN(
     lossfunc, lr, input_dim, feature_num, metric="mse", include_top=True
 ):
     """
-    Initialize 2D U-net
+    Initialize 2D U-net with instance normalization
 
     Uses the Keras functional API to construct a U-Net. The net is fully convolutional, so it can be trained
         and tested on variable size input (thus the x-y input dimensions are undefined)
@@ -138,153 +117,97 @@ def unet2d_fullIN(
     outputs--
         model: Keras model object
     """
+
+    return unet2d_full(lossfunc, lr, input_dim, feature_num, metric=metric, 
+                       include_top=include_top, norm_method="instance")
+
+def unet2d_full(
+    lossfunc, lr, input_dim, feature_num, metric="mse", include_top=True,
+    norm_method="layer"
+):
+    """Initialize 2D U-net.
+
+    Uses the Keras functional API to construct a U-Net. The net is fully
+        convolutional, so it can be trained and tested on variable size input
+        (thus the x-y input dimensions are undefined)
+    inputs--
+        lossfunc: loss function
+        lr: float; learning rate
+        input_dim: int; number of feature channels in input
+        feature_num: int; number of output features
+        norm_method: str; normalization method ("instance","batch","layer",None)
+    outputs--
+        model: Keras model object
+    """
+    fun = norm_fun(norm_method)
+
     inputs = Input((None, None, input_dim))
     conv1 = Conv2D(32, (3, 3), padding="same")(inputs)
-    conv1 = Activation("relu")(ops.InstanceNormalization()(conv1))
+    conv1 = Activation("relu")(fun(conv1))
     conv1 = Conv2D(32, (3, 3), padding="same")(conv1)
-    conv1 = Activation("relu")(ops.InstanceNormalization()(conv1))
+    conv1 = Activation("relu")(fun(conv1))
     pool1 = MaxPooling2D(pool_size=(2, 2))(conv1)
 
     conv2 = Conv2D(64, (3, 3), padding="same")(pool1)
-    conv2 = Activation("relu")(ops.InstanceNormalization()(conv2))
+    conv2 = Activation("relu")(fun(conv2))
     conv2 = Conv2D(64, (3, 3), padding="same")(conv2)
-    conv2 = Activation("relu")(ops.InstanceNormalization()(conv2))
+    conv2 = Activation("relu")(fun(conv2))
     pool2 = MaxPooling2D(pool_size=(2, 2))(conv2)
 
     conv3 = Conv2D(128, (3, 3), padding="same")(pool2)
-    conv3 = Activation("relu")(ops.InstanceNormalization()(conv3))
+    conv3 = Activation("relu")(fun(conv3))
     conv3 = Conv2D(128, (3, 3), padding="same")(conv3)
-    conv3 = Activation("relu")(ops.InstanceNormalization()(conv3))
+    conv3 = Activation("relu")(fun(conv3))
     pool3 = MaxPooling2D(pool_size=(2, 2))(conv3)
 
     conv4 = Conv2D(256, (3, 3), padding="same")(pool3)
-    conv4 = Activation("relu")(ops.InstanceNormalization()(conv4))
+    conv4 = Activation("relu")(fun(conv4))
     conv4 = Conv2D(256, (3, 3), padding="same")(conv4)
-    conv4 = Activation("relu")(ops.InstanceNormalization()(conv4))
+    conv4 = Activation("relu")(fun(conv4))
     pool4 = MaxPooling2D(pool_size=(2, 2))(conv4)
 
     conv5 = Conv2D(512, (3, 3), padding="same")(pool4)
-    conv5 = Activation("relu")(ops.InstanceNormalization()(conv5))
+    conv5 = Activation("relu")(fun(conv5))
     conv5 = Conv2D(512, (3, 3), padding="same")(conv5)
-    conv5 = Activation("relu")(ops.InstanceNormalization()(conv5))
+    conv5 = Activation("relu")(fun(conv5))
 
     up6 = concatenate(
         [Conv2DTranspose(256, (2, 2), strides=(2, 2), padding="same")(conv5), conv4],
         axis=3,
     )
     conv6 = Conv2D(256, (3, 3), padding="same")(up6)
-    conv6 = Activation("relu")(ops.InstanceNormalization()(conv6))
+    conv6 = Activation("relu")(fun(conv6))
     conv6 = Conv2D(256, (3, 3), padding="same")(conv6)
-    conv6 = Activation("relu")(ops.InstanceNormalization()(conv6))
+    conv6 = Activation("relu")(fun(conv6))
 
     up7 = concatenate(
         [Conv2DTranspose(128, (2, 2), strides=(2, 2), padding="same")(conv6), conv3],
         axis=3,
     )
     conv7 = Conv2D(128, (3, 3), padding="same")(up7)
-    conv7 = Activation("relu")(ops.InstanceNormalization()(conv7))
+    conv7 = Activation("relu")(fun(conv7))
     conv7 = Conv2D(128, (3, 3), padding="same")(conv7)
-    conv7 = Activation("relu")(ops.InstanceNormalization()(conv7))
+    conv7 = Activation("relu")(fun(conv7))
 
     up8 = concatenate(
         [Conv2DTranspose(64, (2, 2), strides=(2, 2), padding="same")(conv7), conv2],
         axis=3,
     )
     conv8 = Conv2D(64, (3, 3), padding="same")(up8)
-    conv8 = Activation("relu")(ops.InstanceNormalization()(conv8))
+    conv8 = Activation("relu")(fun(conv8))
     conv8 = Conv2D(64, (3, 3), padding="same")(conv8)
-    conv8 = Activation("relu")(ops.InstanceNormalization()(conv8))
+    conv8 = Activation("relu")(fun(conv8))
 
     up9 = concatenate(
         [Conv2DTranspose(32, (2, 2), strides=(2, 2), padding="same")(conv8), conv1],
         axis=3,
     )
     conv9 = Conv2D(32, (3, 3), padding="same")(up9)
-    conv9 = Activation("relu")(ops.InstanceNormalization()(conv9))
+    conv9 = Activation("relu")(fun(conv9))
     conv9 = Conv2D(32, (3, 3), padding="same")(conv9)
-    conv9 = Activation("relu")(ops.InstanceNormalization()(conv9))
+    conv9 = Activation("relu")(fun(conv9))
 
     conv10 = Conv2D(feature_num, (1, 1), activation="sigmoid")(conv9)
-
-    if include_top:
-        model = Model(inputs=[inputs], outputs=[conv10])
-    else:
-        model = Model(inputs=[inputs], outputs=[conv9])
-
-    model.compile(optimizer=Adam(lr=lr), loss=lossfunc, metrics=[metric])
-
-    return model
-
-def unet2d_fullIN(lossfunc, lr, input_dim, feature_num, metric='mse', include_top = True):
-    """
-    Initialize 2D U-net
-
-    Uses the Keras functional API to construct a U-Net. The net is fully convolutional, so it can be trained
-        and tested on variable size input (thus the x-y input dimensions are undefined)
-    inputs--
-        lossfunc: loss function
-        lr: float; learning rate
-        input_dim: int; number of feature channels in input
-        feature_num: int; number of output features
-    outputs--
-        model: Keras model object
-    """
-    inputs = Input((None, None, input_dim))
-    conv1 = Conv2D(32, (3, 3), padding='same')(inputs)
-    conv1 = Activation('relu')(ops.InstanceNormalization()(conv1))
-    conv1 = Conv2D(32, (3, 3), padding='same')(conv1)
-    conv1 = Activation('relu')(ops.InstanceNormalization()(conv1))
-    pool1 = MaxPooling2D(pool_size=(2, 2))(conv1)
-
-    conv2 = Conv2D(64, (3, 3), padding='same')(pool1)
-    conv2 = Activation('relu')(ops.InstanceNormalization()(conv2))
-    conv2 = Conv2D(64, (3, 3), padding='same')(conv2)
-    conv2 = Activation('relu')(ops.InstanceNormalization()(conv2))
-    pool2 = MaxPooling2D(pool_size=(2, 2))(conv2)
-
-    conv3 = Conv2D(128, (3, 3), padding='same')(pool2)
-    conv3 = Activation('relu')(ops.InstanceNormalization()(conv3))
-    conv3 = Conv2D(128, (3, 3), padding='same')(conv3)
-    conv3 = Activation('relu')(ops.InstanceNormalization()(conv3))
-    pool3 = MaxPooling2D(pool_size=(2, 2))(conv3)
-
-    conv4 = Conv2D(256, (3, 3), padding='same')(pool3)
-    conv4 = Activation('relu')(ops.InstanceNormalization()(conv4))
-    conv4 = Conv2D(256, (3, 3), padding='same')(conv4)
-    conv4 = Activation('relu')(ops.InstanceNormalization()(conv4))
-    pool4 = MaxPooling2D(pool_size=(2, 2))(conv4)
-
-    conv5 = Conv2D(512, (3, 3), padding='same')(pool4)
-    conv5 = Activation('relu')(ops.InstanceNormalization()(conv5))
-    conv5 = Conv2D(512, (3, 3), padding='same')(conv5)
-    conv5 = Activation('relu')(ops.InstanceNormalization()(conv5))
-
-    up6 = concatenate([Conv2DTranspose(256, (2, 2), strides=(2, 2), padding='same')(conv5), conv4], axis=3)
-    conv6 = Conv2D(256, (3, 3), padding='same')(up6)
-    conv6 = Activation('relu')(ops.InstanceNormalization()(conv6))
-    conv6 = Conv2D(256, (3, 3), padding='same')(conv6)
-    conv6 = Activation('relu')(ops.InstanceNormalization()(conv6))
-
-    up7 = concatenate([Conv2DTranspose(128, (2, 2), strides=(2, 2), padding='same')(conv6), conv3], axis=3)
-    conv7 = Conv2D(128, (3, 3), padding='same')(up7)
-    conv7 = Activation('relu')(ops.InstanceNormalization()(conv7))
-    conv7 = Conv2D(128, (3, 3), padding='same')(conv7)
-    conv7 = Activation('relu')(ops.InstanceNormalization()(conv7))
-
-    up8 = concatenate([Conv2DTranspose(64, (2, 2), strides=(2, 2), padding='same')(conv7), conv2], axis=3)
-    conv8 = Conv2D(64, (3, 3), padding='same')(up8)
-    conv8 = Activation('relu')(ops.InstanceNormalization()(conv8))
-    conv8 = Conv2D(64, (3, 3), padding='same')(conv8)
-    conv8 = Activation('relu')(ops.InstanceNormalization()(conv8))
-
-    up9 = concatenate([Conv2DTranspose(32, (2, 2), strides=(2, 2), padding='same')(conv8), conv1], axis=3)
-    conv9 = Conv2D(32, (3, 3), padding='same')(up9)
-    conv9 = Activation('relu')(ops.InstanceNormalization()(conv9))
-    conv9 = Conv2D(32, (3, 3), padding='same')(conv9)
-    conv9 = Activation('relu')(ops.InstanceNormalization()(conv9))
-
-    conv10 = Conv2D(feature_num, (1, 1), activation='sigmoid')(conv9)
-
 
     if include_top:
         model = Model(inputs=[inputs], outputs=[conv10])
@@ -302,8 +225,7 @@ def unet3d_big_expectedvalue(
     feature_num,
     num_cams,
     gridsize=(64, 64, 64),
-    batch_norm=False,
-    instance_norm=False,
+    norm_method="layer",
     include_top=True,
     regularize_var=False,
     loss_weights=None,
@@ -311,22 +233,7 @@ def unet3d_big_expectedvalue(
     out_kernel=(1, 1, 1),
 ):
 
-    if batch_norm and not instance_norm:
-        print("using batch normalization")
-
-        def fun(inputs):
-            return BatchNormalization()(inputs)
-
-    elif instance_norm:
-        print("using instance normalization")
-
-        def fun(inputs):
-            return ops.InstanceNormalization()(inputs)
-
-    else:
-
-        def fun(inputs):
-            return inputs
+    fun = norm_fun(norm_method)
 
     inputs = Input((*gridsize, input_dim * num_cams), name="image_input")
     conv1_layer = Conv3D(64, (3, 3, 3), padding="same")
@@ -424,169 +331,16 @@ def slice_input(inp, k):
     print(K.int_shape(inp))
     return inp[:, :, :, :, k * 3 : (k + 1) * 3]
 
-
-def unet3d_big_tiedfirstlayer_expectedvalue(
-    lossfunc,
-    lr,
-    input_dim,
-    feature_num,
-    num_cams,
-    gridsize=(64, 64, 64),
-    batch_norm=False,
-    instance_norm=False,
-    include_top=True,
-    regularize_var=False,
-    loss_weights=None,
-    metric="mse",
-):
-
-    if batch_norm and not instance_norm:
-        print("using batch normalization")
-
-        def fun(inputs):
-            return BatchNormalization()(inputs)
-
-    elif instance_norm:
-        print("using instance normalization")
-
-        def fun(inputs):
-            return ops.InstanceNormalization()(inputs)
-
-    else:
-
-        def fun(inputs):
-            return inputs
-
-    def slice_input(inp, k):
-        print(K.int_shape(inp))
-        return inp[:, :, :, :, k * input_dim : (k + 1) * input_dim]
-
-    inputs = Input((*gridsize, input_dim * num_cams))
-    conv1_layer = Conv3D(64, (3, 3, 3), padding="same")
-
-    conv1_in = []
-    for i in range(num_cams):
-        # conv1_in.append(conv1_layer(inputs[:,:,:,:,i*input_dim:(i+1)*input_dim]))
-        conv1_in.append(conv1_layer(Lambda(lambda x: slice_input(x, i))(inputs)))
-
-    conv1 = Add()(conv1_in)
-    conv1 = Activation("relu")(fun(conv1))
-    conv1 = Conv3D(64, (3, 3, 3), padding="same")(conv1)
-    conv1 = Activation("relu")(fun(conv1))
-    pool1 = MaxPooling3D(pool_size=(2, 2, 2))(conv1)
-
-    conv2 = Conv3D(128, (3, 3, 3), padding="same")(pool1)
-    conv2 = Activation("relu")(fun(conv2))
-    conv2 = Conv3D(128, (3, 3, 3), padding="same")(conv2)
-    conv2 = Activation("relu")(fun(conv2))
-    pool2 = MaxPooling3D(pool_size=(2, 2, 2))(conv2)
-
-    conv3 = Conv3D(256, (3, 3, 3), padding="same")(pool2)
-    conv3 = Activation("relu")(fun(conv3))
-    conv3 = Conv3D(256, (3, 3, 3), padding="same")(conv3)
-    conv3 = Activation("relu")(fun(conv3))
-    pool3 = MaxPooling3D(pool_size=(2, 2, 2))(conv3)
-
-    conv4 = Conv3D(512, (3, 3, 3), padding="same")(pool3)
-    conv4 = Activation("relu")(fun(conv4))
-    conv4 = Conv3D(512, (3, 3, 3), padding="same")(conv4)
-    conv4 = Activation("relu")(fun(conv4))
-
-    up6 = concatenate(
-        [
-            Conv3DTranspose(256, (2, 2, 2), strides=(2, 2, 2), padding="same")(conv4),
-            conv3,
-        ],
-        axis=4,
-    )
-    conv6 = Conv3D(256, (3, 3, 3), padding="same")(up6)
-    conv6 = Activation("relu")(fun(conv6))
-    conv6 = Conv3D(256, (3, 3, 3), padding="same")(conv6)
-    conv6 = Activation("relu")(fun(conv6))
-
-    up7 = concatenate(
-        [
-            Conv3DTranspose(128, (2, 2, 2), strides=(2, 2, 2), padding="same")(conv6),
-            conv2,
-        ],
-        axis=4,
-    )
-    conv7 = Conv3D(128, (3, 3, 3), padding="same")(up7)
-    conv7 = Activation("relu")(fun(conv7))
-    conv7 = Conv3D(128, (3, 3, 3), padding="same")(conv7)
-    conv7 = Activation("relu")(fun(conv7))
-
-    up8 = concatenate(
-        [
-            Conv3DTranspose(64, (2, 2, 2), strides=(2, 2, 2), padding="same")(conv7),
-            conv1,
-        ],
-        axis=4,
-    )
-    conv8 = Conv3D(64, (3, 3, 3), padding="same")(up8)
-    conv8 = Activation("relu")(fun(conv8))
-    conv8 = Conv3D(64, (3, 3, 3), padding="same")(conv8)
-    conv8 = Activation("relu")(fun(conv8))
-
-    conv10 = Conv3D(feature_num, (1, 1, 1), activation="linear")(conv8)
-
-    grid_centers = Input((None, 3))
-
-    conv10 = Lambda(lambda x: ops.spatial_softmax(x))(conv10)
-
-    output = Lambda(lambda x: ops.expected_value_3d(x[0], x[1]))([conv10, grid_centers])
-
-    # Because I think it is easier, use a layer to calculate the variance and return it as a second output to be used for variance loss
-
-    output_var = Lambda(lambda x: ops.var_3d(x[0], x[1], x[2]))(
-        [conv10, grid_centers, output]
-    )
-
-    if include_top:
-        if regularize_var:
-            model = Model(inputs=[inputs, grid_centers], outputs=[output, output_var])
-        else:
-            model = Model(inputs=[inputs, grid_centers], outputs=[output])
-    else:
-        model = Model(inputs=[inputs], outputs=[conv8])
-
-    # model.compile(optimizer=Adam(lr=lr), loss=[lossfunc[0], lossfunc[1]], metrics=['mse'])
-    model.compile(
-        optimizer=Adam(lr=lr),
-        loss=lossfunc,
-        metrics=[metric],
-        loss_weights=loss_weights,
-    )
-
-    return model
-
-
 def unet3d_big_1cam(
     lossfunc,
     lr,
     input_dim,
     feature_num,
     num_cams,
-    batch_norm=False,
-    instance_norm=False,
+    norm_method="layer",
 ):
 
-    if batch_norm and not instance_norm:
-        print("using batch normalization")
-
-        def fun(inputs):
-            return BatchNormalization()(inputs)
-
-    elif instance_norm:
-        print("using instance normalization")
-
-        def fun(inputs):
-            return ops.InstanceNormalization()(inputs)
-
-    else:
-
-        def fun(inputs):
-            return inputs
+    fun = norm_fun(norm_method)
 
     inputs = Input((None, None, None, input_dim))
     conv1_layer = Conv3D(64, (3, 3, 3), padding="same")
@@ -658,146 +412,21 @@ def unet3d_big_1cam(
 
     return model
 
-
-def unet3d_big_tiedfirstlayer(
-    lossfunc,
-    lr,
-    input_dim,
-    feature_num,
-    num_cams,
-    batch_norm=False,
-    instance_norm=False,
-    bs=6,
-):
-
-    if batch_norm and not instance_norm:
-        print("using batch normalization")
-
-        def fun(inputs):
-            return BatchNormalization()(inputs)
-
-    elif instance_norm:
-        print("using instance normalization")
-
-        def fun(inputs):
-            return ops.InstanceNormalization()(inputs)
-
-    else:
-
-        def fun(inputs):
-            return inputs
-
-    def slice_input(inp, k):
-        print(K.int_shape(inp))
-        return inp[:, :, :, :, k * input_dim : (k + 1) * input_dim]
-
-    inputs = Input((None, None, None, input_dim * num_cams))
-    conv1_layer = Conv3D(64, (3, 3, 3), padding="same")
-
-    conv1_in = []
-    for i in range(num_cams):
-        # conv1_in.append(conv1_layer(inputs[:,:,:,:,i*input_dim:(i+1)*input_dim]))
-        conv1_in.append(conv1_layer(Lambda(lambda x: slice_input(x, i))(inputs)))
-
-    conv1 = Add()(conv1_in)
-    conv1 = Activation("relu")(fun(conv1))
-    conv1 = Conv3D(64, (3, 3, 3), padding="same")(conv1)
-    conv1 = Activation("relu")(fun(conv1))
-    pool1 = MaxPooling3D(pool_size=(2, 2, 2))(conv1)
-
-    conv2 = Conv3D(128, (3, 3, 3), padding="same")(pool1)
-    conv2 = Activation("relu")(fun(conv2))
-    conv2 = Conv3D(128, (3, 3, 3), padding="same")(conv2)
-    conv2 = Activation("relu")(fun(conv2))
-    pool2 = MaxPooling3D(pool_size=(2, 2, 2))(conv2)
-
-    conv3 = Conv3D(256, (3, 3, 3), padding="same")(pool2)
-    conv3 = Activation("relu")(fun(conv3))
-    conv3 = Conv3D(256, (3, 3, 3), padding="same")(conv3)
-    conv3 = Activation("relu")(fun(conv3))
-    pool3 = MaxPooling3D(pool_size=(2, 2, 2))(conv3)
-
-    conv4 = Conv3D(512, (3, 3, 3), padding="same")(pool3)
-    conv4 = Activation("relu")(fun(conv4))
-    conv4 = Conv3D(512, (3, 3, 3), padding="same")(conv4)
-    conv4 = Activation("relu")(fun(conv4))
-
-    up6 = concatenate(
-        [
-            Conv3DTranspose(256, (2, 2, 2), strides=(2, 2, 2), padding="same")(conv4),
-            conv3,
-        ],
-        axis=4,
-    )
-    conv6 = Conv3D(256, (3, 3, 3), padding="same")(up6)
-    conv6 = Activation("relu")(fun(conv6))
-    conv6 = Conv3D(256, (3, 3, 3), padding="same")(conv6)
-    conv6 = Activation("relu")(fun(conv6))
-
-    up7 = concatenate(
-        [
-            Conv3DTranspose(128, (2, 2, 2), strides=(2, 2, 2), padding="same")(conv6),
-            conv2,
-        ],
-        axis=4,
-    )
-    conv7 = Conv3D(128, (3, 3, 3), padding="same")(up7)
-    conv7 = Activation("relu")(fun(conv7))
-    conv7 = Conv3D(128, (3, 3, 3), padding="same")(conv7)
-    conv7 = Activation("relu")(fun(conv7))
-
-    up8 = concatenate(
-        [
-            Conv3DTranspose(64, (2, 2, 2), strides=(2, 2, 2), padding="same")(conv7),
-            conv1,
-        ],
-        axis=4,
-    )
-    conv8 = Conv3D(64, (3, 3, 3), padding="same")(up8)
-    conv8 = Activation("relu")(fun(conv8))
-    conv8 = Conv3D(64, (3, 3, 3), padding="same")(conv8)
-    conv8 = Activation("relu")(fun(conv8))
-
-    conv10 = Conv3D(feature_num, (1, 1, 1), activation="sigmoid")(conv8)
-
-    model = Model(inputs=[inputs], outputs=[conv10])
-
-    model.compile(optimizer=Adam(lr=lr), loss=lossfunc, metrics=["mse"])
-
-    return model
-
-
 def unet3d_big(
     lossfunc,
     lr,
     input_dim,
     feature_num,
     num_cams,
-    batch_norm=False,
-    instance_norm=False,
+    norm_method="layer",
     include_top=True,
     last_kern_size=(1, 1, 1),
     gridsize=None,
 ):
     # Gridsize unused, necessary for argument consistency with other nets
-    if batch_norm and not instance_norm:
-        print("using batch normalization")
+    fun = norm_fun(norm_method)
 
-        def fun(inputs):
-            return BatchNormalization()(inputs)
-
-    elif instance_norm:
-        print("using instance normalization")
-
-        def fun(inputs):
-            return ops.InstanceNormalization()(inputs)
-
-    else:
-
-        def fun(inputs):
-            return inputs
-
-    inputs = Input((None, None, None, input_dim * num_cams))
+    inputs = Input((64, 64, 64, input_dim * num_cams))
     conv1 = Conv3D(64, (3, 3, 3), padding="same")(inputs)
     conv1 = Activation("relu")(fun(conv1))
     conv1 = Conv3D(64, (3, 3, 3), padding="same")(conv1)
@@ -857,7 +486,10 @@ def unet3d_big(
     conv8 = Conv3D(64, (3, 3, 3), padding="same")(conv8)
     conv8 = Activation("relu")(fun(conv8))
 
-    conv10 = Conv3D(feature_num, last_kern_size, activation="sigmoid")(conv8)
+    if "gaussian_cross_entropy_loss" in str(lossfunc):
+        conv10 = Conv3D(feature_num, last_kern_size, activation="linear")(conv8)
+    else:
+        conv10 = Conv3D(feature_num, last_kern_size, activation="sigmoid")(conv8)
 
     if include_top:
         model = Model(inputs=[inputs], outputs=[conv10])
@@ -867,228 +499,6 @@ def unet3d_big(
     model.compile(optimizer=Adam(lr=lr), loss=lossfunc, metrics=["mse"])
 
     return model
-
-
-def unet3d_big_IN_BN(
-    lossfunc,
-    lr,
-    input_dim,
-    feature_num,
-    num_cams,
-    batch_norm=False,
-    instance_norm=False,
-    include_top=True,
-    last_kern_size=(1, 1, 1),
-    gridsize=None,
-):
-    # Gridsize unused, necessary for argument consistency with other nets
-    if batch_norm and not instance_norm:
-        print("using batch normalization")
-
-        def fun(inputs):
-            return BatchNormalization()(inputs)
-
-    elif instance_norm:
-        print("using instance normalization")
-
-        def fun(inputs):
-            return ops.InstanceNormalization()(inputs)
-
-    else:
-
-        def fun(inputs):
-            return inputs
-
-    inputs = Input((None, None, None, input_dim * num_cams))
-    conv1 = Conv3D(64, (3, 3, 3), padding="same")(inputs)
-    conv1 = Activation("relu")(fun(conv1))
-    conv1 = Conv3D(64, (3, 3, 3), padding="same")(conv1)
-    conv1 = Activation("relu")(fun(conv1))
-    pool1 = MaxPooling3D(pool_size=(2, 2, 2))(conv1)
-
-    conv2 = Conv3D(128, (3, 3, 3), padding="same")(pool1)
-    conv2 = Activation("relu")(BatchNormalization()(conv2))
-    conv2 = Conv3D(128, (3, 3, 3), padding="same")(conv2)
-    conv2 = Activation("relu")(BatchNormalization()(conv2))
-    pool2 = MaxPooling3D(pool_size=(2, 2, 2))(conv2)
-
-    conv3 = Conv3D(256, (3, 3, 3), padding="same")(pool2)
-    conv3 = Activation("relu")(BatchNormalization()(conv3))
-    conv3 = Conv3D(256, (3, 3, 3), padding="same")(conv3)
-    conv3 = Activation("relu")(BatchNormalization()(conv3))
-    pool3 = MaxPooling3D(pool_size=(2, 2, 2))(conv3)
-
-    conv4 = Conv3D(512, (3, 3, 3), padding="same")(pool3)
-    conv4 = Activation("relu")(BatchNormalization()(conv4))
-    conv4 = Conv3D(512, (3, 3, 3), padding="same")(conv4)
-    conv4 = Activation("relu")(BatchNormalization()(conv4))
-
-    up6 = concatenate(
-        [
-            Conv3DTranspose(256, (2, 2, 2), strides=(2, 2, 2), padding="same")(conv4),
-            conv3,
-        ],
-        axis=4,
-    )
-    conv6 = Conv3D(256, (3, 3, 3), padding="same")(up6)
-    conv6 = Activation("relu")(BatchNormalization()(conv6))
-    conv6 = Conv3D(256, (3, 3, 3), padding="same")(conv6)
-    conv6 = Activation("relu")(BatchNormalization()(conv6))
-
-    up7 = concatenate(
-        [
-            Conv3DTranspose(128, (2, 2, 2), strides=(2, 2, 2), padding="same")(conv6),
-            conv2,
-        ],
-        axis=4,
-    )
-    conv7 = Conv3D(128, (3, 3, 3), padding="same")(up7)
-    conv7 = Activation("relu")(BatchNormalization()(conv7))
-    conv7 = Conv3D(128, (3, 3, 3), padding="same")(conv7)
-    conv7 = Activation("relu")(BatchNormalization()(conv7))
-
-    up8 = concatenate(
-        [
-            Conv3DTranspose(64, (2, 2, 2), strides=(2, 2, 2), padding="same")(conv7),
-            conv1,
-        ],
-        axis=4,
-    )
-    conv8 = Conv3D(64, (3, 3, 3), padding="same")(up8)
-    conv8 = Activation("relu")(BatchNormalization()(conv8))
-    conv8 = Conv3D(64, (3, 3, 3), padding="same")(conv8)
-    conv8 = Activation("relu")(BatchNormalization()(conv8))
-
-    conv10 = Conv3D(feature_num, last_kern_size, activation="sigmoid")(conv8)
-
-    if include_top:
-        model = Model(inputs=[inputs], outputs=[conv10])
-    else:
-        model = Model(inputs=[inputs], outputs=[conv8])
-
-    model.compile(optimizer=Adam(lr=lr), loss=lossfunc, metrics=["mse"])
-
-    return model
-
-
-def unet3d_big_regularized(
-    lossfunc,
-    lr,
-    input_dim,
-    feature_num,
-    num_cams,
-    batch_norm=False,
-    instance_norm=False,
-    include_top=True,
-    last_kern_size=(1, 1, 1),
-    gridsize=None,
-    regularizer=regularizers.l2(0.005),
-):
-    # Gridsize unused, necessary for argument consistency with other nets
-    if batch_norm and not instance_norm:
-        print("using batch normalization")
-
-        def fun(inputs):
-            return BatchNormalization()(inputs)
-
-    elif instance_norm:
-        print("using instance normalization")
-
-        def fun(inputs):
-            return ops.InstanceNormalization()(inputs)
-
-    else:
-
-        def fun(inputs):
-            return inputs
-
-    inputs = Input((None, None, None, input_dim * num_cams))
-    conv1 = Conv3D(64, (3, 3, 3), padding="same")(inputs)
-    conv1 = Activation("relu")(fun(conv1))
-    conv1 = Conv3D(64, (3, 3, 3), padding="same")(conv1)
-    conv1 = Activation("relu")(fun(conv1))
-    pool1 = MaxPooling3D(pool_size=(2, 2, 2))(conv1)
-
-    conv2 = Conv3D(128, (3, 3, 3), padding="same", kernel_regularizer=regularizer)(
-        pool1
-    )
-    conv2 = Activation("relu")(fun(conv2))
-    conv2 = Conv3D(128, (3, 3, 3), padding="same", kernel_regularizer=regularizer)(
-        conv2
-    )
-    conv2 = Activation("relu")(fun(conv2))
-    pool2 = MaxPooling3D(pool_size=(2, 2, 2))(conv2)
-
-    conv3 = Conv3D(256, (3, 3, 3), padding="same", kernel_regularizer=regularizer)(
-        pool2
-    )
-    conv3 = Activation("relu")(fun(conv3))
-    conv3 = Conv3D(256, (3, 3, 3), padding="same", kernel_regularizer=regularizer)(
-        conv3
-    )
-    conv3 = Activation("relu")(fun(conv3))
-    pool3 = MaxPooling3D(pool_size=(2, 2, 2))(conv3)
-
-    conv4 = Conv3D(512, (3, 3, 3), padding="same", kernel_regularizer=regularizer)(
-        pool3
-    )
-    conv4 = Activation("relu")(fun(conv4))
-    conv4 = Conv3D(512, (3, 3, 3), padding="same", kernel_regularizer=regularizer)(
-        conv4
-    )
-    conv4 = Activation("relu")(fun(conv4))
-
-    up6 = concatenate(
-        [
-            Conv3DTranspose(256, (2, 2, 2), strides=(2, 2, 2), padding="same")(conv4),
-            conv3,
-        ],
-        axis=4,
-    )
-    conv6 = Conv3D(256, (3, 3, 3), padding="same", kernel_regularizer=regularizer)(up6)
-    conv6 = Activation("relu")(fun(conv6))
-    conv6 = Conv3D(256, (3, 3, 3), padding="same", kernel_regularizer=regularizer)(
-        conv6
-    )
-    conv6 = Activation("relu")(fun(conv6))
-
-    up7 = concatenate(
-        [
-            Conv3DTranspose(128, (2, 2, 2), strides=(2, 2, 2), padding="same")(conv6),
-            conv2,
-        ],
-        axis=4,
-    )
-    conv7 = Conv3D(128, (3, 3, 3), padding="same", kernel_regularizer=regularizer)(up7)
-    conv7 = Activation("relu")(fun(conv7))
-    conv7 = Conv3D(128, (3, 3, 3), padding="same", kernel_regularizer=regularizer)(
-        conv7
-    )
-    conv7 = Activation("relu")(fun(conv7))
-
-    up8 = concatenate(
-        [
-            Conv3DTranspose(64, (2, 2, 2), strides=(2, 2, 2), padding="same")(conv7),
-            conv1,
-        ],
-        axis=4,
-    )
-    conv8 = Conv3D(64, (3, 3, 3), padding="same", kernel_regularizer=regularizer)(up8)
-    conv8 = Activation("relu")(fun(conv8))
-    conv8 = Conv3D(64, (3, 3, 3), padding="same", kernel_regularizer=regularizer)(conv8)
-    conv8 = Activation("relu")(fun(conv8))
-
-    conv10 = Conv3D(feature_num, last_kern_size, activation="sigmoid")(conv8)
-
-    if include_top:
-        model = Model(inputs=[inputs], outputs=[conv10])
-    else:
-        model = Model(inputs=[inputs], outputs=[conv8])
-
-    model.compile(optimizer=Adam(lr=lr), loss=lossfunc, metrics=["mse"])
-
-    return model
-
 
 def finetune_AVG(
     lossfunc,
@@ -1100,8 +510,7 @@ def finetune_AVG(
     new_n_channels_out,
     weightspath,
     num_layers_locked=2,
-    batch_norm=False,
-    instance_norm=False,
+    norm_method="layer",
     gridsize=(64, 64, 64),
 ):
     """
@@ -1112,6 +521,9 @@ def finetune_AVG(
     that will be locked (non-trainable) during fine-tuning.
     """
 
+    prepend_log_msg = ".finetune_AVG "
+
+    # model = netobj()
     model = unet3d_big_expectedvalue(
         lossfunc,
         lr,
@@ -1119,8 +531,7 @@ def finetune_AVG(
         feature_num,
         num_cams,
         gridsize,
-        batch_norm,
-        instance_norm,
+        norm_method,
         include_top=False,
     )
 
@@ -1130,10 +541,10 @@ def finetune_AVG(
 
     post = model.get_weights()
 
-    print("evaluating weight deltas in the first conv layer")
+    logging.info(prepend_log_msg + "evaluating weight deltas in the first conv layer")
 
-    print("pre-weights")
-    print(pre[1][0])
+    logging.info(prepend_log_msg + "pre-weights")
+    logging.info(prepend_log_msg + pre[1][0])
     print("post-weights")
     print(post[1][0])
     print("delta:")
@@ -1175,8 +586,7 @@ def finetune_fullmodel_AVG(
     new_n_channels_out,
     weightspath,
     num_layers_locked=2,
-    batch_norm=False,
-    instance_norm=False,
+    norm_method="layer",
     gridsize=(64, 64, 64),
 ):
     """
@@ -1230,6 +640,41 @@ def finetune_fullmodel_AVG(
 
     return model
 
+def add_exposed_heatmap(model):
+    """
+    Given a normal AVG model, add an extra output for supervision of the penultimate heatmap representation
+    """
+    lay = [l.name for l in model.layers]
+    if "exposed_heatmap" not in lay:
+        model.layers[-1]._name = "final_output"
+        model.layers[-4]._name = "exposed_heatmap"
+        sigmoid_output = Activation(activations.sigmoid,
+                                    name="sigmoid_exposed_hetmap")
+        model = Model(
+            inputs=[model.layers[0].input, model.layers[-2].input],
+            outputs=[model.layers[-1].output, sigmoid_output(model.layers[-4].output)],
+        )
+
+    return model
+
+def remove_exposed_heatmap(model):
+    """
+    Given an AVG+MAX model, removes the exposes heatmap output so that only the continuous AVG output is
+        generated.
+
+    To fully support "continued" mode training, this should only be called during dannce-predict, and before
+        the p_max output is added to the network.
+    """
+
+    lay = [l.name for l in model.layers]
+    if "exposed_heatmap" in lay:
+        model = Model(
+            inputs=[model.get_layer("image_input").input, model.get_layer("grid_input").input],
+            outputs=[model.get_layer("final_output").output],
+        )
+
+    return model
+
 def heatmap_reg(hmap, inds):
     """
     Returns the value of the 3D hmap at inds
@@ -1247,7 +692,7 @@ def heatmap_reg(hmap, inds):
 
 def add_heatmap_output(model):
     """
-    Given at AVG model, splice on a new input (GT voxel index) and output (amplitude of normalized heatmap at that GT index)
+    Given an AVG model, splice on a new input (GT voxel index) and output (amplitude of normalized heatmap at that GT index)
     """
     lay = [l.name for l in model.layers]
     if "heatmap_output" not in lay:
@@ -1366,8 +811,7 @@ def finetune_MAX(
     new_n_channels_out,
     weightspath,
     num_layers_locked=2,
-    batch_norm=False,
-    instance_norm=False,
+    norm_method="layer",
     gridsize=(64, 64, 64),
 ):
     """
@@ -1381,8 +825,7 @@ def finetune_MAX(
         input_dim,
         feature_num,
         num_cams,
-        batch_norm,
-        instance_norm,
+        norm_method="layer",
         include_top=False,
     )
 
@@ -1402,113 +845,14 @@ def finetune_MAX(
     old_out = model(input_)
 
     # Add new output conv. layer
-    new_conv = Conv3D(
+    if "gaussian_cross_entropy_loss" in str(lossfunc):
+        new_conv = Conv3D(
+        new_n_channels_out, new_last_kern_size, activation="linear", padding="same"
+        )(old_out)
+    else:
+        new_conv = Conv3D(
         new_n_channels_out, new_last_kern_size, activation="sigmoid", padding="same"
-    )(old_out)
-
-    model = Model(inputs=[input_], outputs=[new_conv])
-
-    return model
-
-
-def finetune_MAX_IN_BN(
-    lossfunc,
-    lr,
-    input_dim,
-    feature_num,
-    num_cams,
-    new_last_kern_size,
-    new_n_channels_out,
-    weightspath,
-    num_layers_locked=2,
-    batch_norm=False,
-    instance_norm=False,
-    gridsize=(64, 64, 64),
-):
-    """
-    makes necessary calls to network constructors to set up nets for fine-tuning
-    the argmax version of the network.
-    """
-
-    model = unet3d_big_IN_BN(
-        lossfunc,
-        lr,
-        input_dim,
-        feature_num,
-        num_cams,
-        batch_norm,
-        instance_norm,
-        include_top=False,
-    )
-
-    # Load weights
-    model.load_weights(weightspath, by_name=True)
-
-    # Lock desired number of layers
-    for layer in model.layers[:num_layers_locked]:
-        layer.trainable = False
-
-        # Do forward pass all the way until end
-    input_ = Input((None, None, None, input_dim * num_cams))
-
-    old_out = model(input_)
-
-    # Add new output conv. layer
-    new_conv = Conv3D(
-        new_n_channels_out, new_last_kern_size, activation="sigmoid", padding="same"
-    )(old_out)
-
-    model = Model(inputs=[input_], outputs=[new_conv])
-
-    return model
-
-
-def finetune_MAX_regularized(
-    lossfunc,
-    lr,
-    input_dim,
-    feature_num,
-    num_cams,
-    new_last_kern_size,
-    new_n_channels_out,
-    weightspath,
-    num_layers_locked=2,
-    batch_norm=False,
-    instance_norm=False,
-    gridsize=(64, 64, 64),
-):
-    """
-    makes necessary calls to network constructors to set up nets for fine-tuning
-    the argmax version of the network.
-    """
-
-    model = unet3d_big_regularized(
-        lossfunc,
-        lr,
-        input_dim,
-        feature_num,
-        num_cams,
-        batch_norm,
-        instance_norm,
-        include_top=False,
-    )
-
-    # Load weights
-    model.load_weights(weightspath, by_name=True)
-
-    # Lock desired number of layers
-    for layer in model.layers[:num_layers_locked]:
-        layer.trainable = False
-
-        # Do forward pass all the way until end
-    input_ = Input((None, None, None, input_dim * num_cams))
-
-    old_out = model(input_)
-
-    # Add new output conv. layer
-    new_conv = Conv3D(
-        new_n_channels_out, new_last_kern_size, activation="sigmoid", padding="same"
-    )(old_out)
+        )(old_out)
 
     model = Model(inputs=[input_], outputs=[new_conv])
 
