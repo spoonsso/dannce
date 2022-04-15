@@ -1,6 +1,6 @@
 """Handle inference procedures for dannce and com networks.
 """
-from Dannce.repos.dannce.dannce.engine.generator import FILE_PATH
+
 import numpy as np
 import os
 import time
@@ -36,7 +36,7 @@ def print_checkpoint(
         float: New timing reference.
     """
     prepend_log_msg = FILE_PATH + ".print_checkpoint "
-    logging.info(prepend_log_msg + "Predicting on sample %d" % (n_frame), flush=True)
+    logging.info(prepend_log_msg + "Predicting on sample %d" % (n_frame))# flush=True)
     if (n_frame - start_ind) % sample_save == 0 and n_frame != start_ind:
         logging.info(prepend_log_msg + n_frame)
         logging.info(prepend_log_msg + "{} samples took {} seconds".format(sample_save, time.time() - end_time))
@@ -670,7 +670,7 @@ def infer_dannce(
     start_ind = params["start_batch"]
     end_ind = params["maxbatch"]
     for idx, i in enumerate(range(start_ind, end_ind)):
-        logging.debug("Predicting on batch {}".format(i), flush=True)
+        logging.debug("Predicting on batch {}".format(i))#, flush=True)
         if (i - start_ind) % 10 == 0 and i != start_ind:
             logging.debug(i)
             logging.debug("10 batches took {} seconds".format(time.time() - end_time))

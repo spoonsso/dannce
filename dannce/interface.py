@@ -111,6 +111,8 @@ def com_predict(params: Dict):
         params (Dict): Parameters dictionary.
     """
     # Enable Logging for com_predict
+    if not os.path.exists(os.path.dirname(params["log_dest"])):
+        os.makedirs(os.path.dirname(params["log_dest"]))
     logging.basicConfig(filename=params["log_dest"], level=params["log_level"], 
                         format='%(asctime)s %(levelname)s:%(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
     prepend_log_msg = file_path + ".com_predict "
@@ -337,6 +339,8 @@ def com_train(params: Dict):
     """
 
     # Setup Logging for com_train
+    if not os.path.exists(os.path.dirname(params["log_dest"])):
+        os.makedirs(os.path.dirname(params["log_dest"]))
     logging.basicConfig(filename=params["log_dest"], level=params["log_level"], 
                         format='%(asctime)s %(levelname)s:%(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
     prepend_log_msg = file_path + ".com_train "
@@ -662,6 +666,8 @@ def dannce_train(params: Dict):
     """
 
     # Setup Logging for com_train
+    if not os.path.exists(os.path.dirname(params["log_dest"])):
+        os.makedirs(os.path.dirname(params["log_dest"]))
     logging.basicConfig(filename=params["log_dest"], level=params["log_level"], 
                         format='%(asctime)s %(levelname)s:%(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
     prepend_log_msg = file_path + ".dannce_train "
@@ -1299,7 +1305,11 @@ def dannce_predict(params: Dict):
     Args:
         params (Dict): Paremeters dictionary.
     """
+    import pdb
+    pdb.set_trace()
     # Setup Logging for com_train
+    if not os.path.exists(os.path.dirname(params["log_dest"])):
+        os.makedirs(os.path.dirname(params["log_dest"]))
     logging.basicConfig(filename=params["log_dest"], level=params["log_level"], 
                         format='%(asctime)s %(levelname)s:%(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
     prepend_log_msg = file_path + ".dannce_predict "

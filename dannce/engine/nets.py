@@ -21,12 +21,17 @@ import logging
 FILE_PATH = "dannce.engine.nets"
 
 def setup_logging(logfile_path, log_lvl, params=None):
+    import os 
     if logfile_path != None and log_lvl != None:
+        if not os.path.exists(os.path.dirname(params["log_dest"])):
+            os.makedirs(os.path.dirname(params["log_dest"]))
         logging.basicConfig(filename= logfile_path,
                             level= log_lvl,
                             format='%(asctime)s %(levelname)s:%(message)s', 
                             datefmt='%m/%d/%Y %I:%M:%S %p')
     elif params != None:
+        if not os.path.exists(os.path.dirname(params["log_dest"])):
+            os.makedirs(os.path.dirname(params["log_dest"]))
         logging.basicConfig(filename=params["log_dest"], 
                             level=params["log_level"], 
                             format='%(asctime)s %(levelname)s:%(message)s', 

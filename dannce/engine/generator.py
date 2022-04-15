@@ -914,7 +914,7 @@ class DataGenerator_3Dconv_torch(DataGenerator):
         self.interp = interp
         self.depth = depth
         self.channel_combo = channel_combo
-        logging.info(FILE_PATH + ".DataGenerator_3Dconv_torch.__init__" + self.channel_combo)
+        logging.info(FILE_PATH + ".DataGenerator_3Dconv_torch.__init__" + self.channel_combo if channel_combo is not None else "None")
         self.gpu_id = gpu_id
         self.mode = mode
         self.immode = immode
@@ -943,7 +943,7 @@ class DataGenerator_3Dconv_torch(DataGenerator):
         config.gpu_options.per_process_gpu_memory_fraction = TF_GPU_MEMORY_FRACTION
         config.gpu_options.allow_growth = True
         self.session = tf.compat.v1.Session(config=config, graph=tf.Graph())
-        logging.info(FILE_PATH + ".DataGenerator_3Dconv_torch.__init__" + "Executing eagerly: ", tf.executing_eagerly(), flush=True)
+        logging.info(FILE_PATH + ".DataGenerator_3Dconv_torch.__init__" + "Executing eagerly: " + str(tf.executing_eagerly()))#, flush=True)
         for i, ID in enumerate(list_IDs):
             experimentID = int(ID.split("_")[0])
             for camname in self.camnames[experimentID]:
@@ -1545,7 +1545,7 @@ class DataGenerator_3Dconv_tf(DataGenerator):
         self.interp = interp
         self.depth = depth
         self.channel_combo = channel_combo
-        logging.info(FILE_PATH + ".DataGenerator_3Dconv_tf.__init__ " + self.channel_combo)
+        logging.info(FILE_PATH + ".DataGenerator_3Dconv_tf.__init__ " + self.channel_combo  if channel_combo is not None else "None")
         self.gpu_id = gpu_id
         self.mode = mode
         self.immode = immode

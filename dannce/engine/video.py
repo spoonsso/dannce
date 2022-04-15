@@ -1,7 +1,6 @@
 """ Video reading and writing interfaces for different formats. """
 from copy import Error
 import os
-from Dannce.Experimental.exp1file1 import FILE_PATH
 import cv2
 import numpy as np
 import attr

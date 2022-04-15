@@ -1,8 +1,17 @@
 """Setup file for dannce."""
 from setuptools import setup, find_packages
 
+def get_name():
+    import os
+    curr_dir = os.path.dirname(__file__)
+    print ("Current_Directory = ", curr_dir)
+    os.environ['DANNCE_HOME'] = curr_dir
+    print (os.environ['DANNCE_HOME'])
+
+    return "dannce"
+
 setup(
-    name="dannce",
+    name=get_name(),
     version="1.2.0",
     packages=find_packages(),
     install_requires=[
@@ -17,8 +26,8 @@ setup(
         "attrs",
         "multiprocess",
         "opencv-python",
-        "tensorflow==2.6.0",
-        "keras==2.6.*", # Required to resolve pip keras install bug for tf 2.6
+        "tensorflow==2.4.0",
+        # "keras==2.6.*", # Required to resolve pip keras install bug for tf 2.6
         "psutil",
     ],
     # scripts=[],

@@ -264,7 +264,7 @@ def add_shared_args(
     parser.add_argument(
         "--log-dest",
         dest="log_dest",
-        help="Log File location to where logs are to be written to. By default, location is set to logs/dannce.log ",
+        help="Log File location to where logs are to be written to. By default, location is set to ../logs/dannce.log ",
     )
 
     return parser

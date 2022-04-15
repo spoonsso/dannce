@@ -70,6 +70,7 @@ def write_debug(
         # Plot all training images and save
         # create new directory for images if necessary
         debugdir = os.path.join(params["com_train_dir"], outdir)
+        import pdb; pdb.set_trace()
         logging.info(prepend_log_msg + "Saving debug images to: " + debugdir)
         if not os.path.exists(debugdir):
             os.makedirs(debugdir)
@@ -151,6 +152,12 @@ def infer_params(params, dannce_net, prediction):
     Some parameters that were previously specified in configs can just be inferred
         from others, thus relieving config bloat
     """
+
+    curr_dir = os.path.dirname(__file__)
+    os.environ["DANNCE_HOME"] = os.path.dirname(curr_dir)
+
+    if not os.path.exists(os.path.dirname(params["log_dest"])):
+        os.makedirs(os.path.dirname(params["log_dest"]))
     # Setting up logging
     logging.basicConfig(filename=params["log_dest"], level=params["log_level"], 
                         format='%(asctime)s %(levelname)s:%(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
@@ -760,6 +767,8 @@ def save_COM_dannce_mat(params, com3d, sampleID):
     streamlines subsequent dannce access.
     """
     # Setup Logging
+    if not os.path.exists(os.path.dirname(params["log_dest"])):
+        os.makedirs(os.path.dirname(params["log_dest"]))
     logging.basicConfig(filename=params["log_dest"], level=params["log_level"], 
                         format='%(asctime)s %(levelname)s:%(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
     prepend_log_msg = FILE_PATH + ".save_COM_dannce_mat "
