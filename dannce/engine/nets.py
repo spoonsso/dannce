@@ -1,4 +1,5 @@
 """Define networks for dannce."""
+from unicodedata import name
 from tensorflow.keras.models import Model, load_model
 from tensorflow.keras.layers import Input, concatenate, Conv2D, MaxPooling2D
 from tensorflow.keras.layers import Conv2DTranspose, Conv3D, Lambda
@@ -547,7 +548,7 @@ def get_unet3d_exppath(
         )
 
     for i in reversed(range(2,stages)):
-        prev_out = get_unet_exp_path_stage(up,32*i,norm_fun)
+        prev_out = get_unet3d_exp_path_stage(up,32*i,norm_fun)
         up = concatenate(
             [
                 Conv3DTranspose(32*i, (2, 2, 2), strides=(2, 2, 2), padding="same")(prev_out),
@@ -609,6 +610,20 @@ def unet3d_satellite(
 
     return model
     
+def get_multi_stage_model(
+    lossfunc,
+    lr,
+    input_dim,
+    feature_num,
+    num_cams,
+    norm_method="layer",
+    include_top=True,
+    last_kern_size=(1, 1, 1),
+    gridsize=None,
+    n_stages = 1, # 0 for no stacking => just 1 network
+    depths = [2,2],
+):
+    inputs, unet_skel = get_unet3d_skeleton (input_dim, num_cams, norm_method,)
 
 
 def finetune_AVG(
@@ -623,6 +638,7 @@ def finetune_AVG(
     num_layers_locked=2,
     norm_method="layer",
     gridsize=(64, 64, 64),
+    int_sup_layers = None,
 ):
     """
     makes necessary calls to network constructors to set up nets for fine-tuning
@@ -642,7 +658,6 @@ def finetune_AVG(
         norm_method,
         include_top=False,
     )
-
     pre = model.get_weights()
     # Load weights
     model = renameLayers(model, weightspath)
@@ -657,17 +672,45 @@ def finetune_AVG(
     print(post[1][0])
     print("delta:")
     print(np.sum(pre[1][0] - post[1][0]))
-
+    # import pdb
+    # pdb.set_trace()
     # Lock desired number of layers
     for layer in model.layers[:num_layers_locked]:
         layer.trainable = False
+    
+    # if int_sup_layers != None: 
+    #     curr_size = len(model.layers)
+    #     is_layers = []
+    #     for i in int_sup_layers:
+    #         if i < -4:
+    #             is_layers.append(i+4)
+    #         if i > 0 and i <= curr_size:
+    #             is_layers.append(i)
 
-        # Do forward pass all the way until end
-    input_ = Input((*gridsize, input_dim * num_cams), name="image_input")
-
-    old_out = model(input_)
+    #     model = add_int_supervision(model, 
+    #                             input_dim = input_dim, 
+    #                             num_cams = num_cams, 
+    #                             int_layers=is_layers, 
+    #                             feature_num=feature_num, 
+    #                             out_kernel=(1,1,1), 
+    #                             gridsize=gridsize,
+    #                             finetune = True,
+    #                             addnl_layers= 4)
+    
+    # Do forward pass all the way until end
+    # input_ = Input((*gridsize, input_dim * num_cams), name="image_input")
+    input_ = model.layers[0].input
+    # pdb.set_trace()
+    # old_out = model(input_)
+    old_out = model.call(input_)
+    # old_out = model.layers[1].output
 
     # Add new output conv. layer
+    # if int_sup_layers != None and is_layers != []:
+    #     new_conv = Conv3D(
+    #         new_n_channels_out, new_last_kern_size, activation="linear", padding="same"
+    #     )(old_out[0])
+    # else:
     new_conv = Conv3D(
         new_n_channels_out, new_last_kern_size, activation="linear", padding="same"
     )(old_out)
@@ -680,7 +723,10 @@ def finetune_AVG(
         [new_conv2, grid_centers]
     )
 
-    model = Model(inputs=[input_, grid_centers], outputs=[output])
+    mod_outputs = [output]
+    # if int_sup_layers != None and is_layers != []:
+    #     mod_outputs.extend(old_out[1:])
+    model = Model(inputs=[input_, grid_centers], outputs=mod_outputs)
 
     return model
 
@@ -696,6 +742,7 @@ def finetune_fullmodel_AVG(
     num_layers_locked=2,
     norm_method="layer",
     gridsize=(64, 64, 64),
+    int_sup_layers = None,
 ):
     """
     makes necessary calls to network constructors to set up nets for fine-tuning
@@ -718,6 +765,16 @@ def finetune_fullmodel_AVG(
                 },
                 compile=False,
             )
+    # Try to create a new model with all the weights from the nested model copied, and the weights from the other layers copied
+    # into a non-nested structure.
+    if int_sup_layers != None: 
+        model = add_int_supervision(model, 
+                                input_dim = input_dim, 
+                                num_cams = num_cams, 
+                                int_layers=int_sup_layers, 
+                                feature_num=feature_num, 
+                                out_kernel=(1,1,1), 
+                                gridsize=gridsize)
 
     # Unlock all layers so they can be locked later according to num_layers_locked
     for layer in model.layers[1].layers:
@@ -727,9 +784,12 @@ def finetune_fullmodel_AVG(
         layer.trainable = False
 
         # Do forward pass all the way until end
-    input_ = Input((*gridsize, input_dim * num_cams), name="image_input")
+    # input_ = Input((*gridsize, input_dim * num_cams), name="image_input")
+    input_ = model.layers[0].input
 
-    old_out = model.layers[1](input_)
+    # Not sure if this will work as expected.
+    # old_out = model.layers[1](input_)
+    old_out = model.layers[1].call(input_)
 
     # Add new output conv. layer
     new_conv = Conv3D(
@@ -748,7 +808,13 @@ def finetune_fullmodel_AVG(
 
     return model
 
-def add_int_supervision(model,int_layers=[-4,-5]):
+def _add_int_supervision_for_fullmodel_finetune(model, input_dim, num_cams, 
+                        int_layers=[-4,-5], 
+                        feature_num=20, 
+                        out_kernel=(1,1,1), 
+                        gridsize=(64, 64, 64),
+                        finetune = False,
+                        addnl_layers = 0):
     """
     Add intermediate supervision at the int_layers provided. 
     int_layers can be an array of layer names or layer indices.
@@ -758,35 +824,446 @@ def add_int_supervision(model,int_layers=[-4,-5]):
     and a new point where supervision needs to be added, and add heatmap output there
     (2) The function should be able to generate heatmaps from layers that are not penultimate
     """
-    import pdb
-    pdb.set_trace()
+    # import pdb
+    # pdb.set_trace()
+    import keras
+
+    has_nested_model = False
     lay = [l.name for l in model.layers]
-    sigmoid_output = Activation(activations.sigmoid,
-                                name="sigmoid_exposed_hetmap")
+    input_ = model.layers[0].input
+    mod_inputs = [input_]
+    # input_ = Input((*gridsize, input_dim * num_cams), name="image_input_parent")
+
+    if isinstance(model.layers[1], keras.engine.functional.Functional):
+        nested_model = model.layers[1]
+        lay2 = [l.name for l in nested_model.layers]
+        
+        has_nested_model = True
+        # model.layers[1].layers[0]._name = "nested_image_input"
+        print("Nested Layers: ", lay2)
+        print(nested_model.summary())
+        # input_ = Input((*gridsize, input_dim * num_cams), name="image_input")
+        
+    
     mod_outputs = [model.layers[-1].output]
+    print("Layers: ", lay)
 
     # Create intermediate supervision outputs at the given layers, if not present
-    if not any("int_supervision" in s for s in lay):
-        for i,el in enumerate(int_layers):
+    
+    for i,el in enumerate(int_layers):
+        # If the model has a nested model, getting a handle on the layer where supervision head
+        # has to be attached needs extra steps, since the layer can be within the parent model or the nested one
+        real_i = i
+        if has_nested_model:
+            if isinstance(el,str):
+                if el in lay:
+                    sup_layer = model.get_layer[el]
+                elif el in lay2:
+                    sup_layer = model.layers[1].get_layer[el]
+            else:
+                print("Integer Input found for layer")
+                acceptable_laynums_lvl1 = list(range(-len(lay) + 2,-1))
+                acceptable_laynums_lvl1.extend(list(
+                    range(len(lay2), len(lay2) + len(lay) - 1)))
+                if el in acceptable_laynums_lvl1:
+                    sup_layer = model.layers[el] if el < 0 else model.layers[el - len(lay2)]
+                else:
+                    print("Negative layer number number specified. Specified number is greater than the current model depth")
+                    print("Layers Now: ", [l.name for l in model.layers])
+                    last_idx_IN = [idx for idx,s in enumerate(lay2) if 'normalization' in s][-1] - len(lay2)
+                    sup_layer = nested_model.layers[el + len(lay)-2 +last_idx_IN + 2] if el < 0 else nested_model.layers[el]
+
+        else:
             if isinstance(el,str):
                 sup_layer = model.get_layer[el]
             else:
                 sup_layer = model.layers[el]
-            # if layer.output_shape[1] != 32:
-            #     intsup = Conv3DTranspose(32, (2, 2, 2), strides=(2, 2, 2), padding="same", name="int_supervision_"+str(i))(layer)
-            # else:
-            #     intsup = Conv3D(32, (3, 3, 3), padding="same", name="int_supervision_"+str(i))(layer)
-            sup_layer._name = "int_supervision_"+str(i)   
-            mod_outputs.append(sigmoid_output(sup_layer.output))
         
+              
+            
+        
+        if not "int_supervision" in sup_layer._name: 
+            # Whether we have a nested model or not, with the sup_layer handle, we can do things like 
+            # Change the name for the layer, and peek at its output shape
+            if has_nested_model:
+                last_idx_seh = [idx for idx,s in enumerate(lay2) if 'heatmap' in s][-1] 
+                real_i = i + int(model.layers[1].layers[last_idx_seh].name[-1]) + 1
+                # find the last index of occurrence of seh. This gives the last number used
+                # and then use it to extract the last appended 'i'
+                # adding this to the current i should give unique numbers to all the sigmoid outputs
+                
+            sigmoid_output = Activation(activations.sigmoid,
+                                name="sigmoid_exposed_heatmap_"+str(real_i))
+            
+            sup_layer_n_features = sup_layer.output_shape[-1]
+
+            # Appropriate access from nested models is described here: https://github.com/tensorflow/tensorflow/issues/34977
+            # Also see: https://github.com/keras-team/keras/issues/8131 - to avoid defining multiple inputs
+            if has_nested_model:
+                if sup_layer.name in lay2:
+                    isup_model = Model(inputs=model.layers[1].layers[0].get_input_at(0), outputs=sup_layer.output)
+                if sup_layer.name in lay:
+                    isup_model = Model(inputs=model.layers[0].get_input_at(0), outputs=sup_layer.output)
+                sup_layer._name = "int_supervision_"+str(real_i) 
+                sup_layer = isup_model(input_)
+            else:
+                sup_layer._name = "int_supervision_"+str(real_i) 
+
+            # For getting a proper heatmap output on which loss can be applied, the output layer should have
+            # feature_num number of output features - the number of output features can be inferred from
+            # last element in output_shape of the layer output.
+            # Note: sup_layer is a layer till this point. The below code transforms it into an output tensor
+            #       and adds it to the outputs array.
+            if sup_layer_n_features > feature_num:
+                if sup_layer_n_features > 64:
+                    
+                    if has_nested_model:
+                        # We need to pass the input tensor all the way till the layer where sup_layer has to be
+                        # added at. After we have the output tensor from the sup_layer, we can upsample.
+                        # sup_layer = sup_layer(input_)
+                        sup_layer = Conv3DTranspose(64, (2, 2, 2), strides=(2, 2, 2), padding="same", name="isup_upconv_"+str(real_i))(sup_layer)
+                    else:
+                        sup_layer = Conv3DTranspose(64, (2, 2, 2), strides=(2, 2, 2), padding="same", name="isup_upconv_"+str(real_i))(sup_layer.output)
+                    
+                    # At this point sup_layer is already transformed into an output tensor, rather than a layer
+                    sup_layer = Conv3D(feature_num, out_kernel, padding="same")(sup_layer)
+                
+                else:
+                    if has_nested_model:
+                        # sup_layer = sup_layer(input_)
+                        sup_layer = Conv3D(feature_num, out_kernel, padding="same", name= "isup_out_"+str(real_i))(sup_layer)
+                    else:
+                        sup_layer = Conv3D(feature_num, out_kernel, padding="same", name= "isup_out_"+str(real_i))(sup_layer.output)
+                
+                # By this point the sup_layer is transformed into an output tensor from a layer
+                mod_outputs.append(sigmoid_output(sup_layer))
+
+            else :
+                if has_nested_model:
+                    # sup_layer = sup_layer(input_)
+                    mod_outputs.append(sigmoid_output(sup_layer))
+                else:
+                    mod_outputs.append(sigmoid_output(sup_layer.output))
+
+        # If the given layer is already marked as sup_layer, simply get its output
+        else:
+            # mod_outputs.append(nested_model.get_layer("isup_out_"+str(real_i)).output)
+            mod_outputs.append(nested_model.get_layer("sigmoid_exposed_heatmap_"+str(real_i)).output) # traverse_to_output_from_layer(sup_layer))
+
+    # if has_nested_model:
+    #     model = Model(
+    #         inputs=[model.layers[0].input, model.layers[1].layers[0].input, model.layers[-2].input],
+    #         outputs=mod_outputs
+    #     )
+    # else:
+
+    if 'input' in model.layers[-2].name:
+        mod_inputs.append(model.layers[-2].input)
     model = Model(
-        inputs=[model.layers[0].input, model.layers[-2].input],
+        inputs=mod_inputs,
         outputs=mod_outputs
     )
     print ("Intermediate Supervision heads successfully added.")
+    print(model.summary())
 
     return model
 
+def __add_int_supervision_for_fullmodel_finetune(model, input_dim, num_cams, 
+                        int_layers=[-4,-5], 
+                        feature_num=20, 
+                        out_kernel=(1,1,1), 
+                        gridsize=(64, 64, 64),
+                        finetune = False,
+                        addnl_layers = 0):
+    """
+    Add intermediate supervision at the int_layers provided. 
+    int_layers can be an array of layer names or layer indices.
+
+    TODO: 
+    (1) make the function accept model with some int_supervision layers
+    and a new point where supervision needs to be added, and add heatmap output there
+    (2) The function should be able to generate heatmaps from layers that are not penultimate
+
+    Note - The current implementation may not be able to accommodate the
+    """
+    # import pdb
+    # pdb.set_trace()
+    import keras
+
+    has_nested_model = False
+    lay = [l.name for l in model.layers]
+    input_ = model.layers[0].input
+    # input_ = Input((*gridsize, input_dim * num_cams), name="image_input_parent")
+    mod_inputs = [input_]  
+
+    if isinstance(model.layers[1], keras.engine.functional.Functional):
+        nested_model = model.layers[1]
+        lay2 = [l.name for l in nested_model.layers]
+        
+        has_nested_model = True
+        model.layers[1].layers[0]._name = "nested_image_input"
+        print("Nested Layers: ", lay2)
+        print(nested_model.summary())
+        # input_ = Input((*gridsize, input_dim * num_cams), name="image_input")
+        
+    if not isinstance(model.output, list):
+        mod_outputs = [model.output]
+    else:
+        mod_outputs = model.output
+    # mod_outputs = [model(input_)]
+    print("Layers: ", lay)
+
+    # Create intermediate supervision outputs at the given layers, if not present
+    
+    for i,el in enumerate(int_layers):
+        # If the model has a nested model, getting a handle on the layer where supervision head
+        # has to be attached needs extra steps, since the layer can be within the parent model or the nested one
+        real_i = i
+        if has_nested_model:
+            if isinstance(el,str):
+                if el in lay:
+                    sup_layer = model.get_layer[el]
+                elif el in lay2:
+                    sup_layer = model.layers[1].get_layer[el]
+            else:
+                print("Integer Input found for layer")
+                acceptable_laynums_lvl1 = list(range(-len(lay) + 2,-1))
+                acceptable_laynums_lvl1.extend(list(
+                    range(len(lay2), len(lay2) + len(lay) - 1)))
+                if el in acceptable_laynums_lvl1:
+                    sup_layer = model.layers[el] if el < 0 else model.layers[el - len(lay2)]
+                else:
+                    print("Negative layer number number specified. Specified number is greater than the current model depth")
+                    print("Layers Now: ", [l.name for l in model.layers])
+                    last_idx_IN = [idx for idx,s in enumerate(lay2) if 'normalization' in s][-1] - len(lay2)
+                    sup_layer = nested_model.layers[el + len(lay)-2 +last_idx_IN + 2] if el < 0 else nested_model.layers[el]
+
+        else:
+            if isinstance(el,str):
+                sup_layer = model.get_layer[el]
+            else:
+                sup_layer = model.layers[el]
+        
+              
+            
+        
+        if not "int_supervision" in sup_layer._name: 
+            # Whether we have a nested model or not, with the sup_layer handle, we can do things like 
+            # Change the name for the layer, and peek at its output shape
+            if has_nested_model:
+                last_idx_seh = [idx for idx,s in enumerate(lay2) if 'heatmap' in s][-1] 
+                real_i = i + int(model.layers[1].layers[last_idx_seh].name[-1]) + 1
+                # find the last index of occurrence of seh. This gives the last number used
+                # and then use it to extract the last appended 'i'
+                # adding this to the current i should give unique numbers to all the sigmoid outputs
+                
+            sigmoid_output = Activation(activations.sigmoid,
+                                name="sigmoid_exposed_heatmap_"+str(real_i))
+            
+            sup_layer_n_features = sup_layer.output_shape[-1]
+
+            # Appropriate access from nested models is described here: https://github.com/tensorflow/tensorflow/issues/34977
+            # Also see: https://github.com/keras-team/keras/issues/8131 - to avoid defining multiple inputs
+            if has_nested_model:
+                if sup_layer.name in lay2:
+                    isup_model = Model(inputs=model.layers[1].layers[0].get_input_at(0), outputs=sup_layer.output)
+                if sup_layer.name in lay:
+                    isup_model = Model(inputs=model.layers[0].get_input_at(0), outputs=sup_layer.output)
+                sup_layer._name = "int_supervision_"+str(real_i) 
+                sup_layer = isup_model(input_)
+            else:
+                sup_layer._name = "int_supervision_"+str(real_i) 
+
+            # For getting a proper heatmap output on which loss can be applied, the output layer should have
+            # feature_num number of output features - the number of output features can be inferred from
+            # last element in output_shape of the layer output.
+            # Note: sup_layer is a layer till this point. The below code transforms it into an output tensor
+            #       and adds it to the outputs array.
+            if sup_layer_n_features > feature_num:
+                if sup_layer_n_features > 64:
+                    
+                    if has_nested_model:
+                        # We need to pass the input tensor all the way till the layer where sup_layer has to be
+                        # added at. After we have the output tensor from the sup_layer, we can upsample.
+                        # sup_layer = sup_layer(input_)
+                        sup_layer = Conv3DTranspose(64, (2, 2, 2), strides=(2, 2, 2), padding="same", name="isup_upconv_"+str(real_i))(sup_layer)
+                    else:
+                        sup_layer = Conv3DTranspose(64, (2, 2, 2), strides=(2, 2, 2), padding="same", name="isup_upconv_"+str(real_i))(sup_layer.output)
+                    
+                    # At this point sup_layer is already transformed into an output tensor, rather than a layer
+                    sup_layer = Conv3D(feature_num, out_kernel, padding="same")(sup_layer)
+                
+                else:
+                    if has_nested_model:
+                        # sup_layer = sup_layer(input_)
+                        sup_layer = Conv3D(feature_num, out_kernel, padding="same", name= "isup_out_"+str(real_i))(sup_layer)
+                    else:
+                        sup_layer = Conv3D(feature_num, out_kernel, padding="same", name= "isup_out_"+str(real_i))(sup_layer.output)
+                
+                # By this point the sup_layer is transformed into an output tensor from a layer
+                mod_outputs.append(sigmoid_output(sup_layer))
+
+            else :
+                if has_nested_model:
+                    # sup_layer = sup_layer(input_)
+                    mod_outputs.append(sigmoid_output(sup_layer))
+                else:
+                    mod_outputs.append(sigmoid_output(sup_layer.output))
+
+        # If the given layer is already marked as sup_layer, simply get its output
+        # else:
+        #     # mod_outputs.append(nested_model.get_layer("isup_out_"+str(real_i)).output)
+        #     mod_outputs.append(nested_model.get_layer("sigmoid_exposed_heatmap_"+str(real_i)).output) # traverse_to_output_from_layer(sup_layer))
+
+    # if has_nested_model:
+    #     model = Model(
+    #         inputs=[model.layers[0].input, model.layers[1].layers[0].input, model.layers[-2].input],
+    #         outputs=mod_outputs
+    #     )
+    # else:
+
+    if 'input' in model.layers[-2].name:
+        mod_inputs.append(model.layers[-2].input)
+    model = Model(
+        inputs=mod_inputs,
+        outputs=mod_outputs
+    )
+    print ("Intermediate Supervision heads successfully added.")
+    print(model.summary())
+
+    return model
+
+def add_int_supervision(model, input_dim, num_cams, 
+                        int_layers=[-4,-5], 
+                        feature_num=20, 
+                        out_kernel=(1,1,1), 
+                        gridsize=(64, 64, 64),
+                        finetune = False,
+                        addnl_layers = 0):
+    """
+    Add intermediate supervision at the int_layers provided. 
+    int_layers can be an array of layer names or layer indices.
+    The function could accept model with some int_supervision layers
+    along with new layers where supervision needs to be added, and add heatmap output there.
+    TODO: 
+    (1) make 
+    (2) The function should be able to generate heatmaps from layers that are not penultimate
+
+    Note - The current implementation may not be able to accommodate the
+    """
+    # import pdb
+    # pdb.set_trace()
+    import keras
+
+    has_nested_model = False
+    lay = [l.name for l in model.layers]
+    input_ = model.layers[0].input
+    # input_ = Input((*gridsize, input_dim * num_cams), name="image_input_parent")
+    mod_inputs = [input_]  
+
+    if isinstance(model.layers[1], keras.engine.functional.Functional):
+        nested_model = model.layers[1]
+        lay2 = [l.name for l in nested_model.layers]
+        
+        has_nested_model = True
+        model.layers[1].layers[0]._name = "nested_image_input"
+        print("Nested Layers: ", lay2)
+        print(nested_model.summary())
+        # input_ = Input((*gridsize, input_dim * num_cams), name="image_input")
+        
+    if not isinstance(model.output, list):
+        mod_outputs = [model.output]
+    else:
+        mod_outputs = model.output
+    # mod_outputs = [model(input_)]
+    print("Layers: ", lay)
+
+    # Create intermediate supervision outputs at the given layers, if not present
+    
+    for i,el in enumerate(int_layers):
+        # If the model has a nested model, getting a handle on the layer where supervision head
+        # has to be attached needs extra steps, since the layer can be within the parent model or the nested one
+        real_i = i
+        
+        if isinstance(el,str):
+            sup_layer = model.get_layer[el]
+        else:
+            sup_layer = model.layers[el]              
+            
+        
+        if not "int_supervision" in sup_layer._name: 
+            # Whether we have a nested model or not, with the sup_layer handle, we can do things like 
+            # Change the name for the layer, and peek at its output shape
+                
+            sigmoid_output = Activation(activations.sigmoid,
+                                name="sigmoid_exposed_heatmap_"+str(real_i))
+            
+            sup_layer_n_features = sup_layer.output_shape[-1]            
+            sup_layer._name = "int_supervision_"+str(real_i) 
+
+            # For getting a proper heatmap output on which loss can be applied, the output layer should have
+            # feature_num number of output features - the number of output features can be inferred from
+            # last element in output_shape of the layer output.
+            # Note: sup_layer is a layer till this point. The below code transforms it into an output tensor
+            #       and adds it to the outputs array.
+            if sup_layer_n_features > feature_num:
+                if sup_layer_n_features > 64:
+                    sup_layer = Conv3DTranspose(64, (2, 2, 2), strides=(2, 2, 2), padding="same", name="isup_upconv_"+str(real_i))(sup_layer.output)
+
+                    # At this point sup_layer is already transformed into an output tensor, rather than a layer
+                    sup_layer = Conv3D(feature_num, out_kernel, padding="same")(sup_layer)
+                
+                else:
+                    sup_layer = Conv3D(feature_num, out_kernel, padding="same", name= "isup_out_"+str(real_i))(sup_layer.output)
+                
+                # By this point the sup_layer is transformed into an output tensor from a layer
+                mod_outputs.append(sigmoid_output(sup_layer))
+
+            else :
+                mod_outputs.append(sigmoid_output(sup_layer.output))
+
+        # If the given layer is already marked as sup_layer, simply get its output
+        # else:
+        #     # mod_outputs.append(nested_model.get_layer("isup_out_"+str(real_i)).output)
+        #     mod_outputs.append(nested_model.get_layer("sigmoid_exposed_heatmap_"+str(real_i)).output) # traverse_to_output_from_layer(sup_layer))
+
+    # if has_nested_model:
+    #     model = Model(
+    #         inputs=[model.layers[0].input, model.layers[1].layers[0].input, model.layers[-2].input],
+    #         outputs=mod_outputs
+    #     )
+    # else:
+
+    if 'input' in model.layers[-2].name:
+        mod_inputs.append(model.layers[-2].input)
+    model = Model(
+        inputs=mod_inputs,
+        outputs=mod_outputs
+    )
+    print ("Intermediate Supervision heads successfully added.")
+    # print(model.summary())
+
+    return model
+
+
+
+
+# def add_exposed_heatmap_at_lay(model, layer_num):
+#     """
+#     Given a normal AVG model, add an extra output for supervision of the penultimate heatmap representation
+#     """
+#     lay = [l.name for l in model.layers]
+#     if "exposed_heatmap" not in lay:
+#         model.layers[-1]._name = "final_output"
+#         model.layers[1].layers[layer_num + len(lay)-2]._name = "exposed_heatmap"
+#         sigmoid_output = Activation(activations.sigmoid,
+#                                     name="sigmoid_exposed_hetmap")
+#         model = Model(
+#             inputs=[model.layers[0].get_input_at(0), model.layers[-2].input],
+#             outputs=[model.layers[-1].output, sigmoid_output(model.layers[1].layers[layer_num + len(lay)-2].output)],
+#         )
+
+#     return model
 
 def add_exposed_heatmap(model):
     """

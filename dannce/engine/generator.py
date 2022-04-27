@@ -2124,6 +2124,7 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         aux_labels=None,
         int_sup=None,
         num_isup_layers=1,
+        has_nested_ip = False,
     ):
         """Initialize data generator.
 
@@ -2184,6 +2185,7 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         self.aux_labels = aux_labels
         self.int_sup=int_sup
         self.num_isup_layers = num_isup_layers
+        self.has_nested_ip = has_nested_ip
         self.on_epoch_end()
 
     def __len__(self):
@@ -2520,6 +2522,9 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         # Randomly re-order, if desired
         X = self.do_random(X)
 
+        # import pdb
+        # pdb.set_trace()
+
         if self.expval:
             if self.heatmap_reg:
                 return [X, X_grid, self.get_max_gt_ind(X_grid, y_3d)], [y_3d,
@@ -2527,8 +2532,13 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
             elif aux is not None:
                 # return [X, X_grid], [y_3d, aux]
                 if self.int_sup is not None:
+                    outs = [y_3d]
+                    outs.extend([aux]*self.num_isup_layers)
                     print ("Generating for int supervision")
-                    return [X, X_grid], [y_3d].extend([aux]*self.num_isup_layers)
+                    # if self.has_nested_ip:
+                    #     return [X,X,X_grid], outs
+                    # else:
+                    return [X, X_grid], outs
                 else:
                     return [X, X_grid], [y_3d, aux]
             return [X, X_grid], y_3d
