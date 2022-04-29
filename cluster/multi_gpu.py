@@ -268,7 +268,14 @@ class MultiGpuHandler:
             pred_files = [
                 f for f in os.listdir(self.predict_path) if COM_BASE_NAME in f
             ]
-            pred_files = [f for f in pred_files if not f.endswith(COM_BASE_NAME + ".mat")]
+            pred_files = [
+                f
+                for f in pred_files
+                if not (
+                    f.endswith(COM_BASE_NAME + ".mat")
+                    or f.endswith(COM_BASE_NAME + ".pickle")
+                )
+            ]
             if len(pred_files) > 1:
                 params = load_params(self.config)
                 pred_ids = [int(f.split(".")[0].split("3d")[1]) for f in pred_files]
