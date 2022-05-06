@@ -1,6 +1,4 @@
 """Handle training and prediction for DANNCE and COM networks."""
-from genericpath import exists
-from pydoc import pathdirs
 import sys
 import numpy as np
 import os
