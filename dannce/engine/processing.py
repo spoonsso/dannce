@@ -1476,3 +1476,4 @@ def write_npy(uri, gen):
             print(fname)
             np.save(os.path.join(imdir, fname + ".npy"), bch[0][0][j].astype("uint8"))
             np.save(os.path.join(griddir, fname + ".npy"), bch[0][1][j])
+
