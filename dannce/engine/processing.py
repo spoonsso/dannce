@@ -70,7 +70,7 @@ def write_debug(
         # Plot all training images and save
         # create new directory for images if necessary
         debugdir = os.path.join(params["com_train_dir"], outdir)
-        import pdb; pdb.set_trace()
+        
         logging.info(prepend_log_msg + "Saving debug images to: " + debugdir)
         if not os.path.exists(debugdir):
             os.makedirs(debugdir)

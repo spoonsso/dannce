@@ -1,17 +1,8 @@
 """Setup file for dannce."""
 from setuptools import setup, find_packages
 
-def get_name():
-    import os
-    curr_dir = os.path.dirname(__file__)
-    print ("Current_Directory = ", curr_dir)
-    os.environ['DANNCE_HOME'] = curr_dir
-    print (os.environ['DANNCE_HOME'])
-
-    return "dannce"
-
 setup(
-    name=get_name(),
+    name="dannce",
     version="1.2.0",
     packages=find_packages(),
     install_requires=[
