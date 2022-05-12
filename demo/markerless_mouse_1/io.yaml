@@ -1,15 +1,15 @@
 ### COM ###
 # path to folder where COM weights and logs will be saved
-com_train_dir: ./COM/train_results/
-com_predict_dir: ./COM/predict_results/
+com_train_dir: ./COM/train_results/AS_SCR/APR04_22/LCL_DEMO5V_01/
+com_predict_dir: ./COM/predict_results/AS_SCR/APR04_22/LCL_DEMO5V_01/
 
 # During prediction, will look for the last epoch weights saved to ./COM/train_results/. To load in a different weights file, add the path here
 com_predict_weights: ./COM/train_results/weights.250-0.00036.hdf5
 
 ### Dannce ###
 # path to folder where DANNCE weights and logs will be saved
-dannce_train_dir: ./DANNCE/train_test_in_dgp
-dannce_predict_dir: ./DANNCE/predict_results/
+dannce_train_dir: ./DANNCE/train_results/AS_SCR/APR04_22/LCL_DEMO5V_01/
+dannce_predict_dir: ./DANNCE/predict_results/AS_SCR/APR04_22/LCL_DEMO5V_01/
 
 # During prediction, will look for the last epoch weights saved to ./DANNCE/train_results/. To load in a different weights file, add the path here
 # Note that this must be a FULL MODEL file, not just weights.
