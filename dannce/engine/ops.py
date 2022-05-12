@@ -708,6 +708,7 @@ def proj_slice(
     # Compute Xc - points in camera frame
     Xc = tf.matrix_triangular_solve(K_, rs_grid, lower=False, name="KinvX")
 
+    # Leaving this print statement as is. There are no calls going into this
     print(K.int_shape(Xc))
 
     # Define z values of samples along ray

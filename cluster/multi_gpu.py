@@ -14,9 +14,11 @@ from dannce import (
 )
 import scipy.io as spio
 from typing import Dict, List, Text
+import logging
 
 DANNCE_BASE_NAME = "save_data_AVG"
 COM_BASE_NAME = "com3d"
+FILE_PATH = "dannce.cluster.multi_gpu"
 
 
 def loadmat(filename: Text) -> Dict:
@@ -111,6 +113,26 @@ class MultiGpuHandler:
             self.dannce_file = self.load_dannce_file()
         else:
             self.dannce_file = dannce_file
+        
+        self.setup_logging()
+
+    def load_params(self, param_path: Text) -> Dict:
+        """Load a params file
+
+        Args:
+            param_path (Text): Path to parameters file
+
+        Returns:
+            Dict: Parameters dictionary
+        """
+        with open(param_path, "rb") as file:
+            params = yaml.safe_load(file)
+        return params
+    
+    def setup_logging(self):
+        params = self.load_params(self.config)
+        logging.basicConfig(filename=params["log_dest"], level=params["log_level"], 
+                        format='%(asctime)s %(levelname)s:%(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
 
     def save_batch_params(self, batch_params: List):
         """Save the batch_param dictionary to the batch_param file.
@@ -408,11 +430,12 @@ class MultiGpuHandler:
             batch_params (List): Batch parameters list
             cmd (str): System command
         """
+        prepend_log_msg = FILE_PATH + ".MultiGpuHandler.submit_jobs "
         if self.verbose:
             for batch_param in batch_params:
-                print("Start sample:", batch_param["start_sample"])
-                print("End sample:", batch_param["max_num_samples"])
-            print("Command issued: ", cmd)
+                logging.debug("Start sample:", batch_param["start_sample"])
+                logging.debug("End sample:", batch_param["max_num_samples"])
+            logging.info(prepend_log_msg + "Command issued: ", cmd)
         if not self.test:
             return os.WEXITSTATUS(os.system(cmd))
 
@@ -447,8 +470,10 @@ class MultiGpuHandler:
         Divide project into equal chunks of n_samples_per_gpu samples. Submit an array job
         that predicts over each chunk in parallel.
         """
+        prepend_log_msg = FILE_PATH + ".MultiGpuHandler.submit_com_predict_multi_gpu "
+
         n_samples = self.get_n_samples(self.dannce_file, use_com=False)
-        print(n_samples)
+        logging.info(prepend_log_msg + n_samples)
         batch_params = self.generate_batch_params_com(n_samples)
         slurm_config = load_params(load_params(self.config)["slurm_config"])
         cmd = (
@@ -633,13 +658,18 @@ def dannce_predict_single_batch():
     """CLI entrypoint to predict a single batch."""
     from dannce.interface import dannce_predict
 
+    prepend_log_msg = FILE_PATH + "dannce_predict_single_batch"
+
     # Load in parameters to modify
     config = sys.argv[1]
     handler = MultiGpuHandler(config)
     batch_params = handler.load_batch_params()
     task_id = int(os.getenv("SLURM_ARRAY_TASK_ID"))
     batch_param = batch_params[task_id]
-    print(batch_param)
+    logging.basicConfig(filename=handler.load_params(handler.config)["log_dest"], 
+                        level=handler.load_params(handler.config)["log_level"], 
+                        format='%(asctime)s %(levelname)s:%(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
+    logging.info(prepend_log_msg + batch_param)
 
     # Build final parameter dictionary
     params = build_params_from_config_and_batch(config, batch_param)
@@ -652,6 +682,8 @@ def com_predict_single_batch():
     """CLI entrypoint to predict a single batch."""
     from dannce.interface import com_predict
 
+    prepend_log_msg = FILE_PATH + "com_predict_single_batch"
+
     # Load in parameters to modify
     config = sys.argv[1]
     handler = MultiGpuHandler(config)
@@ -659,7 +691,10 @@ def com_predict_single_batch():
     task_id = int(os.getenv("SLURM_ARRAY_TASK_ID"))
     # task_id = 0
     batch_param = batch_params[task_id]
-    print(batch_param)
+    logging.basicConfig(filename=handler.load_params(handler.config)["log_dest"], 
+                        level=handler.load_params(handler.config)["log_level"], 
+                        format='%(asctime)s %(levelname)s:%(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
+    logging.info(prepend_log_msg + batch_param)
 
     # Build final parameter dictionary
     params = build_params_from_config_and_batch(config, batch_param, dannce_net=False)

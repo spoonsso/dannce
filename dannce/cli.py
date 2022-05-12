@@ -18,6 +18,7 @@ import ast
 import argparse
 import yaml
 from typing import Dict, Text
+import logging
 
 
 def load_params(param_path: Text) -> Dict:
@@ -253,6 +254,18 @@ def add_shared_args(
         "--norm-method",
         dest="norm_method",
         help="Normalization method to use, can be 'batch', 'instance', or 'layer'.",
+    )
+
+    parser.add_argument(
+        "--log-level",
+        dest="log_level",
+        help="Level of logging to use, can be 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'. Default is 'INFO'.",
+    )
+
+    parser.add_argument(
+        "--log-dest",
+        dest="log_dest",
+        help="Log File location to where logs are to be written to. By default, location is set to ../logs/dannce.log ",
     )
 
     return parser
@@ -844,7 +857,11 @@ def combine(base_params: Dict, clargs: argparse.Namespace, dannce_net: bool) -> 
                 base_params[k] = v
         elif v is not None:
             base_params[k] = v
-
+    
+    if not os.path.exists(os.path.dirname(base_params["log_dest"])):
+        os.makedirs(os.path.dirname(base_params["log_dest"]))
+    logging.basicConfig(filename=base_params["log_dest"], level=base_params["log_level"], 
+                        format='%(asctime)s %(levelname)s:%(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
     for k, v in base_params.items():
-        print("{} set to: {}".format(k, v))
+        logging.info("{} set to: {}".format(k, v))
     return base_params

@@ -11,6 +11,7 @@ import warnings
 import time
 import scipy.ndimage.interpolation
 import tensorflow as tf
+import logging
 
 # from tensorflow_graphics.geometry.transformation.axis_angle import rotate
 from multiprocessing.dummy import Pool as ThreadPool
@@ -24,10 +25,11 @@ MISSING_KEYPOINTS_MSG = (
 )
 
 TF_GPU_MEMORY_FRACTION = 0.9
+FILE_PATH = "dannce.engine.generator"
 
 
 class DataGenerator(keras.utils.Sequence):
-    """Generate data for Keras.
+    """Generate data for Keras. The object creating instance of this class should have logging enabled.
 
     Attributes:
         batch_size (int): Batch size to generate
@@ -186,7 +188,7 @@ class DataGenerator(keras.utils.Sequence):
 
 
 class DataGenerator_3Dconv(DataGenerator):
-    """Update generator class to handle multiple experiments.
+    """Update generator class to handle multiple experiments. The object creator should have logging enabled.
 
     Attributes:
         camera_params (Dict): Camera parameters dictionary.
@@ -330,7 +332,7 @@ class DataGenerator_3Dconv(DataGenerator):
         self.interp = interp
         self.depth = depth
         self.channel_combo = channel_combo
-        print(self.channel_combo)
+        logging.info(self.channel_combo)
         self.mode = mode
         self.immode = immode
         self.tifdirs = tifdirs
@@ -912,7 +914,7 @@ class DataGenerator_3Dconv_torch(DataGenerator):
         self.interp = interp
         self.depth = depth
         self.channel_combo = channel_combo
-        print(self.channel_combo)
+        logging.info(FILE_PATH + ".DataGenerator_3Dconv_torch.__init__" + self.channel_combo if channel_combo is not None else "None")
         self.gpu_id = gpu_id
         self.mode = mode
         self.immode = immode
@@ -941,7 +943,7 @@ class DataGenerator_3Dconv_torch(DataGenerator):
         config.gpu_options.per_process_gpu_memory_fraction = TF_GPU_MEMORY_FRACTION
         config.gpu_options.allow_growth = True
         self.session = tf.compat.v1.Session(config=config, graph=tf.Graph())
-        print("Executing eagerly: ", tf.executing_eagerly(), flush=True)
+        logging.info(FILE_PATH + ".DataGenerator_3Dconv_torch.__init__" + "Executing eagerly: " + str(tf.executing_eagerly()))#, flush=True)
         for i, ID in enumerate(list_IDs):
             experimentID = int(ID.split("_")[0])
             for camname in self.camnames[experimentID]:
@@ -954,7 +956,7 @@ class DataGenerator_3Dconv_torch(DataGenerator):
                 )
                 self.camera_params[experimentID][camname]["M"] = M
 
-        print("Init took {} sec.".format(time.time() - ts))
+        logging.info(FILE_PATH + ".DataGenerator_3Dconv_torch.__init__" + "Init took {} sec.".format(time.time() - ts))
 
     def __getitem__(self, index: int):
         """Generate one batch of data.
@@ -1543,7 +1545,7 @@ class DataGenerator_3Dconv_tf(DataGenerator):
         self.interp = interp
         self.depth = depth
         self.channel_combo = channel_combo
-        print(self.channel_combo)
+        logging.info(FILE_PATH + ".DataGenerator_3Dconv_tf.__init__ " + self.channel_combo  if channel_combo is not None else "None")
         self.gpu_id = gpu_id
         self.mode = mode
         self.immode = immode
@@ -1583,7 +1585,7 @@ class DataGenerator_3Dconv_tf(DataGenerator):
                         ops.camera_matrix(K, R, t), dtype="float32"
                     )
 
-        print("Init took {} sec.".format(time.time() - ts))
+        logging.info(FILE_PATH + ".DataGenerator_3Dconv_tf.__init__ " + "Init took {} sec.".format(time.time() - ts))
 
     def __getitem__(self, index):
         """Generate one batch of data.
@@ -2689,7 +2691,7 @@ class DataGenerator_3Dconv_npy(DataGenerator_3Dconv_frommem):
         """Update indexes after each epoch."""
         self.indexes = np.arange(len(self.list_IDs))
         if self.shuffle == True:
-            print("SHUFFLING DATA INDICES")
+            logging.info( FILE_PATH + ".DataGenerator_3Dconv_npy.on_epoch_end " + "SHUFFLING DATA INDICES")
             np.random.shuffle(self.indexes)
 
     def rot90(self, X):
