@@ -611,7 +611,21 @@ def add_dannce_train_args(
         "--avg-max",
         dest="avg+max",
         type=float,
-        help="Pass a floating point value here for DANNCE to enter AVG+MAX training mode, where the 3D maps are MAX-like regularized to be Gaussian. The avg+max value is used to weight the contribution of the MAX-like loss.")
+        help="Pass a floating point value here for DANNCE to enter AVG+MAX training mode, where the 3D maps are MAX-like regularized to be Gaussian. The avg+max value is used to weight the contribution of the MAX-like loss."
+    )
+    parser.add_argument(
+        "--intermediate-supervision",
+        dest="intermediate_supervision",
+        type=ast.literal_eval,
+        help="If True, training is performed with intermediate supervision outputs" 
+    )
+    parser.add_argument(
+        "--intermediate-supervision-layers",
+        dest="int_supervision_layers",
+        type=ast.literal_eval,
+        help="List of layer numbers or layer numbers in a model where to add intermediate supervision outputs."
+    )
+    
     return parser
 
 

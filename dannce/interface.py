@@ -955,12 +955,13 @@ def dannce_train(params: Dict):
                 X_valid[i] = rr[0]
             y_valid[i] = rr[1]
 
-    # For AVG+MAX training, need to update the expval flag in the generators
+    # For AVG+MAX training or training with intermediate supervision, 
+    # need to update the expval flag in the generators
     # and re-generate the 3D training targets
     # TODO: Add code to infer_params
     y_train_aux = None
     y_valid_aux = None
-    if params["avg+max"] is not None:
+    if params["avg+max"] is not None and params["intermediate_supervision"] is not None:
         y_train_aux, y_valid_aux = processing.initAvgMax(
             y_train, y_valid, X_train_grid, X_valid_grid, params
         )
