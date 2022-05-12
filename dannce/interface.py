@@ -1020,8 +1020,8 @@ def dannce_train(params: Dict):
         "mirror_augmentation": False,
         "shuffle": False,
         "replace": False,
-        "n_rand_views": params["n_rand_views"] if cam3_train or int(params["n_rand_views"]) < len(camnames[0]) else None,
-        "random": True if cam3_train or int(params["n_rand_views"]) < len(camnames[0]) else False,
+        "n_rand_views": params["n_rand_views"] if cam3_train or params["n_rand_views"] is not None and params["n_rand_views"] < len(camnames[0]) else None,
+        "random": True if cam3_train or params["n_rand_views"] is not None and params["n_rand_views"] < len(camnames[0]) else False,
     }
     if params["use_npy"]:
         genfunc = generator.DataGenerator_3Dconv_npy
@@ -1102,7 +1102,7 @@ def dannce_train(params: Dict):
                 lr=float(params["lr"]),
                 input_dim=params["chan_num"] + params["depth"],
                 feature_num=params["n_channels_out"],
-                num_cams=params["n_rand_views"] if params["n_rand_views"] < len(camnames[0]) and params["n_rand_views"] is not None else len(camnames[0]),
+                num_cams=params["n_rand_views"] if params["n_rand_views"] is not None and params["n_rand_views"] < len(camnames[0]) else len(camnames[0]),
                 norm_method=params["norm_method"],
                 include_top=True,
                 gridsize=gridsize,
@@ -1113,7 +1113,7 @@ def dannce_train(params: Dict):
                 float(params["lr"]),
                 params["chan_num"] + params["depth"],
                 params["n_channels_out"],
-                params["n_rand_views"] if params["n_rand_views"] < len(camnames[0]) and params["n_rand_views"] is not None else len(camnames[0]),
+                params["n_rand_views"] if params["n_rand_views"] is not None and params["n_rand_views"] < len(camnames[0]) else len(camnames[0]),
                 params["new_last_kernel_size"],
                 params["new_n_channels_out"],
                 params["dannce_finetune_weights"],
