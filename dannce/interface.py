@@ -226,7 +226,7 @@ def setup_com_predict(params: Dict):
 
     # If params['n_channels_out'] is greater than one, we enter a mode in
     # which we predict all available labels + the COM
-    params["multi_mode"] = params["n_channels_out"] > 1 & params["n_instances"] == 1
+    params["multi_mode"] = (params["n_channels_out"] > 1) & (params["n_instances"] == 1)
     params["n_channels_out"] = params["n_channels_out"] + int(params["multi_mode"])
 
     # Grab the input file for prediction
@@ -627,7 +627,7 @@ def setup_com_train(params: Dict) -> Dict:
 
     # MULTI_MODE is where the full set of markers is trained on, rather than
     # the COM only. In some cases, this can help improve COMfinder performance.
-    params["multi_mode"] = params["n_channels_out"] > 1 & params["n_instances"] == 1
+    params["multi_mode"] = (params["n_channels_out"] > 1) & (params["n_instances"] == 1)
     params["n_channels_out"] = params["n_channels_out"] + int(params["multi_mode"])
     return params
 

@@ -1,15 +1,16 @@
 # Dannce slurm configuration
-dannce_train: "--job-name=trainDannce -p olveczkygpu,gpu --mem=80000 -t 3-00:00 --gres=gpu:1 -N 1 -n 8 --constraint=cc5.2 --exclude=holygpu7c1726"
-dannce_train_grid: "--job-name=trainDannce -p olveczkygpu,gpu --mem=80000 -t 3-00:00 --gres=gpu:1 -N 1 -n 8 --constraint=cc5.2 --exclude=holygpu7c1726"
-dannce_predict: "--job-name=predictDannce -p olveczkygpu,gpu,cox,gpu_requeue --mem=30000 -t 1-00:00 --gres=gpu:1 -N 1 -n 8 --constraint=cc5.2 --exclude=holygpu7c1726"
-dannce_multi_predict: "--job-name=predictDannce -p olveczkygpu,gpu,cox,gpu_requeue --mem=30000 -t 0-03:00 --gres=gpu:1 -N 1 -n 8 --constraint=cc5.2 --exclude=holygpu7c1726"
+dannce_train: "--job-name=trainDannce -p olveczkygpu,gpu --mem=80000 -t 3-00:00 --gres=gpu:1 -N 1 -n 8 "
+dannce_train_grid: "--job-name=trainDannce -p olveczkygpu,gpu --mem=80000 -t 3-00:00 --gres=gpu:1 -N 1 -n 8 "
+dannce_predict: "--job-name=predictDannce -p olveczkygpu,gpu,cox,gpu_requeue --mem=30000 -t 1-00:00 --gres=gpu:1 -N 1 -n 8 "
+dannce_multi_predict: "--job-name=predictDannce -p olveczkygpu,gpu,cox,gpu_requeue --mem=30000 -t 0-03:00 --gres=gpu:1 -N 1 -n 8 "
 
 # Com slurm configuration
-com_train: "--job-name=trainCom -p olveczkygpu,gpu --mem=30000 -t 3-00:00 --gres=gpu:1 -N 1 -n 8 --constraint=cc5.2 --exclude=holygpu7c1726"
-com_predict: "--job-name=predictCom -p olveczkygpu,gpu,cox,gpu_requeue --mem=10000 -t 1-00:00 --gres=gpu:1 -N 1 -n 8 --constraint=cc5.2 --exclude=holygpu7c1726"
-com_multi_predict: "--job-name=predictCom -p olveczkygpu,gpu,cox,gpu_requeue --mem=10000 -t 0-03:00 --gres=gpu:1 -N 1 -n 8 --constraint=cc5.2 --exclude=holygpu7c1726"
+com_train: "--job-name=trainCom -p olveczkygpu,gpu --mem=30000 -t 3-00:00 --gres=gpu:1 -N 1 -n 8 "
+com_predict: "--job-name=predictCom -p olveczkygpu,gpu,cox,gpu_requeue --mem=10000 -t 1-00:00 --gres=gpu:1 -N 1 -n 8 "
+com_multi_predict: "--job-name=predictCom -p olveczkygpu,gpu,cox,gpu_requeue --mem=10000 -t 0-03:00 --gres=gpu:1 -N 1 -n 8 "
 
 # Inference
 inference: '--job-name=inference -p olveczky,shared --mem=30000 -t 3-00:00 -N 1 -n 8 --constraint="intel&avx2"'
 # Setup functions (optional, set to "" if no setup is required. Trailing ; is required)
-setup: "module load Anaconda3/2020.11; source activate dannce;"
+# setup: "module load Anaconda3/2020.11; source activate dannce;"
+setup: "module load Anaconda3/2020.11; source activate dannce; module load cuda/11.0.3-fasrc01; module load cudnn/8.0.4.30_cuda11.0-fasrc01;"
