@@ -1,19 +1,11 @@
-import numpy as np
 import sys
 import pickle
 import os
 import yaml
 import argparse
 import ast
-from dannce.engine.io import load_sync, load_com
-from dannce.engine.processing import prepare_save_metadata
-from dannce import (
-    _param_defaults_shared,
-    _param_defaults_dannce,
-    _param_defaults_com,
-)
 from typing import Text, List, Tuple
-from multi_gpu import build_params_from_config_and_batch
+from cluster.multi_gpu import build_params_from_config_and_batch
 
 
 import subprocess
@@ -116,7 +108,7 @@ class GridHandler:
         get_user_process = subprocess.Popen(get_user_cmd.split(), stdout=subprocess.PIPE)
         slurm_uname = get_user_process.communicate()[0].decode("utf-8").rstrip()
 
-        get_queue_cmd = "squeue -u "+slurm_uname
+        get_queue_cmd = "squeue -u " + slurm_uname
         get_queue_process = subprocess.Popen(get_queue_cmd.split(), stdout=subprocess.PIPE)
         queue = get_queue_process.communicate()[0].decode("utf-8").split('\n')
         current_job_row = queue[-2].strip()
