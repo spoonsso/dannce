@@ -939,7 +939,7 @@ def load_expdict(params, e, expdict, _DEFAULT_VIDDIR):
             [int(x.split(".")[0]) for x in video_files]
         )
     exp["chunks"] = chunks
-    logging.debug(prepend_log_msg + chunks)
+    logging.debug(prepend_log_msg + str(chunks))
 
     # For npy volume training
     if params["use_npy"]:

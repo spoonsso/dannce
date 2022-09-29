@@ -549,7 +549,7 @@ def finetune_AVG(
     logging.info(prepend_log_msg + "evaluating weight deltas in the first conv layer")
 
     logging.info(prepend_log_msg + "pre-weights")
-    logging.info(prepend_log_msg + pre[1][0])
+    logging.info(prepend_log_msg + str(pre[1][0]))
     print("post-weights")
     print(post[1][0])
     print("delta:")

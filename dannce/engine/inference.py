@@ -38,7 +38,7 @@ def print_checkpoint(
     prepend_log_msg = FILE_PATH + ".print_checkpoint "
     logging.info(prepend_log_msg + "Predicting on sample %d" % (n_frame))# flush=True)
     if (n_frame - start_ind) % sample_save == 0 and n_frame != start_ind:
-        logging.info(prepend_log_msg + n_frame)
+        logging.info(prepend_log_msg + str(n_frame))
         logging.info(prepend_log_msg + "{} samples took {} seconds".format(sample_save, time.time() - end_time))
         end_time = time.time()
     return end_time

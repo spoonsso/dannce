@@ -473,7 +473,7 @@ class MultiGpuHandler:
         prepend_log_msg = FILE_PATH + ".MultiGpuHandler.submit_com_predict_multi_gpu "
 
         n_samples = self.get_n_samples(self.dannce_file, use_com=False)
-        logging.info(prepend_log_msg + n_samples)
+        logging.info(prepend_log_msg + str(n_samples))
         batch_params = self.generate_batch_params_com(n_samples)
         slurm_config = load_params(load_params(self.config)["slurm_config"])
         cmd = (
@@ -669,7 +669,7 @@ def dannce_predict_single_batch():
     logging.basicConfig(filename=handler.load_params(handler.config)["log_dest"], 
                         level=handler.load_params(handler.config)["log_level"], 
                         format='%(asctime)s %(levelname)s:%(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
-    logging.info(prepend_log_msg + batch_param)
+    logging.info(prepend_log_msg + str(batch_param))
 
     # Build final parameter dictionary
     params = build_params_from_config_and_batch(config, batch_param)
@@ -694,7 +694,7 @@ def com_predict_single_batch():
     logging.basicConfig(filename=handler.load_params(handler.config)["log_dest"], 
                         level=handler.load_params(handler.config)["log_level"], 
                         format='%(asctime)s %(levelname)s:%(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
-    logging.info(prepend_log_msg + batch_param)
+    logging.info(prepend_log_msg + str(batch_param))
 
     # Build final parameter dictionary
     params = build_params_from_config_and_batch(config, batch_param, dannce_net=False)
