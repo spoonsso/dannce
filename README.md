@@ -186,7 +186,7 @@ After training, run
 
 Consult the demo folder for directory and config file formatting examples
 
-### Contributing
+## Contributing
 
 Before you push into the repository, make sure to run the standard tests on the code. The `tests` directory contains all the standard tests to be run. You will need to have the weights and videos in order to run the tests.
 
