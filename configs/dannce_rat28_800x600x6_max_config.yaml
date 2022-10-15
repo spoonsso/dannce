@@ -1,0 +1,41 @@
+# File name of io.yaml file, which should exist in the directory from which you
+# call dannce functions
+io_config: io_max.yaml
+
+# New number of network output channels.
+n_channels_out: 28
+new_n_channels_out: 28
+n_views: 6
+
+# Use Multiple GPU
+gpu_id: "1"
+
+# Batch size for training and prediction
+batch_size: 4
+
+# DANNCE training option. Sets the number of epochs during training (default 1200)
+epochs: 250
+
+# either 'AVG' or 'MAX'
+net_type: MAX
+
+# Options:
+# 'new': initializes and trains a network from scratch
+# 'finetune': loads in pre-trained weights and fine-tuned from there
+# 'continued': initializes a full model, including optimizer state, and continuous training from the last full model checkpoint
+train_mode: new
+
+# How many samples from each animal do you want to (randomly) set aside for a validation metric?
+num_validation_per_exp: 4
+
+# Size of 3D volume (in mm) anchored on animal
+vol_size: 180
+
+# Number of voxels along each spatial dimension
+nvox: 64
+
+# max. number of batches to evaluate during prediction. set to 'max' to evaluate over all data/video frames
+max_num_samples: null
+
+# By default, will load in the first hdf5 file at this location for fine-tuning. If training from scratch, set to None
+dannce_finetune_weights: /home/liying_lab/chenxinfeng/DATA/dannce/demo/markerless_mouse_1/DANNCE/weights/weights.rat.AVG.MONO

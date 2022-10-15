@@ -1,0 +1,6 @@
+[submodule "Label3D"]
+	path = Label3D
+	url = https://github.com/diegoaldarondo/Label3D/
+[submodule "campy"]
+	path = campy
+	url = https://github.com/ksseverson57/campy/

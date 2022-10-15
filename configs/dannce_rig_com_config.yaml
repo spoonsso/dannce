@@ -1,0 +1,52 @@
+# Names for each of the camera subdirectories in the video folder. Order should match the datafiles above.
+# camnames: ['CameraLmouse', 'CameraRmouse', 'CameraSmouse']
+# Degree of downsampling applied to image input. Default 1.
+downfac: 8
+# Video file extension
+extension: '.mp4'
+io_config: 'io.yaml'
+# How to crop the input images. For labeling, this is not strictly required
+crop_height: [0, 1152]
+crop_width: [0, 1920]
+# Number of channels for each input image (e.g. RGB == 3)
+n_channels_in: 3
+camnames: ['Camera1', 'Camera2', 'Camera3', 'Camera4', 'Camera5', 'Camera6']
+
+######################################################################### COM 
+n_views: 6
+# Number of network output channels.
+n_channels_out: 1
+# BATCH_SIZE*len(camnames) should be <= 6 for most COM training applications
+batch_size: 2
+# DANNCE training option. Sets the size of the 3D Guassians (in mm) used as labels for the MAX models
+sigma: 18
+# DANNCE training option. Sets the number of epochs during training
+epochs: 200
+# DANNCE training option. Sets the verbosity of training output
+verbose: 1
+# DANNCE training option. Loss function to be used. Default MSE.
+loss: mask_nan_keep_loss
+# DANNCE training option. Learning rate for the Adam optimizer. Default 1e-3.
+lr: 5e-5
+# name of the network architecture (see nets.py)
+net: unet2d_fullbn
+# If true, each camera's video directory contains only the video files. If false, each camera's video directory contains an additional subdirectory, which then contains the video files
+vid_dir_flag: False
+# DANNCE training. Metric to be monitored in addition to loss
+metric: mse
+# Set the video extension
+extension: .mp4
+# How many samples from each animal do you want to (randomly) set aside for a validation metric?
+num_validation_per_exp: 10
+# If true, saves plots of the training labels overlaid on images
+debug: False
+# When using a system with multiple GPUs, we should just target one ofthem
+gpu_id: "0"
+# If present, write the confidence map output and image/COM overlays to disk during prediction
+# COMdebug: CameraLmouse
+# How many frames to you want to predict over? Set to 'max' for all video frames.
+max_num_samples: 'max'
+# Use this to select between downsampling modes. 'dsm' is the original (slow) downsample local mean, 'nn' is fast nearest neighbors
+dsmode: dsm
+# Medianfilter window
+medfilt_window: 30
