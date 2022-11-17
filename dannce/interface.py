@@ -961,7 +961,7 @@ def dannce_train(params: Dict):
     # TODO: Add code to infer_params
     y_train_aux = None
     y_valid_aux = None
-    if params["avg+max"] is not None and params["intermediate_supervision"] is not None:
+    if params["avg+max"] is not None :
         y_train_aux, y_valid_aux = processing.initAvgMax(
             y_train, y_valid, X_train_grid, X_valid_grid, params
         )
