@@ -1015,8 +1015,8 @@ def dannce_train(params: Dict):
         "mirror_augmentation": False,
         "shuffle": False,
         "replace": False,
-        "n_rand_views": params["n_rand_views"] if cam3_train else None,
-        "random": True if cam3_train else False,
+        "n_rand_views": params["n_rand_views"] if cam3_train or params["n_rand_views"] is not None and params["n_rand_views"] < len(camnames[0]) else None,
+        "random": True if cam3_train or params["n_rand_views"] is not None and params["n_rand_views"] < len(camnames[0]) else False,
     }
     if params["use_npy"]:
         genfunc = generator.DataGenerator_3Dconv_npy
@@ -1097,7 +1097,7 @@ def dannce_train(params: Dict):
                 lr=float(params["lr"]),
                 input_dim=params["chan_num"] + params["depth"],
                 feature_num=params["n_channels_out"],
-                num_cams=len(camnames[0]),
+                num_cams=params["n_rand_views"] if params["n_rand_views"] is not None and params["n_rand_views"] < len(camnames[0]) else len(camnames[0]),
                 norm_method=params["norm_method"],
                 include_top=True,
                 gridsize=gridsize,
@@ -1108,7 +1108,7 @@ def dannce_train(params: Dict):
                 float(params["lr"]),
                 params["chan_num"] + params["depth"],
                 params["n_channels_out"],
-                len(camnames[0]),
+                params["n_rand_views"] if params["n_rand_views"] is not None and params["n_rand_views"] < len(camnames[0]) else len(camnames[0]),
                 params["new_last_kernel_size"],
                 params["new_n_channels_out"],
                 params["dannce_finetune_weights"],
@@ -1136,6 +1136,8 @@ def dannce_train(params: Dict):
                     "slice_input": nets.slice_input,
                     "mask_nan_keep_loss": losses.mask_nan_keep_loss,
                     "mask_nan_l1_loss": losses.mask_nan_l1_loss,
+                    "log_cosh_loss": losses.log_cosh_loss,
+                    "huber_loss": losses.huber_loss,
                     "euclidean_distance_3D": losses.euclidean_distance_3D,
                     "centered_euclidean_distance_3D": losses.centered_euclidean_distance_3D,
                 },
@@ -1148,7 +1150,7 @@ def dannce_train(params: Dict):
                 float(params["lr"]),
                 params["chan_num"] + params["depth"],
                 params["n_channels_out"],
-                3 if cam3_train else len(camnames[0]),
+                3 if cam3_train else params["n_rand_views"] if params["n_rand_views"] < len(camnames[0]) and params["n_rand_views"] is not None else len(camnames[0]),
                 norm_method=params["norm_method"],
                 include_top=True,
                 gridsize=gridsize,
@@ -1238,6 +1240,11 @@ def dannce_train(params: Dict):
             params,
         )
         callbacks = callbacks + [max_save_callback]
+    
+    print("Model Architecture: ")
+    print(model.summary())
+
+    # import pdb; pdb.set_trace()
 
     model.fit(
         x=train_generator,
@@ -1602,6 +1609,8 @@ def build_model(params: Dict, camnames: List) -> Model:
                 "slice_input": nets.slice_input,
                 "mask_nan_keep_loss": losses.mask_nan_keep_loss,
                 "mask_nan_l1_loss": losses.mask_nan_l1_loss,
+                "log_cosh_loss": losses.log_cosh_loss,
+                "huber_loss": losses.huber_loss,
                 "euclidean_distance_3D": losses.euclidean_distance_3D,
                 "centered_euclidean_distance_3D": losses.centered_euclidean_distance_3D,
             },

@@ -109,6 +109,7 @@ class MultiGpuHandler:
         self.verbose = verbose
         self.com_file = com_file
         self.test = test
+        self.io_config = load_params(self.config)["io_config"]
         if dannce_file is None:
             self.dannce_file = self.load_dannce_file()
         else:
@@ -213,7 +214,7 @@ class MultiGpuHandler:
                 com_samples = len(com["sampleID"][0])
             except KeyError:
                 try:
-                    params = load_params("io.yaml")
+                    params = load_params(self.io_config)
                     self.com_file = params["com_file"]
                     com_samples = self.load_com_length_from_file()
                 except:
@@ -258,7 +259,7 @@ class MultiGpuHandler:
 
         if self.only_unfinished:
             if self.predict_path is None:
-                params = load_params("io.yaml")
+                params = load_params(self.io_config)
                 if params["com_predict_dir"] is None:
                     raise ValueError(
                         "Either predict_path (clarg) or com_predict_dir (in io.yaml) must be specified for merge"
@@ -303,7 +304,7 @@ class MultiGpuHandler:
         max_samples[-1] = n_samples
 
         params = load_params(self.config)
-        params = {**params, **load_params("io.yaml")}
+        params = {**params, **load_params(self.io_config)}
         if "n_instances" not in params:
             params["n_instances"] = 1
 
@@ -384,7 +385,7 @@ class MultiGpuHandler:
             (List): Updated batch parameters list.
         """
         if self.predict_path is None:
-            params = load_params("io.yaml")
+            params = load_params(self.io_config)
             if params["dannce_predict_dir"] is None:
                 raise ValueError(
                     "Either predict_path (clarg) or dannce_predict_dir (in io.yaml) must be specified for merge"
@@ -484,7 +485,7 @@ class MultiGpuHandler:
         # Get all of the paths
         if self.predict_path is None:
             # Try to get it from io.yaml
-            params = load_params("io.yaml")
+            params = load_params(self.io_config)
             if params["com_predict_dir"] is None:
                 raise ValueError(
                     "Either predict_path (clarg) or com_predict_dir (in io.yaml) must be specified for merge"
@@ -553,7 +554,7 @@ class MultiGpuHandler:
         # Get all of the paths
         if self.predict_path is None:
             # Try to get it from io.yaml
-            params = load_params("io.yaml")
+            params = load_params(self.io_config)
             if params["dannce_predict_dir"] is None:
                 raise ValueError(
                     "Either predict_path (clarg) or dannce_predict_dir (in io.yaml) must be specified for merge"
@@ -722,7 +723,7 @@ def submit_inference():
     com_config = load_params(args["com_config"])
     dannce_config = load_params(args["dannce_config"])
     slurm_config = load_params(dannce_config["slurm_config"])
-    io_config = load_params("io.yaml")
+    io_config = load_params(dannce_config["io_config"])
 
     # Determine whether running multi instance or single instance
     for config in [com_config, dannce_config, io_config]:
@@ -785,7 +786,7 @@ def multi_instance_inference():
     handler.submit_dannce_predict_multi_gpu()
     handler.submit_dannce_predict_multi_gpu()
 
-    params = load_params("io.yaml")
+    params = load_params(handler.io_config)
     instance_0_path = os.path.join(params["dannce_predict_dir"], "instance0")
     instance_1_path = os.path.join(params["dannce_predict_dir"], "instance1")
 

@@ -512,7 +512,6 @@ def finetune_AVG(
         norm_method,
         include_top=False,
     )
-
     pre = model.get_weights()
     # Load weights
     model = renameLayers(model, weightspath)
@@ -744,7 +743,7 @@ def load_attributes_from_hdf5_group(group, name):
     """
     if name not in group.attrs:
         group = group["model_weights"]
-    data = [n.decode("utf8") for n in group.attrs[name]]
+    data = [n if isinstance(n, str) else n.decode("utf8") for n in group.attrs[name]]
 
     return data
 
@@ -768,7 +767,13 @@ def renameLayers(model, weightspath):
             )
             layer._name = lnames[i]
 
-    model.load_weights(weightspath, by_name=True)
+    import traceback
+    try:
+        model.load_weights(weightspath, by_name=True, skip_mismatch=True)
+    except ValueError:
+        print("Loading model weights failed")
+        print(traceback.format_exc())
+
 
     # We need to change the model layer names back to the TF2 version otherwise the model
     # won't save
