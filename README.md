@@ -185,3 +185,19 @@ After training, run
 `dannce-predict /path/to/main_config.yaml` from within an experiment folder to make 3D predictions using the trained model.
 
 Consult the demo folder for directory and config file formatting examples
+
+## Contributing
+
+Before you push into the repository, make sure to run the standard tests on the code. The `tests` directory contains all the standard tests to be run. You will need to have the weights and videos in order to run the tests.
+
+After your changes are done, the tests can be run by using the following simple steps:
+ - Go to the dannce install directory
+ - Do a pip install
+ - run `tests/tests.sh`
+```
+    cd dannce
+    pip install -e .
+    sh tests/tests.sh
+``` 
+
+If you think the functionality you have included needs to be tested separately, you can include a test for the same under `tests/cli_test.py`

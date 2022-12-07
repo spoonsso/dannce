@@ -30,8 +30,10 @@ from dannce import (
 import dannce.engine.inference as inference
 from typing import List, Dict, Text
 import os, psutil
+import logging
 
 process = psutil.Process(os.getpid())
+file_path = "dannce.interface"
 
 _DEFAULT_VIDDIR = "videos"
 _DEFAULT_COMSTRING = "COM"
@@ -54,6 +56,7 @@ def check_unrecognized_params(params: Dict):
         in_com = key in _param_defaults_com
         in_dannce = key in _param_defaults_dannce
         in_shared = key in _param_defaults_shared
+        print (in_com, in_dannce, in_shared)
         if not (in_com or in_dannce or in_shared):
             invalid_keys.append(key)
 
@@ -107,6 +110,13 @@ def com_predict(params: Dict):
     Args:
         params (Dict): Parameters dictionary.
     """
+    # Enable Logging for com_predict
+    if not os.path.exists(os.path.dirname(params["log_dest"])):
+        os.makedirs(os.path.dirname(params["log_dest"]))
+    logging.basicConfig(filename=params["log_dest"], level=params["log_level"], 
+                        format='%(asctime)s %(levelname)s:%(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
+    prepend_log_msg = file_path + ".com_predict "
+
     params = setup_com_predict(params)
 
     # Get the model
@@ -202,7 +212,7 @@ def com_predict(params: Dict):
             file_name="com3d%d" % (params["start_sample"]),
         )
 
-    print("done!")
+    logging.info(prepend_log_msg+"done!")
 
 
 def setup_com_predict(params: Dict):
@@ -211,6 +221,8 @@ def setup_com_predict(params: Dict):
     Args:
         params (Dict): Parameters dictionary
     """
+    # Prepend part for logging
+    prepend_log_msg = file_path + ".setup_com_predict "
 
     # Make the prediction directory if it does not exist.
     make_folder("com_predict_dir", params)
@@ -232,7 +244,7 @@ def setup_com_predict(params: Dict):
     # Grab the input file for prediction
     params["label3d_file"] = processing.grab_predict_label3d_file()
 
-    print("Using camnames: {}".format(params["camnames"]))
+    logging.info(prepend_log_msg+"Using camnames: {}".format(params["camnames"]))
 
     # Also add parent params under the 'experiment' key for compatibility
     # with DANNCE's video loading function
@@ -253,11 +265,14 @@ def build_com_network(params: Dict) -> Model:
     Returns:
         Model: com network
     """
+    # Prepend Logging message for build_com_network
+    prepend_log_msg = file_path + ".build_com_network "
+
     # channels out is equal to the number of views when using a single video stream with mirrors
     eff_n_channels_out = (
         int(params["n_views"]) if params["mirror"] else params["n_channels_out"]
     )
-    print("Initializing Network...")
+    logging.info("Initializing Network...")
     # Build net
     model = params["net"](
         params["loss"],
@@ -276,10 +291,10 @@ def build_com_network(params: Dict) -> Model:
         weights = weights[-1]
         params["com_predict_weights"] = os.path.join(params["com_train_dir"], weights)
 
-    print("Loading weights from " + params["com_predict_weights"])
+    logging.info(prepend_log_msg + "Loading weights from " + params["com_predict_weights"])
     model.load_weights(params["com_predict_weights"])
 
-    print("COMPLETE\n")
+    logging.info(prepend_log_msg+"COMPLETE\n")
     return model
 
 
@@ -322,6 +337,14 @@ def com_train(params: Dict):
     Args:
         params (Dict): Parameters dictionary.
     """
+
+    # Setup Logging for com_train
+    if not os.path.exists(os.path.dirname(params["log_dest"])):
+        os.makedirs(os.path.dirname(params["log_dest"]))
+    logging.basicConfig(filename=params["log_dest"], level=params["log_level"], 
+                        format='%(asctime)s %(levelname)s:%(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
+    prepend_log_msg = file_path + ".com_train "
+
     params = setup_com_train(params)
 
     # Use the same label files and experiment settings as DANNCE unless
@@ -389,7 +412,7 @@ def com_train(params: Dict):
     for e in range(num_experiments):
         vids = processing.initialize_vids(params, datadict, e, vids, pathonly=True)
 
-    print("Using {} downsampling".format(params["dsmode"]))
+    logging.info(prepend_log_msg + "Using {} downsampling".format(params["dsmode"]))
 
     train_params = {
         "dim_in": (
@@ -429,7 +452,7 @@ def com_train(params: Dict):
     )
 
     # Build net
-    print("Initializing Network...")
+    logging.info(prepend_log_msg + "Initializing Network...")
 
     model = params["net"](
         params["loss"],
@@ -439,7 +462,7 @@ def com_train(params: Dict):
         norm_method=params["norm_method"],
         metric=["mse"],
     )
-    print("COMPLETE\n")
+    logging.info(prepend_log_msg + "COMPLETE\n")
 
     if params["com_finetune_weights"] is not None:
         weights = os.listdir(params["com_finetune_weights"])
@@ -449,7 +472,7 @@ def com_train(params: Dict):
         try:
             model.load_weights(os.path.join(params["com_finetune_weights"], weights))
         except:
-            print(
+            logging.error( prepend_log_msg + 
                 "Note: model weights could not be loaded due to a mismatch in dimensions.\
                    Assuming that this is a fine-tune with a different number of outputs and removing \
                   the top of the net accordingly"
@@ -547,15 +570,15 @@ def com_train(params: Dict):
             partition["valid_sampleIDs"], labels, vids, **valid_params
         )
 
-    print("Loading data")
+    logging.info(prepend_log_msg + "Loading data")
     for i in range(len(partition["train_sampleIDs"])):
-        print(i, end="\r")
+        logging.debug(i, end="\r")
         ims = train_generator.__getitem__(i)
         ims_train[i * ncams : (i + 1) * ncams] = ims[0]
         y_train[i * ncams : (i + 1) * ncams] = ims[1]
 
     for i in range(len(partition["valid_sampleIDs"])):
-        print(i, end="\r")
+        logging.debug(i, end="\r")
         ims = valid_generator.__getitem__(i)
         ims_valid[i * ncams : (i + 1) * ncams] = ims[0]
         y_valid[i * ncams : (i + 1) * ncams] = ims[1]
@@ -606,10 +629,10 @@ def com_train(params: Dict):
         params, ims_train, ims_valid, y_train, model, trainData=False
     )
 
-    print("Renaming weights file with best epoch description")
+    logging.info(prepend_log_msg + "Renaming weights file with best epoch description")
     processing.rename_weights(params["com_train_dir"], kkey, mon)
 
-    print("Saving full model at end of training")
+    logging.info(prepend_log_msg + "Saving full model at end of training")
     sdir = os.path.join(params["com_train_dir"], "fullmodel_weights")
     if not os.path.exists(sdir):
         os.makedirs(sdir)
@@ -641,6 +664,14 @@ def dannce_train(params: Dict):
     Raises:
         Exception: Error if training mode is invalid.
     """
+
+    # Setup Logging for com_train
+    if not os.path.exists(os.path.dirname(params["log_dest"])):
+        os.makedirs(os.path.dirname(params["log_dest"]))
+    logging.basicConfig(filename=params["log_dest"], level=params["log_level"], 
+                        format='%(asctime)s %(levelname)s:%(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
+    prepend_log_msg = file_path + ".dannce_train "
+
     # Depth disabled until next release.
     params["depth"] = False
     params["multi_mode"] = False
@@ -671,7 +702,7 @@ def dannce_train(params: Dict):
     # find the weights given config path
     if params["dannce_finetune_weights"] is not None:
         params["dannce_finetune_weights"] = processing.get_ft_wt(params)
-        print("Fine-tuning from {}".format(params["dannce_finetune_weights"]))
+        logging.info(prepend_log_msg + "Fine-tuning from {}".format(params["dannce_finetune_weights"]))
 
     samples = []
     datadict = {}
@@ -697,7 +728,7 @@ def dannce_train(params: Dict):
             com3d_dict_,
         ) = do_COM_load(exp, expdict, e, params)
 
-        print("Using {} samples total.".format(len(samples_)))
+        logging.debug(prepend_log_msg + "Using {} samples total.".format(len(samples_)))
 
         (
             samples,
@@ -718,7 +749,7 @@ def dannce_train(params: Dict):
 
         cameras[e] = cameras_
         camnames[e] = exp["camnames"]
-        print("Using the following cameras: {}".format(camnames[e]))
+        logging.debug(prepend_log_msg + "Using the following cameras: {}".format(camnames[e]))
         params["experiment"][e] = exp
         for name, chunk in exp["chunks"].items():
             total_chunks[name] = chunk
@@ -904,13 +935,13 @@ def dannce_train(params: Dict):
                 dtype="float32",
             )
 
-        print(
-            "Loading training data into memory. This can take a while to seek through",
-            "large sets of video. This process is much faster if the frame indices",
+        logging.info( prepend_log_msg +
+            "Loading training data into memory. This can take a while to seek through" +
+            "large sets of video. This process is much faster if the frame indices" +
             "are sorted in ascending order in your label data file.",
         )
         for i in range(len(partition["train_sampleIDs"])):
-            print(i, end="\r")
+            logging.debug(i, end="\r")
             rr = train_generator.__getitem__(i)
             if params["expval"]:
                 X_train[i] = rr[0][0]
@@ -925,7 +956,7 @@ def dannce_train(params: Dict):
             # This can be used for debugging problems with calibration or
             # COM estimation
             tifdir = params["debug_volume_tifdir"]
-            print("Dump training volumes to {}".format(tifdir))
+            logging.info(prepend_log_msg + "Dump training volumes to {}".format(tifdir))
             for i in range(X_train.shape[0]):
                 for j in range(len(camnames[0])):
                     im = X_train[
@@ -944,9 +975,9 @@ def dannce_train(params: Dict):
                     imageio.mimwrite(of, np.transpose(im, [2, 0, 1, 3]))
             return
 
-        print("Loading validation data into memory")
+        logging.info(prepend_log_msg + "Loading validation data into memory")
         for i in range(len(partition["valid_sampleIDs"])):
-            print(i, end="\r")
+            logging.debug(i, end="\r")
             rr = valid_generator.__getitem__(i)
             if params["expval"]:
                 X_valid[i] = rr[0][0]
@@ -974,12 +1005,12 @@ def dannce_train(params: Dict):
         randflag = True
 
     if params["n_rand_views"] == 0:
-        print(
+        logging.info( prepend_log_msg +
             "Using default n_rand_views augmentation with {} views and with replacement".format(
                 params["n_views"]
             )
         )
-        print("To disable n_rand_views augmentation, set it to None in the config.")
+        logging.info( prepend_log_msg + "To disable n_rand_views augmentation, set it to None in the config.")
         params["n_rand_views"] = params["n_views"]
         params["rand_view_replace"] = True
 
@@ -1076,7 +1107,7 @@ def dannce_train(params: Dict):
     valid_generator = genfunc(**args_valid)
 
     # Build net
-    print("Initializing Network...")
+    logging.info( prepend_log_msg + "Initializing Network...")
 
     # Currently, we expect four modes of use:
     # 1) Training a new network from scratch
@@ -1085,10 +1116,10 @@ def dannce_train(params: Dict):
 
     # if params["multi_gpu_train"]:
     strategy = tf.distribute.MirroredStrategy()
-    print("Number of devices: {}".format(strategy.num_replicas_in_sync))
+    logging.info(prepend_log_msg + "Number of devices: {}".format(strategy.num_replicas_in_sync))
     scoping = strategy.scope()
 
-    print("NUM CAMERAS: {}".format(len(camnames[0])))
+    logging.info(prepend_log_msg + "NUM CAMERAS: {}".format(len(camnames[0])))
 
     with scoping:
         if params["train_mode"] == "new":
@@ -1120,7 +1151,7 @@ def dannce_train(params: Dict):
                 model = params["net"](*fargs)
             except:
                 if params["expval"]:
-                    print(
+                    logging.warning(prepend_log_msg + 
                         "Could not load weights for finetune (likely because you are finetuning a previously finetuned network). Attempting to finetune from a full finetune model file."
                     )
                     model = nets.finetune_fullmodel_AVG(*fargs)
@@ -1179,13 +1210,13 @@ def dannce_train(params: Dict):
             )
 
         if params["lr"] != model.optimizer.learning_rate:
-            print("Changing learning rate to {}".format(params["lr"]))
+            logging.debug(prepend_log_msg + "Changing learning rate to {}".format(params["lr"]))
             K.set_value(model.optimizer.learning_rate, params["lr"])
-            print(
+            logging.debug( prepend_log_msg + 
                 "Confirming new learning rate: {}".format(model.optimizer.learning_rate)
             )
 
-    print("COMPLETE\n")
+    logging.info(prepend_log_msg + "COMPLETE\n")
 
     # Create checkpoint and logging callbacks
     kkey = "weights.hdf5"
@@ -1256,16 +1287,18 @@ def dannce_train(params: Dict):
         callbacks=callbacks,
     )
 
-    print("Renaming weights file with best epoch description")
+    logging.info(prepend_log_msg + "Renaming weights file with best epoch description")
     processing.rename_weights(dannce_train_dir, kkey, mon)
 
-    print("Saving full model at end of training")
+    logging.info(prepend_log_msg + "Saving full model at end of training")
     sdir = os.path.join(params["dannce_train_dir"], "fullmodel_weights")
     if not os.path.exists(sdir):
         os.makedirs(sdir)
 
     model = nets.remove_heatmap_output(model, params)
     model.save(os.path.join(sdir, "fullmodel_end.hdf5"))
+
+    logging.info(prepend_log_msg + "done!")
 
 
 def dannce_predict(params: Dict):
@@ -1274,7 +1307,16 @@ def dannce_predict(params: Dict):
     Args:
         params (Dict): Paremeters dictionary.
     """
+
+    # Setup Logging for com_train
+    if not os.path.exists(os.path.dirname(params["log_dest"])):
+        os.makedirs(os.path.dirname(params["log_dest"]))
+    logging.basicConfig(filename=params["log_dest"], level=params["log_level"], 
+                        format='%(asctime)s %(levelname)s:%(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
+    prepend_log_msg = file_path + ".dannce_predict "
+    
     #os.environ["CUDA_VISIBLE_DEVICES"] = params["gpu_id"]
+
     make_folder("dannce_predict_dir", params)
 
     params = setup_dannce_predict(params)
@@ -1402,7 +1444,8 @@ def dannce_predict(params: Dict):
     model = build_model(params, camnames)
 
     if params["maxbatch"] != "max" and params["maxbatch"] > len(predict_generator):
-        print(
+        logging.info(
+            prepend_log_msg +
             "Maxbatch was set to a larger number of matches than exist in the video. Truncating"
         )
         processing.print_and_set(params, "maxbatch", len(predict_generator))
@@ -1416,8 +1459,8 @@ def dannce_predict(params: Dict):
         # for working with large datasets (such as Rat 7M) because
         # .npy files can be loaded in quickly with random access
         # during training.
-        print("Writing samples to .npy files")
-        processing.write_npy(params["write_npy"], predict_generator)
+        logging.info(prepend_log_msg + "Writing samples to .npy files")
+        processing.write_npy(params["write_npy"], valid_generator)
         return
 
     save_data = inference.infer_dannce(
@@ -1520,8 +1563,9 @@ def setup_dannce_predict(params):
 
 
 def write_com_file(params, samples_, com3d_dict_):
+    prepend_log_msg = file_path + ".write_com_file "
     cfilename = os.path.join(params["dannce_predict_dir"], "com3d_used.mat")
-    print("Saving 3D COM to {}".format(cfilename))
+    logging.info(prepend_log_msg + "Saving 3D COM to {}".format(cfilename))
     c3d = np.zeros((len(samples_), 3))
     for i in range(len(samples_)):
         c3d[i] = com3d_dict_[samples_[i]]
@@ -1539,7 +1583,8 @@ def build_model(params: Dict, camnames: List) -> Model:
         (Model): Dannce model
     """
     # Build net
-    print("Initializing Network...")
+    prepend_log_msg = file_path + ".build_model "
+    logging.info(prepend_log_msg + "Initializing Network...")
 
     # This requires that the network be saved as a full model, not just weights.
     # As a precaution, we import all possible custom objects that could be used
@@ -1559,7 +1604,7 @@ def build_model(params: Dict, camnames: List) -> Model:
         # set this file to dannce_predict_model so that it will still get saved with metadata
         params["dannce_predict_model"] = mdl_file
 
-    print("Loading model from " + mdl_file)
+    logging.info(prepend_log_msg + "Loading model from " + mdl_file)
 
     if (
         params["net_name"] == "unet3d_big_tiedfirstlayer_expectedvalue"
@@ -1569,7 +1614,8 @@ def build_model(params: Dict, camnames: List) -> Model:
         params["dannce_finetune_weights"] = processing.get_ft_wt(params)
 
         if params["train_mode"] == "finetune":
-            print(
+            logging.info(
+                prepend_log_msg +
                 "Initializing a finetune network from {}, into which weights from {} will be loaded.".format(
                     params["dannce_finetune_weights"], mdl_file
                 )
@@ -1652,6 +1698,9 @@ def do_COM_load(exp: Dict, expdict: Dict, e, params: Dict, training=True):
     Raises:
         Exception: Exception when invalid com file format.
     """
+    # Set Prepend logging message
+    prepend_log_msg = file_path + ".do_COM_load "
+
     (
         samples_,
         datadict_,
@@ -1662,7 +1711,7 @@ def do_COM_load(exp: Dict, expdict: Dict, e, params: Dict, training=True):
     # If there is "clean" data (full marker set), can take the
     # 3D COM from the labels
     if exp["com_fromlabels"] and training:
-        print("For experiment {}, calculating 3D COM from labels".format(e))
+        logging.info(prepend_log_msg + "For experiment {}, calculating 3D COM from labels".format(e))
         com3d_dict_ = deepcopy(datadict_3d_)
         for key in com3d_dict_.keys():
             com3d_dict_[key] = np.nanmean(datadict_3d_[key], axis=1, keepdims=True)
@@ -1692,10 +1741,11 @@ def do_COM_load(exp: Dict, expdict: Dict, e, params: Dict, training=True):
         c3dfile = io.load_com(exp["com_file"])
         com3d_dict_ = check_COM_load(c3dfile, "com3d", params["medfilt_window"])
 
-    print("Experiment {} using com3d: {}".format(e, exp["com_file"]))
+    logging.info(prepend_log_msg + "Experiment {} using com3d: {}".format(e, exp["com_file"]))
 
     if params["medfilt_window"] is not None:
-        print(
+        logging.info(
+            prepend_log_msg +
             "Median filtering COM trace with window size {}".format(
                 params["medfilt_window"]
             )
@@ -1712,7 +1762,7 @@ def do_COM_load(exp: Dict, expdict: Dict, e, params: Dict, training=True):
         cthresh=exp["cthresh"],
     )
     msg = "Removed {} samples from the dataset because they either had COM positions over cthresh, or did not have matching sampleIDs in the COM file"
-    print(msg.format(pre - len(samples_)))
+    logging.info(prepend_log_msg + msg.format(pre - len(samples_)))
 
     return exp, samples_, datadict_, datadict_3d_, cameras_, com3d_dict_
 
@@ -1728,13 +1778,16 @@ def check_COM_load(c3dfile: Dict, kkey: Text, win_size: int):
     Returns:
         Dict: Dictionary containing com data.
     """
+    # Set logging prepend message
+    prepend_log_msg = file_path + ".check_COM_load "
+
     c3d = c3dfile[kkey]
 
     # do a median filter on the COM traces if indicated
     if win_size is not None:
         if win_size % 2 == 0:
             win_size += 1
-            print("medfilt_window was not odd, changing to: {}".format(win_size))
+            logging.info(prepend_log_msg + "medfilt_window was not odd, changing to: {}".format(win_size))
 
         from scipy.signal import medfilt
 

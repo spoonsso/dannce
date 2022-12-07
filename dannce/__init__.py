@@ -1,3 +1,4 @@
+from datetime import datetime
 """Dannce module and default parameters"""
 # Default parameters, which can be superseded by CL arguments or
 # config files
@@ -46,6 +47,8 @@ _param_defaults_shared = {
     "valid_exp": None,
     "norm_method":"layer",
     "slurm_config": None,
+    "log_level": "INFO",
+    "log_dest": "../../logs/dannce_"+datetime.now().strftime("%b%d_%Y")+ ".log",
 }
 _param_defaults_dannce = {
     "metric": ["euclidean_distance_3D"],

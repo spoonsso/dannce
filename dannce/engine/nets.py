@@ -16,6 +16,28 @@ from dannce.engine import losses as losses
 import numpy as np
 import h5py
 import tensorflow as tf
+import logging
+
+FILE_PATH = "dannce.engine.nets"
+
+def setup_logging(logfile_path, log_lvl, params=None):
+    import os 
+    if logfile_path != None and log_lvl != None:
+        if not os.path.exists(os.path.dirname(params["log_dest"])):
+            os.makedirs(os.path.dirname(params["log_dest"]))
+        logging.basicConfig(filename= logfile_path,
+                            level= log_lvl,
+                            format='%(asctime)s %(levelname)s:%(message)s', 
+                            datefmt='%m/%d/%Y %I:%M:%S %p')
+    elif params != None:
+        if not os.path.exists(os.path.dirname(params["log_dest"])):
+            os.makedirs(os.path.dirname(params["log_dest"]))
+        logging.basicConfig(filename=params["log_dest"], 
+                            level=params["log_level"], 
+                            format='%(asctime)s %(levelname)s:%(message)s', 
+                            datefmt='%m/%d/%Y %I:%M:%S %p')
+    else:
+        print("log file path anf log level, or params dictionary must be passed")
 
 def get_metrics(params):
     """
@@ -38,24 +60,26 @@ def norm_fun(
     """
     method: Normalization method can be "batch", "instance", or "layer"
     """
+    prepend_log_msg = FILE_PATH + ".norm_fun "
+
     method_parse = norm_method.lower()
     if method_parse.startswith("batch"):
-        print("using batch normalization")
+        logging.info(prepend_log_msg + "using batch normalization")
 
         def fun(inputs):
-            print("calling batch norm fun")
+            logging.info(prepend_log_msg + "calling batch norm fun")
             return BatchNormalization()(inputs)
     elif method_parse.startswith("layer"):
-        print("using layer normalization")
+        logging.info(prepend_log_msg + "using layer normalization")
 
         def fun(inputs):
-            print("calling layer norm fun")
+            logging.info(prepend_log_msg + "calling layer norm fun")
             return ops.InstanceNormalization(axis=None)(inputs)
     elif method_parse.startswith("instance"):
-        print("using instance normalization")
+        logging.info(prepend_log_msg + "using instance normalization")
 
         def fun(inputs):
-            print("calling instance norm fun")
+            logging.info(prepend_log_msg + "calling instance norm fun")
             return ops.InstanceNormalization(axis=-1)(inputs)
     else:
         def fun(inputs):
@@ -501,6 +525,9 @@ def finetune_AVG(
     num_layers_locked (int) is the number of layers, starting from the input layer,
     that will be locked (non-trainable) during fine-tuning.
     """
+
+    prepend_log_msg = ".finetune_AVG "
+
     # model = netobj()
     model = unet3d_big_expectedvalue(
         lossfunc,
@@ -518,10 +545,10 @@ def finetune_AVG(
 
     post = model.get_weights()
 
-    print("evaluating weight deltas in the first conv layer")
+    logging.info(prepend_log_msg + "evaluating weight deltas in the first conv layer")
 
-    print("pre-weights")
-    print(pre[1][0])
+    logging.info(prepend_log_msg + "pre-weights")
+    logging.info(prepend_log_msg + str(pre[1][0]))
     print("post-weights")
     print(post[1][0])
     print("delta:")

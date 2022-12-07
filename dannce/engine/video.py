@@ -8,6 +8,9 @@ import multiprocessing
 import imageio
 import time
 from typing import List, Dict, Tuple, Text
+import logging
+
+FILE_PATH = "dannce.engine.video"
 
 
 @attr.s(auto_attribs=True, eq=False, order=False)
@@ -201,6 +204,9 @@ class LoadVideoFrame:
         Returns:
             np.ndarray: Video frame as w x h x c numpy ndarray
         """
+        # Set log prepend msg
+        prepend_log_msg = FILE_PATH + ".LoadVideoFrame.load_vid_frame "
+
         chunks = self._N_VIDEO_FRAMES[camname]
         cur_video_id = np.nonzero([c <= ind for c in chunks])[0][-1]
         cur_first_frame = chunks[cur_video_id]
@@ -229,7 +235,7 @@ class LoadVideoFrame:
                     if self.predict_flag
                     else MediaVideo(thisvid_name, grayscale=False)
                 )
-            print("Loading new video: {} for {}".format(abname, camname))
+            logging.info(prepend_log_msg + "Loading new video: {} for {}".format(abname, camname))
             self.currvideo_name[camname] = abname
             # close current vid
             # Without a sleep here, ffmpeg can hang on video close
@@ -264,6 +270,9 @@ class LoadVideoFrame:
         return im
 
     def _load_frame(self, frame_num, vid):
+        # Set log prepend msg
+        prepend_log_msg = FILE_PATH + ".LoadVideoFrame._load_frame "
+
         im = None
         try:
             im = (
@@ -273,7 +282,7 @@ class LoadVideoFrame:
             )
         # This deals with a strange indexing error in the pup data.
         except IndexError:
-            print("Indexing error, using previous frame")
+            logging.error(prepend_log_msg + "Indexing error, using previous frame")
             im = (
                 vid.get_data(frame_num - 1).astype("uint8")
                 if self.predict_flag
