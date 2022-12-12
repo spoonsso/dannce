@@ -624,7 +624,9 @@ def add_dannce_train_args(
         "--avg-max",
         dest="avg+max",
         type=float,
-        help="Pass a floating point value here for DANNCE to enter AVG+MAX training mode, where the 3D maps are MAX-like regularized to be Gaussian. The avg+max value is used to weight the contribution of the MAX-like loss.")
+        help="Pass a floating point value here for DANNCE to enter AVG+MAX training mode, where the 3D maps are MAX-like regularized to be Gaussian. The avg+max value is used to weight the contribution of the MAX-like loss."
+    )
+    
     return parser
 
 
