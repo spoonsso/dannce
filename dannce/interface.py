@@ -1386,7 +1386,7 @@ def dannce_train(params: Dict):
     finalmodel_pth = os.path.join(sdir, "fullmodel_end.hdf5")
     model.save(finalmodel_pth)
 
-    print("Saving predictions for {} and {}".format(bestmodel_pth,
+    logging.info(prepend_log_msg + "Saving predictions for {} and {}".format(bestmodel_pth,
                                                     finalmodel_pth))
     logging.info(prepend_log_msg + "done!")
 
