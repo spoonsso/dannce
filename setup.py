@@ -17,8 +17,8 @@ setup(
         "attrs",
         "multiprocess",
         "opencv-python",
-        "tensorflow==2.4",
-        #"keras==2.6.*", # Required to resolve pip keras install bug for tf 2.6
+        "tensorflow==2.6",
+        "keras==2.6.*", # Required to resolve pip keras install bug for tf 2.6
         "psutil",
     ],
     # scripts=[],

@@ -772,6 +772,7 @@ def dannce_train(params: Dict):
     if params["use_npy"]:
         # Add all npy volume directories to list, to be used by generator
         npydir = {}
+        # import pdb; pdb.set_trace()
         for e in range(num_experiments):
             npydir[e] = params["experiment"][e]["npy_vol_dir"]
 
@@ -1105,6 +1106,10 @@ def dannce_train(params: Dict):
 
     train_generator = genfunc(**args_train)
     valid_generator = genfunc(**args_valid)
+
+    # if params["use_npy""]:
+    #     processing.write_npy(params["write_npy"], train)
+    #     samples = processing.remove_samples_npy(npydir, samples, params)
 
     # Build net
     logging.info( prepend_log_msg + "Initializing Network...")
@@ -1460,7 +1465,7 @@ def dannce_predict(params: Dict):
         # .npy files can be loaded in quickly with random access
         # during training.
         logging.info(prepend_log_msg + "Writing samples to .npy files")
-        processing.write_npy(params["write_npy"], valid_generator)
+        processing.write_npy(params["write_npy"], predict_generator)
         return
 
     save_data = inference.infer_dannce(
