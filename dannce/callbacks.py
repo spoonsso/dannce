@@ -28,7 +28,6 @@ class savePredTargets(keras.callbacks.Callback):
         if (
             epoch == self.total_epochs - 1
             or logs[lkey] < self.val_loss
-            and epoch > 25
         ):
             print(
                 "Saving predictions on train and validation data, after epoch {}".format(

@@ -10,7 +10,7 @@ from six.moves import cPickle
 import scipy.io as sio
 from scipy.ndimage.filters import maximum_filter
 
-from dannce.engine import io
+from dannce.engine import io, nets, ops, losses
 import matplotlib
 import warnings
 
@@ -21,7 +21,7 @@ import yaml
 import shutil
 import time
 from typing import Dict
-from tensorflow.keras.models import Model
+from tensorflow.keras.models import Model, load_model
 import logging
 
 FILE_PATH = "dannce.engine.preprocessing.py"
@@ -685,9 +685,13 @@ def rename_weights(traindir, kkey, mon):
         beste = e[np.argmin(q)]
 
     newname = "weights." + str(int(beste)) + "-" + "{:.5f}".format(minq) + ".hdf5"
+    newname_out = os.path.join(traindir, newname)
+    os.rename(os.path.join(traindir, kkey), newname_out)
 
-    os.rename(os.path.join(traindir, kkey), os.path.join(traindir, newname))
+    outdict = {mon: minq,
+               'beste': beste}
 
+    return newname_out, outdict
 
 def make_paths_safe(params):
     """Given a parameter dictionary, loops through the keys and replaces any \\ or / with os.sep
@@ -743,6 +747,32 @@ def make_none_safe(pdict):
             return pdict
     return pdict
 
+def save_pred_targets(best_pth, model, save_callback, bestdict, params):
+
+    # set the callback to be the current model, which will eb the final model
+    save_callback.set_model(model)
+
+    # then manually call the callback to make predictiosn and save
+    save_callback.on_epoch_end(epoch=save_callback.total_epochs-1,
+                               logs={'val_loss': 1e10})
+
+    model = load_model(
+        best_pth,
+        custom_objects={
+            "ops": ops,
+            "slice_input": nets.slice_input,
+            "mask_nan_keep_loss": losses.mask_nan_keep_loss,
+            "mask_nan_l1_loss": losses.mask_nan_l1_loss,
+            "euclidean_distance_3D": losses.euclidean_distance_3D,
+            "centered_euclidean_distance_3D": losses.centered_euclidean_distance_3D,
+        },
+                )
+
+    model = nets.remove_heatmap_output(model, params)
+    save_callback.set_model(model)
+
+    save_callback.on_epoch_end(epoch=bestdict['beste'],
+                               logs=bestdict)
 
 def prepare_save_metadata(params):
     """

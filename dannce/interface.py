@@ -1333,7 +1333,6 @@ def dannce_train(params: Dict):
         params["expval"]
         and not params["use_npy"]
         and not params["heatmap_reg"]
-        and params["save_pred_targets"]
     ):
         save_callback = cb.savePredTargets(
             params["epochs"],
@@ -1347,9 +1346,8 @@ def dannce_train(params: Dict):
             y_train,
             y_valid,
         )
-        callbacks = callbacks + [save_callback]
     elif not params["expval"] and not params["use_npy"] and not params["heatmap_reg"]:
-        max_save_callback = cb.saveMaxPreds(
+        save_callback = cb.saveMaxPreds(
             partition["train_sampleIDs"],
             X_train,
             datadict_3d,
@@ -1357,8 +1355,10 @@ def dannce_train(params: Dict):
             com3d_dict,
             params,
         )
-        callbacks = callbacks + [max_save_callback]
     
+    if params["save_pred_targets"]:
+        callbacks = callbacks + [save_callback]
+
     print("Model Architecture: ")
     print(model.summary())
 
@@ -1375,7 +1375,7 @@ def dannce_train(params: Dict):
     )
 
     logging.info(prepend_log_msg + "Renaming weights file with best epoch description")
-    processing.rename_weights(dannce_train_dir, kkey, mon)
+    bestmodel_pth, bestdict = processing.rename_weights(dannce_train_dir, kkey, mon)
 
     logging.info(prepend_log_msg + "Saving full model at end of training")
     sdir = os.path.join(params["dannce_train_dir"], "fullmodel_weights")
@@ -1383,9 +1383,18 @@ def dannce_train(params: Dict):
         os.makedirs(sdir)
 
     model = nets.remove_heatmap_output(model, params)
-    model.save(os.path.join(sdir, "fullmodel_end.hdf5"))
+    finalmodel_pth = os.path.join(sdir, "fullmodel_end.hdf5")
+    model.save(finalmodel_pth)
 
+    print("Saving predictions for {} and {}".format(bestmodel_pth,
+                                                    finalmodel_pth))
     logging.info(prepend_log_msg + "done!")
+
+    processing.save_pred_targets(bestmodel_pth,
+                                 model,
+                                 save_callback,
+                                 bestdict,
+                                 params)
 
 
 def dannce_predict(params: Dict):
