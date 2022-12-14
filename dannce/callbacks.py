@@ -64,6 +64,7 @@ class saveMaxPreds(keras.callbacks.Callback):
         self.odir = odir
         self.com = com
         self.param_mat = params
+        self.total_epochs = params["epochs"]
 
         fn = os.path.join(odir, "max_euclid_error.csv")
         self.fn = fn

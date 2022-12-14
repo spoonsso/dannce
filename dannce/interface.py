@@ -1259,6 +1259,7 @@ def dannce_train(params: Dict):
                     "huber_loss": losses.huber_loss,
                     "euclidean_distance_3D": losses.euclidean_distance_3D,
                     "centered_euclidean_distance_3D": losses.centered_euclidean_distance_3D,
+                    "gaussian_cross_entropy_loss": losses.gaussian_cross_entropy_loss,
                 },
             )
         elif params["train_mode"] == "continued_weights_only":
@@ -1391,11 +1392,12 @@ def dannce_train(params: Dict):
                                                     finalmodel_pth))
     logging.info(prepend_log_msg + "done!")
 
-    processing.save_pred_targets(bestmodel_pth,
-                                 model,
-                                 save_callback,
-                                 bestdict,
-                                 params)
+    if params["save_pred_targets"]:
+        processing.save_pred_targets(bestmodel_pth,
+                                    model,
+                                    save_callback,
+                                    bestdict,
+                                    params)
 
 
 def dannce_predict(params: Dict):
