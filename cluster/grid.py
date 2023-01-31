@@ -91,8 +91,8 @@ class GridHandler:
 
         if self.verbose:
             for batch_param in batch_params:
-                logging.info(prepend_log_msg + batch_param)
-            logging.info(prepend_log_msg + "Command issued: ", cmd)
+                logging.info(prepend_log_msg + str(batch_param.values()))
+            logging.info(prepend_log_msg + "Command issued: " + cmd)
         if not self.test:
             if isinstance(cmd, list): 
                 for i in range(len(cmd)):
@@ -134,12 +134,12 @@ class GridHandler:
         """
         batch_params = self.generate_batch_params_dannce()
 
-
+        # import pdb; pdb.set_trace()
         # Setup Logging for dannce_train_single_batch
-        logging.basicConfig(filename=self.load_params(self.config)["log_dest"], level=self.load_params(self.config)["log_level"], 
+        logging.basicConfig(filename=load_params(self.config)["log_dest"], level=load_params(self.config)["log_level"], 
                             format='%(asctime)s %(levelname)s:%(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
 
-        slurm_config = self.load_params(self.load_params(self.config)["slurm_config"])
+        slurm_config = load_params(load_params(self.config)["slurm_config"])
 
         cmd = (
             'sbatch --wait --array=0-%d %s --wrap="%s dannce-train-single-batch %s %s"'

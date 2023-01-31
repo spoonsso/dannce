@@ -15,7 +15,7 @@ epochs: 1
 # 'continued': initializes a full model, including optimizer state, and continuous training from the last full model checkpoint
 train_mode: finetune
 
-slurm_config: "/n/holylfs02/LABS/olveczky_lab/Diego/code/dannce/cluster/holyoke.yaml"
+slurm_config: "../../cluster/duke.yaml"
 
 # How many samples from each animal do you want to (randomly) set aside for a validation metric?
 num_validation_per_exp: 4
@@ -34,3 +34,6 @@ start_batch: 0
 dannce_finetune_weights: ../../demo/markerless_mouse_1/DANNCE/weights/
 
 metric: [euclidean_distance_3D, centered_euclidean_distance_3D] 
+
+log_dest: ../logs/
+log_level: 'INFO'

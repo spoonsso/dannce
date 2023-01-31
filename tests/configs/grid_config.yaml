@@ -1,0 +1,6 @@
+batch_params:
+  - avg+max: 10
+    dannce_train_dir: ../../demo/markerless_mouse_1/DANNCE/train_test/grid_1/
+
+  - avg+max: 5
+    dannce_train_dir: ../../demo/markerless_mouse_1/DANNCE/train_test/grid_2/

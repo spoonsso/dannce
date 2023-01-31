@@ -20,6 +20,7 @@ setup(
         "tensorflow==2.6",
         "keras==2.6.*", # Required to resolve pip keras install bug for tf 2.6
         "psutil",
+        "mat73",
     ],
     # scripts=[],
     entry_points={
