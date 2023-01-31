@@ -1,0 +1,13 @@
+01/30/2023 01:13:08 AM INFO:dance.cluster.grid.GridHandler.submit_jobs dict_values([10, '../../demo/markerless_mouse_1/DANNCE/train_test/grid_1/'])
+01/30/2023 01:13:08 AM INFO:dance.cluster.grid.GridHandler.submit_jobs dict_values([5, '../../demo/markerless_mouse_1/DANNCE/train_test/grid_2/'])
+01/30/2023 01:16:13 AM INFO:dance.cluster.grid.GridHandler.submit_jobs dict_values([10, '../../demo/markerless_mouse_1/DANNCE/train_test/grid_1/'])
+01/30/2023 01:16:13 AM INFO:dance.cluster.grid.GridHandler.submit_jobs dict_values([5, '../../demo/markerless_mouse_1/DANNCE/train_test/grid_2/'])
+01/30/2023 01:17:03 AM INFO:dance.cluster.grid.GridHandler.submit_jobs dict_values([10, '../../demo/markerless_mouse_1/DANNCE/train_test/grid_1/'])
+01/30/2023 01:17:03 AM INFO:dance.cluster.grid.GridHandler.submit_jobs dict_values([5, '../../demo/markerless_mouse_1/DANNCE/train_test/grid_2/'])
+01/30/2023 01:17:03 AM INFO:dance.cluster.grid.GridHandler.submit_jobs Command issued: sbatch --wait --array=0-1 --job-name=trainDannce -p gpu-common,dsplus-gpu --mem=80000 -t 3-00:00 --gres=gpu:1 -N 1 -c 16 --account=plusds --wrap=". ~/.bashrc; conda activate dannce_aux; dannce-train-single-batch config_mousetest.yaml grid_config.yaml"
+01/30/2023 01:18:53 AM INFO:dance.cluster.grid.GridHandler.submit_jobs dict_values([10, '../../demo/markerless_mouse_1/DANNCE/train_test/grid_1/'])
+01/30/2023 01:18:53 AM INFO:dance.cluster.grid.GridHandler.submit_jobs dict_values([5, '../../demo/markerless_mouse_1/DANNCE/train_test/grid_2/'])
+01/30/2023 01:18:53 AM INFO:dance.cluster.grid.GridHandler.submit_jobs Command issued: sbatch --wait --array=0-1 --job-name=trainDannce -p gpu-common,dsplus-gpu --mem=80000 -t 3-00:00 --gres=gpu:1 -N 1 -c 16 --account=plusds --wrap=". ~/.bashrc; conda activate dannce_aux; dannce-train-single-batch config_mousetest.yaml grid_config.yaml"
+01/30/2023 01:20:39 AM INFO:dance.cluster.grid.GridHandler.submit_jobs dict_values([10, '../../demo/markerless_mouse_1/DANNCE/train_test/grid_1/'])
+01/30/2023 01:20:39 AM INFO:dance.cluster.grid.GridHandler.submit_jobs dict_values([5, '../../demo/markerless_mouse_1/DANNCE/train_test/grid_2/'])
+01/30/2023 01:20:39 AM INFO:dance.cluster.grid.GridHandler.submit_jobs Command issued: sbatch --wait --array=0-1 --job-name=trainDannce -p gpu-common,dsplus-gpu --mem=80000 -t 3-00:00 --gres=gpu:1 -N 1 -c 16 --account=plusds --wrap=". ~/.bashrc; conda activate dannce_aux; dannce-train-single-batch config_mousetest.yaml grid_config.yaml"

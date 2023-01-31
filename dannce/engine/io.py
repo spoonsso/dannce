@@ -2,6 +2,7 @@
 import numpy as np
 import scipy.io as sio
 from typing import List, Dict, Text, Union
+import mat73
 
 
 def load_label3d_data(path: Text, key: Text):
@@ -14,20 +15,24 @@ def load_label3d_data(path: Text, key: Text):
     Returns:
         TYPE: Data from field
     """
-    d = sio.loadmat(path)[key]
-    dataset = [f[0] for f in d]
+    try: 
+        d = sio.loadmat(path)[key]
+        dataset = [f[0] for f in d]
 
-    # Data are loaded in this annoying structure where the array
-    # we want is at dataset[i][key][0,0], as a nested array of arrays.
-    # Simplify this structure (a numpy record array) here.
-    # Additionally, cannot use views here because of shape mismatches. Define
-    # new dict and return.
-    data = []
-    for d in dataset:
-        d_ = {}
-        for key in d.dtype.names:
-            d_[key] = d[key][0, 0]
-        data.append(d_)
+        # Data are loaded in this annoying structure where the array
+        # we want is at dataset[i][key][0,0], as a nested array of arrays.
+        # Simplify this structure (a numpy record array) here.
+        # Additionally, cannot use views here because of shape mismatches. Define
+        # new dict and return.
+        data = []
+        for d in dataset:
+            d_ = {}
+            for key in d.dtype.names:
+                d_[key] = d[key][0, 0]
+            data.append(d_)
+    except:
+        d = mat73.loadmat(path)[key]
+        data = [f[0] for f in d]
     return data
 
 

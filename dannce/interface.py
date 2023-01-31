@@ -115,7 +115,7 @@ def com_predict(params: Dict):
         os.makedirs(os.path.dirname(params["log_dest"]))
     logging.basicConfig(filename=params["log_dest"], level=params["log_level"], 
                         format='%(asctime)s %(levelname)s:%(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
-    prepend_log_msg = file_path + ".com_predict "
+    prepend_log_msg = file_path + ".{} ".format(sys._getframe(  ).f_code.co_name)
 
     params = setup_com_predict(params)
 
@@ -222,7 +222,7 @@ def setup_com_predict(params: Dict):
         params (Dict): Parameters dictionary
     """
     # Prepend part for logging
-    prepend_log_msg = file_path + ".setup_com_predict "
+    prepend_log_msg = file_path + ".{} ".format(sys._getframe(  ).f_code.co_name)
 
     # Make the prediction directory if it does not exist.
     make_folder("com_predict_dir", params)
@@ -790,13 +790,13 @@ def dannce_train(params: Dict):
         # samples = processing.remove_samples_npy(npydir, samples, params)
         missing_samples = np.array([samp for samp in samples if int(samp.split("_")[0]) in list(missing_npydir.keys())])
         if len(missing_samples) != 0:
-            print("{} npy files for experiments {} are missing.".format(len(missing_samples), list(missing_npydir.keys())))
+            logging.info(prepend_log_msg + "{} npy files for experiments {} are missing.".format(len(missing_samples), list(missing_npydir.keys())))
             
             vids = {}
             for e in range(num_experiments):
                 vids = processing.initialize_vids(params, datadict, e, vids, pathonly=True)
         else:
-            print("No missing npy files. Ready for training.")
+            logging.info(prepend_log_msg + "No missing npy files. Ready for training.")
 
     else:
         # Initialize video objects
@@ -877,20 +877,20 @@ def dannce_train(params: Dict):
                 tifdirs,
                 **valid_params
             )
-            print("Generating missing npy files ...")
+            logging.debug(prepend_log_msg + "Generating missing npy files ...")
             for i, samp in enumerate(missing_samples):
                 exp = int(samp.split("_")[0])
                 save_root = missing_npydir[exp]
                 fname = "0_{}.npy".format(samp.split("_")[1])
 
                 rr = npy_generator.__getitem__(i)
-                print(i, end="\r")
+                logging.debug( prepend_log_msg + "{} + \r".format(i))
                 np.save(os.path.join(save_root, "image_volumes", fname), rr[0][0][0].astype("uint8"))
                 np.save(os.path.join(save_root, "grid_volumes", fname), rr[0][1][0])
                 np.save(os.path.join(save_root, "targets", fname), rr[1][0])
             
             samples = processing.remove_samples_npy(npydir, samples, params)
-            print("{} samples ready for npy training.".format(len(samples)))
+            logging.info("{} samples ready for npy training.".format(len(samples)))
             
     else:
         # Used to initialize arrays for mono, and also in *frommem (the final generator)
@@ -1361,8 +1361,9 @@ def dannce_train(params: Dict):
     if params["save_pred_targets"]:
         callbacks = callbacks + [save_callback]
 
-    print("Model Architecture: ")
-    print(model.summary())
+    logging.debug(prepend_log_msg + "Model Architecture: ")
+    # model.summary(print_fn = logging.debug())
+    model.summary()
 
     # import pdb; pdb.set_trace()
 
@@ -1609,6 +1610,8 @@ def dannce_predict(params: Dict):
 
 
 def setup_dannce_predict(params):
+    prepend_log_msg = file_path + ".setup_dannce_predict "
+
     # Depth disabled until next release.
     params["depth"] = False
     # Make the prediction directory if it does not exist.
@@ -1636,9 +1639,9 @@ def setup_dannce_predict(params):
         params["predict_mode"] if params["predict_mode"] is not None else "numpy"
     )
     params["multi_mode"] = False
-    print("Using {} predict mode".format(params["predict_mode"]))
+    logging.info(prepend_log_msg + "Using {} predict mode".format(params["predict_mode"]))
 
-    print("Using camnames: {}".format(params["camnames"]))
+    logging.info(prepend_log_msg + "Using camnames: {}".format(params["camnames"]))
     # Also add parent params under the 'experiment' key for compatibility
     # with DANNCE's video loading function
     params["experiment"] = {}

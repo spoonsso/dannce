@@ -17,6 +17,7 @@ import numpy as np
 import h5py
 import tensorflow as tf
 import logging
+import sys
 
 FILE_PATH = "dannce.engine.nets"
 
@@ -37,7 +38,7 @@ def setup_logging(logfile_path, log_lvl, params=None):
                             format='%(asctime)s %(levelname)s:%(message)s', 
                             datefmt='%m/%d/%Y %I:%M:%S %p')
     else:
-        print("log file path anf log level, or params dictionary must be passed")
+        print("log file path and log level, or params dictionary must be passed")
 
 def get_metrics(params):
     """
@@ -333,7 +334,8 @@ def unet3d_big_expectedvalue(
 
 
 def slice_input(inp, k):
-    print(K.int_shape(inp))
+    prepend_log_msg = FILE_PATH + ".{} ".format(sys._getframe(  ).f_code.co_name)
+    logging.info(prepend_log_msg + "{K.int_shape(inp)}")
     return inp[:, :, :, :, k * 3 : (k + 1) * 3]
 
 def unet3d_big_1cam(
@@ -549,10 +551,10 @@ def finetune_AVG(
 
     logging.info(prepend_log_msg + "pre-weights")
     logging.info(prepend_log_msg + str(pre[1][0]))
-    print("post-weights")
-    print(post[1][0])
-    print("delta:")
-    print(np.sum(pre[1][0] - post[1][0]))
+    logging.info(prepend_log_msg + "post-weights")
+    logging.info(prepend_log_msg + str(post[1][0]))
+    logging.info(prepend_log_msg + "delta:")
+    logging.info(prepend_log_msg + str(np.sum(pre[1][0] - post[1][0])))
 
     # Lock desired number of layers
     for layer in model.layers[:num_layers_locked]:
@@ -698,9 +700,10 @@ def add_heatmap_output(model):
     """
     Given an AVG model, splice on a new input (GT voxel index) and output (amplitude of normalized heatmap at that GT index)
     """
+    prepend_log_msg = FILE_PATH + ".{} ".format(sys._getframe(  ).f_code.co_name)
     lay = [l.name for l in model.layers]
     if "heatmap_output" not in lay:
-        print("Adding heatmap regularization arm")
+        logging.info(prepend_log_msg + "Adding heatmap regularization arm")
         norm_layer = "normed_map"
         image_input_layer = "image_input"
         grid_input_layer = "grid_input"
@@ -734,10 +737,12 @@ def remove_heatmap_output(model, params):
     """
     Remove any heatmap regularizer layers so saved models can be run normally with dannce predict.
     """
+    prepend_log_msg = FILE_PATH + ".{} ".format(sys._getframe(  ).f_code.co_name)
+
     lay = [l.name for l in model.layers]
 
     if "heatmap_output" in lay:
-        print("Removing heatmap regularization arm")
+        logging.info(prepend_log_msg + "Removing heatmap regularization arm")
 
         opt = Adam(lr=float(params["lr"]))
         mets = get_metrics(params)
@@ -780,6 +785,7 @@ def renameLayers(model, weightspath):
     Rename layers in the model if we detect differences from the layer names in
         the weights file.
     """
+    prepend_log_msg = FILE_PATH + ".{} ".format(sys._getframe(  ).f_code.co_name)
     with h5py.File(weightspath, "r") as f:
         lnames = load_attributes_from_hdf5_group(f, "layer_names")
 
@@ -787,7 +793,7 @@ def renameLayers(model, weightspath):
     for (i, layer) in enumerate(model.layers):
         tf2_names.append(layer.name)
         if layer.name != lnames[i]:
-            print(
+            logging.info( prepend_log_msg + 
                 "Correcting mismatch in layer name, model: {}, weights: {}".format(
                     layer.name, lnames[i]
                 )
@@ -798,8 +804,8 @@ def renameLayers(model, weightspath):
     try:
         model.load_weights(weightspath, by_name=True, skip_mismatch=True)
     except ValueError:
-        print("Loading model weights failed")
-        print(traceback.format_exc())
+        logging.warn(prepend_log_msg + "Loading model weights failed")
+        logging.warn(prepend_log_msg + str(traceback.format_exc()))
 
 
     # We need to change the model layer names back to the TF2 version otherwise the model
