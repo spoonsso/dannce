@@ -133,7 +133,10 @@ class MultiGpuHandler:
         return params
     
     def setup_logging(self):
+        
         params = self.load_params(self.config)
+        if not os.path.exists(os.path.dirname(params["log_dest"])):
+            os.makedirs(os.path.dirname(params["log_dest"]))
         logging.basicConfig(filename=params["log_dest"], level=params["log_level"], 
                         format='%(asctime)s %(levelname)s:%(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
 
@@ -676,6 +679,8 @@ def dannce_predict_single_batch():
     batch_params = handler.load_batch_params()
     task_id = int(os.getenv("SLURM_ARRAY_TASK_ID"))
     batch_param = batch_params[task_id]
+    if not os.path.exists(os.path.dirname(handler.load_params(handler.config)["log_dest"])):
+            os.makedirs(os.path.dirname(handler.load_params(handler.config)["log_dest"]))
     logging.basicConfig(filename=handler.load_params(handler.config)["log_dest"], 
                         level=handler.load_params(handler.config)["log_level"], 
                         format='%(asctime)s %(levelname)s:%(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
@@ -701,6 +706,8 @@ def com_predict_single_batch():
     task_id = int(os.getenv("SLURM_ARRAY_TASK_ID"))
     # task_id = 0
     batch_param = batch_params[task_id]
+    if not os.path.exists(os.path.dirname(handler.load_params(handler.config)["log_dest"])):
+            os.makedirs(os.path.dirname(handler.load_params(handler.config)["log_dest"]))
     logging.basicConfig(filename=handler.load_params(handler.config)["log_dest"], 
                         level=handler.load_params(handler.config)["log_level"], 
                         format='%(asctime)s %(levelname)s:%(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')

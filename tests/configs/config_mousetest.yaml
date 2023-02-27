@@ -35,5 +35,5 @@ dannce_finetune_weights: ../../demo/markerless_mouse_1/DANNCE/weights/
 
 metric: [euclidean_distance_3D, centered_euclidean_distance_3D] 
 
-log_dest: ../logs/
+log_dest: ../logs_/mylog.log
 log_level: 'INFO'

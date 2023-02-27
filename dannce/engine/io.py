@@ -93,7 +93,11 @@ def load_com(path: Text) -> Dict:
     Returns:
         Dict: Dictionary with com data
     """
-    d = sio.loadmat(path)["com"]
+    try:
+        d = sio.loadmat(path)["com"]
+    except:
+        d = mat73.loadmat(path)["com"]
+
     data = {}
     data["com3d"] = d["com3d"][0, 0]
     data["sampleID"] = d["sampleID"][0, 0].astype(int)
@@ -109,13 +113,25 @@ def load_camnames(path: Text) -> Union[List, None]:
     Returns:
         Union[List, None]: List of cameranames
     """
-    label_3d_file = sio.loadmat(path)
-    if "camnames" in label_3d_file:
-        names = label_3d_file["camnames"][:]
-        if len(names) != len(label_3d_file["labelData"]):
-            camnames = [name[0] for name in names[0]]
+    try:
+        label_3d_file = sio.loadmat(path)
+        if "camnames" in label_3d_file:
+            names = label_3d_file["camnames"][:]
+            if len(names) != len(label_3d_file["labelData"]):
+                camnames = [name[0] for name in names[0]]
+            else:
+                camnames = [name[0][0] for name in names]
         else:
-            camnames = [name[0][0] for name in names]
-    else:
-        camnames = None
+            camnames = None
+    except:
+        label_3d_file = mat73.loadmat(path)
+        if "camnames" in label_3d_file:
+            names = label_3d_file["camnames"][:]
+            if len(names) != len(label_3d_file["labelData"]):
+                camnames = [name[0] for name in names[0]]
+            else:
+                camnames = names
+        else:
+            camnames = None
+    
     return camnames

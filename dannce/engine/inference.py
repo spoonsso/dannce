@@ -650,6 +650,7 @@ def infer_dannce(
     model: Model,
     partition: Dict,
     n_chn: int,
+    com_dict: Dict,
 ):
     """Perform dannce detection over a set of frames.
 
@@ -698,6 +699,7 @@ def infer_dannce(
                     data=save_data,
                     num_markers=n_chn,
                     tcoord=False,
+                    addCOM=com_dict,
                 )
 
         ims = generator.__getitem__(i)

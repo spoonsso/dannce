@@ -1456,11 +1456,13 @@ def savedata_tomat(
     if tcoord and tcoord_scale:
         t_coords = vmin + t_coords * vsize + vsize / 2
 
+    # import pdb; pdb.set_trace()
     if addCOM is not None:
         # We use the passed comdict to add back in the com, this is useful
         # if one wnats to bootstrap on these values for COMnet or otherwise
         for i in range(len(sID)):
-            pred_out_world[i] = pred_out_world[i] + addCOM[int(sID)][:, np.newaxis]
+            # pred_out_world[i] = pred_out_world[i] + addCOM[int(sID)][:, np.newaxis]
+            pred_out_world[i] = pred_out_world[i] + addCOM['0_'+str(int(sID[i]))][:, np.newaxis]
 
     sdict = {
         "pred": pred_out_world,

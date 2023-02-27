@@ -136,6 +136,8 @@ class GridHandler:
 
         # import pdb; pdb.set_trace()
         # Setup Logging for dannce_train_single_batch
+        if not os.path.exists(os.path.dirname(load_params(self.config)["log_dest"])):
+            os.makedirs(os.path.dirname(load_params(self.config)["log_dest"]))
         logging.basicConfig(filename=load_params(self.config)["log_dest"], level=load_params(self.config)["log_level"], 
                             format='%(asctime)s %(levelname)s:%(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
 
@@ -174,12 +176,14 @@ def dannce_train_single_batch():
     params = build_params_from_config_and_batch(config, batch_param)
 
     # Setup Logging for dannce_train_single_batch
+    if not os.path.exists(os.path.dirname(params["log_dest"])):
+            os.makedirs(os.path.dirname(params["log_dest"]))
     logging.basicConfig(filename=params["log_dest"], level=params["log_level"], 
                         format='%(asctime)s %(levelname)s:%(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
     prepend_log_msg = FILE_PATH + ".dannce_train_single_batch "
 
-    logging.info(prepend_log_msg + "Task ID = ", task_id)
-    logging.info(prepend_log_msg + batch_param)
+    logging.info(prepend_log_msg + "Task ID = " + str(task_id))
+    logging.info(prepend_log_msg + str(batch_param))
 
     # Train
     dannce_train(params)

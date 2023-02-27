@@ -238,6 +238,9 @@ def plot_projected_points(predictions,
 
   fig, axes = plt.subplots(1, 1, figsize=(8, 8), dpi=300)
 
+  if not os.path.exists(os.path.dirname(video_save_path)):
+    os.makedirs(os.path.dirname(video_save_path))
+
   with writer.saving(fig, video_save_path, dpi=300):
 
     for i in range(start_sample, start_sample + max_samples):

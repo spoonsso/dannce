@@ -572,13 +572,13 @@ def com_train(params: Dict):
 
     logging.info(prepend_log_msg + "Loading data")
     for i in range(len(partition["train_sampleIDs"])):
-        logging.debug(i, end="\r")
+        logging.debug("%s\r", i)
         ims = train_generator.__getitem__(i)
         ims_train[i * ncams : (i + 1) * ncams] = ims[0]
         y_train[i * ncams : (i + 1) * ncams] = ims[1]
 
     for i in range(len(partition["valid_sampleIDs"])):
-        logging.debug(i, end="\r")
+        logging.debug("%s\r", i)
         ims = valid_generator.__getitem__(i)
         ims_valid[i * ncams : (i + 1) * ncams] = ims[0]
         y_valid[i * ncams : (i + 1) * ncams] = ims[1]
@@ -1024,7 +1024,7 @@ def dannce_train(params: Dict):
             "are sorted in ascending order in your label data file.",
         )
         for i in range(len(partition["train_sampleIDs"])):
-            logging.debug(i, end="\r")
+            logging.debug("%s\r", i)
             rr = train_generator.__getitem__(i)
             if params["expval"]:
                 X_train[i] = rr[0][0]
@@ -1060,7 +1060,7 @@ def dannce_train(params: Dict):
 
         logging.info(prepend_log_msg + "Loading validation data into memory")
         for i in range(len(partition["valid_sampleIDs"])):
-            logging.debug(i, end="\r")
+            logging.debug("%s\r", i)
             rr = valid_generator.__getitem__(i)
             if params["expval"]:
                 X_valid[i] = rr[0][0]
@@ -1260,6 +1260,7 @@ def dannce_train(params: Dict):
                     "euclidean_distance_3D": losses.euclidean_distance_3D,
                     "centered_euclidean_distance_3D": losses.centered_euclidean_distance_3D,
                     "gaussian_cross_entropy_loss": losses.gaussian_cross_entropy_loss,
+                    "max_euclidean_distance": losses.max_euclidean_distance,
                 },
             )
         elif params["train_mode"] == "continued_weights_only":
@@ -1569,6 +1570,7 @@ def dannce_predict(params: Dict):
         model,
         partition,
         params["n_markers"],
+        com_dict = com3d_dict,
     )
 
     if params["expval"]:
@@ -1596,6 +1598,7 @@ def dannce_predict(params: Dict):
             )
         else:
             path = os.path.join(params["dannce_predict_dir"], "save_data_MAX.mat")
+        # import pdb; pdb.set_trace()
         p_n = savedata_tomat(
             path,
             params,
@@ -1606,6 +1609,7 @@ def dannce_predict(params: Dict):
             data=save_data,
             num_markers=params["n_markers"],
             tcoord=False,
+            addCOM=com3d_dict,
         )
 
 
@@ -1761,6 +1765,8 @@ def build_model(params: Dict, camnames: List) -> Model:
                 "huber_loss": losses.huber_loss,
                 "euclidean_distance_3D": losses.euclidean_distance_3D,
                 "centered_euclidean_distance_3D": losses.centered_euclidean_distance_3D,
+                "gaussian_cross_entropy_loss": losses.gaussian_cross_entropy_loss,
+                "max_euclidean_distance": losses.max_euclidean_distance,
             },
         )
 

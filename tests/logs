@@ -11,3 +11,1468 @@
 01/30/2023 01:20:39 AM INFO:dance.cluster.grid.GridHandler.submit_jobs dict_values([10, '../../demo/markerless_mouse_1/DANNCE/train_test/grid_1/'])
 01/30/2023 01:20:39 AM INFO:dance.cluster.grid.GridHandler.submit_jobs dict_values([5, '../../demo/markerless_mouse_1/DANNCE/train_test/grid_2/'])
 01/30/2023 01:20:39 AM INFO:dance.cluster.grid.GridHandler.submit_jobs Command issued: sbatch --wait --array=0-1 --job-name=trainDannce -p gpu-common,dsplus-gpu --mem=80000 -t 3-00:00 --gres=gpu:1 -N 1 -c 16 --account=plusds --wrap=". ~/.bashrc; conda activate dannce_aux; dannce-train-single-batch config_mousetest.yaml grid_config.yaml"
+02/07/2023 11:57:37 AM INFO:dance.cluster.grid.GridHandler.submit_jobs dict_values([10, '../../demo/markerless_mouse_1/DANNCE/grid_1/'])
+02/07/2023 11:57:37 AM INFO:dance.cluster.grid.GridHandler.submit_jobs dict_values([5, '../../demo/markerless_mouse_1/DANNCE/grid_2/'])
+02/07/2023 11:57:37 AM INFO:dance.cluster.grid.GridHandler.submit_jobs Command issued: sbatch --wait --array=0-1 --job-name=trainDannce -p gpu-common,dsplus-gpu --mem=80000 -t 3-00:00 --gres=gpu:1 -N 1 -c 16 --account=plusds --wrap=". ~/.bashrc; conda activate dannce_aux; dannce-train-single-batch config_mousetest.yaml grid_config.yaml"
+02/07/2023 12:00:01 PM INFO:dance.cluster.grid.GridHandler.submit_jobs dict_values([10, '../../demo/markerless_mouse_1/DANNCE/grid_1/'])
+02/07/2023 12:00:01 PM INFO:dance.cluster.grid.GridHandler.submit_jobs dict_values([5, '../../demo/markerless_mouse_1/DANNCE/grid_2/'])
+02/07/2023 12:00:01 PM INFO:dance.cluster.grid.GridHandler.submit_jobs Command issued: sbatch --wait --array=0-1 --job-name=trainDannce -p gpu-common,dsplus-gpu --mem=80000 -t 3-00:00 --gres=gpu:1 -N 1 -c 16 --account=plusds --wrap=". ~/.bashrc; conda activate dannce_aux; dannce-train-single-batch config_mousetest.yaml grid_config.yaml"
+02/07/2023 12:01:29 PM INFO:dance.cluster.grid.GridHandler.submit_jobs dict_values([10, '../../demo/markerless_mouse_1/DANNCE/grid_1/'])
+02/07/2023 12:01:29 PM INFO:dance.cluster.grid.GridHandler.submit_jobs dict_values([5, '../../demo/markerless_mouse_1/DANNCE/grid_2/'])
+02/07/2023 12:01:29 PM INFO:dance.cluster.grid.GridHandler.submit_jobs Command issued: sbatch --wait --array=0-1 --job-name=trainDannce -p gpu-common,tdunn --mem=80000 -t 3-00:00 --gres=gpu:1 -N 1 -c 16 --wrap=". ~/.bashrc; conda activate dannce_aux; dannce-train-single-batch config_mousetest.yaml grid_config.yaml"
+02/07/2023 12:04:14 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting vid_dir_flag to True.
+02/07/2023 12:04:14 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting vid_dir_flag to True.
+02/07/2023 12:04:14 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting extension to .mp4.
+02/07/2023 12:04:14 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting extension to .mp4.
+02/07/2023 12:04:14 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting chunks to {'Camera1': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera2': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera3': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera4': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera5': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera6': array([    0,  3000,  6000,  9000, 12000, 15000])}.
+02/07/2023 12:04:14 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting chunks to {'Camera1': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera2': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera3': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera4': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera5': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera6': array([    0,  3000,  6000,  9000, 12000, 15000])}.
+02/07/2023 12:04:18 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting n_channels_in to 3.
+02/07/2023 12:04:18 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting raw_im_h to 1024.
+02/07/2023 12:04:18 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting raw_im_w to 1152.
+02/07/2023 12:04:18 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting expval to True.
+02/07/2023 12:04:18 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting net_type to AVG.
+02/07/2023 12:04:18 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting expval to True.
+02/07/2023 12:04:18 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting net to finetune_AVG.
+02/07/2023 12:04:18 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting n_channels_in to 3.
+02/07/2023 12:04:18 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting raw_im_h to 1024.
+02/07/2023 12:04:18 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting raw_im_w to 1152.
+02/07/2023 12:04:18 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting expval to True.
+02/07/2023 12:04:18 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting net_type to AVG.
+02/07/2023 12:04:18 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting expval to True.
+02/07/2023 12:04:18 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting net to finetune_AVG.
+02/07/2023 12:04:20 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting crop_height to [0, 1024].
+02/07/2023 12:04:20 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting crop_width to [0, 1152].
+02/07/2023 12:04:20 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting maxbatch to 2.
+02/07/2023 12:04:20 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting start_batch to 0.
+02/07/2023 12:04:20 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting vmin to -60.0.
+02/07/2023 12:04:20 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting vmax to 60.0.
+02/07/2023 12:04:20 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting crop_height to [0, 1024].
+02/07/2023 12:04:20 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting crop_width to [0, 1152].
+02/07/2023 12:04:20 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting maxbatch to 2.
+02/07/2023 12:04:20 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting start_batch to 0.
+02/07/2023 12:04:20 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting vmin to -60.0.
+02/07/2023 12:04:20 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting vmax to 60.0.
+02/07/2023 12:20:28 PM INFO:dance.cluster.grid.GridHandler.submit_jobs dict_values([10, '../../demo/markerless_mouse_1/DANNCE/grid_1/'])
+02/07/2023 12:20:28 PM INFO:dance.cluster.grid.GridHandler.submit_jobs dict_values([5, '../../demo/markerless_mouse_1/DANNCE/grid_2/'])
+02/07/2023 12:20:28 PM INFO:dance.cluster.grid.GridHandler.submit_jobs Command issued: sbatch --wait --array=0-1 --job-name=trainDannce -p gpu-common,tdunn --mem=80000 -t 3-00:00 --gres=gpu:1 -N 1 -c 16 --wrap=". ~/.bashrc; conda activate dannce_aux; dannce-train-single-batch config_mousetest.yaml grid_config.yaml"
+02/07/2023 12:23:32 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting vid_dir_flag to True.
+02/07/2023 12:23:32 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting extension to .mp4.
+02/07/2023 12:23:32 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting vid_dir_flag to True.
+02/07/2023 12:23:32 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting extension to .mp4.
+02/07/2023 12:23:32 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting chunks to {'Camera1': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera2': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera3': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera4': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera5': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera6': array([    0,  3000,  6000,  9000, 12000, 15000])}.
+02/07/2023 12:23:32 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting chunks to {'Camera1': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera2': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera3': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera4': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera5': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera6': array([    0,  3000,  6000,  9000, 12000, 15000])}.
+02/07/2023 12:23:36 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting n_channels_in to 3.
+02/07/2023 12:23:36 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting raw_im_h to 1024.
+02/07/2023 12:23:36 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting raw_im_w to 1152.
+02/07/2023 12:23:36 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting expval to True.
+02/07/2023 12:23:36 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting net_type to AVG.
+02/07/2023 12:23:36 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting expval to True.
+02/07/2023 12:23:36 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting net to finetune_AVG.
+02/07/2023 12:23:36 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting n_channels_in to 3.
+02/07/2023 12:23:36 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting raw_im_h to 1024.
+02/07/2023 12:23:36 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting raw_im_w to 1152.
+02/07/2023 12:23:36 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting expval to True.
+02/07/2023 12:23:36 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting net_type to AVG.
+02/07/2023 12:23:36 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting expval to True.
+02/07/2023 12:23:36 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting net to finetune_AVG.
+02/07/2023 12:23:38 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting crop_height to [0, 1024].
+02/07/2023 12:23:38 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting crop_width to [0, 1152].
+02/07/2023 12:23:38 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting maxbatch to 2.
+02/07/2023 12:23:38 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting start_batch to 0.
+02/07/2023 12:23:38 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting vmin to -60.0.
+02/07/2023 12:23:38 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting vmax to 60.0.
+02/07/2023 12:23:38 PM INFO:dance.cluster.grid.dannce_train_single_batch Task ID = 0
+02/07/2023 12:23:38 PM INFO:dance.cluster.grid.dannce_train_single_batch {'avg+max': 10, 'dannce_train_dir': '../../demo/markerless_mouse_1/DANNCE/grid_1/'}
+02/07/2023 12:23:38 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting crop_height to [0, 1024].
+02/07/2023 12:23:38 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting crop_width to [0, 1152].
+02/07/2023 12:23:38 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting maxbatch to 2.
+02/07/2023 12:23:38 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting start_batch to 0.
+02/07/2023 12:23:38 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting vmin to -60.0.
+02/07/2023 12:23:38 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting vmax to 60.0.
+02/07/2023 12:23:38 PM INFO:dance.cluster.grid.dannce_train_single_batch Task ID = 1
+02/07/2023 12:23:38 PM INFO:dance.cluster.grid.dannce_train_single_batch {'avg+max': 5, 'dannce_train_dir': '../../demo/markerless_mouse_1/DANNCE/grid_2/'}
+02/07/2023 12:23:38 PM INFO:dannce.interface.dannce_train Fine-tuning from ../../demo/markerless_mouse_1/DANNCE/weights/weights.rat.AVG.6cam.hdf5
+02/07/2023 12:23:38 PM INFO:dannce.interface.dannce_train Fine-tuning from ../../demo/markerless_mouse_1/DANNCE/weights/weights.rat.AVG.6cam.hdf5
+02/07/2023 12:23:38 PM INFO:dannce.engine.serve_data_DANNCE.prepare_data ./label3d_temp_dannce.mat
+02/07/2023 12:23:38 PM INFO:dannce.engine.serve_data_DANNCE.prepare_data ./label3d_temp_dannce.mat
+02/07/2023 12:23:38 PM INFO:dannce.interface.do_COM_load Experiment 0 using com3d: ./label3d_temp_dannce.mat
+02/07/2023 12:23:38 PM INFO:dannce.interface.do_COM_load Removed 0 samples from the dataset because they either had COM positions over cthresh, or did not have matching sampleIDs in the COM file
+02/07/2023 12:23:38 PM INFO:dannce.interface.do_COM_load Experiment 0 using com3d: ./label3d_temp_dannce.mat
+02/07/2023 12:23:38 PM INFO:dannce.interface.do_COM_load Removed 0 samples from the dataset because they either had COM positions over cthresh, or did not have matching sampleIDs in the COM file
+02/07/2023 12:23:38 PM INFO:dannce.engine.serve_data_DANNCE.prepare_data ./label3d_temp_dannce.mat
+02/07/2023 12:23:38 PM INFO:dannce.engine.serve_data_DANNCE.prepare_data ./label3d_temp_dannce.mat
+02/07/2023 12:23:38 PM INFO:dannce.interface.do_COM_load Experiment 1 using com3d: ./label3d_temp_dannce.mat
+02/07/2023 12:23:38 PM INFO:dannce.interface.do_COM_load Removed 0 samples from the dataset because they either had COM positions over cthresh, or did not have matching sampleIDs in the COM file
+02/07/2023 12:23:38 PM INFO:dannce.interface.do_COM_load Experiment 1 using com3d: ./label3d_temp_dannce.mat
+02/07/2023 12:23:38 PM INFO:dannce.interface.do_COM_load Removed 0 samples from the dataset because they either had COM positions over cthresh, or did not have matching sampleIDs in the COM file
+02/07/2023 12:23:38 PM INFO:dannce.engine.preprocessing.py.make_data_split TRAIN EXPTS: [0 1]
+02/07/2023 12:23:38 PM INFO:None
+02/07/2023 12:23:38 PM INFO:None
+02/07/2023 12:23:38 PM INFO:dannce.interface.dannce_train Loading training data into memory. This can take a while to seek throughlarge sets of video. This process is much faster if the frame indicesare sorted in ascending order in your label data file.
+02/07/2023 12:23:38 PM INFO:dannce.engine.preprocessing.py.make_data_split TRAIN EXPTS: [0 1]
+02/07/2023 12:23:38 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera1
+02/07/2023 12:23:38 PM INFO:None
+02/07/2023 12:23:38 PM INFO:None
+02/07/2023 12:23:38 PM INFO:dannce.interface.dannce_train Loading training data into memory. This can take a while to seek throughlarge sets of video. This process is much faster if the frame indicesare sorted in ascending order in your label data file.
+02/07/2023 12:23:38 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera1
+02/07/2023 12:23:40 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera2
+02/07/2023 12:23:41 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera2
+02/07/2023 12:23:41 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera3
+02/07/2023 12:23:42 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera3
+02/07/2023 12:23:42 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera4
+02/07/2023 12:23:43 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera4
+02/07/2023 12:23:43 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera5
+02/07/2023 12:23:44 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera6
+02/07/2023 12:23:44 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera5
+02/07/2023 12:23:45 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera6
+02/07/2023 12:24:03 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 1_Camera1
+02/07/2023 12:24:04 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 1_Camera1
+02/07/2023 12:24:04 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 1_Camera2
+02/07/2023 12:24:04 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 1_Camera2
+02/07/2023 12:24:05 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 1_Camera3
+02/07/2023 12:24:05 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 1_Camera3
+02/07/2023 12:24:06 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 1_Camera4
+02/07/2023 12:24:07 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 1_Camera4
+02/07/2023 12:24:07 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 1_Camera5
+02/07/2023 12:24:07 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 1_Camera5
+02/07/2023 12:24:08 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 1_Camera6
+02/07/2023 12:24:09 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 1_Camera6
+02/07/2023 12:24:23 PM INFO:dannce.interface.dannce_train Loading validation data into memory
+02/07/2023 12:24:23 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera1
+02/07/2023 12:24:24 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera2
+02/07/2023 12:24:24 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera3
+02/07/2023 12:24:25 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera4
+02/07/2023 12:24:25 PM INFO:dannce.interface.dannce_train Loading validation data into memory
+02/07/2023 12:24:25 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera1
+02/07/2023 12:24:25 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera5
+02/07/2023 12:24:26 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera6
+02/07/2023 12:24:26 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera2
+02/07/2023 12:24:26 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera3
+02/07/2023 12:24:27 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera4
+02/07/2023 12:24:28 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera5
+02/07/2023 12:24:28 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera6
+02/07/2023 12:24:33 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 1_Camera1
+02/07/2023 12:24:34 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 1_Camera2
+02/07/2023 12:24:34 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 1_Camera3
+02/07/2023 12:24:35 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 1_Camera4
+02/07/2023 12:24:35 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 1_Camera5
+02/07/2023 12:24:36 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 1_Camera6
+02/07/2023 12:24:36 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 1_Camera1
+02/07/2023 12:24:37 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 1_Camera2
+02/07/2023 12:24:37 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 1_Camera3
+02/07/2023 12:24:38 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 1_Camera4
+02/07/2023 12:24:38 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 1_Camera5
+02/07/2023 12:24:39 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 1_Camera6
+02/07/2023 12:24:46 PM INFO:dannce.interface.dannce_train Using default n_rand_views augmentation with 6 views and with replacement
+02/07/2023 12:24:46 PM INFO:dannce.interface.dannce_train To disable n_rand_views augmentation, set it to None in the config.
+02/07/2023 12:24:46 PM INFO:dannce.interface.dannce_train Initializing Network...
+02/07/2023 12:24:49 PM INFO:dannce.interface.dannce_train Using default n_rand_views augmentation with 6 views and with replacement
+02/07/2023 12:24:49 PM INFO:dannce.interface.dannce_train To disable n_rand_views augmentation, set it to None in the config.
+02/07/2023 12:24:49 PM INFO:dannce.interface.dannce_train Initializing Network...
+02/07/2023 12:26:00 PM INFO:Using MirroredStrategy with devices ('/job:localhost/replica:0/task:0/device:GPU:0',)
+02/07/2023 12:26:00 PM INFO:dannce.interface.dannce_train Number of devices: 1
+02/07/2023 12:26:00 PM INFO:dannce.interface.dannce_train NUM CAMERAS: 6
+02/07/2023 12:26:00 PM INFO:dannce.engine.nets.norm_fun using layer normalization
+02/07/2023 12:26:00 PM INFO:Using MirroredStrategy with devices ('/job:localhost/replica:0/task:0/device:GPU:0',)
+02/07/2023 12:26:00 PM INFO:dannce.interface.dannce_train Number of devices: 1
+02/07/2023 12:26:00 PM INFO:dannce.interface.dannce_train NUM CAMERAS: 6
+02/07/2023 12:26:00 PM INFO:dannce.engine.nets.norm_fun using layer normalization
+02/07/2023 12:26:00 PM INFO:dannce.engine.nets.norm_fun calling layer norm fun
+02/07/2023 12:26:00 PM INFO:dannce.engine.nets.norm_fun calling layer norm fun
+02/07/2023 12:26:00 PM INFO:dannce.engine.nets.norm_fun calling layer norm fun
+02/07/2023 12:26:01 PM INFO:dannce.engine.nets.norm_fun calling layer norm fun
+02/07/2023 12:26:01 PM INFO:dannce.engine.nets.norm_fun calling layer norm fun
+02/07/2023 12:26:01 PM INFO:dannce.engine.nets.norm_fun calling layer norm fun
+02/07/2023 12:26:01 PM INFO:dannce.engine.nets.norm_fun calling layer norm fun
+02/07/2023 12:26:01 PM INFO:dannce.engine.nets.norm_fun calling layer norm fun
+02/07/2023 12:26:01 PM INFO:dannce.engine.nets.norm_fun calling layer norm fun
+02/07/2023 12:26:01 PM INFO:dannce.engine.nets.norm_fun calling layer norm fun
+02/07/2023 12:26:01 PM INFO:dannce.engine.nets.norm_fun calling layer norm fun
+02/07/2023 12:26:01 PM INFO:dannce.engine.nets.norm_fun calling layer norm fun
+02/07/2023 12:26:01 PM INFO:dannce.engine.nets.norm_fun calling layer norm fun
+02/07/2023 12:26:01 PM INFO:dannce.engine.nets.norm_fun calling layer norm fun
+02/07/2023 12:26:01 PM INFO:dannce.engine.nets.norm_fun calling layer norm fun
+02/07/2023 12:26:01 PM INFO:dannce.engine.nets.norm_fun calling layer norm fun
+02/07/2023 12:26:01 PM INFO:dannce.engine.nets.norm_fun calling layer norm fun
+02/07/2023 12:26:01 PM INFO:dannce.engine.nets.norm_fun calling layer norm fun
+02/07/2023 12:26:01 PM INFO:dannce.engine.nets.norm_fun calling layer norm fun
+02/07/2023 12:26:01 PM INFO:dannce.engine.nets.norm_fun calling layer norm fun
+02/07/2023 12:26:01 PM INFO:dannce.engine.nets.norm_fun calling layer norm fun
+02/07/2023 12:26:01 PM INFO:dannce.engine.nets.norm_fun calling layer norm fun
+02/07/2023 12:26:01 PM INFO:dannce.engine.nets.norm_fun calling layer norm fun
+02/07/2023 12:26:01 PM INFO:dannce.engine.nets.norm_fun calling layer norm fun
+02/07/2023 12:26:01 PM INFO:dannce.engine.nets.norm_fun calling layer norm fun
+02/07/2023 12:26:01 PM INFO:dannce.engine.nets.norm_fun calling layer norm fun
+02/07/2023 12:26:01 PM INFO:dannce.engine.nets.norm_fun calling layer norm fun
+02/07/2023 12:26:01 PM INFO:dannce.engine.nets.norm_fun calling layer norm fun
+02/07/2023 12:26:01 PM INFO:Reduce to /job:localhost/replica:0/task:0/device:CPU:0 then broadcast to ('/job:localhost/replica:0/task:0/device:CPU:0',).
+02/07/2023 12:26:01 PM INFO:Reduce to /job:localhost/replica:0/task:0/device:CPU:0 then broadcast to ('/job:localhost/replica:0/task:0/device:CPU:0',).
+02/07/2023 12:26:01 PM INFO:Reduce to /job:localhost/replica:0/task:0/device:CPU:0 then broadcast to ('/job:localhost/replica:0/task:0/device:CPU:0',).
+02/07/2023 12:26:01 PM INFO:Reduce to /job:localhost/replica:0/task:0/device:CPU:0 then broadcast to ('/job:localhost/replica:0/task:0/device:CPU:0',).
+02/07/2023 12:26:01 PM INFO:Reduce to /job:localhost/replica:0/task:0/device:CPU:0 then broadcast to ('/job:localhost/replica:0/task:0/device:CPU:0',).
+02/07/2023 12:26:01 PM INFO:Reduce to /job:localhost/replica:0/task:0/device:CPU:0 then broadcast to ('/job:localhost/replica:0/task:0/device:CPU:0',).
+02/07/2023 12:26:01 PM INFO:Reduce to /job:localhost/replica:0/task:0/device:CPU:0 then broadcast to ('/job:localhost/replica:0/task:0/device:CPU:0',).
+02/07/2023 12:26:01 PM INFO:Reduce to /job:localhost/replica:0/task:0/device:CPU:0 then broadcast to ('/job:localhost/replica:0/task:0/device:CPU:0',).
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: image_input, weights: input_1
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: conv3d, weights: conv3d_1
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: instance_normalization, weights: instance_normalization_1
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: activation, weights: activation_1
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: conv3d_1, weights: conv3d_2
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: instance_normalization_1, weights: instance_normalization_2
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: activation_1, weights: activation_2
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: max_pooling3d, weights: max_pooling3d_1
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: conv3d_2, weights: conv3d_3
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: instance_normalization_2, weights: instance_normalization_3
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: activation_2, weights: activation_3
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: conv3d_3, weights: conv3d_4
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: instance_normalization_3, weights: instance_normalization_4
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: activation_3, weights: activation_4
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: max_pooling3d_1, weights: max_pooling3d_2
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: conv3d_4, weights: conv3d_5
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: instance_normalization_4, weights: instance_normalization_5
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: activation_4, weights: activation_5
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: conv3d_5, weights: conv3d_6
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: instance_normalization_5, weights: instance_normalization_6
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: activation_5, weights: activation_6
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: max_pooling3d_2, weights: max_pooling3d_3
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: conv3d_6, weights: conv3d_7
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: instance_normalization_6, weights: instance_normalization_7
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: activation_6, weights: activation_7
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: conv3d_7, weights: conv3d_8
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: instance_normalization_7, weights: instance_normalization_8
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: activation_7, weights: activation_8
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: conv3d_transpose, weights: conv3d_transpose_1
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: concatenate, weights: concatenate_1
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: conv3d_8, weights: conv3d_9
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: instance_normalization_8, weights: instance_normalization_9
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: activation_8, weights: activation_9
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: conv3d_9, weights: conv3d_10
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: instance_normalization_9, weights: instance_normalization_10
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: activation_9, weights: activation_10
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: conv3d_transpose_1, weights: conv3d_transpose_2
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: concatenate_1, weights: concatenate_2
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: conv3d_10, weights: conv3d_11
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: instance_normalization_10, weights: instance_normalization_11
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: activation_10, weights: activation_11
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: conv3d_11, weights: conv3d_12
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: instance_normalization_11, weights: instance_normalization_12
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: activation_11, weights: activation_12
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: conv3d_transpose_2, weights: conv3d_transpose_3
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: concatenate_2, weights: concatenate_3
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: conv3d_12, weights: conv3d_13
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: instance_normalization_12, weights: instance_normalization_13
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: activation_12, weights: activation_13
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: conv3d_13, weights: conv3d_14
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: instance_normalization_13, weights: instance_normalization_14
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: activation_13, weights: activation_14
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: image_input, weights: input_1
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: conv3d, weights: conv3d_1
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: instance_normalization, weights: instance_normalization_1
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: activation, weights: activation_1
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: conv3d_1, weights: conv3d_2
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: instance_normalization_1, weights: instance_normalization_2
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: activation_1, weights: activation_2
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: max_pooling3d, weights: max_pooling3d_1
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: conv3d_2, weights: conv3d_3
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: instance_normalization_2, weights: instance_normalization_3
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: activation_2, weights: activation_3
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: conv3d_3, weights: conv3d_4
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: instance_normalization_3, weights: instance_normalization_4
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: activation_3, weights: activation_4
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: max_pooling3d_1, weights: max_pooling3d_2
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: conv3d_4, weights: conv3d_5
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: instance_normalization_4, weights: instance_normalization_5
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: activation_4, weights: activation_5
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: conv3d_5, weights: conv3d_6
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: instance_normalization_5, weights: instance_normalization_6
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: activation_5, weights: activation_6
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: max_pooling3d_2, weights: max_pooling3d_3
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: conv3d_6, weights: conv3d_7
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: instance_normalization_6, weights: instance_normalization_7
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: activation_6, weights: activation_7
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: conv3d_7, weights: conv3d_8
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: instance_normalization_7, weights: instance_normalization_8
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: activation_7, weights: activation_8
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: conv3d_transpose, weights: conv3d_transpose_1
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: concatenate, weights: concatenate_1
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: conv3d_8, weights: conv3d_9
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: instance_normalization_8, weights: instance_normalization_9
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: activation_8, weights: activation_9
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: conv3d_9, weights: conv3d_10
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: instance_normalization_9, weights: instance_normalization_10
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: activation_9, weights: activation_10
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: conv3d_transpose_1, weights: conv3d_transpose_2
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: concatenate_1, weights: concatenate_2
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: conv3d_10, weights: conv3d_11
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: instance_normalization_10, weights: instance_normalization_11
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: activation_10, weights: activation_11
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: conv3d_11, weights: conv3d_12
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: instance_normalization_11, weights: instance_normalization_12
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: activation_11, weights: activation_12
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: conv3d_transpose_2, weights: conv3d_transpose_3
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: concatenate_2, weights: concatenate_3
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: conv3d_12, weights: conv3d_13
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: instance_normalization_12, weights: instance_normalization_13
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: activation_12, weights: activation_13
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: conv3d_13, weights: conv3d_14
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: instance_normalization_13, weights: instance_normalization_14
+02/07/2023 12:26:02 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: activation_13, weights: activation_14
+02/07/2023 12:26:04 PM INFO:.finetune_AVG evaluating weight deltas in the first conv layer
+02/07/2023 12:26:04 PM INFO:.finetune_AVG pre-weights
+02/07/2023 12:26:04 PM INFO:.finetune_AVG 0.0
+02/07/2023 12:26:04 PM INFO:.finetune_AVG post-weights
+02/07/2023 12:26:04 PM INFO:.finetune_AVG -1.5876454
+02/07/2023 12:26:04 PM INFO:.finetune_AVG delta:
+02/07/2023 12:26:04 PM INFO:.finetune_AVG 1.5876454
+02/07/2023 12:26:04 PM INFO:.finetune_AVG evaluating weight deltas in the first conv layer
+02/07/2023 12:26:04 PM INFO:.finetune_AVG pre-weights
+02/07/2023 12:26:04 PM INFO:.finetune_AVG 0.0
+02/07/2023 12:26:04 PM INFO:.finetune_AVG post-weights
+02/07/2023 12:26:04 PM INFO:.finetune_AVG -1.5876454
+02/07/2023 12:26:04 PM INFO:.finetune_AVG delta:
+02/07/2023 12:26:04 PM INFO:.finetune_AVG 1.5876454
+02/07/2023 12:26:04 PM INFO:Reduce to /job:localhost/replica:0/task:0/device:CPU:0 then broadcast to ('/job:localhost/replica:0/task:0/device:CPU:0',).
+02/07/2023 12:26:04 PM INFO:Reduce to /job:localhost/replica:0/task:0/device:CPU:0 then broadcast to ('/job:localhost/replica:0/task:0/device:CPU:0',).
+02/07/2023 12:26:04 PM INFO:Reduce to /job:localhost/replica:0/task:0/device:CPU:0 then broadcast to ('/job:localhost/replica:0/task:0/device:CPU:0',).
+02/07/2023 12:26:04 PM INFO:Reduce to /job:localhost/replica:0/task:0/device:CPU:0 then broadcast to ('/job:localhost/replica:0/task:0/device:CPU:0',).
+02/07/2023 12:26:04 PM INFO:Reduce to /job:localhost/replica:0/task:0/device:CPU:0 then broadcast to ('/job:localhost/replica:0/task:0/device:CPU:0',).
+02/07/2023 12:26:04 PM INFO:Reduce to /job:localhost/replica:0/task:0/device:CPU:0 then broadcast to ('/job:localhost/replica:0/task:0/device:CPU:0',).
+02/07/2023 12:26:04 PM INFO:Reduce to /job:localhost/replica:0/task:0/device:CPU:0 then broadcast to ('/job:localhost/replica:0/task:0/device:CPU:0',).
+02/07/2023 12:26:04 PM INFO:Reduce to /job:localhost/replica:0/task:0/device:CPU:0 then broadcast to ('/job:localhost/replica:0/task:0/device:CPU:0',).
+02/07/2023 12:26:04 PM INFO:dannce.interface.dannce_train COMPLETE
+
+02/07/2023 12:26:04 PM INFO:dannce.interface.dannce_train COMPLETE
+
+02/07/2023 12:26:09 PM INFO:Reduce to /job:localhost/replica:0/task:0/device:CPU:0 then broadcast to ('/job:localhost/replica:0/task:0/device:CPU:0',).
+02/07/2023 12:26:09 PM INFO:Reduce to /job:localhost/replica:0/task:0/device:CPU:0 then broadcast to ('/job:localhost/replica:0/task:0/device:CPU:0',).
+02/07/2023 12:26:09 PM INFO:Reduce to /job:localhost/replica:0/task:0/device:CPU:0 then broadcast to ('/job:localhost/replica:0/task:0/device:CPU:0',).
+02/07/2023 12:26:09 PM INFO:Reduce to /job:localhost/replica:0/task:0/device:CPU:0 then broadcast to ('/job:localhost/replica:0/task:0/device:CPU:0',).
+02/07/2023 12:56:41 PM INFO:dance.cluster.grid.GridHandler.submit_jobs dict_values([10, '../../demo/markerless_mouse_1/DANNCE/grid_1/'])
+02/07/2023 12:56:41 PM INFO:dance.cluster.grid.GridHandler.submit_jobs dict_values([5, '../../demo/markerless_mouse_1/DANNCE/grid_2/'])
+02/07/2023 12:56:41 PM INFO:dance.cluster.grid.GridHandler.submit_jobs Command issued: sbatch --wait --array=0-1 --job-name=trainDannce -p gpu-common,dsplus-gpu --mem=80000 -t 3-00:00 --gres=gpu:1 -N 1 -c 16 --account=plusds --wrap=". ~/.bashrc; conda activate dannce_aux; dannce-train-single-batch config_mousetest.yaml grid_config.yaml"
+02/07/2023 12:59:29 PM INFO:com_train_dir set to: ../../demo/markerless_mouse_1/COM/train_test/
+02/07/2023 12:59:29 PM INFO:com_predict_dir set to: ../../demo/markerless_mouse_1/COM/predict_test/
+02/07/2023 12:59:29 PM INFO:com_predict_weights set to: ../../demo/markerless_mouse_1/COM/train_results/weights.250-0.00036.hdf5
+02/07/2023 12:59:29 PM INFO:dannce_train_dir set to: ../../demo/markerless_mouse_1/DANNCE/train_results/AVG_MAX/
+02/07/2023 12:59:29 PM INFO:dannce_predict_dir set to: ../../demo/markerless_mouse_1/DANNCE/predict_test/
+02/07/2023 12:59:29 PM INFO:dannce_predict_model set to: ../../demo/markerless_mouse_1/DANNCE/train_results/AVG/weights.1200-12.77642.hdf5
+02/07/2023 12:59:29 PM INFO:exp set to: [{'label3d_file': './label3d_temp_dannce.mat', 'viddir': '../../demo/markerless_mouse_1/videos/'}, {'label3d_file': './label3d_temp_dannce.mat', 'viddir': '../../demo/markerless_mouse_2/videos/'}]
+02/07/2023 12:59:29 PM INFO:viddir set to: ../../demo/markerless_mouse_1/videos/
+02/07/2023 12:59:29 PM INFO:gpu_id set to: 0
+02/07/2023 12:59:29 PM INFO:io_config set to: io.yaml
+02/07/2023 12:59:29 PM INFO:new_n_channels_out set to: 22
+02/07/2023 12:59:29 PM INFO:batch_size set to: 4
+02/07/2023 12:59:29 PM INFO:epochs set to: 1
+02/07/2023 12:59:29 PM INFO:train_mode set to: finetune
+02/07/2023 12:59:29 PM INFO:slurm_config set to: ../../cluster/duke.yaml
+02/07/2023 12:59:29 PM INFO:num_validation_per_exp set to: 4
+02/07/2023 12:59:29 PM INFO:vol_size set to: 120
+02/07/2023 12:59:29 PM INFO:nvox set to: 64
+02/07/2023 12:59:29 PM INFO:max_num_samples set to: 10
+02/07/2023 12:59:29 PM INFO:start_batch set to: 0
+02/07/2023 12:59:29 PM INFO:dannce_finetune_weights set to: ../../demo/markerless_mouse_1/DANNCE/weights/
+02/07/2023 12:59:29 PM INFO:metric set to: ['euclidean_distance_3D', 'centered_euclidean_distance_3D']
+02/07/2023 12:59:29 PM INFO:log_dest set to: ../logs/
+02/07/2023 12:59:29 PM INFO:log_level set to: INFO
+02/07/2023 12:59:29 PM INFO:base_config set to: config_mousetest.yaml
+02/07/2023 12:59:29 PM INFO:crop_height set to: None
+02/07/2023 12:59:29 PM INFO:crop_width set to: None
+02/07/2023 12:59:29 PM INFO:camnames set to: None
+02/07/2023 12:59:29 PM INFO:n_channels_out set to: 20
+02/07/2023 12:59:29 PM INFO:sigma set to: 10
+02/07/2023 12:59:29 PM INFO:verbose set to: 1
+02/07/2023 12:59:29 PM INFO:net set to: None
+02/07/2023 12:59:29 PM INFO:immode set to: vid
+02/07/2023 12:59:29 PM INFO:mono set to: False
+02/07/2023 12:59:29 PM INFO:mirror set to: False
+02/07/2023 12:59:29 PM INFO:norm_method set to: layer
+02/07/2023 12:59:29 PM INFO:loss set to: mask_nan_keep_loss
+02/07/2023 12:59:29 PM INFO:huber-delta set to: 1.35
+02/07/2023 12:59:29 PM INFO:num_train_per_exp set to: None
+02/07/2023 12:59:29 PM INFO:lr set to: 0.001
+02/07/2023 12:59:29 PM INFO:augment_hue set to: False
+02/07/2023 12:59:29 PM INFO:augment_brightness set to: False
+02/07/2023 12:59:29 PM INFO:augment_hue_val set to: 0.05
+02/07/2023 12:59:29 PM INFO:augment_bright_val set to: 0.05
+02/07/2023 12:59:29 PM INFO:augment_rotation_val set to: 5
+02/07/2023 12:59:29 PM INFO:data_split_seed set to: None
+02/07/2023 12:59:29 PM INFO:valid_exp set to: None
+02/07/2023 12:59:29 PM INFO:net_type set to: AVG
+02/07/2023 12:59:29 PM INFO:com_fromlabels set to: False
+02/07/2023 12:59:29 PM INFO:medfilt_window set to: None
+02/07/2023 12:59:29 PM INFO:com_file set to: None
+02/07/2023 12:59:29 PM INFO:new_last_kernel_size set to: [3, 3, 3]
+02/07/2023 12:59:29 PM INFO:n_layers_locked set to: 2
+02/07/2023 12:59:29 PM INFO:vmin set to: None
+02/07/2023 12:59:29 PM INFO:vmax set to: None
+02/07/2023 12:59:29 PM INFO:interp set to: nearest
+02/07/2023 12:59:29 PM INFO:depth set to: False
+02/07/2023 12:59:29 PM INFO:comthresh set to: 0
+02/07/2023 12:59:29 PM INFO:weighted set to: False
+02/07/2023 12:59:29 PM INFO:com_method set to: median
+02/07/2023 12:59:29 PM INFO:cthresh set to: None
+02/07/2023 12:59:29 PM INFO:channel_combo set to: None
+02/07/2023 12:59:29 PM INFO:predict_mode set to: torch
+02/07/2023 12:59:29 PM INFO:n_views set to: 6
+02/07/2023 12:59:29 PM INFO:rotate set to: True
+02/07/2023 12:59:29 PM INFO:augment_continuous_rotation set to: False
+02/07/2023 12:59:29 PM INFO:mirror_augmentation set to: False
+02/07/2023 12:59:29 PM INFO:drop_landmark set to: None
+02/07/2023 12:59:29 PM INFO:use_npy set to: False
+02/07/2023 12:59:29 PM INFO:rand_view_replace set to: True
+02/07/2023 12:59:29 PM INFO:n_rand_views set to: 0
+02/07/2023 12:59:29 PM INFO:multi_gpu_train set to: False
+02/07/2023 12:59:29 PM INFO:heatmap_reg set to: False
+02/07/2023 12:59:29 PM INFO:heatmap_reg_coeff set to: 0.01
+02/07/2023 12:59:29 PM INFO:save_pred_targets set to: False
+02/07/2023 12:59:29 PM INFO:avg+max set to: 10.0
+02/07/2023 12:59:29 PM INFO:n_channels_in set to: None
+02/07/2023 12:59:29 PM INFO:extension set to: None
+02/07/2023 12:59:29 PM INFO:vid_dir_flag set to: None
+02/07/2023 12:59:29 PM INFO:chunks set to: None
+02/07/2023 12:59:29 PM INFO:lockfirst set to: None
+02/07/2023 12:59:29 PM INFO:load_valid set to: None
+02/07/2023 12:59:29 PM INFO:right_keypoints set to: None
+02/07/2023 12:59:29 PM INFO:left_keypoints set to: None
+02/07/2023 12:59:29 PM INFO:raw_im_h set to: None
+02/07/2023 12:59:29 PM INFO:raw_im_w set to: None
+02/07/2023 12:59:29 PM INFO:n_instances set to: 1
+02/07/2023 12:59:29 PM INFO:start_sample set to: None
+02/07/2023 12:59:29 PM INFO:write_npy set to: None
+02/07/2023 12:59:29 PM INFO:expval set to: None
+02/07/2023 12:59:29 PM INFO:com_thresh set to: None
+02/07/2023 12:59:29 PM INFO:cam3_train set to: None
+02/07/2023 12:59:29 PM INFO:debug_volume_tifdir set to: None
+02/07/2023 12:59:29 PM INFO:downfac set to: None
+02/07/2023 12:59:29 PM INFO:from_weights set to: None
+02/07/2023 12:59:29 PM INFO:dannce_predict_vol_tifdir set to: None
+02/07/2023 12:59:29 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting vid_dir_flag to True.
+02/07/2023 12:59:29 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting extension to .mp4.
+02/07/2023 12:59:29 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting chunks to {'Camera1': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera2': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera3': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera4': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera5': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera6': array([    0,  3000,  6000,  9000, 12000, 15000])}.
+02/07/2023 12:59:29 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting n_channels_in to 3.
+02/07/2023 12:59:29 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting raw_im_h to 1024.
+02/07/2023 12:59:29 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting raw_im_w to 1152.
+02/07/2023 12:59:29 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting expval to True.
+02/07/2023 12:59:29 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting net_type to AVG.
+02/07/2023 12:59:29 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting expval to True.
+02/07/2023 12:59:29 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting net to finetune_AVG.
+02/07/2023 12:59:31 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting crop_height to [0, 1024].
+02/07/2023 12:59:31 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting crop_width to [0, 1152].
+02/07/2023 12:59:31 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting maxbatch to 2.
+02/07/2023 12:59:31 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting start_batch to 0.
+02/07/2023 12:59:31 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting vmin to -60.0.
+02/07/2023 12:59:31 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting vmax to 60.0.
+02/07/2023 12:59:31 PM INFO:dannce.interface.dannce_train Fine-tuning from ../../demo/markerless_mouse_1/DANNCE/weights/weights.rat.AVG.6cam.hdf5
+02/07/2023 12:59:31 PM INFO:dannce.engine.serve_data_DANNCE.prepare_data ./label3d_temp_dannce.mat
+02/07/2023 12:59:31 PM INFO:dannce.interface.do_COM_load Experiment 0 using com3d: ./label3d_temp_dannce.mat
+02/07/2023 12:59:31 PM INFO:dannce.interface.do_COM_load Removed 0 samples from the dataset because they either had COM positions over cthresh, or did not have matching sampleIDs in the COM file
+02/07/2023 12:59:31 PM INFO:dannce.engine.serve_data_DANNCE.prepare_data ./label3d_temp_dannce.mat
+02/07/2023 12:59:32 PM INFO:dannce.interface.do_COM_load Experiment 1 using com3d: ./label3d_temp_dannce.mat
+02/07/2023 12:59:32 PM INFO:dannce.interface.do_COM_load Removed 0 samples from the dataset because they either had COM positions over cthresh, or did not have matching sampleIDs in the COM file
+02/07/2023 12:59:32 PM INFO:dannce.engine.preprocessing.py.make_data_split TRAIN EXPTS: [0 1]
+02/07/2023 12:59:32 PM INFO:None
+02/07/2023 12:59:32 PM INFO:None
+02/07/2023 12:59:32 PM INFO:dannce.interface.dannce_train Loading training data into memory. This can take a while to seek throughlarge sets of video. This process is much faster if the frame indicesare sorted in ascending order in your label data file.
+02/07/2023 12:59:32 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera1
+02/07/2023 12:59:32 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera2
+02/07/2023 12:59:33 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera3
+02/07/2023 12:59:34 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera4
+02/07/2023 12:59:34 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera5
+02/07/2023 12:59:35 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera6
+02/07/2023 12:59:55 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 1_Camera1
+02/07/2023 12:59:56 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 1_Camera2
+02/07/2023 12:59:57 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 1_Camera3
+02/07/2023 12:59:58 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 1_Camera4
+02/07/2023 12:59:59 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 1_Camera5
+02/07/2023 01:00:00 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 1_Camera6
+02/07/2023 01:00:16 PM INFO:dannce.interface.dannce_train Loading validation data into memory
+02/07/2023 01:00:16 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera1
+02/07/2023 01:00:17 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera2
+02/07/2023 01:00:17 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera3
+02/07/2023 01:00:18 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera4
+02/07/2023 01:00:19 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera5
+02/07/2023 01:00:19 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera6
+02/07/2023 01:00:29 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 1_Camera1
+02/07/2023 01:00:30 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 1_Camera2
+02/07/2023 01:00:30 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 1_Camera3
+02/07/2023 01:00:31 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 1_Camera4
+02/07/2023 01:00:31 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 1_Camera5
+02/07/2023 01:00:32 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 1_Camera6
+02/07/2023 01:00:43 PM INFO:dannce.interface.dannce_train Using default n_rand_views augmentation with 6 views and with replacement
+02/07/2023 01:00:43 PM INFO:dannce.interface.dannce_train To disable n_rand_views augmentation, set it to None in the config.
+02/07/2023 01:00:43 PM INFO:dannce.interface.dannce_train Initializing Network...
+02/07/2023 01:00:46 PM INFO:Using MirroredStrategy with devices ('/job:localhost/replica:0/task:0/device:GPU:0',)
+02/07/2023 01:00:46 PM INFO:dannce.interface.dannce_train Number of devices: 1
+02/07/2023 01:00:46 PM INFO:dannce.interface.dannce_train NUM CAMERAS: 6
+02/07/2023 01:00:46 PM INFO:dannce.engine.nets.norm_fun using layer normalization
+02/07/2023 01:00:46 PM INFO:dannce.engine.nets.norm_fun calling layer norm fun
+02/07/2023 01:00:46 PM INFO:dannce.engine.nets.norm_fun calling layer norm fun
+02/07/2023 01:00:46 PM INFO:dannce.engine.nets.norm_fun calling layer norm fun
+02/07/2023 01:00:46 PM INFO:dannce.engine.nets.norm_fun calling layer norm fun
+02/07/2023 01:00:46 PM INFO:dannce.engine.nets.norm_fun calling layer norm fun
+02/07/2023 01:00:46 PM INFO:dannce.engine.nets.norm_fun calling layer norm fun
+02/07/2023 01:00:46 PM INFO:dannce.engine.nets.norm_fun calling layer norm fun
+02/07/2023 01:00:46 PM INFO:dannce.engine.nets.norm_fun calling layer norm fun
+02/07/2023 01:00:46 PM INFO:dannce.engine.nets.norm_fun calling layer norm fun
+02/07/2023 01:00:46 PM INFO:dannce.engine.nets.norm_fun calling layer norm fun
+02/07/2023 01:00:46 PM INFO:dannce.engine.nets.norm_fun calling layer norm fun
+02/07/2023 01:00:46 PM INFO:dannce.engine.nets.norm_fun calling layer norm fun
+02/07/2023 01:00:46 PM INFO:dannce.engine.nets.norm_fun calling layer norm fun
+02/07/2023 01:00:46 PM INFO:dannce.engine.nets.norm_fun calling layer norm fun
+02/07/2023 01:00:47 PM INFO:Reduce to /job:localhost/replica:0/task:0/device:CPU:0 then broadcast to ('/job:localhost/replica:0/task:0/device:CPU:0',).
+02/07/2023 01:00:47 PM INFO:Reduce to /job:localhost/replica:0/task:0/device:CPU:0 then broadcast to ('/job:localhost/replica:0/task:0/device:CPU:0',).
+02/07/2023 01:00:47 PM INFO:Reduce to /job:localhost/replica:0/task:0/device:CPU:0 then broadcast to ('/job:localhost/replica:0/task:0/device:CPU:0',).
+02/07/2023 01:00:47 PM INFO:Reduce to /job:localhost/replica:0/task:0/device:CPU:0 then broadcast to ('/job:localhost/replica:0/task:0/device:CPU:0',).
+02/07/2023 01:00:47 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: image_input, weights: input_1
+02/07/2023 01:00:47 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: conv3d, weights: conv3d_1
+02/07/2023 01:00:47 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: instance_normalization, weights: instance_normalization_1
+02/07/2023 01:00:47 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: activation, weights: activation_1
+02/07/2023 01:00:47 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: conv3d_1, weights: conv3d_2
+02/07/2023 01:00:47 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: instance_normalization_1, weights: instance_normalization_2
+02/07/2023 01:00:47 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: activation_1, weights: activation_2
+02/07/2023 01:00:47 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: max_pooling3d, weights: max_pooling3d_1
+02/07/2023 01:00:47 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: conv3d_2, weights: conv3d_3
+02/07/2023 01:00:47 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: instance_normalization_2, weights: instance_normalization_3
+02/07/2023 01:00:47 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: activation_2, weights: activation_3
+02/07/2023 01:00:47 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: conv3d_3, weights: conv3d_4
+02/07/2023 01:00:47 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: instance_normalization_3, weights: instance_normalization_4
+02/07/2023 01:00:47 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: activation_3, weights: activation_4
+02/07/2023 01:00:47 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: max_pooling3d_1, weights: max_pooling3d_2
+02/07/2023 01:00:47 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: conv3d_4, weights: conv3d_5
+02/07/2023 01:00:47 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: instance_normalization_4, weights: instance_normalization_5
+02/07/2023 01:00:47 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: activation_4, weights: activation_5
+02/07/2023 01:00:47 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: conv3d_5, weights: conv3d_6
+02/07/2023 01:00:47 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: instance_normalization_5, weights: instance_normalization_6
+02/07/2023 01:00:47 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: activation_5, weights: activation_6
+02/07/2023 01:00:47 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: max_pooling3d_2, weights: max_pooling3d_3
+02/07/2023 01:00:47 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: conv3d_6, weights: conv3d_7
+02/07/2023 01:00:47 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: instance_normalization_6, weights: instance_normalization_7
+02/07/2023 01:00:47 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: activation_6, weights: activation_7
+02/07/2023 01:00:47 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: conv3d_7, weights: conv3d_8
+02/07/2023 01:00:47 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: instance_normalization_7, weights: instance_normalization_8
+02/07/2023 01:00:47 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: activation_7, weights: activation_8
+02/07/2023 01:00:47 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: conv3d_transpose, weights: conv3d_transpose_1
+02/07/2023 01:00:47 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: concatenate, weights: concatenate_1
+02/07/2023 01:00:47 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: conv3d_8, weights: conv3d_9
+02/07/2023 01:00:47 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: instance_normalization_8, weights: instance_normalization_9
+02/07/2023 01:00:47 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: activation_8, weights: activation_9
+02/07/2023 01:00:47 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: conv3d_9, weights: conv3d_10
+02/07/2023 01:00:47 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: instance_normalization_9, weights: instance_normalization_10
+02/07/2023 01:00:47 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: activation_9, weights: activation_10
+02/07/2023 01:00:47 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: conv3d_transpose_1, weights: conv3d_transpose_2
+02/07/2023 01:00:47 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: concatenate_1, weights: concatenate_2
+02/07/2023 01:00:47 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: conv3d_10, weights: conv3d_11
+02/07/2023 01:00:47 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: instance_normalization_10, weights: instance_normalization_11
+02/07/2023 01:00:47 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: activation_10, weights: activation_11
+02/07/2023 01:00:47 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: conv3d_11, weights: conv3d_12
+02/07/2023 01:00:47 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: instance_normalization_11, weights: instance_normalization_12
+02/07/2023 01:00:47 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: activation_11, weights: activation_12
+02/07/2023 01:00:47 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: conv3d_transpose_2, weights: conv3d_transpose_3
+02/07/2023 01:00:47 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: concatenate_2, weights: concatenate_3
+02/07/2023 01:00:47 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: conv3d_12, weights: conv3d_13
+02/07/2023 01:00:47 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: instance_normalization_12, weights: instance_normalization_13
+02/07/2023 01:00:47 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: activation_12, weights: activation_13
+02/07/2023 01:00:47 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: conv3d_13, weights: conv3d_14
+02/07/2023 01:00:47 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: instance_normalization_13, weights: instance_normalization_14
+02/07/2023 01:00:47 PM INFO:dannce.engine.nets.renameLayers Correcting mismatch in layer name, model: activation_13, weights: activation_14
+02/07/2023 01:00:49 PM INFO:.finetune_AVG evaluating weight deltas in the first conv layer
+02/07/2023 01:00:49 PM INFO:.finetune_AVG pre-weights
+02/07/2023 01:00:49 PM INFO:.finetune_AVG 0.0
+02/07/2023 01:00:49 PM INFO:.finetune_AVG post-weights
+02/07/2023 01:00:49 PM INFO:.finetune_AVG -1.5876454
+02/07/2023 01:00:49 PM INFO:.finetune_AVG delta:
+02/07/2023 01:00:49 PM INFO:.finetune_AVG 1.5876454
+02/07/2023 01:00:49 PM INFO:Reduce to /job:localhost/replica:0/task:0/device:CPU:0 then broadcast to ('/job:localhost/replica:0/task:0/device:CPU:0',).
+02/07/2023 01:00:49 PM INFO:Reduce to /job:localhost/replica:0/task:0/device:CPU:0 then broadcast to ('/job:localhost/replica:0/task:0/device:CPU:0',).
+02/07/2023 01:00:49 PM INFO:Reduce to /job:localhost/replica:0/task:0/device:CPU:0 then broadcast to ('/job:localhost/replica:0/task:0/device:CPU:0',).
+02/07/2023 01:00:49 PM INFO:Reduce to /job:localhost/replica:0/task:0/device:CPU:0 then broadcast to ('/job:localhost/replica:0/task:0/device:CPU:0',).
+02/07/2023 01:00:50 PM INFO:dannce.interface.dannce_train COMPLETE
+
+02/07/2023 01:00:53 PM INFO:Reduce to /job:localhost/replica:0/task:0/device:CPU:0 then broadcast to ('/job:localhost/replica:0/task:0/device:CPU:0',).
+02/07/2023 01:00:53 PM INFO:Reduce to /job:localhost/replica:0/task:0/device:CPU:0 then broadcast to ('/job:localhost/replica:0/task:0/device:CPU:0',).
+02/07/2023 01:01:24 PM INFO:dannce.interface.dannce_train Renaming weights file with best epoch description
+02/07/2023 01:01:24 PM INFO:dannce.interface.dannce_train Saving full model at end of training
+02/07/2023 01:01:27 PM INFO:dannce.interface.dannce_train Saving predictions for ../../demo/markerless_mouse_1/DANNCE/train_results/AVG_MAX/weights.0-456.55078.hdf5 and ../../demo/markerless_mouse_1/DANNCE/train_results/AVG_MAX/fullmodel_weights/fullmodel_end.hdf5
+02/07/2023 01:01:27 PM INFO:dannce.interface.dannce_train done!
+02/08/2023 12:35:24 PM INFO:com_train_dir set to: ../../demo/markerless_mouse_1/COM/train_test/
+02/08/2023 12:35:24 PM INFO:com_predict_dir set to: ../../demo/markerless_mouse_1/COM/predict_test/
+02/08/2023 12:35:24 PM INFO:com_predict_weights set to: ../../demo/markerless_mouse_1/COM/train_results/weights.250-0.00036.hdf5
+02/08/2023 12:35:24 PM INFO:dannce_train_dir set to: ../../demo/markerless_mouse_1/DANNCE/train_test/
+02/08/2023 12:35:24 PM INFO:dannce_predict_dir set to: ../../demo/markerless_mouse_1/DANNCE/predict_test/
+02/08/2023 12:35:24 PM INFO:dannce_predict_model set to: ../../demo/markerless_mouse_1/DANNCE/train_results/weights.12000-0.00014.hdf5
+02/08/2023 12:35:24 PM INFO:exp set to: [{'label3d_file': './label3d_temp_dannce.mat', 'viddir': '../../demo/markerless_mouse_1/videos/'}, {'label3d_file': './label3d_temp_dannce.mat', 'viddir': '../../demo/markerless_mouse_2/videos/'}]
+02/08/2023 12:35:24 PM INFO:viddir set to: ../../demo/markerless_mouse_1/videos/
+02/08/2023 12:35:24 PM INFO:gpu_id set to: 0
+02/08/2023 12:35:24 PM INFO:io_config set to: io.yaml
+02/08/2023 12:35:24 PM INFO:new_n_channels_out set to: 22
+02/08/2023 12:35:24 PM INFO:batch_size set to: 4
+02/08/2023 12:35:24 PM INFO:epochs set to: 1
+02/08/2023 12:35:24 PM INFO:train_mode set to: finetune
+02/08/2023 12:35:24 PM INFO:slurm_config set to: ../../cluster/duke.yaml
+02/08/2023 12:35:24 PM INFO:num_validation_per_exp set to: 4
+02/08/2023 12:35:24 PM INFO:vol_size set to: 120
+02/08/2023 12:35:24 PM INFO:nvox set to: 64
+02/08/2023 12:35:24 PM INFO:max_num_samples set to: 10
+02/08/2023 12:35:24 PM INFO:start_batch set to: 0
+02/08/2023 12:35:24 PM INFO:dannce_finetune_weights set to: ../../demo/markerless_mouse_1/DANNCE/weights/
+02/08/2023 12:35:24 PM INFO:metric set to: ['euclidean_distance_3D', 'centered_euclidean_distance_3D']
+02/08/2023 12:35:24 PM INFO:log_dest set to: ../logs/
+02/08/2023 12:35:24 PM INFO:log_level set to: INFO
+02/08/2023 12:35:24 PM INFO:base_config set to: config_mousetest.yaml
+02/08/2023 12:35:24 PM INFO:crop_height set to: None
+02/08/2023 12:35:24 PM INFO:crop_width set to: None
+02/08/2023 12:35:24 PM INFO:camnames set to: None
+02/08/2023 12:35:24 PM INFO:n_channels_out set to: 20
+02/08/2023 12:35:24 PM INFO:sigma set to: 10
+02/08/2023 12:35:24 PM INFO:verbose set to: 1
+02/08/2023 12:35:24 PM INFO:net set to: None
+02/08/2023 12:35:24 PM INFO:immode set to: vid
+02/08/2023 12:35:24 PM INFO:mono set to: False
+02/08/2023 12:35:24 PM INFO:mirror set to: False
+02/08/2023 12:35:24 PM INFO:norm_method set to: layer
+02/08/2023 12:35:24 PM INFO:start_sample set to: None
+02/08/2023 12:35:24 PM INFO:net_type set to: MAX
+02/08/2023 12:35:24 PM INFO:com_fromlabels set to: False
+02/08/2023 12:35:24 PM INFO:medfilt_window set to: None
+02/08/2023 12:35:24 PM INFO:com_file set to: None
+02/08/2023 12:35:24 PM INFO:new_last_kernel_size set to: [3, 3, 3]
+02/08/2023 12:35:24 PM INFO:n_layers_locked set to: 2
+02/08/2023 12:35:24 PM INFO:vmin set to: None
+02/08/2023 12:35:24 PM INFO:vmax set to: None
+02/08/2023 12:35:24 PM INFO:interp set to: nearest
+02/08/2023 12:35:24 PM INFO:depth set to: False
+02/08/2023 12:35:24 PM INFO:comthresh set to: 0
+02/08/2023 12:35:24 PM INFO:weighted set to: False
+02/08/2023 12:35:24 PM INFO:com_method set to: median
+02/08/2023 12:35:24 PM INFO:cthresh set to: None
+02/08/2023 12:35:24 PM INFO:channel_combo set to: None
+02/08/2023 12:35:24 PM INFO:predict_mode set to: torch
+02/08/2023 12:35:24 PM INFO:n_views set to: 6
+02/08/2023 12:35:24 PM INFO:expval set to: False
+02/08/2023 12:35:24 PM INFO:from_weights set to: None
+02/08/2023 12:35:24 PM INFO:write_npy set to: None
+02/08/2023 12:35:24 PM INFO:loss set to: mask_nan_keep_loss
+02/08/2023 12:35:24 PM INFO:n_channels_in set to: None
+02/08/2023 12:35:24 PM INFO:extension set to: None
+02/08/2023 12:35:24 PM INFO:vid_dir_flag set to: None
+02/08/2023 12:35:24 PM INFO:num_train_per_exp set to: None
+02/08/2023 12:35:24 PM INFO:chunks set to: None
+02/08/2023 12:35:24 PM INFO:lockfirst set to: None
+02/08/2023 12:35:24 PM INFO:load_valid set to: None
+02/08/2023 12:35:24 PM INFO:augment_hue set to: False
+02/08/2023 12:35:24 PM INFO:augment_brightness set to: False
+02/08/2023 12:35:24 PM INFO:augment_hue_val set to: 0.05
+02/08/2023 12:35:24 PM INFO:augment_bright_val set to: 0.05
+02/08/2023 12:35:24 PM INFO:augment_rotation_val set to: 5
+02/08/2023 12:35:24 PM INFO:mirror_augmentation set to: False
+02/08/2023 12:35:24 PM INFO:right_keypoints set to: None
+02/08/2023 12:35:24 PM INFO:left_keypoints set to: None
+02/08/2023 12:35:24 PM INFO:drop_landmark set to: None
+02/08/2023 12:35:24 PM INFO:raw_im_h set to: None
+02/08/2023 12:35:24 PM INFO:raw_im_w set to: None
+02/08/2023 12:35:24 PM INFO:n_instances set to: 1
+02/08/2023 12:35:24 PM INFO:use_npy set to: False
+02/08/2023 12:35:24 PM INFO:data_split_seed set to: None
+02/08/2023 12:35:24 PM INFO:valid_exp set to: None
+02/08/2023 12:35:24 PM INFO:lr set to: 0.001
+02/08/2023 12:35:24 PM INFO:rotate set to: True
+02/08/2023 12:35:24 PM INFO:augment_continuous_rotation set to: False
+02/08/2023 12:35:24 PM INFO:com_thresh set to: None
+02/08/2023 12:35:24 PM INFO:cam3_train set to: None
+02/08/2023 12:35:24 PM INFO:debug_volume_tifdir set to: None
+02/08/2023 12:35:24 PM INFO:downfac set to: None
+02/08/2023 12:35:24 PM INFO:dannce_predict_vol_tifdir set to: None
+02/08/2023 12:35:24 PM INFO:n_rand_views set to: 0
+02/08/2023 12:35:24 PM INFO:rand_view_replace set to: True
+02/08/2023 12:35:24 PM INFO:multi_gpu_train set to: False
+02/08/2023 12:35:24 PM INFO:heatmap_reg set to: False
+02/08/2023 12:35:24 PM INFO:heatmap_reg_coeff set to: 0.01
+02/08/2023 12:35:24 PM INFO:save_pred_targets set to: False
+02/08/2023 12:35:24 PM INFO:huber-delta set to: 1.35
+02/08/2023 12:35:24 PM INFO:avg+max set to: None
+02/08/2023 12:35:24 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting vid_dir_flag to True.
+02/08/2023 12:35:24 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting extension to .mp4.
+02/08/2023 12:35:24 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting chunks to {'Camera1': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera2': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera3': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera4': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera5': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera6': array([    0,  3000,  6000,  9000, 12000, 15000])}.
+02/08/2023 12:35:24 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting n_channels_in to 3.
+02/08/2023 12:35:24 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting raw_im_h to 1024.
+02/08/2023 12:35:24 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting raw_im_w to 1152.
+02/08/2023 12:35:24 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting expval to False.
+02/08/2023 12:35:24 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting net to finetune_MAX.
+02/08/2023 12:35:25 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting crop_height to [0, 1024].
+02/08/2023 12:35:25 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting crop_width to [0, 1152].
+02/08/2023 12:35:25 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting maxbatch to 2.
+02/08/2023 12:35:25 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting start_batch to 0.
+02/08/2023 12:35:25 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting vmin to -60.0.
+02/08/2023 12:35:25 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting vmax to 60.0.
+02/08/2023 12:35:25 PM INFO:dannce.interface.setup_dannce_predict Using torch predict mode
+02/08/2023 12:35:25 PM INFO:dannce.interface.setup_dannce_predict Using camnames: ['Camera1', 'Camera2', 'Camera3', 'Camera4', 'Camera5', 'Camera6']
+02/08/2023 12:35:26 PM INFO:dannce.interface.do_COM_load Experiment 0 using com3d: ./alabel3d_temp_dannce.mat
+02/08/2023 12:35:26 PM INFO:dannce.interface.do_COM_load Removed 0 samples from the dataset because they either had COM positions over cthresh, or did not have matching sampleIDs in the COM file
+02/08/2023 12:35:26 PM INFO:dannce.interface.write_com_file Saving 3D COM to ../../demo/markerless_mouse_1/DANNCE/predict_test/com3d_used.mat
+02/08/2023 12:35:26 PM INFO:None
+02/08/2023 12:35:29 PM INFO:dannce.engine.generator.DataGenerator_3Dconv_torch.__init__Executing eagerly: True
+02/08/2023 12:35:30 PM INFO:dannce.engine.generator.DataGenerator_3Dconv_torch.__init__Init took 3.8584048748016357 sec.
+02/08/2023 12:35:30 PM INFO:dannce.interface.build_model Initializing Network...
+02/08/2023 12:35:30 PM INFO:dannce.interface.build_model Loading model from ../../demo/markerless_mouse_1/DANNCE/train_results/weights.12000-0.00014.hdf5
+02/08/2023 12:35:31 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera1
+02/08/2023 12:35:31 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera5
+02/08/2023 12:35:31 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera4
+02/08/2023 12:35:31 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera6
+02/08/2023 12:35:31 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera2
+02/08/2023 12:35:31 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera3
+02/08/2023 12:43:10 PM INFO:com_train_dir set to: ../../demo/markerless_mouse_1/COM/train_test/
+02/08/2023 12:43:10 PM INFO:com_predict_dir set to: ../../demo/markerless_mouse_1/COM/predict_test/
+02/08/2023 12:43:10 PM INFO:com_predict_weights set to: ../../demo/markerless_mouse_1/COM/train_results/weights.250-0.00036.hdf5
+02/08/2023 12:43:10 PM INFO:dannce_train_dir set to: ../../demo/markerless_mouse_1/DANNCE/train_test/
+02/08/2023 12:43:10 PM INFO:dannce_predict_dir set to: ../../demo/markerless_mouse_1/DANNCE/predict_test/
+02/08/2023 12:43:10 PM INFO:dannce_predict_model set to: ../../demo/markerless_mouse_1/DANNCE/train_results/weights.12000-0.00014.hdf5
+02/08/2023 12:43:10 PM INFO:exp set to: [{'label3d_file': './label3d_temp_dannce.mat', 'viddir': '../../demo/markerless_mouse_1/videos/'}, {'label3d_file': './label3d_temp_dannce.mat', 'viddir': '../../demo/markerless_mouse_2/videos/'}]
+02/08/2023 12:43:10 PM INFO:viddir set to: ../../demo/markerless_mouse_1/videos/
+02/08/2023 12:43:10 PM INFO:gpu_id set to: 0
+02/08/2023 12:43:10 PM INFO:io_config set to: io.yaml
+02/08/2023 12:43:10 PM INFO:new_n_channels_out set to: 22
+02/08/2023 12:43:10 PM INFO:batch_size set to: 4
+02/08/2023 12:43:10 PM INFO:epochs set to: 1
+02/08/2023 12:43:10 PM INFO:train_mode set to: finetune
+02/08/2023 12:43:10 PM INFO:slurm_config set to: ../../cluster/duke.yaml
+02/08/2023 12:43:10 PM INFO:num_validation_per_exp set to: 4
+02/08/2023 12:43:10 PM INFO:vol_size set to: 120
+02/08/2023 12:43:10 PM INFO:nvox set to: 64
+02/08/2023 12:43:10 PM INFO:max_num_samples set to: 10
+02/08/2023 12:43:10 PM INFO:start_batch set to: 0
+02/08/2023 12:43:10 PM INFO:dannce_finetune_weights set to: ../../demo/markerless_mouse_1/DANNCE/weights/
+02/08/2023 12:43:10 PM INFO:metric set to: ['euclidean_distance_3D', 'centered_euclidean_distance_3D']
+02/08/2023 12:43:10 PM INFO:log_dest set to: ../logs/
+02/08/2023 12:43:10 PM INFO:log_level set to: INFO
+02/08/2023 12:43:10 PM INFO:base_config set to: config_mousetest.yaml
+02/08/2023 12:43:10 PM INFO:crop_height set to: None
+02/08/2023 12:43:10 PM INFO:crop_width set to: None
+02/08/2023 12:43:10 PM INFO:camnames set to: None
+02/08/2023 12:43:10 PM INFO:n_channels_out set to: 20
+02/08/2023 12:43:10 PM INFO:sigma set to: 10
+02/08/2023 12:43:10 PM INFO:verbose set to: 1
+02/08/2023 12:43:10 PM INFO:net set to: None
+02/08/2023 12:43:10 PM INFO:immode set to: vid
+02/08/2023 12:43:10 PM INFO:mono set to: False
+02/08/2023 12:43:10 PM INFO:mirror set to: False
+02/08/2023 12:43:10 PM INFO:norm_method set to: layer
+02/08/2023 12:43:10 PM INFO:start_sample set to: None
+02/08/2023 12:43:10 PM INFO:net_type set to: MAX
+02/08/2023 12:43:10 PM INFO:com_fromlabels set to: False
+02/08/2023 12:43:10 PM INFO:medfilt_window set to: None
+02/08/2023 12:43:10 PM INFO:com_file set to: None
+02/08/2023 12:43:10 PM INFO:new_last_kernel_size set to: [3, 3, 3]
+02/08/2023 12:43:10 PM INFO:n_layers_locked set to: 2
+02/08/2023 12:43:10 PM INFO:vmin set to: None
+02/08/2023 12:43:10 PM INFO:vmax set to: None
+02/08/2023 12:43:10 PM INFO:interp set to: nearest
+02/08/2023 12:43:10 PM INFO:depth set to: False
+02/08/2023 12:43:10 PM INFO:comthresh set to: 0
+02/08/2023 12:43:10 PM INFO:weighted set to: False
+02/08/2023 12:43:10 PM INFO:com_method set to: median
+02/08/2023 12:43:10 PM INFO:cthresh set to: None
+02/08/2023 12:43:10 PM INFO:channel_combo set to: None
+02/08/2023 12:43:10 PM INFO:predict_mode set to: torch
+02/08/2023 12:43:10 PM INFO:n_views set to: 6
+02/08/2023 12:43:10 PM INFO:expval set to: False
+02/08/2023 12:43:10 PM INFO:from_weights set to: None
+02/08/2023 12:43:10 PM INFO:write_npy set to: None
+02/08/2023 12:43:10 PM INFO:loss set to: mask_nan_keep_loss
+02/08/2023 12:43:10 PM INFO:n_channels_in set to: None
+02/08/2023 12:43:10 PM INFO:extension set to: None
+02/08/2023 12:43:10 PM INFO:vid_dir_flag set to: None
+02/08/2023 12:43:10 PM INFO:num_train_per_exp set to: None
+02/08/2023 12:43:10 PM INFO:chunks set to: None
+02/08/2023 12:43:10 PM INFO:lockfirst set to: None
+02/08/2023 12:43:10 PM INFO:load_valid set to: None
+02/08/2023 12:43:10 PM INFO:augment_hue set to: False
+02/08/2023 12:43:10 PM INFO:augment_brightness set to: False
+02/08/2023 12:43:10 PM INFO:augment_hue_val set to: 0.05
+02/08/2023 12:43:10 PM INFO:augment_bright_val set to: 0.05
+02/08/2023 12:43:10 PM INFO:augment_rotation_val set to: 5
+02/08/2023 12:43:10 PM INFO:mirror_augmentation set to: False
+02/08/2023 12:43:10 PM INFO:right_keypoints set to: None
+02/08/2023 12:43:10 PM INFO:left_keypoints set to: None
+02/08/2023 12:43:10 PM INFO:drop_landmark set to: None
+02/08/2023 12:43:10 PM INFO:raw_im_h set to: None
+02/08/2023 12:43:10 PM INFO:raw_im_w set to: None
+02/08/2023 12:43:10 PM INFO:n_instances set to: 1
+02/08/2023 12:43:10 PM INFO:use_npy set to: False
+02/08/2023 12:43:10 PM INFO:data_split_seed set to: None
+02/08/2023 12:43:10 PM INFO:valid_exp set to: None
+02/08/2023 12:43:10 PM INFO:lr set to: 0.001
+02/08/2023 12:43:10 PM INFO:rotate set to: True
+02/08/2023 12:43:10 PM INFO:augment_continuous_rotation set to: False
+02/08/2023 12:43:10 PM INFO:com_thresh set to: None
+02/08/2023 12:43:10 PM INFO:cam3_train set to: None
+02/08/2023 12:43:10 PM INFO:debug_volume_tifdir set to: None
+02/08/2023 12:43:10 PM INFO:downfac set to: None
+02/08/2023 12:43:10 PM INFO:dannce_predict_vol_tifdir set to: None
+02/08/2023 12:43:10 PM INFO:n_rand_views set to: 0
+02/08/2023 12:43:10 PM INFO:rand_view_replace set to: True
+02/08/2023 12:43:10 PM INFO:multi_gpu_train set to: False
+02/08/2023 12:43:10 PM INFO:heatmap_reg set to: False
+02/08/2023 12:43:10 PM INFO:heatmap_reg_coeff set to: 0.01
+02/08/2023 12:43:10 PM INFO:save_pred_targets set to: False
+02/08/2023 12:43:10 PM INFO:huber-delta set to: 1.35
+02/08/2023 12:43:10 PM INFO:avg+max set to: None
+02/08/2023 12:43:10 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting vid_dir_flag to True.
+02/08/2023 12:43:10 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting extension to .mp4.
+02/08/2023 12:43:10 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting chunks to {'Camera1': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera2': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera3': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera4': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera5': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera6': array([    0,  3000,  6000,  9000, 12000, 15000])}.
+02/08/2023 12:43:10 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting n_channels_in to 3.
+02/08/2023 12:43:10 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting raw_im_h to 1024.
+02/08/2023 12:43:10 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting raw_im_w to 1152.
+02/08/2023 12:43:10 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting expval to False.
+02/08/2023 12:43:10 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting net to finetune_MAX.
+02/08/2023 12:43:11 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting crop_height to [0, 1024].
+02/08/2023 12:43:11 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting crop_width to [0, 1152].
+02/08/2023 12:43:11 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting maxbatch to 2.
+02/08/2023 12:43:11 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting start_batch to 0.
+02/08/2023 12:43:11 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting vmin to -60.0.
+02/08/2023 12:43:11 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting vmax to 60.0.
+02/08/2023 12:43:11 PM INFO:dannce.interface.setup_dannce_predict Using torch predict mode
+02/08/2023 12:43:11 PM INFO:dannce.interface.setup_dannce_predict Using camnames: ['Camera1', 'Camera2', 'Camera3', 'Camera4', 'Camera5', 'Camera6']
+02/08/2023 12:43:11 PM INFO:dannce.interface.do_COM_load Experiment 0 using com3d: ./alabel3d_temp_dannce.mat
+02/08/2023 12:43:11 PM INFO:dannce.interface.do_COM_load Removed 0 samples from the dataset because they either had COM positions over cthresh, or did not have matching sampleIDs in the COM file
+02/08/2023 12:43:11 PM INFO:dannce.interface.write_com_file Saving 3D COM to ../../demo/markerless_mouse_1/DANNCE/predict_test/com3d_used.mat
+02/08/2023 12:43:11 PM INFO:None
+02/08/2023 12:43:14 PM INFO:dannce.engine.generator.DataGenerator_3Dconv_torch.__init__Executing eagerly: True
+02/08/2023 12:43:15 PM INFO:dannce.engine.generator.DataGenerator_3Dconv_torch.__init__Init took 3.8577842712402344 sec.
+02/08/2023 12:43:15 PM INFO:dannce.interface.build_model Initializing Network...
+02/08/2023 12:43:15 PM INFO:dannce.interface.build_model Loading model from ../../demo/markerless_mouse_1/DANNCE/train_results/weights.12000-0.00014.hdf5
+02/08/2023 12:43:17 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera3
+02/08/2023 12:43:17 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera6
+02/08/2023 12:43:17 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera5
+02/08/2023 12:43:17 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera2
+02/08/2023 12:43:17 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera1
+02/08/2023 12:43:17 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera4
+02/09/2023 03:51:17 PM INFO:com_train_dir set to: ../../demo/markerless_mouse_1/COM/train_test/
+02/09/2023 03:51:17 PM INFO:com_predict_dir set to: ../../demo/markerless_mouse_1/COM/predict_test/
+02/09/2023 03:51:17 PM INFO:com_predict_weights set to: ../../demo/markerless_mouse_1/COM/train_results/weights.250-0.00036.hdf5
+02/09/2023 03:51:17 PM INFO:dannce_train_dir set to: ../../demo/markerless_mouse_1/DANNCE/train_test/
+02/09/2023 03:51:17 PM INFO:dannce_predict_dir set to: ../../demo/markerless_mouse_1/DANNCE/predict_test/
+02/09/2023 03:51:17 PM INFO:dannce_predict_model set to: ../../demo/markerless_mouse_1/DANNCE/train_results/weights.12000-0.00014.hdf5
+02/09/2023 03:51:17 PM INFO:exp set to: [{'label3d_file': './label3d_temp_dannce.mat', 'viddir': '../../demo/markerless_mouse_1/videos/'}, {'label3d_file': './label3d_temp_dannce.mat', 'viddir': '../../demo/markerless_mouse_2/videos/'}]
+02/09/2023 03:51:17 PM INFO:viddir set to: ../../demo/markerless_mouse_1/videos/
+02/09/2023 03:51:17 PM INFO:gpu_id set to: 0
+02/09/2023 03:51:17 PM INFO:io_config set to: io.yaml
+02/09/2023 03:51:17 PM INFO:new_n_channels_out set to: 22
+02/09/2023 03:51:17 PM INFO:batch_size set to: 4
+02/09/2023 03:51:17 PM INFO:epochs set to: 1
+02/09/2023 03:51:17 PM INFO:train_mode set to: finetune
+02/09/2023 03:51:17 PM INFO:slurm_config set to: ../../cluster/duke.yaml
+02/09/2023 03:51:17 PM INFO:num_validation_per_exp set to: 4
+02/09/2023 03:51:17 PM INFO:vol_size set to: 120
+02/09/2023 03:51:17 PM INFO:nvox set to: 64
+02/09/2023 03:51:17 PM INFO:max_num_samples set to: 10
+02/09/2023 03:51:17 PM INFO:start_batch set to: 0
+02/09/2023 03:51:17 PM INFO:dannce_finetune_weights set to: ../../demo/markerless_mouse_1/DANNCE/weights/
+02/09/2023 03:51:17 PM INFO:metric set to: ['euclidean_distance_3D', 'centered_euclidean_distance_3D']
+02/09/2023 03:51:17 PM INFO:log_dest set to: ../logs/
+02/09/2023 03:51:17 PM INFO:log_level set to: INFO
+02/09/2023 03:51:17 PM INFO:base_config set to: config_mousetest.yaml
+02/09/2023 03:51:17 PM INFO:crop_height set to: None
+02/09/2023 03:51:17 PM INFO:crop_width set to: None
+02/09/2023 03:51:17 PM INFO:camnames set to: None
+02/09/2023 03:51:17 PM INFO:n_channels_out set to: 20
+02/09/2023 03:51:17 PM INFO:sigma set to: 10
+02/09/2023 03:51:17 PM INFO:verbose set to: 1
+02/09/2023 03:51:17 PM INFO:net set to: None
+02/09/2023 03:51:17 PM INFO:immode set to: vid
+02/09/2023 03:51:17 PM INFO:mono set to: False
+02/09/2023 03:51:17 PM INFO:mirror set to: False
+02/09/2023 03:51:17 PM INFO:norm_method set to: layer
+02/09/2023 03:51:17 PM INFO:start_sample set to: None
+02/09/2023 03:51:17 PM INFO:net_type set to: MAX
+02/09/2023 03:51:17 PM INFO:com_fromlabels set to: False
+02/09/2023 03:51:17 PM INFO:medfilt_window set to: None
+02/09/2023 03:51:17 PM INFO:com_file set to: None
+02/09/2023 03:51:17 PM INFO:new_last_kernel_size set to: [3, 3, 3]
+02/09/2023 03:51:17 PM INFO:n_layers_locked set to: 2
+02/09/2023 03:51:17 PM INFO:vmin set to: None
+02/09/2023 03:51:17 PM INFO:vmax set to: None
+02/09/2023 03:51:17 PM INFO:interp set to: nearest
+02/09/2023 03:51:17 PM INFO:depth set to: False
+02/09/2023 03:51:17 PM INFO:comthresh set to: 0
+02/09/2023 03:51:17 PM INFO:weighted set to: False
+02/09/2023 03:51:17 PM INFO:com_method set to: median
+02/09/2023 03:51:17 PM INFO:cthresh set to: None
+02/09/2023 03:51:17 PM INFO:channel_combo set to: None
+02/09/2023 03:51:17 PM INFO:predict_mode set to: torch
+02/09/2023 03:51:17 PM INFO:n_views set to: 6
+02/09/2023 03:51:17 PM INFO:expval set to: False
+02/09/2023 03:51:17 PM INFO:from_weights set to: None
+02/09/2023 03:51:17 PM INFO:write_npy set to: None
+02/09/2023 03:51:17 PM INFO:loss set to: mask_nan_keep_loss
+02/09/2023 03:51:17 PM INFO:n_channels_in set to: None
+02/09/2023 03:51:17 PM INFO:extension set to: None
+02/09/2023 03:51:17 PM INFO:vid_dir_flag set to: None
+02/09/2023 03:51:17 PM INFO:num_train_per_exp set to: None
+02/09/2023 03:51:17 PM INFO:chunks set to: None
+02/09/2023 03:51:17 PM INFO:lockfirst set to: None
+02/09/2023 03:51:17 PM INFO:load_valid set to: None
+02/09/2023 03:51:17 PM INFO:augment_hue set to: False
+02/09/2023 03:51:17 PM INFO:augment_brightness set to: False
+02/09/2023 03:51:17 PM INFO:augment_hue_val set to: 0.05
+02/09/2023 03:51:17 PM INFO:augment_bright_val set to: 0.05
+02/09/2023 03:51:17 PM INFO:augment_rotation_val set to: 5
+02/09/2023 03:51:17 PM INFO:mirror_augmentation set to: False
+02/09/2023 03:51:17 PM INFO:right_keypoints set to: None
+02/09/2023 03:51:17 PM INFO:left_keypoints set to: None
+02/09/2023 03:51:17 PM INFO:drop_landmark set to: None
+02/09/2023 03:51:17 PM INFO:raw_im_h set to: None
+02/09/2023 03:51:17 PM INFO:raw_im_w set to: None
+02/09/2023 03:51:17 PM INFO:n_instances set to: 1
+02/09/2023 03:51:17 PM INFO:use_npy set to: False
+02/09/2023 03:51:17 PM INFO:data_split_seed set to: None
+02/09/2023 03:51:17 PM INFO:valid_exp set to: None
+02/09/2023 03:51:17 PM INFO:lr set to: 0.001
+02/09/2023 03:51:17 PM INFO:rotate set to: True
+02/09/2023 03:51:17 PM INFO:augment_continuous_rotation set to: False
+02/09/2023 03:51:17 PM INFO:com_thresh set to: None
+02/09/2023 03:51:17 PM INFO:cam3_train set to: None
+02/09/2023 03:51:17 PM INFO:debug_volume_tifdir set to: None
+02/09/2023 03:51:17 PM INFO:downfac set to: None
+02/09/2023 03:51:17 PM INFO:dannce_predict_vol_tifdir set to: None
+02/09/2023 03:51:17 PM INFO:n_rand_views set to: 0
+02/09/2023 03:51:17 PM INFO:rand_view_replace set to: True
+02/09/2023 03:51:17 PM INFO:multi_gpu_train set to: False
+02/09/2023 03:51:17 PM INFO:heatmap_reg set to: False
+02/09/2023 03:51:17 PM INFO:heatmap_reg_coeff set to: 0.01
+02/09/2023 03:51:17 PM INFO:save_pred_targets set to: False
+02/09/2023 03:51:17 PM INFO:huber-delta set to: 1.35
+02/09/2023 03:51:17 PM INFO:avg+max set to: None
+02/09/2023 03:51:17 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting vid_dir_flag to True.
+02/09/2023 03:51:17 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting extension to .mp4.
+02/09/2023 03:51:17 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting chunks to {'Camera1': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera2': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera3': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera4': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera5': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera6': array([    0,  3000,  6000,  9000, 12000, 15000])}.
+02/09/2023 03:51:17 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting n_channels_in to 3.
+02/09/2023 03:51:17 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting raw_im_h to 1024.
+02/09/2023 03:51:17 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting raw_im_w to 1152.
+02/09/2023 03:51:17 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting expval to False.
+02/09/2023 03:51:17 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting net to finetune_MAX.
+02/09/2023 03:51:18 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting crop_height to [0, 1024].
+02/09/2023 03:51:18 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting crop_width to [0, 1152].
+02/09/2023 03:51:18 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting maxbatch to 2.
+02/09/2023 03:51:18 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting start_batch to 0.
+02/09/2023 03:51:18 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting vmin to -60.0.
+02/09/2023 03:51:18 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting vmax to 60.0.
+02/09/2023 03:51:18 PM INFO:dannce.interface.setup_dannce_predict Using torch predict mode
+02/09/2023 03:51:18 PM INFO:dannce.interface.setup_dannce_predict Using camnames: ['Camera1', 'Camera2', 'Camera3', 'Camera4', 'Camera5', 'Camera6']
+02/09/2023 03:51:19 PM INFO:dannce.interface.do_COM_load Experiment 0 using com3d: ./alabel3d_temp_dannce.mat
+02/09/2023 03:51:19 PM INFO:dannce.interface.do_COM_load Removed 0 samples from the dataset because they either had COM positions over cthresh, or did not have matching sampleIDs in the COM file
+02/09/2023 03:51:19 PM INFO:dannce.interface.write_com_file Saving 3D COM to ../../demo/markerless_mouse_1/DANNCE/predict_test/com3d_used.mat
+02/09/2023 03:51:19 PM INFO:None
+02/09/2023 03:51:31 PM INFO:dannce.engine.generator.DataGenerator_3Dconv_torch.__init__Executing eagerly: True
+02/09/2023 03:51:32 PM INFO:dannce.engine.generator.DataGenerator_3Dconv_torch.__init__Init took 13.033998727798462 sec.
+02/09/2023 03:51:32 PM INFO:dannce.interface.build_model Initializing Network...
+02/09/2023 03:51:32 PM INFO:dannce.interface.build_model Loading model from ../../demo/markerless_mouse_1/DANNCE/train_results/weights.12000-0.00014.hdf5
+02/09/2023 03:51:35 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera3
+02/09/2023 03:51:35 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera2
+02/09/2023 03:51:35 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera1
+02/09/2023 03:51:35 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera4
+02/09/2023 03:51:35 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera6
+02/09/2023 03:51:35 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera5
+02/09/2023 03:56:56 PM INFO:com_train_dir set to: ../../demo/markerless_mouse_1/COM/train_test/
+02/09/2023 03:56:56 PM INFO:com_predict_dir set to: ../../demo/markerless_mouse_1/COM/predict_test/
+02/09/2023 03:56:56 PM INFO:com_predict_weights set to: ../../demo/markerless_mouse_1/COM/train_results/weights.250-0.00036.hdf5
+02/09/2023 03:56:56 PM INFO:dannce_train_dir set to: ../../demo/markerless_mouse_1/DANNCE/train_test/
+02/09/2023 03:56:56 PM INFO:dannce_predict_dir set to: ../../demo/markerless_mouse_1/DANNCE/predict_test/
+02/09/2023 03:56:56 PM INFO:dannce_predict_model set to: ../../demo/markerless_mouse_1/DANNCE/train_results/weights.12000-0.00014.hdf5
+02/09/2023 03:56:56 PM INFO:exp set to: [{'label3d_file': './label3d_temp_dannce.mat', 'viddir': '../../demo/markerless_mouse_1/videos/'}, {'label3d_file': './label3d_temp_dannce.mat', 'viddir': '../../demo/markerless_mouse_2/videos/'}]
+02/09/2023 03:56:56 PM INFO:viddir set to: ../../demo/markerless_mouse_1/videos/
+02/09/2023 03:56:56 PM INFO:gpu_id set to: 0
+02/09/2023 03:56:56 PM INFO:io_config set to: io.yaml
+02/09/2023 03:56:56 PM INFO:new_n_channels_out set to: 22
+02/09/2023 03:56:56 PM INFO:batch_size set to: 4
+02/09/2023 03:56:56 PM INFO:epochs set to: 1
+02/09/2023 03:56:56 PM INFO:train_mode set to: finetune
+02/09/2023 03:56:56 PM INFO:slurm_config set to: ../../cluster/duke.yaml
+02/09/2023 03:56:56 PM INFO:num_validation_per_exp set to: 4
+02/09/2023 03:56:56 PM INFO:vol_size set to: 120
+02/09/2023 03:56:56 PM INFO:nvox set to: 64
+02/09/2023 03:56:56 PM INFO:max_num_samples set to: 10
+02/09/2023 03:56:56 PM INFO:start_batch set to: 0
+02/09/2023 03:56:56 PM INFO:dannce_finetune_weights set to: ../../demo/markerless_mouse_1/DANNCE/weights/
+02/09/2023 03:56:56 PM INFO:metric set to: ['euclidean_distance_3D', 'centered_euclidean_distance_3D']
+02/09/2023 03:56:56 PM INFO:log_dest set to: ../logs/
+02/09/2023 03:56:56 PM INFO:log_level set to: INFO
+02/09/2023 03:56:56 PM INFO:base_config set to: config_mousetest.yaml
+02/09/2023 03:56:56 PM INFO:crop_height set to: None
+02/09/2023 03:56:56 PM INFO:crop_width set to: None
+02/09/2023 03:56:56 PM INFO:camnames set to: None
+02/09/2023 03:56:56 PM INFO:n_channels_out set to: 20
+02/09/2023 03:56:56 PM INFO:sigma set to: 10
+02/09/2023 03:56:56 PM INFO:verbose set to: 1
+02/09/2023 03:56:56 PM INFO:net set to: None
+02/09/2023 03:56:56 PM INFO:immode set to: vid
+02/09/2023 03:56:56 PM INFO:mono set to: False
+02/09/2023 03:56:56 PM INFO:mirror set to: False
+02/09/2023 03:56:56 PM INFO:norm_method set to: layer
+02/09/2023 03:56:56 PM INFO:start_sample set to: None
+02/09/2023 03:56:56 PM INFO:net_type set to: MAX
+02/09/2023 03:56:56 PM INFO:com_fromlabels set to: False
+02/09/2023 03:56:56 PM INFO:medfilt_window set to: None
+02/09/2023 03:56:56 PM INFO:com_file set to: None
+02/09/2023 03:56:56 PM INFO:new_last_kernel_size set to: [3, 3, 3]
+02/09/2023 03:56:56 PM INFO:n_layers_locked set to: 2
+02/09/2023 03:56:56 PM INFO:vmin set to: None
+02/09/2023 03:56:56 PM INFO:vmax set to: None
+02/09/2023 03:56:56 PM INFO:interp set to: nearest
+02/09/2023 03:56:56 PM INFO:depth set to: False
+02/09/2023 03:56:56 PM INFO:comthresh set to: 0
+02/09/2023 03:56:56 PM INFO:weighted set to: False
+02/09/2023 03:56:56 PM INFO:com_method set to: median
+02/09/2023 03:56:56 PM INFO:cthresh set to: None
+02/09/2023 03:56:56 PM INFO:channel_combo set to: None
+02/09/2023 03:56:56 PM INFO:predict_mode set to: torch
+02/09/2023 03:56:56 PM INFO:n_views set to: 6
+02/09/2023 03:56:56 PM INFO:expval set to: False
+02/09/2023 03:56:56 PM INFO:from_weights set to: None
+02/09/2023 03:56:56 PM INFO:write_npy set to: None
+02/09/2023 03:56:56 PM INFO:loss set to: mask_nan_keep_loss
+02/09/2023 03:56:56 PM INFO:n_channels_in set to: None
+02/09/2023 03:56:56 PM INFO:extension set to: None
+02/09/2023 03:56:56 PM INFO:vid_dir_flag set to: None
+02/09/2023 03:56:56 PM INFO:num_train_per_exp set to: None
+02/09/2023 03:56:56 PM INFO:chunks set to: None
+02/09/2023 03:56:56 PM INFO:lockfirst set to: None
+02/09/2023 03:56:56 PM INFO:load_valid set to: None
+02/09/2023 03:56:56 PM INFO:augment_hue set to: False
+02/09/2023 03:56:56 PM INFO:augment_brightness set to: False
+02/09/2023 03:56:56 PM INFO:augment_hue_val set to: 0.05
+02/09/2023 03:56:56 PM INFO:augment_bright_val set to: 0.05
+02/09/2023 03:56:56 PM INFO:augment_rotation_val set to: 5
+02/09/2023 03:56:56 PM INFO:mirror_augmentation set to: False
+02/09/2023 03:56:56 PM INFO:right_keypoints set to: None
+02/09/2023 03:56:56 PM INFO:left_keypoints set to: None
+02/09/2023 03:56:56 PM INFO:drop_landmark set to: None
+02/09/2023 03:56:56 PM INFO:raw_im_h set to: None
+02/09/2023 03:56:56 PM INFO:raw_im_w set to: None
+02/09/2023 03:56:56 PM INFO:n_instances set to: 1
+02/09/2023 03:56:56 PM INFO:use_npy set to: False
+02/09/2023 03:56:56 PM INFO:data_split_seed set to: None
+02/09/2023 03:56:56 PM INFO:valid_exp set to: None
+02/09/2023 03:56:56 PM INFO:lr set to: 0.001
+02/09/2023 03:56:56 PM INFO:rotate set to: True
+02/09/2023 03:56:56 PM INFO:augment_continuous_rotation set to: False
+02/09/2023 03:56:56 PM INFO:com_thresh set to: None
+02/09/2023 03:56:56 PM INFO:cam3_train set to: None
+02/09/2023 03:56:56 PM INFO:debug_volume_tifdir set to: None
+02/09/2023 03:56:56 PM INFO:downfac set to: None
+02/09/2023 03:56:56 PM INFO:dannce_predict_vol_tifdir set to: None
+02/09/2023 03:56:56 PM INFO:n_rand_views set to: 0
+02/09/2023 03:56:56 PM INFO:rand_view_replace set to: True
+02/09/2023 03:56:56 PM INFO:multi_gpu_train set to: False
+02/09/2023 03:56:56 PM INFO:heatmap_reg set to: False
+02/09/2023 03:56:56 PM INFO:heatmap_reg_coeff set to: 0.01
+02/09/2023 03:56:56 PM INFO:save_pred_targets set to: False
+02/09/2023 03:56:56 PM INFO:huber-delta set to: 1.35
+02/09/2023 03:56:56 PM INFO:avg+max set to: None
+02/09/2023 03:56:56 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting vid_dir_flag to True.
+02/09/2023 03:56:56 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting extension to .mp4.
+02/09/2023 03:56:56 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting chunks to {'Camera1': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera2': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera3': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera4': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera5': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera6': array([    0,  3000,  6000,  9000, 12000, 15000])}.
+02/09/2023 03:56:56 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting n_channels_in to 3.
+02/09/2023 03:56:56 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting raw_im_h to 1024.
+02/09/2023 03:56:56 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting raw_im_w to 1152.
+02/09/2023 03:56:56 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting expval to False.
+02/09/2023 03:56:56 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting net to finetune_MAX.
+02/09/2023 03:56:57 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting crop_height to [0, 1024].
+02/09/2023 03:56:57 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting crop_width to [0, 1152].
+02/09/2023 03:56:57 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting maxbatch to 2.
+02/09/2023 03:56:57 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting start_batch to 0.
+02/09/2023 03:56:57 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting vmin to -60.0.
+02/09/2023 03:56:57 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting vmax to 60.0.
+02/09/2023 03:56:57 PM INFO:dannce.interface.setup_dannce_predict Using torch predict mode
+02/09/2023 03:56:57 PM INFO:dannce.interface.setup_dannce_predict Using camnames: ['Camera1', 'Camera2', 'Camera3', 'Camera4', 'Camera5', 'Camera6']
+02/09/2023 03:56:58 PM INFO:dannce.interface.do_COM_load Experiment 0 using com3d: ./alabel3d_temp_dannce.mat
+02/09/2023 03:56:58 PM INFO:dannce.interface.do_COM_load Removed 0 samples from the dataset because they either had COM positions over cthresh, or did not have matching sampleIDs in the COM file
+02/09/2023 03:56:58 PM INFO:dannce.interface.write_com_file Saving 3D COM to ../../demo/markerless_mouse_1/DANNCE/predict_test/com3d_used.mat
+02/09/2023 03:56:58 PM INFO:None
+02/09/2023 03:57:01 PM INFO:dannce.engine.generator.DataGenerator_3Dconv_torch.__init__Executing eagerly: True
+02/09/2023 03:57:01 PM INFO:dannce.engine.generator.DataGenerator_3Dconv_torch.__init__Init took 3.561072587966919 sec.
+02/09/2023 03:57:01 PM INFO:dannce.interface.build_model Initializing Network...
+02/09/2023 03:57:01 PM INFO:dannce.interface.build_model Loading model from ../../demo/markerless_mouse_1/DANNCE/train_results/weights.12000-0.00014.hdf5
+02/09/2023 03:57:03 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera5
+02/09/2023 03:57:03 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera6
+02/09/2023 03:57:03 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera1
+02/09/2023 03:57:03 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera4
+02/09/2023 03:57:03 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera3
+02/09/2023 03:57:03 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera2
+02/09/2023 03:59:20 PM INFO:com_train_dir set to: ../../demo/markerless_mouse_1/COM/train_test/
+02/09/2023 03:59:20 PM INFO:com_predict_dir set to: ../../demo/markerless_mouse_1/COM/predict_test/
+02/09/2023 03:59:20 PM INFO:com_predict_weights set to: ../../demo/markerless_mouse_1/COM/train_results/weights.250-0.00036.hdf5
+02/09/2023 03:59:20 PM INFO:dannce_train_dir set to: ../../demo/markerless_mouse_1/DANNCE/train_test/
+02/09/2023 03:59:20 PM INFO:dannce_predict_dir set to: ../../demo/markerless_mouse_1/DANNCE/predict_test/
+02/09/2023 03:59:20 PM INFO:dannce_predict_model set to: ../../demo/markerless_mouse_1/DANNCE/train_results/weights.12000-0.00014.hdf5
+02/09/2023 03:59:20 PM INFO:exp set to: [{'label3d_file': './label3d_temp_dannce.mat', 'viddir': '../../demo/markerless_mouse_1/videos/'}, {'label3d_file': './label3d_temp_dannce.mat', 'viddir': '../../demo/markerless_mouse_2/videos/'}]
+02/09/2023 03:59:20 PM INFO:viddir set to: ../../demo/markerless_mouse_1/videos/
+02/09/2023 03:59:20 PM INFO:gpu_id set to: 0
+02/09/2023 03:59:20 PM INFO:io_config set to: io.yaml
+02/09/2023 03:59:20 PM INFO:new_n_channels_out set to: 22
+02/09/2023 03:59:20 PM INFO:batch_size set to: 4
+02/09/2023 03:59:20 PM INFO:epochs set to: 1
+02/09/2023 03:59:20 PM INFO:train_mode set to: finetune
+02/09/2023 03:59:20 PM INFO:slurm_config set to: ../../cluster/duke.yaml
+02/09/2023 03:59:20 PM INFO:num_validation_per_exp set to: 4
+02/09/2023 03:59:20 PM INFO:vol_size set to: 120
+02/09/2023 03:59:20 PM INFO:nvox set to: 64
+02/09/2023 03:59:20 PM INFO:max_num_samples set to: 10
+02/09/2023 03:59:20 PM INFO:start_batch set to: 0
+02/09/2023 03:59:20 PM INFO:dannce_finetune_weights set to: ../../demo/markerless_mouse_1/DANNCE/weights/
+02/09/2023 03:59:20 PM INFO:metric set to: ['euclidean_distance_3D', 'centered_euclidean_distance_3D']
+02/09/2023 03:59:20 PM INFO:log_dest set to: ../logs/
+02/09/2023 03:59:20 PM INFO:log_level set to: INFO
+02/09/2023 03:59:20 PM INFO:base_config set to: config_mousetest.yaml
+02/09/2023 03:59:20 PM INFO:crop_height set to: None
+02/09/2023 03:59:20 PM INFO:crop_width set to: None
+02/09/2023 03:59:20 PM INFO:camnames set to: None
+02/09/2023 03:59:20 PM INFO:n_channels_out set to: 20
+02/09/2023 03:59:20 PM INFO:sigma set to: 10
+02/09/2023 03:59:20 PM INFO:verbose set to: 1
+02/09/2023 03:59:20 PM INFO:net set to: None
+02/09/2023 03:59:20 PM INFO:immode set to: vid
+02/09/2023 03:59:20 PM INFO:mono set to: False
+02/09/2023 03:59:20 PM INFO:mirror set to: False
+02/09/2023 03:59:20 PM INFO:norm_method set to: layer
+02/09/2023 03:59:20 PM INFO:start_sample set to: None
+02/09/2023 03:59:20 PM INFO:net_type set to: MAX
+02/09/2023 03:59:20 PM INFO:com_fromlabels set to: False
+02/09/2023 03:59:20 PM INFO:medfilt_window set to: None
+02/09/2023 03:59:20 PM INFO:com_file set to: None
+02/09/2023 03:59:20 PM INFO:new_last_kernel_size set to: [3, 3, 3]
+02/09/2023 03:59:20 PM INFO:n_layers_locked set to: 2
+02/09/2023 03:59:20 PM INFO:vmin set to: None
+02/09/2023 03:59:20 PM INFO:vmax set to: None
+02/09/2023 03:59:20 PM INFO:interp set to: nearest
+02/09/2023 03:59:20 PM INFO:depth set to: False
+02/09/2023 03:59:20 PM INFO:comthresh set to: 0
+02/09/2023 03:59:20 PM INFO:weighted set to: False
+02/09/2023 03:59:20 PM INFO:com_method set to: median
+02/09/2023 03:59:20 PM INFO:cthresh set to: None
+02/09/2023 03:59:20 PM INFO:channel_combo set to: None
+02/09/2023 03:59:20 PM INFO:predict_mode set to: torch
+02/09/2023 03:59:20 PM INFO:n_views set to: 6
+02/09/2023 03:59:20 PM INFO:expval set to: False
+02/09/2023 03:59:20 PM INFO:from_weights set to: None
+02/09/2023 03:59:20 PM INFO:write_npy set to: None
+02/09/2023 03:59:20 PM INFO:loss set to: mask_nan_keep_loss
+02/09/2023 03:59:20 PM INFO:n_channels_in set to: None
+02/09/2023 03:59:20 PM INFO:extension set to: None
+02/09/2023 03:59:20 PM INFO:vid_dir_flag set to: None
+02/09/2023 03:59:20 PM INFO:num_train_per_exp set to: None
+02/09/2023 03:59:20 PM INFO:chunks set to: None
+02/09/2023 03:59:20 PM INFO:lockfirst set to: None
+02/09/2023 03:59:20 PM INFO:load_valid set to: None
+02/09/2023 03:59:20 PM INFO:augment_hue set to: False
+02/09/2023 03:59:20 PM INFO:augment_brightness set to: False
+02/09/2023 03:59:20 PM INFO:augment_hue_val set to: 0.05
+02/09/2023 03:59:20 PM INFO:augment_bright_val set to: 0.05
+02/09/2023 03:59:20 PM INFO:augment_rotation_val set to: 5
+02/09/2023 03:59:20 PM INFO:mirror_augmentation set to: False
+02/09/2023 03:59:20 PM INFO:right_keypoints set to: None
+02/09/2023 03:59:20 PM INFO:left_keypoints set to: None
+02/09/2023 03:59:20 PM INFO:drop_landmark set to: None
+02/09/2023 03:59:20 PM INFO:raw_im_h set to: None
+02/09/2023 03:59:20 PM INFO:raw_im_w set to: None
+02/09/2023 03:59:20 PM INFO:n_instances set to: 1
+02/09/2023 03:59:20 PM INFO:use_npy set to: False
+02/09/2023 03:59:20 PM INFO:data_split_seed set to: None
+02/09/2023 03:59:20 PM INFO:valid_exp set to: None
+02/09/2023 03:59:20 PM INFO:lr set to: 0.001
+02/09/2023 03:59:20 PM INFO:rotate set to: True
+02/09/2023 03:59:20 PM INFO:augment_continuous_rotation set to: False
+02/09/2023 03:59:20 PM INFO:com_thresh set to: None
+02/09/2023 03:59:20 PM INFO:cam3_train set to: None
+02/09/2023 03:59:20 PM INFO:debug_volume_tifdir set to: None
+02/09/2023 03:59:20 PM INFO:downfac set to: None
+02/09/2023 03:59:20 PM INFO:dannce_predict_vol_tifdir set to: None
+02/09/2023 03:59:20 PM INFO:n_rand_views set to: 0
+02/09/2023 03:59:20 PM INFO:rand_view_replace set to: True
+02/09/2023 03:59:20 PM INFO:multi_gpu_train set to: False
+02/09/2023 03:59:20 PM INFO:heatmap_reg set to: False
+02/09/2023 03:59:20 PM INFO:heatmap_reg_coeff set to: 0.01
+02/09/2023 03:59:20 PM INFO:save_pred_targets set to: False
+02/09/2023 03:59:20 PM INFO:huber-delta set to: 1.35
+02/09/2023 03:59:20 PM INFO:avg+max set to: None
+02/09/2023 03:59:20 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting vid_dir_flag to True.
+02/09/2023 03:59:20 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting extension to .mp4.
+02/09/2023 03:59:20 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting chunks to {'Camera1': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera2': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera3': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera4': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera5': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera6': array([    0,  3000,  6000,  9000, 12000, 15000])}.
+02/09/2023 03:59:20 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting n_channels_in to 3.
+02/09/2023 03:59:20 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting raw_im_h to 1024.
+02/09/2023 03:59:20 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting raw_im_w to 1152.
+02/09/2023 03:59:20 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting expval to False.
+02/09/2023 03:59:20 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting net to finetune_MAX.
+02/09/2023 03:59:21 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting crop_height to [0, 1024].
+02/09/2023 03:59:21 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting crop_width to [0, 1152].
+02/09/2023 03:59:21 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting maxbatch to 2.
+02/09/2023 03:59:21 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting start_batch to 0.
+02/09/2023 03:59:21 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting vmin to -60.0.
+02/09/2023 03:59:21 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting vmax to 60.0.
+02/09/2023 03:59:21 PM INFO:dannce.interface.setup_dannce_predict Using torch predict mode
+02/09/2023 03:59:21 PM INFO:dannce.interface.setup_dannce_predict Using camnames: ['Camera1', 'Camera2', 'Camera3', 'Camera4', 'Camera5', 'Camera6']
+02/09/2023 03:59:21 PM INFO:dannce.interface.do_COM_load Experiment 0 using com3d: ./alabel3d_temp_dannce.mat
+02/09/2023 03:59:21 PM INFO:dannce.interface.do_COM_load Removed 0 samples from the dataset because they either had COM positions over cthresh, or did not have matching sampleIDs in the COM file
+02/09/2023 03:59:21 PM INFO:dannce.interface.write_com_file Saving 3D COM to ../../demo/markerless_mouse_1/DANNCE/predict_test/com3d_used.mat
+02/09/2023 03:59:21 PM INFO:None
+02/09/2023 03:59:24 PM INFO:dannce.engine.generator.DataGenerator_3Dconv_torch.__init__Executing eagerly: True
+02/09/2023 03:59:25 PM INFO:dannce.engine.generator.DataGenerator_3Dconv_torch.__init__Init took 3.6019911766052246 sec.
+02/09/2023 03:59:25 PM INFO:dannce.interface.build_model Initializing Network...
+02/09/2023 03:59:25 PM INFO:dannce.interface.build_model Loading model from ../../demo/markerless_mouse_1/DANNCE/train_results/weights.12000-0.00014.hdf5
+02/09/2023 03:59:26 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera5
+02/09/2023 03:59:26 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera6
+02/09/2023 03:59:26 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera1
+02/09/2023 03:59:26 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera2
+02/09/2023 03:59:26 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera3
+02/09/2023 03:59:26 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera4
+02/09/2023 04:24:26 PM INFO:com_train_dir set to: ../../demo/markerless_mouse_1/COM/train_test/
+02/09/2023 04:24:26 PM INFO:com_predict_dir set to: ../../demo/markerless_mouse_1/COM/predict_test/
+02/09/2023 04:24:26 PM INFO:com_predict_weights set to: ../../demo/markerless_mouse_1/COM/train_results/weights.250-0.00036.hdf5
+02/09/2023 04:24:26 PM INFO:dannce_train_dir set to: ../../demo/markerless_mouse_1/DANNCE/train_test/
+02/09/2023 04:24:26 PM INFO:dannce_predict_dir set to: ../../demo/markerless_mouse_1/DANNCE/predict_test/
+02/09/2023 04:24:26 PM INFO:dannce_predict_model set to: ../../demo/markerless_mouse_1/DANNCE/train_results/AVG/weights.1200-12.77642.hdf5
+02/09/2023 04:24:26 PM INFO:exp set to: [{'label3d_file': './label3d_temp_dannce.mat', 'viddir': '../../demo/markerless_mouse_1/videos/'}, {'label3d_file': './label3d_temp_dannce.mat', 'viddir': '../../demo/markerless_mouse_2/videos/'}]
+02/09/2023 04:24:26 PM INFO:viddir set to: ../../demo/markerless_mouse_1/videos/
+02/09/2023 04:24:26 PM INFO:gpu_id set to: 0
+02/09/2023 04:24:26 PM INFO:io_config set to: io.yaml
+02/09/2023 04:24:26 PM INFO:new_n_channels_out set to: 22
+02/09/2023 04:24:26 PM INFO:batch_size set to: 4
+02/09/2023 04:24:26 PM INFO:epochs set to: 1
+02/09/2023 04:24:26 PM INFO:train_mode set to: finetune
+02/09/2023 04:24:26 PM INFO:slurm_config set to: ../../cluster/duke.yaml
+02/09/2023 04:24:26 PM INFO:num_validation_per_exp set to: 4
+02/09/2023 04:24:26 PM INFO:vol_size set to: 120
+02/09/2023 04:24:26 PM INFO:nvox set to: 64
+02/09/2023 04:24:26 PM INFO:max_num_samples set to: 10
+02/09/2023 04:24:26 PM INFO:start_batch set to: 0
+02/09/2023 04:24:26 PM INFO:dannce_finetune_weights set to: ../../demo/markerless_mouse_1/DANNCE/weights/
+02/09/2023 04:24:26 PM INFO:metric set to: ['euclidean_distance_3D', 'centered_euclidean_distance_3D']
+02/09/2023 04:24:26 PM INFO:log_dest set to: ../logs/
+02/09/2023 04:24:26 PM INFO:log_level set to: INFO
+02/09/2023 04:24:26 PM INFO:base_config set to: config_mousetest.yaml
+02/09/2023 04:24:26 PM INFO:crop_height set to: None
+02/09/2023 04:24:26 PM INFO:crop_width set to: None
+02/09/2023 04:24:26 PM INFO:camnames set to: None
+02/09/2023 04:24:26 PM INFO:n_channels_out set to: 20
+02/09/2023 04:24:26 PM INFO:sigma set to: 10
+02/09/2023 04:24:26 PM INFO:verbose set to: 1
+02/09/2023 04:24:26 PM INFO:net set to: None
+02/09/2023 04:24:26 PM INFO:immode set to: vid
+02/09/2023 04:24:26 PM INFO:mono set to: False
+02/09/2023 04:24:26 PM INFO:mirror set to: False
+02/09/2023 04:24:26 PM INFO:norm_method set to: layer
+02/09/2023 04:24:26 PM INFO:start_sample set to: None
+02/09/2023 04:24:26 PM INFO:net_type set to: AVG
+02/09/2023 04:24:26 PM INFO:com_fromlabels set to: False
+02/09/2023 04:24:26 PM INFO:medfilt_window set to: None
+02/09/2023 04:24:26 PM INFO:com_file set to: None
+02/09/2023 04:24:26 PM INFO:new_last_kernel_size set to: [3, 3, 3]
+02/09/2023 04:24:26 PM INFO:n_layers_locked set to: 2
+02/09/2023 04:24:26 PM INFO:vmin set to: None
+02/09/2023 04:24:26 PM INFO:vmax set to: None
+02/09/2023 04:24:26 PM INFO:interp set to: nearest
+02/09/2023 04:24:26 PM INFO:depth set to: False
+02/09/2023 04:24:26 PM INFO:comthresh set to: 0
+02/09/2023 04:24:26 PM INFO:weighted set to: False
+02/09/2023 04:24:26 PM INFO:com_method set to: median
+02/09/2023 04:24:26 PM INFO:cthresh set to: None
+02/09/2023 04:24:26 PM INFO:channel_combo set to: None
+02/09/2023 04:24:26 PM INFO:predict_mode set to: torch
+02/09/2023 04:24:26 PM INFO:n_views set to: 6
+02/09/2023 04:24:26 PM INFO:expval set to: None
+02/09/2023 04:24:26 PM INFO:from_weights set to: None
+02/09/2023 04:24:26 PM INFO:write_npy set to: None
+02/09/2023 04:24:26 PM INFO:loss set to: mask_nan_keep_loss
+02/09/2023 04:24:26 PM INFO:n_channels_in set to: None
+02/09/2023 04:24:26 PM INFO:extension set to: None
+02/09/2023 04:24:26 PM INFO:vid_dir_flag set to: None
+02/09/2023 04:24:26 PM INFO:num_train_per_exp set to: None
+02/09/2023 04:24:26 PM INFO:chunks set to: None
+02/09/2023 04:24:26 PM INFO:lockfirst set to: None
+02/09/2023 04:24:26 PM INFO:load_valid set to: None
+02/09/2023 04:24:26 PM INFO:augment_hue set to: False
+02/09/2023 04:24:26 PM INFO:augment_brightness set to: False
+02/09/2023 04:24:26 PM INFO:augment_hue_val set to: 0.05
+02/09/2023 04:24:26 PM INFO:augment_bright_val set to: 0.05
+02/09/2023 04:24:26 PM INFO:augment_rotation_val set to: 5
+02/09/2023 04:24:26 PM INFO:mirror_augmentation set to: False
+02/09/2023 04:24:26 PM INFO:right_keypoints set to: None
+02/09/2023 04:24:26 PM INFO:left_keypoints set to: None
+02/09/2023 04:24:26 PM INFO:drop_landmark set to: None
+02/09/2023 04:24:26 PM INFO:raw_im_h set to: None
+02/09/2023 04:24:26 PM INFO:raw_im_w set to: None
+02/09/2023 04:24:26 PM INFO:n_instances set to: 1
+02/09/2023 04:24:26 PM INFO:use_npy set to: False
+02/09/2023 04:24:26 PM INFO:data_split_seed set to: None
+02/09/2023 04:24:26 PM INFO:valid_exp set to: None
+02/09/2023 04:24:26 PM INFO:lr set to: 0.001
+02/09/2023 04:24:26 PM INFO:rotate set to: True
+02/09/2023 04:24:26 PM INFO:augment_continuous_rotation set to: False
+02/09/2023 04:24:26 PM INFO:com_thresh set to: None
+02/09/2023 04:24:26 PM INFO:cam3_train set to: None
+02/09/2023 04:24:26 PM INFO:debug_volume_tifdir set to: None
+02/09/2023 04:24:26 PM INFO:downfac set to: None
+02/09/2023 04:24:26 PM INFO:dannce_predict_vol_tifdir set to: None
+02/09/2023 04:24:26 PM INFO:n_rand_views set to: 0
+02/09/2023 04:24:26 PM INFO:rand_view_replace set to: True
+02/09/2023 04:24:26 PM INFO:multi_gpu_train set to: False
+02/09/2023 04:24:26 PM INFO:heatmap_reg set to: False
+02/09/2023 04:24:26 PM INFO:heatmap_reg_coeff set to: 0.01
+02/09/2023 04:24:26 PM INFO:save_pred_targets set to: False
+02/09/2023 04:24:26 PM INFO:huber-delta set to: 1.35
+02/09/2023 04:24:26 PM INFO:avg+max set to: None
+02/09/2023 04:24:26 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting vid_dir_flag to True.
+02/09/2023 04:24:26 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting extension to .mp4.
+02/09/2023 04:24:26 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting chunks to {'Camera1': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera2': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera3': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera4': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera5': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera6': array([    0,  3000,  6000,  9000, 12000, 15000])}.
+02/09/2023 04:24:26 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting n_channels_in to 3.
+02/09/2023 04:24:26 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting raw_im_h to 1024.
+02/09/2023 04:24:26 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting raw_im_w to 1152.
+02/09/2023 04:24:26 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting expval to True.
+02/09/2023 04:24:26 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting net to finetune_AVG.
+02/09/2023 04:24:27 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting crop_height to [0, 1024].
+02/09/2023 04:24:27 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting crop_width to [0, 1152].
+02/09/2023 04:24:27 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting maxbatch to 2.
+02/09/2023 04:24:27 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting start_batch to 0.
+02/09/2023 04:24:27 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting vmin to -60.0.
+02/09/2023 04:24:27 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting vmax to 60.0.
+02/09/2023 04:24:27 PM INFO:dannce.interface.setup_dannce_predict Using torch predict mode
+02/09/2023 04:24:27 PM INFO:dannce.interface.setup_dannce_predict Using camnames: ['Camera1', 'Camera2', 'Camera3', 'Camera4', 'Camera5', 'Camera6']
+02/09/2023 04:24:27 PM INFO:dannce.interface.do_COM_load Experiment 0 using com3d: ./alabel3d_temp_dannce.mat
+02/09/2023 04:24:27 PM INFO:dannce.interface.do_COM_load Removed 0 samples from the dataset because they either had COM positions over cthresh, or did not have matching sampleIDs in the COM file
+02/09/2023 04:24:27 PM INFO:dannce.interface.write_com_file Saving 3D COM to ../../demo/markerless_mouse_1/DANNCE/predict_test/com3d_used.mat
+02/09/2023 04:24:27 PM INFO:None
+02/09/2023 04:24:30 PM INFO:dannce.engine.generator.DataGenerator_3Dconv_torch.__init__Executing eagerly: True
+02/09/2023 04:24:31 PM INFO:dannce.engine.generator.DataGenerator_3Dconv_torch.__init__Init took 3.5297820568084717 sec.
+02/09/2023 04:24:31 PM INFO:dannce.interface.build_model Initializing Network...
+02/09/2023 04:24:31 PM INFO:dannce.interface.build_model Loading model from ../../demo/markerless_mouse_1/DANNCE/train_results/AVG/weights.1200-12.77642.hdf5
+02/09/2023 04:24:35 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera2
+02/09/2023 04:24:35 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera1
+02/09/2023 04:24:35 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera4
+02/09/2023 04:24:35 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera3
+02/09/2023 04:24:35 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera5
+02/09/2023 04:24:35 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera6
+02/16/2023 05:34:23 PM INFO:com_train_dir set to: ../../demo/markerless_mouse_1/COM/train_test/
+02/16/2023 05:34:23 PM INFO:com_predict_dir set to: ../../demo/markerless_mouse_1/COM/predict_test/
+02/16/2023 05:34:23 PM INFO:com_predict_weights set to: ../../demo/markerless_mouse_1/COM/train_results/weights.250-0.00036.hdf5
+02/16/2023 05:34:23 PM INFO:dannce_train_dir set to: ../../demo/markerless_mouse_1/DANNCE/train_test/
+02/16/2023 05:34:23 PM INFO:dannce_predict_dir set to: ../../demo/markerless_mouse_1/DANNCE/predict_test/AVG_MAX/
+02/16/2023 05:34:23 PM INFO:dannce_predict_model set to: ../../demo/markerless_mouse_1/DANNCE/train_results/AVG/weights.1200-12.77642.hdf5
+02/16/2023 05:34:23 PM INFO:exp set to: [{'label3d_file': './label3d_temp_dannce.mat', 'viddir': '../../demo/markerless_mouse_1/videos/'}, {'label3d_file': './label3d_temp_dannce.mat', 'viddir': '../../demo/markerless_mouse_2/videos/'}]
+02/16/2023 05:34:23 PM INFO:viddir set to: ../../demo/markerless_mouse_1/videos/
+02/16/2023 05:34:23 PM INFO:gpu_id set to: 0
+02/16/2023 05:34:23 PM INFO:io_config set to: io.yaml
+02/16/2023 05:34:23 PM INFO:new_n_channels_out set to: 22
+02/16/2023 05:34:23 PM INFO:batch_size set to: 4
+02/16/2023 05:34:23 PM INFO:epochs set to: 1
+02/16/2023 05:34:23 PM INFO:train_mode set to: finetune
+02/16/2023 05:34:23 PM INFO:slurm_config set to: ../../cluster/duke.yaml
+02/16/2023 05:34:23 PM INFO:num_validation_per_exp set to: 4
+02/16/2023 05:34:23 PM INFO:vol_size set to: 120
+02/16/2023 05:34:23 PM INFO:nvox set to: 64
+02/16/2023 05:34:23 PM INFO:max_num_samples set to: 10
+02/16/2023 05:34:23 PM INFO:start_batch set to: 0
+02/16/2023 05:34:23 PM INFO:dannce_finetune_weights set to: ../../demo/markerless_mouse_1/DANNCE/train_results/AVG_MAX/
+02/16/2023 05:34:23 PM INFO:metric set to: ['euclidean_distance_3D', 'centered_euclidean_distance_3D']
+02/16/2023 05:34:23 PM INFO:log_dest set to: ../logs/
+02/16/2023 05:34:23 PM INFO:log_level set to: INFO
+02/16/2023 05:34:23 PM INFO:base_config set to: config_mousetest.yaml
+02/16/2023 05:34:23 PM INFO:crop_height set to: None
+02/16/2023 05:34:23 PM INFO:crop_width set to: None
+02/16/2023 05:34:23 PM INFO:camnames set to: None
+02/16/2023 05:34:23 PM INFO:n_channels_out set to: 20
+02/16/2023 05:34:23 PM INFO:sigma set to: 10
+02/16/2023 05:34:23 PM INFO:verbose set to: 1
+02/16/2023 05:34:23 PM INFO:net set to: None
+02/16/2023 05:34:23 PM INFO:immode set to: vid
+02/16/2023 05:34:23 PM INFO:mono set to: False
+02/16/2023 05:34:23 PM INFO:mirror set to: False
+02/16/2023 05:34:23 PM INFO:norm_method set to: layer
+02/16/2023 05:34:23 PM INFO:start_sample set to: None
+02/16/2023 05:34:23 PM INFO:net_type set to: AVG
+02/16/2023 05:34:23 PM INFO:com_fromlabels set to: False
+02/16/2023 05:34:23 PM INFO:medfilt_window set to: None
+02/16/2023 05:34:23 PM INFO:com_file set to: None
+02/16/2023 05:34:23 PM INFO:new_last_kernel_size set to: [3, 3, 3]
+02/16/2023 05:34:23 PM INFO:n_layers_locked set to: 2
+02/16/2023 05:34:23 PM INFO:vmin set to: None
+02/16/2023 05:34:23 PM INFO:vmax set to: None
+02/16/2023 05:34:23 PM INFO:interp set to: nearest
+02/16/2023 05:34:23 PM INFO:depth set to: False
+02/16/2023 05:34:23 PM INFO:comthresh set to: 0
+02/16/2023 05:34:23 PM INFO:weighted set to: False
+02/16/2023 05:34:23 PM INFO:com_method set to: median
+02/16/2023 05:34:23 PM INFO:cthresh set to: None
+02/16/2023 05:34:23 PM INFO:channel_combo set to: None
+02/16/2023 05:34:23 PM INFO:predict_mode set to: torch
+02/16/2023 05:34:23 PM INFO:n_views set to: 6
+02/16/2023 05:34:23 PM INFO:expval set to: None
+02/16/2023 05:34:23 PM INFO:from_weights set to: None
+02/16/2023 05:34:23 PM INFO:write_npy set to: None
+02/16/2023 05:34:23 PM INFO:loss set to: mask_nan_keep_loss
+02/16/2023 05:34:23 PM INFO:n_channels_in set to: None
+02/16/2023 05:34:23 PM INFO:extension set to: None
+02/16/2023 05:34:23 PM INFO:vid_dir_flag set to: None
+02/16/2023 05:34:23 PM INFO:num_train_per_exp set to: None
+02/16/2023 05:34:23 PM INFO:chunks set to: None
+02/16/2023 05:34:23 PM INFO:lockfirst set to: None
+02/16/2023 05:34:23 PM INFO:load_valid set to: None
+02/16/2023 05:34:23 PM INFO:augment_hue set to: False
+02/16/2023 05:34:23 PM INFO:augment_brightness set to: False
+02/16/2023 05:34:23 PM INFO:augment_hue_val set to: 0.05
+02/16/2023 05:34:23 PM INFO:augment_bright_val set to: 0.05
+02/16/2023 05:34:23 PM INFO:augment_rotation_val set to: 5
+02/16/2023 05:34:23 PM INFO:mirror_augmentation set to: False
+02/16/2023 05:34:23 PM INFO:right_keypoints set to: None
+02/16/2023 05:34:23 PM INFO:left_keypoints set to: None
+02/16/2023 05:34:23 PM INFO:drop_landmark set to: None
+02/16/2023 05:34:23 PM INFO:raw_im_h set to: None
+02/16/2023 05:34:23 PM INFO:raw_im_w set to: None
+02/16/2023 05:34:23 PM INFO:n_instances set to: 1
+02/16/2023 05:34:23 PM INFO:use_npy set to: False
+02/16/2023 05:34:23 PM INFO:data_split_seed set to: None
+02/16/2023 05:34:23 PM INFO:valid_exp set to: None
+02/16/2023 05:34:23 PM INFO:lr set to: 0.001
+02/16/2023 05:34:23 PM INFO:rotate set to: True
+02/16/2023 05:34:23 PM INFO:augment_continuous_rotation set to: False
+02/16/2023 05:34:23 PM INFO:com_thresh set to: None
+02/16/2023 05:34:23 PM INFO:cam3_train set to: None
+02/16/2023 05:34:23 PM INFO:debug_volume_tifdir set to: None
+02/16/2023 05:34:23 PM INFO:downfac set to: None
+02/16/2023 05:34:23 PM INFO:dannce_predict_vol_tifdir set to: None
+02/16/2023 05:34:23 PM INFO:n_rand_views set to: 0
+02/16/2023 05:34:23 PM INFO:rand_view_replace set to: True
+02/16/2023 05:34:23 PM INFO:multi_gpu_train set to: False
+02/16/2023 05:34:23 PM INFO:heatmap_reg set to: False
+02/16/2023 05:34:23 PM INFO:heatmap_reg_coeff set to: 0.01
+02/16/2023 05:34:23 PM INFO:save_pred_targets set to: False
+02/16/2023 05:34:23 PM INFO:huber-delta set to: 1.35
+02/16/2023 05:34:23 PM INFO:avg+max set to: None
+02/16/2023 05:34:23 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting vid_dir_flag to True.
+02/16/2023 05:34:23 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting extension to .mp4.
+02/16/2023 05:34:23 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting chunks to {'Camera1': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera2': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera3': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera4': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera5': array([    0,  3000,  6000,  9000, 12000, 15000]), 'Camera6': array([    0,  3000,  6000,  9000, 12000, 15000])}.
+02/16/2023 05:34:23 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting n_channels_in to 3.
+02/16/2023 05:34:23 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting raw_im_h to 1024.
+02/16/2023 05:34:23 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting raw_im_w to 1152.
+02/16/2023 05:34:23 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting expval to True.
+02/16/2023 05:34:23 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting net to finetune_AVG.
+02/16/2023 05:34:24 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting crop_height to [0, 1024].
+02/16/2023 05:34:24 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting crop_width to [0, 1152].
+02/16/2023 05:34:24 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting maxbatch to 2.
+02/16/2023 05:34:24 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting start_batch to 0.
+02/16/2023 05:34:24 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting vmin to -60.0.
+02/16/2023 05:34:24 PM INFO:dannce.engine.preprocessing.py.print_and_set Setting vmax to 60.0.
+02/16/2023 05:34:24 PM INFO:dannce.interface.setup_dannce_predict Using torch predict mode
+02/16/2023 05:34:24 PM INFO:dannce.interface.setup_dannce_predict Using camnames: ['Camera1', 'Camera2', 'Camera3', 'Camera4', 'Camera5', 'Camera6']
+02/16/2023 05:34:24 PM INFO:dannce.interface.do_COM_load Experiment 0 using com3d: ./alabel3d_temp_dannce.mat
+02/16/2023 05:34:24 PM INFO:dannce.interface.do_COM_load Removed 0 samples from the dataset because they either had COM positions over cthresh, or did not have matching sampleIDs in the COM file
+02/16/2023 05:34:24 PM INFO:dannce.interface.write_com_file Saving 3D COM to ../../demo/markerless_mouse_1/DANNCE/predict_test/AVG_MAX/com3d_used.mat
+02/16/2023 05:34:24 PM INFO:None
+02/16/2023 05:34:27 PM INFO:dannce.engine.generator.DataGenerator_3Dconv_torch.__init__Executing eagerly: True
+02/16/2023 05:34:27 PM INFO:dannce.engine.generator.DataGenerator_3Dconv_torch.__init__Init took 2.618299961090088 sec.
+02/16/2023 05:34:27 PM INFO:dannce.interface.build_model Initializing Network...
+02/16/2023 05:34:27 PM INFO:dannce.interface.build_model Loading model from ../../demo/markerless_mouse_1/DANNCE/train_results/AVG/weights.1200-12.77642.hdf5
+02/16/2023 05:34:28 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera2
+02/16/2023 05:34:28 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera5
+02/16/2023 05:34:28 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera6
+02/16/2023 05:34:28 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera1
+02/16/2023 05:34:28 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera3
+02/16/2023 05:34:28 PM INFO:dannce.engine.video.LoadVideoFrame.load_vid_frame Loading new video: 0.mp4 for 0_Camera4
