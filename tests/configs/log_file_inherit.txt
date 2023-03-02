@@ -1,1 +1,38 @@
-EEE
+.........E...............................
+======================================================================
+ERROR: test_dannce_predict_numpy_volume_generation (__main__.TestDanncePredict)
+TestDanncePredict.test_dannce_predict_numpy_volume_generation
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "cli_test_inherit.py", line 732, in test_dannce_predict_numpy_volume_generation
+    cli.dannce_predict_cli()
+  File "/hpc/group/tdunn/asabath/dannce_release_proc/dannce/cli.py", line 135, in dannce_predict_cli
+    dannce_predict(params)
+  File "/hpc/group/tdunn/asabath/dannce_release_proc/dannce/interface.py", line 1564, in dannce_predict
+    processing.write_npy(params["write_npy"], predict_generator)
+  File "/hpc/group/tdunn/asabath/dannce_release_proc/dannce/engine/processing.py", line 1545, in write_npy
+    bch = gen.__getitem__(i)
+  File "/hpc/group/tdunn/asabath/dannce_release_proc/dannce/engine/generator.py", line 979, in __getitem__
+    X, y = self.__data_generation(list_IDs_temp)
+  File "/hpc/group/tdunn/asabath/dannce_release_proc/dannce/engine/generator.py", line 1279, in __data_generation
+    result = self.threadpool.starmap(self.project_grid, arglist)
+  File "/hpc/group/tdunn/as1296/miniconda3/envs/dannce_aux/lib/python3.7/multiprocessing/pool.py", line 276, in starmap
+    return self._map_async(func, iterable, starmapstar, chunksize).get()
+  File "/hpc/group/tdunn/as1296/miniconda3/envs/dannce_aux/lib/python3.7/multiprocessing/pool.py", line 657, in get
+    raise self._value
+  File "/hpc/group/tdunn/as1296/miniconda3/envs/dannce_aux/lib/python3.7/multiprocessing/pool.py", line 121, in worker
+    result = (True, func(*args, **kwds))
+  File "/hpc/group/tdunn/as1296/miniconda3/envs/dannce_aux/lib/python3.7/multiprocessing/pool.py", line 47, in starmapstar
+    return list(itertools.starmap(args[0], args[1]))
+  File "/hpc/group/tdunn/asabath/dannce_release_proc/dannce/engine/generator.py", line 1047, in project_grid
+    X_grid, camname, ID, experimentID, com, com_precrop, thisim
+  File "/hpc/group/tdunn/asabath/dannce_release_proc/dannce/engine/generator.py", line 1099, in pj_grid_post
+    X_grid, self.camera_params[experimentID][camname]["M"], self.device
+  File "/hpc/group/tdunn/asabath/dannce_release_proc/dannce/engine/ops.py", line 64, in project_to2d_torch
+    projPts = torch.matmul(torch.cat((pts, pts1), 1), M)
+RuntimeError: CUDA error: CUBLAS_STATUS_ALLOC_FAILED when calling `cublasCreate(handle)`
+
+----------------------------------------------------------------------
+Ran 41 tests in 3725.588s
+
+FAILED (errors=1)
