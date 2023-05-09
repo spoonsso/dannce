@@ -33,6 +33,16 @@ video_save_path = sys.argv[5]
 start_sample = int(sys.argv[6])
 max_samples = int(sys.argv[7])
 
+if len(sys.argv) > 8:
+  fps_setting = sys.argv[8]
+
+if len(sys.argv) > 9:
+  com3d_file = sys.argv[9]
+  print("Com3d file specified. COM will be plotted")
+else:
+  print("Com3d file not specified. COM will not be plotted")
+  com3d_file = None
+
 COLOR_DICT = [
         (1.0000,    0,              0,    0.5000),
         (0.9565,    1.0000,         0,    0.5000),
@@ -84,8 +94,9 @@ def get_data(dannceMat_filepath: str, preditcions_filepath: str, skeleton_path: 
     predictions = sio.loadmat(preditcions_filepath)
     predictions = {k:v for k, v in predictions.items() if k[0] != '_'}
 
-    if com3d_filepath != None and os.path.exists(com3d_filepath) :
-      com_3d = sio.loadmat(os.path.join(pred_path, 'com3d_used.mat'))['com']
+    if com3d_filepath is not None and os.path.exists(com3d_filepath) :
+      # com_3d = sio.loadmat(os.path.join(preditcions_filepath, 'com3d_used.mat'))['com']
+      com_3d = sio.loadmat(com3d_filepath)['com']
     else:
       print ("No filepath specified for com_3d. Returning None.")
       com_3d = None
@@ -133,8 +144,8 @@ def get_projected_points(predictions: dict,
                          mirror = None, 
                          com_3d = None ):
   """
-    # Takes the predictions, com3d and camera parameters, and returns the projected points.
-    # This assumes that cameras are in an indexed list (they are so in pdb data), and iterates over the length of params list
+    ### Takes the predictions, com3d and camera parameters, and returns the projected points.
+    ### This assumes that cameras are in an indexed list (they are so in pdb data), and iterates over the length of params list
 
     predictions: dict of predictions read from .mat file or otherwise
     params: dict of params read from .mat file or otherwise
@@ -149,11 +160,11 @@ def get_projected_points(predictions: dict,
   n_samples = pose_3d.shape[0]
   
   # If com_3d points need to be plotted, then they need to be added to imagePoints
-  if com_3d != None:
+  if com_3d is None:
+    tpred_bulk = pose_3d
+  else:
     com_3d = np.expand_dims(com_3d, 1)
     tpred_bulk = np.concatenate((pose_3d,com_3d), axis=1)
-  else:
-    tpred_bulk = pose_3d
   
   n_channels = tpred_bulk.shape[1]
   
@@ -186,7 +197,7 @@ def get_projected_points(predictions: dict,
         
         imagePoints_blk = np.reshape(imagePoints_blk, (-1, n_channels, 2))
         
-        if com_3d != None:
+        if not (com_3d is None):
           com_2d_blk = imagePoints_blk[:,-1:,:]
           imagePoints_blk = imagePoints_blk[:, :n_channels-1, :]
           com_2d_agg.append(com_2d_blk)
@@ -209,6 +220,7 @@ def plot_projected_points(predictions,
                           video_save_path,
                           start_sample = 0, 
                           max_samples = 1000, 
+                          fps = 30,
                           ):
   """
     # Plots the projected points and saves them to the locations specified in video_save_path
@@ -234,7 +246,7 @@ def plot_projected_points(predictions,
   movie_reader = imageio.get_reader(videofle_path)
 
   metadata = dict(title='dannce_visualization', artist='Matplotlib')
-  writer = FFMpegWriter(fps=30, metadata=metadata)
+  writer = FFMpegWriter(fps=fps, metadata=metadata)
 
   fig, axes = plt.subplots(1, 1, figsize=(8, 8), dpi=300)
 
@@ -280,14 +292,18 @@ def driver(dannceMat_filepath : str,
            preditcions_filepath : str, 
            videofle_path : str, 
            skeleton_path : str, 
+           com3d_filepath : str,
            exclude_joints: list, 
            video_save_path: str, 
            start_sample = 0, 
-           max_samples = 1000):
-  
+           max_samples = 1000,
+           fps=30,
+           ):
+  print("Com3d in drive = ", com3d_filepath)
   cam_names, sync, params, skeleton, predictions, com_3d = get_data(dannceMat_filepath=dannceMat_filepath, 
                                                                     preditcions_filepath=preditcions_filepath, 
-                                                                    skeleton_path=skeleton_path)
+                                                                    skeleton_path=skeleton_path,
+                                                                    com3d_filepath=com3d_filepath)
   
   cameraParams, rot, trans, mirror, links, goodmarks = get_camParams(params = params, skeleton = skeleton, 
                                                                      exclude_joints = exclude_joints)
@@ -308,7 +324,12 @@ def driver(dannceMat_filepath : str,
                         videofle_path,
                         video_save_path,
                         start_sample = start_sample,
-                        max_samples = max_samples)
+                        max_samples = max_samples,
+                        fps=fps)
 
-driver(dannceMat_filepath, preditcions_filepath, videofle_path, skeleton_path, 
-        exclude_joints = [7], video_save_path = video_save_path, start_sample = start_sample, max_samples = max_samples)
+driver(dannceMat_filepath, preditcions_filepath, videofle_path, skeleton_path, com3d_file,
+        exclude_joints = [7], 
+        video_save_path = video_save_path, 
+        start_sample = start_sample, 
+        max_samples = max_samples,
+        fps=fps_setting)

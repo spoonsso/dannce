@@ -1,1 +1,1 @@
-/hpc/group/tdunn/asabath//dannce//demo/markerless_mouse_1/DANNCE/train_results/link_to_weights.txt
+https://www.dropbox.com/s/wnjlfhylaxtecax/weights.12000-0.00014.hdf5?dl=0
