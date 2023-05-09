@@ -11,14 +11,25 @@ import warnings
 import time
 import scipy.ndimage.interpolation
 import tensorflow as tf
+import logging
 
 # from tensorflow_graphics.geometry.transformation.axis_angle import rotate
 from multiprocessing.dummy import Pool as ThreadPool
 from typing import List, Dict, Tuple, Text
 
+MISSING_KEYPOINTS_MSG = (
+    "If mirror augmentation is used, the right_keypoints indices and left_keypoints "
+    + "indices must be specified as well. "
+    + "For the skeleton, ['RHand, 'LHand', 'RFoot', 'LFoot'], "
+    + "set right_keypoints: [0, 2] and left_keypoints: [1, 3] in the config file"
+)
+
+TF_GPU_MEMORY_FRACTION = 0.9
+FILE_PATH = "dannce.engine.generator"
+
 
 class DataGenerator(keras.utils.Sequence):
-    """Generate data for Keras.
+    """Generate data for Keras. The object creating instance of this class should have logging enabled.
 
     Attributes:
         batch_size (int): Batch size to generate
@@ -115,10 +126,9 @@ class DataGenerator(keras.utils.Sequence):
 
         assert len(self.list_IDs) == len(self.clusterIDs)
 
-        self.load_frame = LoadVideoFrame(self._N_VIDEO_FRAMES,
-                                         self.vidreaders,
-                                         self.camnames,
-                                         self.predict_flag)
+        self.load_frame = LoadVideoFrame(
+            self._N_VIDEO_FRAMES, self.vidreaders, self.camnames, self.predict_flag
+        )
 
     def __len__(self) -> int:
         """Denote the number of batches per epoch.
@@ -178,7 +188,7 @@ class DataGenerator(keras.utils.Sequence):
 
 
 class DataGenerator_3Dconv(DataGenerator):
-    """Update generator class to handle multiple experiments.
+    """Update generator class to handle multiple experiments. The object creator should have logging enabled.
 
     Attributes:
         camera_params (Dict): Camera parameters dictionary.
@@ -322,7 +332,7 @@ class DataGenerator_3Dconv(DataGenerator):
         self.interp = interp
         self.depth = depth
         self.channel_combo = channel_combo
-        print(self.channel_combo)
+        logging.info(self.channel_combo)
         self.mode = mode
         self.immode = immode
         self.tifdirs = tifdirs
@@ -547,7 +557,9 @@ class DataGenerator_3Dconv(DataGenerator):
                 if self.mirror and self.camera_params[experimentID][camname]["m"] == 1:
                     thisim = self.raw_im.copy()
                     thisim = thisim[-1::-1]
-                elif self.mirror and self.camera_params[experimentID][camname]["m"] == 0:
+                elif (
+                    self.mirror and self.camera_params[experimentID][camname]["m"] == 0
+                ):
                     thisim = self.raw_im
                 elif self.mirror:
                     raise Exception("Invalid mirror parameter, m, must be 0 or 1")
@@ -777,7 +789,7 @@ class DataGenerator_3Dconv_torch(DataGenerator):
         norm_im (bool): If True, normalize images.
         nvox (int): Number of voxels per box side
         rotation (bool): If True, use simple rotation augmentation.
-        session (tf.compat.v1.InteractiveSession): tensorflow session.
+        session (tf.compat.v1.Session): tensorflow session.
         threadpool (Threadpool): threadpool object for parallelizing video loading
         tifdirs (List): Directories of .tifs
         var_reg (bool): If True, adds a variance regularization term to the loss function.
@@ -902,7 +914,7 @@ class DataGenerator_3Dconv_torch(DataGenerator):
         self.interp = interp
         self.depth = depth
         self.channel_combo = channel_combo
-        print(self.channel_combo)
+        logging.info(FILE_PATH + ".DataGenerator_3Dconv_torch.__init__" + self.channel_combo if channel_combo is not None else "None")
         self.gpu_id = gpu_id
         self.mode = mode
         self.immode = immode
@@ -928,9 +940,10 @@ class DataGenerator_3Dconv_torch(DataGenerator):
         ts = time.time()
         # Limit GPU memory usage by Tensorflow to leave memory for PyTorch
         config = tf.compat.v1.ConfigProto()
-        config.gpu_options.per_process_gpu_memory_fraction = 0.45
+        config.gpu_options.per_process_gpu_memory_fraction = TF_GPU_MEMORY_FRACTION
         config.gpu_options.allow_growth = True
-        self.session = tf.compat.v1.InteractiveSession(config=config, graph=tf.Graph())
+        self.session = tf.compat.v1.Session(config=config, graph=tf.Graph())
+        logging.info(FILE_PATH + ".DataGenerator_3Dconv_torch.__init__" + "Executing eagerly: " + str(tf.executing_eagerly()))#, flush=True)
         for i, ID in enumerate(list_IDs):
             experimentID = int(ID.split("_")[0])
             for camname in self.camnames[experimentID]:
@@ -943,7 +956,7 @@ class DataGenerator_3Dconv_torch(DataGenerator):
                 )
                 self.camera_params[experimentID][camname]["M"] = M
 
-        print("Init took {} sec.".format(time.time() - ts))
+        logging.info(FILE_PATH + ".DataGenerator_3Dconv_torch.__init__" + "Init took {} sec.".format(time.time() - ts))
 
     def __getitem__(self, index: int):
         """Generate one batch of data.
@@ -953,7 +966,7 @@ class DataGenerator_3Dconv_torch(DataGenerator):
 
         Returns:
             Tuple[np.ndarray, np.ndarray]: One batch of data X
-                (np.ndarray): Input volume y 
+                (np.ndarray): Input volume y
                 (np.ndarray): Target
         """
         # Generate indexes of the batch
@@ -1027,11 +1040,12 @@ class DataGenerator_3Dconv_torch(DataGenerator):
             camname,
             extension=self.extension,
         )[
-            self.crop_height[0]: self.crop_height[1],
-            self.crop_width[0]: self.crop_width[1],
+            self.crop_height[0] : self.crop_height[1],
+            self.crop_width[0] : self.crop_width[1],
         ]
-        return self.pj_grid_post(X_grid, camname, ID, experimentID,
-                                 com, com_precrop, thisim)
+        return self.pj_grid_post(
+            X_grid, camname, ID, experimentID, com, com_precrop, thisim
+        )
 
     def pj_grid_mirror(self, X_grid, camname, ID, experimentID, thisim):
         this_y = self.torch.as_tensor(
@@ -1051,7 +1065,9 @@ class DataGenerator_3Dconv_torch(DataGenerator):
         com = self.torch.mean(this_y, axis=1)
 
         if not self.mirror:
-            raise Exception("Trying to project onto mirrored images without mirror being set properly")
+            raise Exception(
+                "Trying to project onto mirrored images without mirror being set properly"
+            )
 
         if self.camera_params[experimentID][camname]["m"] == 1:
             passim = thisim[-1::-1].copy()
@@ -1060,12 +1076,11 @@ class DataGenerator_3Dconv_torch(DataGenerator):
         else:
             raise Exception("Invalid mirror parameter, m, must be 0 or 1")
 
+        return self.pj_grid_post(
+            X_grid, camname, ID, experimentID, com, com_precrop, passim
+        )
 
-        return self.pj_grid_post(X_grid, camname, ID, experimentID,
-                                 com, com_precrop, passim)
-
-    def pj_grid_post(self, X_grid, camname, ID, experimentID,
-                     com, com_precrop, thisim):
+    def pj_grid_post(self, X_grid, camname, ID, experimentID, com, com_precrop, thisim):
         # separate the porjection and sampling into its own function so that
         # when mirror == True, this can be called directly
         if self.crop_im:
@@ -1242,12 +1257,18 @@ class DataGenerator_3Dconv_torch(DataGenerator):
                     self.camnames[experimentID][0],
                     extension=self.extension,
                 )[
-                    self.crop_height[0]: self.crop_height[1],
-                    self.crop_width[0]: self.crop_width[1],
+                    self.crop_height[0] : self.crop_height[1],
+                    self.crop_width[0] : self.crop_width[1],
                 ]
                 for c in range(num_cams):
                     arglist.append(
-                        [X_grid[i], self.camnames[experimentID][c], ID, experimentID, loadim]
+                        [
+                            X_grid[i],
+                            self.camnames[experimentID][c],
+                            ID,
+                            experimentID,
+                            loadim,
+                        ]
                     )
                 result = self.threadpool.starmap(self.pj_grid_mirror, arglist)
             else:
@@ -1407,6 +1428,7 @@ class DataGenerator_3Dconv_tf(DataGenerator):
         vsize (float): Side length of one voxel
         predict_flag (bool): If True, use imageio for reading videos, rather than OpenCV
     """
+
     def __init__(
         self,
         list_IDs,
@@ -1523,7 +1545,7 @@ class DataGenerator_3Dconv_tf(DataGenerator):
         self.interp = interp
         self.depth = depth
         self.channel_combo = channel_combo
-        print(self.channel_combo)
+        logging.info(FILE_PATH + ".DataGenerator_3Dconv_tf.__init__ " + self.channel_combo  if channel_combo is not None else "None")
         self.gpu_id = gpu_id
         self.mode = mode
         self.immode = immode
@@ -1563,7 +1585,7 @@ class DataGenerator_3Dconv_tf(DataGenerator):
                         ops.camera_matrix(K, R, t), dtype="float32"
                     )
 
-        print("Init took {} sec.".format(time.time() - ts))
+        logging.info(FILE_PATH + ".DataGenerator_3Dconv_tf.__init__ " + "Init took {} sec.".format(time.time() - ts))
 
     def __getitem__(self, index):
         """Generate one batch of data.
@@ -1931,7 +1953,6 @@ class DataGenerator_3Dconv_tf(DataGenerator):
                         (self.batch_size, self.nvox, self.nvox, self.nvox, 3),
                     )
 
-
                     X, X_grid = self.random_rotate(X, X_grid)
                     # Need to reshape back to raveled version
                     X_grid = tf.reshape(X_grid, (self.batch_size, -1, 3))
@@ -1999,6 +2020,7 @@ class DataGenerator_3Dconv_tf(DataGenerator):
             else:
                 return X, y_3d
 
+
 def random_continuous_rotation(X, y_3d, max_delta=5):
     """Rotates X and y_3d a random amount around z-axis.
 
@@ -2013,9 +2035,7 @@ def random_continuous_rotation(X, y_3d, max_delta=5):
     """
     rotangle = np.random.rand() * (2 * max_delta) - max_delta
     X = tf.reshape(X, [X.shape[0], X.shape[1], X.shape[2], -1]).numpy()
-    y_3d = tf.reshape(
-        y_3d, [y_3d.shape[0], y_3d.shape[1], y_3d.shape[2], -1]
-    ).numpy()
+    y_3d = tf.reshape(y_3d, [y_3d.shape[0], y_3d.shape[1], y_3d.shape[2], -1]).numpy()
     for i in range(X.shape[0]):
         X[i] = tf.keras.preprocessing.image.apply_affine_transform(
             X[i],
@@ -2046,6 +2066,7 @@ def random_continuous_rotation(X, y_3d, max_delta=5):
 
     return X, y_3d
 
+
 # TODO(inherit): Several methods are repeated, consider inheriting from parent
 class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
     """Generate 3d conv data from memory.
@@ -2072,6 +2093,7 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         xgrid (np.ndarray): For the AVG network, this contains the 3D grid coordinates
         n_rand_views (int): Number of reviews to sample randomly from the full set
         replace (bool): If True, samples n_rand_views with replacement
+        aux_labels (np.ndarray): If not None, contains the 3D MAX training targets for AVG+MAX training.
     """
 
     def __init__(
@@ -2091,6 +2113,9 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         augment_brightness=True,
         augment_hue=True,
         augment_continuous_rotation=True,
+        mirror_augmentation=False,
+        right_keypoints=None,
+        left_keypoints=None,
         bright_val=0.05,
         hue_val=0.05,
         rotation_val=5,
@@ -2098,6 +2123,7 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         n_rand_views=None,
         heatmap_reg=False,
         heatmap_reg_coeff=0.01,
+        aux_labels=None,
     ):
         """Initialize data generator.
 
@@ -2122,6 +2148,7 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
             rotation_val (float, optional): Range of angles used for continuous rotation augmentation
             n_rand_views (int, optional): Number of reviews to sample randomly from the full set
             replace (bool, optional): If True, samples n_rand_views with replacement
+            aux_labels (np.ndarray, optional): If not None, contains the 3D MAX training targets for AVG+MAX training.
         """
         self.list_IDs = list_IDs
         self.data = data
@@ -2135,6 +2162,13 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         self.augment_hue = augment_hue
         self.augment_continuous_rotation = augment_continuous_rotation
         self.augment_brightness = augment_brightness
+        self.mirror_augmentation = mirror_augmentation
+        self.right_keypoints = right_keypoints
+        self.left_keypoints = left_keypoints
+        if self.mirror_augmentation and (
+            self.right_keypoints is None or self.left_keypoints is None
+        ):
+            raise Exception(MISSING_KEYPOINTS_MSG)
         self.var_reg = var_reg
         self.xgrid = xgrid
         self.nvox = nvox
@@ -2145,6 +2179,7 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         self.replace = replace
         self.heatmap_reg = heatmap_reg
         self.heatmap_reg_coeff = heatmap_reg_coeff
+        self.aux_labels = aux_labels
         self.on_epoch_end()
 
     def __len__(self):
@@ -2196,6 +2231,17 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         X = X[:, ::-1, :, :]
         return X
 
+    def mirror(self, X, y_3d, X_grid):
+        # Flip the image and x coordinates about the x axis
+        X = X[:, ::-1, ...]
+        X_grid = X_grid[:, ::-1, ...]
+
+        # Flip the left and right keypoints.
+        temp = y_3d[..., self.left_keypoints].copy()
+        y_3d[..., self.left_keypoints] = y_3d[..., self.right_keypoints]
+        y_3d[..., self.right_keypoints] = temp
+        return X, y_3d, X_grid
+
     def rot180(self, X):
         """Rotate X by 180 degrees.
 
@@ -2208,13 +2254,13 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         X = X[::-1, ::-1, :, :]
         return X
 
-    def random_rotate(self, X, y_3d):
+    def random_rotate(self, X, y_3d, aux=None):
         """Rotate each sample by 0, 90, 180, or 270 degrees.
 
         Args:
             X (np.ndarray): Image volumes
             y_3d (np.ndarray): 3D grid coordinates (AVG) or training target volumes (MAX)
-
+            aux (np.ndarray or None): Populated in MAX+AVG mode with the training target volumes
         Returns:
             X (np.ndarray): Rotated image volumes
             y_3d (np.ndarray): Rotated 3D grid coordinates (AVG) or training target volumes (MAX)
@@ -2227,18 +2273,28 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
                 # Rotate180
                 X[i] = self.rot180(X[i])
                 y_3d[i] = self.rot180(y_3d[i])
+                if aux is not None:
+                    aux[i] = self.rot180(aux[i])
             elif rots[i] == 2:
                 # Rotate90
                 X[i] = self.rot90(X[i])
                 y_3d[i] = self.rot90(y_3d[i])
+                if aux is not None:
+                    aux[i] = self.rot90(aux[i])
             elif rots[i] == 3:
                 # Rotate -90/270
                 X[i] = self.rot90(X[i])
                 X[i] = self.rot180(X[i])
                 y_3d[i] = self.rot90(y_3d[i])
                 y_3d[i] = self.rot180(y_3d[i])
+                if aux is not None:
+                    aux[i] = self.rot90(aux[i])
+                    aux[i] = self.rot180(aux[i])
 
-        return X, y_3d
+        if aux is not None:
+            return X, y_3d, aux
+        else:
+            return X, y_3d
 
     def visualize(self, original, augmented):
         """Plots example image after augmentation
@@ -2260,13 +2316,14 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         plt.show()
         input("Press Enter to continue...")
 
-    def do_augmentation(self, X, X_grid, y_3d):
+    def do_augmentation(self, X, X_grid, y_3d, aux=None):
         """Applies augmentation
 
         Args:
             X (np.ndarray): image volumes
             X_grid (np.ndarray): 3D grid coordinates
             y_3d (np.ndarray): training targets
+            aux (np.ndarray or None): additional target volumes if using MAX+AVG mode
 
         Returns:
             X (np.ndarray): Augemented image volumes
@@ -2280,13 +2337,16 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
                     X_grid,
                     (self.batch_size, self.nvox, self.nvox, self.nvox, 3),
                 )
-                X, X_grid = self.random_rotate(X.copy(), X_grid.copy())
+                if aux is not None:
+                    X, X_grid, aux = self.random_rotate(X.copy(), X_grid.copy(), aux.copy())
+                else:
+                    X, X_grid = self.random_rotate(X.copy(), X_grid.copy())
                 # Need to reshape back to raveled version
                 X_grid = np.reshape(X_grid, (self.batch_size, -1, 3))
             else:
                 X, y_3d = self.random_rotate(X.copy(), y_3d.copy())
 
-        if self.augment_continuous_rotation:
+        if self.augment_continuous_rotation and aux is None:
             if self.expval:
                 # First make X_grid 3d
                 X_grid = np.reshape(
@@ -2327,7 +2387,20 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
                     X[..., channel_ids], self.bright_val
                 )
 
-        return X, X_grid, y_3d
+        if self.mirror_augmentation and self.expval and aux is None:
+            if np.random.rand() > 0.5:
+                X_grid = np.reshape(
+                    X_grid,
+                    (self.batch_size, self.nvox, self.nvox, self.nvox, 3),
+                )
+                # Flip the image and the symmetric keypoints
+                X, y_3d, X_grid = self.mirror(X.copy(), y_3d.copy(), X_grid.copy())
+                X_grid = np.reshape(X_grid, (self.batch_size, -1, 3))
+        else:
+            pass
+            ##TODO: implement mirror augmentation for max and avg+max modes
+
+        return X, X_grid, y_3d, aux
 
     def do_random(self, X):
         """Randomly re-order camera views
@@ -2339,45 +2412,50 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
             X (np.ndarray): Shuffled image volumes
         """
         if self.random:
-            X = np.reshape(X,
-                           (X.shape[0],
-                            X.shape[1],
-                            X.shape[2],
-                            X.shape[3],
-                            self.chan_num,
-                            -1),
-                           order='F')
+            X = np.reshape(
+                X,
+                (X.shape[0], X.shape[1], X.shape[2], X.shape[3], self.chan_num, -1),
+                order="F",
+            )
             X = X[:, :, :, :, :, np.random.permutation(X.shape[-1])]
-            X = np.reshape(X,
-                           (X.shape[0],
-                            X.shape[1],
-                            X.shape[2],
-                            X.shape[3],
-                            X.shape[4]*X.shape[5]), order='F')
+            X = np.reshape(
+                X,
+                (
+                    X.shape[0],
+                    X.shape[1],
+                    X.shape[2],
+                    X.shape[3],
+                    X.shape[4] * X.shape[5],
+                ),
+                order="F",
+            )
 
         if self.n_rand_views is not None:
             # Select a set of cameras randomly with replacement.
-            X = np.reshape(X,
-                           (X.shape[0],
-                            X.shape[1],
-                            X.shape[2],
-                            X.shape[3],
-                            self.chan_num,
-                            -1),
-                           order='F')
+            X = np.reshape(
+                X,
+                (X.shape[0], X.shape[1], X.shape[2], X.shape[3], self.chan_num, -1),
+                order="F",
+            )
             if self.replace:
                 X = X[..., np.random.randint(X.shape[-1], size=(self.n_rand_views,))]
             else:
                 if not self.random:
-                    raise Exception("For replace=False for n_rand_views, random must be turned on")
-                X = X[:, :, :, :, :, :self.n_rand_views]
-            X = np.reshape(X,
-                           (X.shape[0],
-                            X.shape[1],
-                            X.shape[2],
-                            X.shape[3],
-                            X.shape[4]*X.shape[5]),
-                           order='F')
+                    raise Exception(
+                        "For replace=False for n_rand_views, random must be turned on"
+                    )
+                X = X[:, :, :, :, :, : self.n_rand_views]
+            X = np.reshape(
+                X,
+                (
+                    X.shape[0],
+                    X.shape[1],
+                    X.shape[2],
+                    X.shape[3],
+                    X.shape[4] * X.shape[5],
+                ),
+                order="F",
+            )
 
         return X
 
@@ -2386,12 +2464,13 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         Used for heatmap regularization.
         """
 
-        diff = np.sum((X_grid[:, :, :, np.newaxis] - y_3d[:, np.newaxis, :, :])**2, axis=2)
+        diff = np.sum(
+            (X_grid[:, :, :, np.newaxis] - y_3d[:, np.newaxis, :, :]) ** 2, axis=2
+        )
         inds = np.argmin(diff, axis=1)
-        grid_d = int(np.round(X_grid.shape[1]**(1/3)))
+        grid_d = int(np.round(X_grid.shape[1] ** (1 / 3)))
         inds = np.unravel_index(inds, (grid_d, grid_d, grid_d))
         return np.stack(inds, axis=1)
-
 
     def __data_generation(self, list_IDs_temp):
         """Generate data containing batch_size samples.
@@ -2412,19 +2491,27 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
         X = np.zeros((self.batch_size, *self.data.shape[1:]))
         y_3d = np.zeros((self.batch_size, *self.labels.shape[1:]))
 
-        # Only used when 
+        # Only used for AVG mode
         if self.expval:
             X_grid = np.zeros((self.batch_size, *self.xgrid.shape[1:]))
         else:
             X_grid = None
-            
+
+        # Only used for AVG+MAX mode
+        if self.aux_labels is not None:
+            aux = np.zeros((*X.shape[:4], y_3d.shape[-1]))
+        else:
+            aux = None
+
         for i, ID in enumerate(list_IDs_temp):
             X[i] = self.data[ID].copy()
             y_3d[i] = self.labels[ID]
             if self.expval:
                 X_grid[i] = self.xgrid[ID]
+            if aux is not None:
+                aux[i] = self.aux_labels[ID]
 
-        X, X_grid, y_3d = self.do_augmentation(X, X_grid, y_3d)
+        X, X_grid, y_3d, aux = self.do_augmentation(X, X_grid, y_3d, aux)
 
         # Randomly re-order, if desired
         X = self.do_random(X)
@@ -2433,71 +2520,78 @@ class DataGenerator_3Dconv_frommem(keras.utils.Sequence):
             if self.heatmap_reg:
                 return [X, X_grid, self.get_max_gt_ind(X_grid, y_3d)], [y_3d,
                     self.heatmap_reg_coeff*np.ones((self.batch_size, y_3d.shape[-1]), dtype='float32')]
+            elif aux is not None:
+                return [X, X_grid], [y_3d, aux]
             return [X, X_grid], y_3d
         else:
             return X, y_3d
 
+
 class DataGenerator_3Dconv_npy(DataGenerator_3Dconv_frommem):
     """Generates 3d conv data from npy files.
 
-        Attributes:
-        augment_brightness (bool): If True, applies brightness augmentation
-        augment_continuous_rotation (bool): If True, applies rotation augmentation in increments smaller than 90 degrees
-        augment_hue (bool): If True, applies hue augmentation
-        batch_size (int): Batch size
-        bright_val (float): Brightness augmentation range (-bright_val, bright_val), as fraction of raw image brightness
-        chan_num (int): Number of input channels
-        labels_3d (Dict): training targets
-        expval (bool): If True, crafts input for an AVG network
-        hue_val (float): Hue augmentation range (-hue_val, hue_val), as fraction of raw image hue range
-        indexes (np.ndarray): Sample indices used for batch generation
-        list_IDs (List): List of sampleIDs
-        nvox (int): Number of voxels in each grid dimension
-        random (bool): If True, shuffles camera order for each batch
-        rotation (bool): If True, applies rotation augmentation in 90 degree increments
-        rotation_val (float): Range of angles used for continuous rotation augmentation
-        shuffle (bool): If True, shuffle the samples before each epoch
-        var_reg (bool): If True, returns input used for variance regularization
-        n_rand_views (int): Number of reviews to sample randomly from the full set
-        replace (bool): If True, samples n_rand_views with replacement
-        imdir (Text): Name of image volume npy subfolder
-        griddir (Text): Name of grid volumw npy subfolder
-        mono (bool): If True, return monochrome image volumes
-        sigma (float): For MAX network, size of target Gaussian (mm)
-        cam1 (bool): If True, prepares input for training a single camea network
-        prefeat (bool): If True, prepares input for a network performing volume feature extraction before fusion
-        npydir (Dict): path to each npy volume folder for each recording (i.e. experiment)
+    Attributes:
+    augment_brightness (bool): If True, applies brightness augmentation
+    augment_continuous_rotation (bool): If True, applies rotation augmentation in increments smaller than 90 degrees
+    augment_hue (bool): If True, applies hue augmentation
+    batch_size (int): Batch size
+    bright_val (float): Brightness augmentation range (-bright_val, bright_val), as fraction of raw image brightness
+    chan_num (int): Number of input channels
+    labels_3d (Dict): training targets
+    expval (bool): If True, crafts input for an AVG network
+    hue_val (float): Hue augmentation range (-hue_val, hue_val), as fraction of raw image hue range
+    indexes (np.ndarray): Sample indices used for batch generation
+    list_IDs (List): List of sampleIDs
+    nvox (int): Number of voxels in each grid dimension
+    random (bool): If True, shuffles camera order for each batch
+    rotation (bool): If True, applies rotation augmentation in 90 degree increments
+    rotation_val (float): Range of angles used for continuous rotation augmentation
+    shuffle (bool): If True, shuffle the samples before each epoch
+    var_reg (bool): If True, returns input used for variance regularization
+    n_rand_views (int): Number of reviews to sample randomly from the full set
+    replace (bool): If True, samples n_rand_views with replacement
+    imdir (Text): Name of image volume npy subfolder
+    griddir (Text): Name of grid volumw npy subfolder
+    mono (bool): If True, return monochrome image volumes
+    sigma (float): For MAX network, size of target Gaussian (mm)
+    cam1 (bool): If True, prepares input for training a single camea network
+    prefeat (bool): If True, prepares input for a network performing volume feature extraction before fusion
+    npydir (Dict): path to each npy volume folder for each recording (i.e. experiment)
     """
 
-    def __init__(self,
-                 list_IDs,
-                 labels_3d,
-                 npydir,
-                 batch_size,
-                 rotation=True,
-                 random=False,
-                 chan_num=3,
-                 shuffle=True,
-                 expval=False,
-                 var_reg=False,
-                 imdir='image_volumes',
-                 griddir='grid_volumes',
-                 nvox=64,
-                 n_rand_views=None,
-                 mono=False,
-                 cam1=False,
-                 replace=True,
-                 prefeat=False,
-                 sigma=10,
-                 augment_brightness=True,
-                 augment_hue=True,
-                 augment_continuous_rotation=True,
-                 bright_val=0.05,
-                 hue_val=0.05,
-                 rotation_val=5,
-                 heatmap_reg=False,
-                 heatmap_reg_coeff=0.01,
-                 ):
+    def __init__(
+        self,
+        list_IDs,
+        labels_3d,
+        npydir,
+        batch_size,
+        rotation=True,
+        random=False,
+        chan_num=3,
+        shuffle=True,
+        expval=False,
+        var_reg=False,
+        imdir="image_volumes",
+        griddir="grid_volumes",
+        nvox=64,
+        n_rand_views=None,
+        mono=False,
+        cam1=False,
+        replace=True,
+        prefeat=False,
+        sigma=10,
+        augment_brightness=True,
+        augment_hue=True,
+        augment_continuous_rotation=True,
+        mirror_augmentation=False,
+        right_keypoints=None,
+        left_keypoints=None,
+        bright_val=0.05,
+        hue_val=0.05,
+        rotation_val=5,
+        heatmap_reg=False,
+        heatmap_reg_coeff=0.01,
+    ):
         """Generates 3d conv data from npy files.
 
         Args:
@@ -2549,6 +2643,13 @@ class DataGenerator_3Dconv_npy(DataGenerator_3Dconv_frommem):
         self.augment_hue = augment_hue
         self.augment_continuous_rotation = augment_continuous_rotation
         self.augment_brightness = augment_brightness
+        self.mirror_augmentation = mirror_augmentation
+        self.right_keypoints = right_keypoints
+        self.left_keypoints = left_keypoints
+        if self.mirror_augmentation and (
+            self.right_keypoints is None or self.left_keypoints is None
+        ):
+            raise Exception(MISSING_KEYPOINTS_MSG)
         self.bright_val = bright_val
         self.hue_val = hue_val
         self.rotation_val = rotation_val
@@ -2576,7 +2677,7 @@ class DataGenerator_3Dconv_npy(DataGenerator_3Dconv_frommem):
                 y (np.ndarray): Target
         """
         # Generate indexes of the batch
-        indexes = self.indexes[index*self.batch_size:(index+1)*self.batch_size]
+        indexes = self.indexes[index * self.batch_size : (index + 1) * self.batch_size]
 
         # Find list of IDs
         list_IDs_temp = [self.list_IDs[k] for k in indexes]
@@ -2590,7 +2691,7 @@ class DataGenerator_3Dconv_npy(DataGenerator_3Dconv_frommem):
         """Update indexes after each epoch."""
         self.indexes = np.arange(len(self.list_IDs))
         if self.shuffle == True:
-            print("SHUFFLING DATA INDICES")
+            logging.info( FILE_PATH + ".DataGenerator_3Dconv_npy.on_epoch_end " + "SHUFFLING DATA INDICES")
             np.random.shuffle(self.indexes)
 
     def rot90(self, X):
@@ -2600,8 +2701,8 @@ class DataGenerator_3Dconv_npy(DataGenerator_3Dconv_frommem):
 
         return X
 
-    def rot180(self,X):
-        #Rotate 180
+    def rot180(self, X):
+        # Rotate 180
         X = X[::-1, ::-1, :, :]
 
         return X
@@ -2613,18 +2714,18 @@ class DataGenerator_3Dconv_npy(DataGenerator_3Dconv_frommem):
         rots = np.random.choice(np.arange(4), X.shape[0])
 
         for i in range(X.shape[0]):
-            if rots[i]==0:
+            if rots[i] == 0:
                 pass
-            elif rots[i]==1:
-                #Rotate180
+            elif rots[i] == 1:
+                # Rotate180
                 X[i] = self.rot180(X[i])
                 y_3d[i] = self.rot180(y_3d[i])
-            elif rots[i]==2:
-                #Rotate90
+            elif rots[i] == 2:
+                # Rotate90
                 X[i] = self.rot90(X[i])
                 y_3d[i] = self.rot90(y_3d[i])
-            elif rots[i]==3:
-                #Rotate -90/270
+            elif rots[i] == 3:
+                # Rotate -90/270
                 X[i] = self.rot90(X[i])
                 X[i] = self.rot180(X[i])
                 y_3d[i] = self.rot90(y_3d[i])
@@ -2661,41 +2762,43 @@ class DataGenerator_3Dconv_npy(DataGenerator_3Dconv_frommem):
             eID = int(IDkey[0])
             sID = IDkey[1]
 
-            X.append(np.load(os.path.join(self.npydir[eID],
-                                          self.imdir,
-                                          '0_' + sID + '.npy')).astype('float32'))
+            X.append(
+                np.load(
+                    os.path.join(self.npydir[eID], self.imdir, "0_" + sID + ".npy")
+                ).astype("float32")
+            )
 
             y_3d.append(self.labels_3d[ID])
-            X_grid.append(np.load(os.path.join(self.npydir[eID],
-                                               self.griddir,
-                                               '0_' + sID + '.npy')))
+            X_grid.append(
+                np.load(
+                    os.path.join(self.npydir[eID], self.griddir, "0_" + sID + ".npy")
+                )
+            )
 
         X = np.stack(X)
         y_3d = np.stack(y_3d)
 
         X_grid = np.stack(X_grid)
         if not self.expval:
-            y_3d_max = np.zeros((self.batch_size,
-                                 self.nvox,
-                                 self.nvox,
-                                 self.nvox,
-                                 y_3d.shape[-1]))
+            y_3d_max = np.zeros(
+                (self.batch_size, self.nvox, self.nvox, self.nvox, y_3d.shape[-1])
+            )
 
         if not self.expval:
-            X_grid = np.reshape(X_grid, (-1,
-                                         self.nvox,
-                                         self.nvox,
-                                         self.nvox,
-                                         3))
+            X_grid = np.reshape(X_grid, (-1, self.nvox, self.nvox, self.nvox, 3))
             for gridi in range(X_grid.shape[0]):
                 x_coord_3d = X_grid[gridi, :, :, :, 0]
                 y_coord_3d = X_grid[gridi, :, :, :, 1]
                 z_coord_3d = X_grid[gridi, :, :, :, 2]
                 for j in range(y_3d_max.shape[-1]):
-                        y_3d_max[gridi, :, :, :, j] = \
-                            np.exp(-((y_coord_3d-y_3d[gridi, 1, j])**2 +
-                                   (x_coord_3d-y_3d[gridi, 0, j])**2 +
-                                   (z_coord_3d-y_3d[gridi, 2, j])**2)/(2*self.sigma**2))
+                    y_3d_max[gridi, :, :, :, j] = np.exp(
+                        -(
+                            (y_coord_3d - y_3d[gridi, 1, j]) ** 2
+                            + (x_coord_3d - y_3d[gridi, 0, j]) ** 2
+                            + (z_coord_3d - y_3d[gridi, 2, j]) ** 2
+                        )
+                        / (2 * self.sigma ** 2)
+                    )
 
         if self.mono and self.chan_num == 3:
             # Convert from RGB to mono using the skimage formula. Drop the duplicated frames.
@@ -2718,30 +2821,22 @@ class DataGenerator_3Dconv_npy(DataGenerator_3Dconv_frommem):
                 + X[:, :, :, :, 2] * 0.0721
             )
 
-        ncam = int(X.shape[-1]//self.chan_num)
+        ncam = int(X.shape[-1] // self.chan_num)
 
-        X, X_grid, y_3d = self.do_augmentation(X, X_grid, y_3d)
+        X, X_grid, y_3d, aux = self.do_augmentation(X, X_grid, y_3d)
 
         # Randomly re-order, if desired
         X = self.do_random(X)
 
         if self.cam1:
             # collapse the cameras to the batch dimensions.
-            X = np.reshape(X,
-                           (X.shape[0],
-                            X.shape[1],
-                            X.shape[2],
-                            X.shape[3],
-                            self.chan_num,
-                            -1),
-                           order='F')
+            X = np.reshape(
+                X,
+                (X.shape[0], X.shape[1], X.shape[2], X.shape[3], self.chan_num, -1),
+                order="F",
+            )
             X = np.transpose(X, [0, 5, 1, 2, 3, 4])
-            X = np.reshape(X,
-                           (-1,
-                            X.shape[2],
-                            X.shape[3],
-                            X.shape[4],
-                            X.shape[5]))
+            X = np.reshape(X, (-1, X.shape[2], X.shape[3], X.shape[4], X.shape[5]))
             if self.expval:
                 y_3d = np.tile(y_3d, [ncam, 1, 1])
                 X_grid = np.tile(X_grid, [ncam, 1, 1])
@@ -2753,7 +2848,7 @@ class DataGenerator_3Dconv_npy(DataGenerator_3Dconv_frommem):
         XX = []
         if self.prefeat:
             for ix in range(ncam):
-                XX.append(X[..., ix*self.chan_num:(ix+1)*self.chan_num])
+                XX.append(X[..., ix * self.chan_num : (ix + 1) * self.chan_num])
             X = XX
 
         if self.expval:
@@ -2763,8 +2858,11 @@ class DataGenerator_3Dconv_npy(DataGenerator_3Dconv_frommem):
 
         if self.expval:
             if self.heatmap_reg:
-                return [X, X_grid, self.get_max_gt_ind(X_grid, y_3d)], [y_3d,
-                    self.heatmap_reg_coeff*np.ones((self.batch_size, y_3d.shape[-1]), dtype='float32')]
+                return [X, X_grid, self.get_max_gt_ind(X_grid, y_3d)], [
+                    y_3d,
+                    self.heatmap_reg_coeff
+                    * np.ones((self.batch_size, y_3d.shape[-1]), dtype="float32"),
+                ]
             return X, y_3d
         else:
             return X, y_3d_max

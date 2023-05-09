@@ -10,7 +10,7 @@ from six.moves import cPickle
 import scipy.io as sio
 from scipy.ndimage.filters import maximum_filter
 
-from dannce.engine import io
+from dannce.engine import io, nets, ops, losses
 import matplotlib
 import warnings
 
@@ -20,56 +20,129 @@ import matplotlib.pyplot as plt
 import yaml
 import shutil
 import time
+from typing import Dict
+from tensorflow.keras.models import Model, load_model
+import logging
+
+FILE_PATH = "dannce.engine.preprocessing.py"
 
 
-def initialize_vids(CONFIG_PARAMS, datadict, e, vids, pathonly=True):
+def write_debug(
+    params: Dict,
+    ims_train: np.ndarray,
+    ims_valid: np.ndarray,
+    y_train: np.ndarray,
+    model: Model,
+    trainData: bool = True,
+):
+    """Factoring re-used debug output code.
+
+    Args:
+        params (Dict): Parameters dictionary
+        ims_train (np.ndarray): Training images
+        ims_valid (np.ndarray): Validation images
+        y_train (np.ndarray): Training targets
+        model (Model): Model
+        trainData (bool, optional): If True use training data for debug. Defaults to True.
+    """
+
+    prepend_log_msg = FILE_PATH + ".write_debug "
+
+    def plot_out(imo, lo, imn):
+        plot_markers_2d(norm_im(imo), lo, newfig=False)
+        plt.gca().xaxis.set_major_locator(plt.NullLocator())
+        plt.gca().yaxis.set_major_locator(plt.NullLocator())
+
+        imname = imn
+        plt.savefig(os.path.join(debugdir, imname), bbox_inches="tight", pad_inches=0)
+
+    if params["debug"] and not params["multi_mode"]:
+
+        if trainData:
+            outdir = "debug_im_out"
+            ims_out = ims_train
+            label_out = y_train
+        else:
+            outdir = "debug_im_out_valid"
+            ims_out = ims_valid
+            label_out = model.predict(ims_valid, batch_size=1)
+
+        # Plot all training images and save
+        # create new directory for images if necessary
+        debugdir = os.path.join(params["com_train_dir"], outdir)
+        
+        logging.info(prepend_log_msg + "Saving debug images to: " + debugdir)
+        if not os.path.exists(debugdir):
+            os.makedirs(debugdir)
+
+        plt.figure()
+
+        for i in range(ims_out.shape[0]):
+            plt.cla()
+            if params["mirror"]:
+                for j in range(label_out.shape[-1]):
+                    plt.cla()
+                    plot_out(
+                        ims_out[i],
+                        label_out[i, :, :, j : j + 1],
+                        str(i) + "_cam_" + str(j) + ".png",
+                    )
+            else:
+                plot_out(ims_out[i], label_out[i], str(i) + ".png")
+
+    elif params["debug"] and params["multi_mode"]:
+        logging.info( prepend_log_msg + "Note: Cannot output debug information in COM multi-mode")
+
+
+def initialize_vids(params, datadict, e, vids, pathonly=True):
     """
     Initializes video path dictionaries for a training session. This is different
         than a predict session because it operates over a single animal ("experiment")
         at a time
     """
-    for i in range(len(CONFIG_PARAMS["experiment"][e]["camnames"])):
+    for i in range(len(params["experiment"][e]["camnames"])):
         # Rather than opening all vids, only open what is needed based on the
         # maximum frame ID for this experiment and Camera
         flist = []
         for key in datadict.keys():
             if int(key.split("_")[0]) == e:
                 flist.append(
-                    datadict[key]["frames"][
-                        CONFIG_PARAMS["experiment"][e]["camnames"][i]
-                    ]
+                    datadict[key]["frames"][params["experiment"][e]["camnames"][i]]
                 )
 
         flist = max(flist)
 
         # For COM prediction, we don't prepend experiment IDs
         # So detect this case and act accordingly.
-        basecam = CONFIG_PARAMS["experiment"][e]["camnames"][i]
+        basecam = params["experiment"][e]["camnames"][i]
         if "_" in basecam:
             basecam = basecam.split("_")[1]
 
-        if CONFIG_PARAMS["vid_dir_flag"]:
+        if params["vid_dir_flag"]:
             addl = ""
         else:
             addl = os.listdir(
-                os.path.join(CONFIG_PARAMS["experiment"][e]["viddir"], basecam,)
+                os.path.join(
+                    params["experiment"][e]["viddir"],
+                    basecam,
+                )
             )[0]
         r = generate_readers(
-            CONFIG_PARAMS["experiment"][e]["viddir"],
+            params["experiment"][e]["viddir"],
             os.path.join(basecam, addl),
             maxopt=flist,  # Large enough to encompass all videos in directory.
-            extension=CONFIG_PARAMS["experiment"][e]["extension"],
+            extension=params["experiment"][e]["extension"],
             pathonly=pathonly,
         )
 
-        if "_" in CONFIG_PARAMS["experiment"][e]["camnames"][i]:
-            vids[CONFIG_PARAMS["experiment"][e]["camnames"][i]] = {}
+        if "_" in params["experiment"][e]["camnames"][i]:
+            vids[params["experiment"][e]["camnames"][i]] = {}
             for key in r:
-                vids[CONFIG_PARAMS["experiment"][e]["camnames"][i]][
-                    str(e) + "_" + key
-                ] = r[key]
+                vids[params["experiment"][e]["camnames"][i]][str(e) + "_" + key] = r[
+                    key
+                ]
         else:
-            vids[CONFIG_PARAMS["experiment"][e]["camnames"][i]] = r
+            vids[params["experiment"][e]["camnames"][i]] = r
 
     return vids
 
@@ -79,6 +152,16 @@ def infer_params(params, dannce_net, prediction):
     Some parameters that were previously specified in configs can just be inferred
         from others, thus relieving config bloat
     """
+
+    curr_dir = os.path.dirname(__file__)
+    os.environ["DANNCE_HOME"] = os.path.dirname(curr_dir)
+
+    if not os.path.exists(os.path.dirname(params["log_dest"])):
+        os.makedirs(os.path.dirname(params["log_dest"]))
+    # Setting up logging
+    logging.basicConfig(filename=params["log_dest"], level=params["log_level"], 
+                        format='%(asctime)s %(levelname)s:%(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
+
     # Grab the camnames from *dannce.mat if not in config
     if params["camnames"] is None:
         f = grab_predict_label3d_file()
@@ -117,13 +200,14 @@ def infer_params(params, dannce_net, prediction):
             intermediate_folder = os.listdir(camdir)
             camdir = os.path.join(camdir, intermediate_folder[0])
         video_files = os.listdir(camdir)
-        video_files = [f for f in video_files if ".mp4" in f]
+        video_files = [f for f in video_files if extension in f]
         video_files = sorted(video_files, key=lambda x: int(x.split(".")[0]))
         chunks[name] = np.sort([int(x.split(".")[0]) for x in video_files])
 
     print_and_set(params, "chunks", chunks)
 
-    camf = os.path.join(viddir, video_files[0])
+    firstvid = str(chunks[params["camnames"][0]][0]) + params["extension"]
+    camf = os.path.join(viddir, firstvid)
 
     # Infer n_channels_in from the video info
     v = imageio.get_reader(camf)
@@ -134,6 +218,12 @@ def infer_params(params, dannce_net, prediction):
     # set the raw im height and width
     print_and_set(params, "raw_im_h", im.shape[0])
     print_and_set(params, "raw_im_w", im.shape[1])
+
+    if dannce_net and params["avg+max"] is not None:
+        # To use avg+max, need to start with an AVG network
+        # In case the net type is not properly specified, set it here
+        print_and_set(params, "expval", True)
+        print_and_set(params, "net_type", "AVG")
 
     if dannce_net and params["net"] is None:
         # Here we assume that if the network and expval are specified by the user
@@ -235,7 +325,9 @@ def infer_params(params, dannce_net, prediction):
             print_and_set(params, "vmax", params["vol_size"] / 2)
 
         if params["heatmap_reg"] and not params["expval"]:
-            raise Exception("Heatmap regularization enabled only for AVG networks -- you are using MAX")
+            raise Exception(
+                "Heatmap regularization enabled only for AVG networks -- you are using MAX"
+            )
 
         if params["n_rand_views"] == "None":
             print_and_set(params, "n_rand_views", None)
@@ -249,13 +341,32 @@ def infer_params(params, dannce_net, prediction):
         )
         warnings.warn(msg)
 
+    # Handle COM network name backwards compatibility
+    if params["net"].lower() == "unet2d_fullbn":
+        print_and_set(params, "norm_method", "batch")
+    elif params["net"] == "unet2d_fullIN":
+        print_and_set(params, "norm_method", "layer")
+
+    if not dannce_net:
+        print_and_set(params, "net", "unet2d_full")
+
+    # set GPU ID
+    # Because of issues with the Duke Compute Cluster, the default behavior is
+    # to not set any gpu_id and let --gres handle it. But for local workstatioins
+    # where specific GPUs need to be targeted, there is still an option to do so.
+    # Addign the CUDA_VISIBLE_DEVICES assignment here makes this extend to all downstream
+    # types of calls to interface.py (i.e. dannce-train, dannce-predict, etc..)
+    if params["gpu_id"] is not None:
+        os.environ["CUDA_VISIBLE_DEVICES"] = params["gpu_id"]
+
     return params
 
 
 def print_and_set(params, varname, value):
     # Should add new values to params in place, no need to return
+    prepend_log_msg = FILE_PATH + ".print_and_set "
     params[varname] = value
-    print("Setting {} to {}.".format(varname, params[varname]))
+    logging.info(prepend_log_msg + "Setting {} to {}.".format(varname, params[varname]))
 
 
 def check_config(params, dannce_net, prediction):
@@ -336,30 +447,33 @@ def check_net_expval(params):
         raise Exception("expval is set to False but you are using an AVG network")
 
 
-def copy_config(RESULTSDIR, main_config, io_config):
+def copy_config(results_dir, main_config, io_config):
     """
     Copies config files into the results directory, and creates results
         directory if necessary
     """
-    print("Saving results to: {}".format(RESULTSDIR))
+    # Leaving this print statement as is since there does not seem to be any references going out or into it
+    print("Saving results to: {}".format(results_dir))
 
-    if not os.path.exists(RESULTSDIR):
-        os.makedirs(RESULTSDIR)
+    if not os.path.exists(results_dir):
+        os.makedirs(results_dir)
 
     mconfig = os.path.join(
-        RESULTSDIR, "copy_main_config_" + main_config.split(os.sep)[-1]
+        results_dir, "copy_main_config_" + main_config.split(os.sep)[-1]
     )
-    dconfig = os.path.join(RESULTSDIR, "copy_io_config_" + io_config.split(os.sep)[-1])
+    dconfig = os.path.join(results_dir, "copy_io_config_" + io_config.split(os.sep)[-1])
 
     shutil.copyfile(main_config, mconfig)
     shutil.copyfile(io_config, dconfig)
 
 
-def make_data_splits(samples, params, RESULTSDIR, num_experiments):
+def make_data_splits(samples, params, results_dir, num_experiments):
     """
     Make train/validation splits from list of samples, or load in a specific
         list of sampleIDs if desired.
     """
+    # Setup prepend for log messages
+    prepend_log_msg = FILE_PATH + ".make_data_split "
     # TODO: Switch to .mat from .pickle so that these lists are easier to read
     # and change.
 
@@ -386,7 +500,9 @@ def make_data_splits(samples, params, RESULTSDIR, num_experiments):
                 )
                 valid_inds = list(np.sort(valid_inds))
 
-            train_inds = list(set(all_inds) - set(all_valid_inds))#[i for i in all_inds if i not in all_valid_inds]
+            train_inds = list(
+                set(all_inds) - set(all_valid_inds)
+            )  # [i for i in all_inds if i not in all_valid_inds]
         elif params["num_validation_per_exp"] > 0:  # if 0, do not perform validation
             for e in range(num_experiments):
                 tinds = [
@@ -408,41 +524,48 @@ def make_data_splits(samples, params, RESULTSDIR, num_experiments):
         train_samples = samples[train_inds]
         train_inds = []
         if params["valid_exp"] is not None:
-            train_expts = [f for f in range(num_experiments) if f not in params["valid_exp"]]
+            train_expts = [
+                f for f in range(num_experiments) if f not in params["valid_exp"]
+            ]
         else:
             train_expts = np.arange(num_experiments)
 
-        print("TRAIN EXPTS: {}".format(train_expts))
+        logging.info(prepend_log_msg + "TRAIN EXPTS: {}".format(train_expts))
 
         if params["num_train_per_exp"] is not None:
             # Then sample randomly without replacement from training sampleIDs
             for e in train_expts:
                 tinds = [
-                        i for i in range(len(train_samples)) if int(train_samples[i].split("_")[0]) == e
-                    ]
-                print(e)
-                print(len(tinds))
+                    i
+                    for i in range(len(train_samples))
+                    if int(train_samples[i].split("_")[0]) == e
+                ]
+                logging.debug(e)
+                logging.debug(len(tinds))
                 train_inds = train_inds + list(
-                    np.random.choice(tinds, (params["num_train_per_exp"],), replace=False)
+                    np.random.choice(
+                        tinds, (params["num_train_per_exp"],), replace=False
+                    )
                 )
                 train_inds = list(np.sort(train_inds))
         else:
             train_inds = np.arange(len(train_samples))
 
-        
-
         partition["valid_sampleIDs"] = samples[valid_inds]
         partition["train_sampleIDs"] = train_samples[train_inds]
 
         # Save train/val inds
-        with open(os.path.join(RESULTSDIR, "val_samples.pickle"), "wb") as f:
+        with open(os.path.join(results_dir, "val_samples.pickle"), "wb") as f:
             cPickle.dump(partition["valid_sampleIDs"], f)
 
-        with open(os.path.join(RESULTSDIR, "train_samples.pickle"), "wb") as f:
+        with open(os.path.join(results_dir, "train_samples.pickle"), "wb") as f:
             cPickle.dump(partition["train_sampleIDs"], f)
     else:
         # Load validation samples from elsewhere
-        with open(os.path.join(params["load_valid"], "val_samples.pickle"), "rb",) as f:
+        with open(
+            os.path.join(params["load_valid"], "val_samples.pickle"),
+            "rb",
+        ) as f:
             partition["valid_sampleIDs"] = cPickle.load(f)
         partition["train_sampleIDs"] = [
             f for f in samples if f not in partition["valid_sampleIDs"]
@@ -454,31 +577,97 @@ def make_data_splits(samples, params, RESULTSDIR, num_experiments):
 
     return partition
 
+
+def __initAvgMax(t, g, o, params):
+    """
+    Helper function for creating 3D targets
+    """
+    gridsize = tuple([params["nvox"]] * 3)
+    g = np.reshape(
+        g,
+        (-1, *gridsize, 3),
+    )
+
+    for i in range(o.shape[0]):
+        for j in range(o.shape[-1]):
+            o[i, ..., j] = np.exp(
+                -(
+                    (g[i, ..., 1] - t[i, 1, j]) ** 2
+                    + (g[i, ..., 0] - t[i, 0, j]) ** 2
+                    + (g[i, ..., 2] - t[i, 2, j]) ** 2
+                )
+                / (2 * params["sigma"] ** 2)
+            )
+
+    return o
+
+
+def initAvgMax(y_train, y_valid, Xtg, Xvg, params):
+    """
+    Converts 3D coordinate targets into 3D volumes, for AVG+MAX training
+    """
+    gridsize = tuple([params["nvox"]] * 3)
+    y_train_aux = np.zeros(
+        (
+            y_train.shape[0],
+            *gridsize,
+            params["new_n_channels_out"],
+        ),
+        dtype="float32",
+    )
+
+    y_valid_aux = np.zeros(
+        (
+            y_valid.shape[0],
+            *gridsize,
+            params["new_n_channels_out"],
+        ),
+        dtype="float32",
+    )
+
+    return (
+        __initAvgMax(y_train, Xtg, y_train_aux, params),
+        __initAvgMax(y_valid, Xvg, y_valid_aux, params),
+    )
+
+
 def remove_samples_npy(npydir, samples, params):
     """
     Remove any samples from sample list if they do not have corresponding volumes in the image
         or grid directories
     """
+    prepend_log_msg = FILE_PATH + ".remove_samples_npy "
     # image_volumes
     # grid_volumes
     samps = []
     for e in npydir.keys():
-        imvol = os.path.join(npydir[e], 'image_volumes')
-        gridvol = os.path.join(npydir[e], 'grid_volumes')
+        imvol = os.path.join(npydir[e], "image_volumes")
+        gridvol = os.path.join(npydir[e], "grid_volumes")
         ims = os.listdir(imvol)
         grids = os.listdir(gridvol)
-        npysamps = ['0_' + f.split("_")[1] + '.npy' for f in samples if int(f.split("_")[0]) == e]
+        npysamps = [
+            "0_" + f.split("_")[1] + ".npy"
+            for f in samples
+            if int(f.split("_")[0]) == e
+        ]
 
         goodsamps = list(set(npysamps) & set(ims) & set(grids))
 
-        samps = samps + [str(e) + '_' + f.split("_")[1].split(".")[0] for f in goodsamps]
+        samps = samps + [
+            str(e) + "_" + f.split("_")[1].split(".")[0] for f in goodsamps
+        ]
 
         sampdiff = len(npysamps) - len(goodsamps)
 
-        #import pdb; pdb.set_trace()
-        print("Removed {} samples from {} because corresponding image or grid files could not be found".format(sampdiff, params["experiment"][e]["label3d_file"]))
+        # import pdb; pdb.set_trace()
+        logging.info(prepend_log_msg +
+            "Removed {} samples from {} because corresponding image or grid files could not be found".format(
+                sampdiff, params["experiment"][e]["label3d_file"]
+            )
+        )
 
     return np.array(samps)
+
 
 def rename_weights(traindir, kkey, mon):
     """
@@ -490,12 +679,19 @@ def rename_weights(traindir, kkey, mon):
     e = r["epoch"]
     q = r[mon]
     minq = np.min(q)
-    beste = e[np.argmin(q)]
+    if e.size == 1:
+        beste = e
+    else:
+        beste = e[np.argmin(q)]
 
     newname = "weights." + str(int(beste)) + "-" + "{:.5f}".format(minq) + ".hdf5"
+    newname_out = os.path.join(traindir, newname)
+    os.rename(os.path.join(traindir, kkey), newname_out)
 
-    os.rename(os.path.join(traindir, kkey), os.path.join(traindir, newname))
+    outdict = {mon: minq,
+               'beste': beste}
 
+    return newname_out, outdict
 
 def make_paths_safe(params):
     """Given a parameter dictionary, loops through the keys and replaces any \\ or / with os.sep
@@ -551,6 +747,33 @@ def make_none_safe(pdict):
             return pdict
     return pdict
 
+def save_pred_targets(best_pth, model, save_callback, bestdict, params):
+
+    # set the callback to be the current model, which will eb the final model
+    save_callback.set_model(model)
+
+    # then manually call the callback to make predictiosn and save
+    save_callback.on_epoch_end(epoch=save_callback.total_epochs-1,
+                               logs={'val_loss': 1e10})
+
+    model = load_model(
+        best_pth,
+        custom_objects={
+            "ops": ops,
+            "slice_input": nets.slice_input,
+            "mask_nan_keep_loss": losses.mask_nan_keep_loss,
+            "mask_nan_l1_loss": losses.mask_nan_l1_loss,
+            "euclidean_distance_3D": losses.euclidean_distance_3D,
+            "centered_euclidean_distance_3D": losses.centered_euclidean_distance_3D,
+            "gaussian_cross_entropy_loss": losses.gaussian_cross_entropy_loss,
+        },
+                )
+
+    model = nets.remove_heatmap_output(model, params)
+    save_callback.set_model(model)
+
+    save_callback.on_epoch_end(epoch=bestdict['beste'],
+                               logs=bestdict)
 
 def prepare_save_metadata(params):
     """
@@ -583,13 +806,20 @@ def save_COM_dannce_mat(params, com3d, sampleID):
     Instead of saving 3D COM to com3d.mat, save it into the dannce.mat file, which
     streamlines subsequent dannce access.
     """
+    # Setup Logging
+    if not os.path.exists(os.path.dirname(params["log_dest"])):
+        os.makedirs(os.path.dirname(params["log_dest"]))
+    logging.basicConfig(filename=params["log_dest"], level=params["log_level"], 
+                        format='%(asctime)s %(levelname)s:%(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
+    prepend_log_msg = FILE_PATH + ".save_COM_dannce_mat "
+
     com = {}
     com["com3d"] = com3d
     com["sampleID"] = sampleID
     com["metadata"] = prepare_save_metadata(params)
 
     # Open dannce.mat file, add com and re-save
-    print("Saving COM predictions to " + params["label3d_file"])
+    logging.info(prepend_log_msg + "Saving COM predictions to " + params["label3d_file"])
     rr = sio.loadmat(params["label3d_file"])
     # For safety, save old file to temp and delete it at the end
     sio.savemat(params["label3d_file"] + ".temp", rr)
@@ -600,14 +830,17 @@ def save_COM_dannce_mat(params, com3d, sampleID):
 
 
 def save_COM_checkpoint(
-    save_data, RESULTSDIR, datadict_, cameras, params, file_name="com3d"
+    save_data, results_dir, datadict_, cameras, params, file_name="com3d"
 ):
     """
     Saves COM pickle and matfiles
 
     """
+    # Set Prepend log message
+    prepend_log_msg = FILE_PATH + ".save_COM_dannce_mat "
+
     # Save undistorted 2D COMs and their 3D triangulations
-    f = open(os.path.join(RESULTSDIR, file_name + ".pickle"), "wb")
+    f = open(os.path.join(results_dir, file_name + ".pickle"), "wb")
     cPickle.dump(save_data, f)
     f.close()
 
@@ -623,7 +856,7 @@ def save_COM_checkpoint(
         else:
             linking_method = "euclidean"
         _, com3d_dict = serve_data_DANNCE.prepare_COM_multi_instance(
-            os.path.join(RESULTSDIR, file_name + ".pickle"),
+            os.path.join(results_dir, file_name + ".pickle"),
             datadict_save,
             comthresh=0,
             weighted=False,
@@ -633,7 +866,7 @@ def save_COM_checkpoint(
     else:
         prepare_func = serve_data_DANNCE.prepare_COM
         _, com3d_dict = serve_data_DANNCE.prepare_COM(
-            os.path.join(RESULTSDIR, file_name + ".pickle"),
+            os.path.join(results_dir, file_name + ".pickle"),
             datadict_save,
             comthresh=0,
             weighted=False,
@@ -641,8 +874,8 @@ def save_COM_checkpoint(
             method="median",
         )
 
-    cfilename = os.path.join(RESULTSDIR, file_name + ".mat")
-    print("Saving 3D COM to {}".format(cfilename))
+    cfilename = os.path.join(results_dir, file_name + ".mat")
+    logging.info(prepend_log_msg + "Saving 3D COM to {}".format(cfilename))
     samples_keys = list(com3d_dict.keys())
 
     if params["n_instances"] > 1:
@@ -674,6 +907,7 @@ def inherit_config(child, parent, keys):
     for key in keys:
         if key not in child.keys():
             child[key] = parent[key]
+            # Leaving this print statement as is, since params are not built at this point
             print(
                 "{} not found in io.yaml file, falling back to main config".format(key)
             )
@@ -685,6 +919,8 @@ def grab_predict_label3d_file(defaultdir=""):
     """
     Finds the paths to the training experiment yaml files.
     """
+    # Set Logging prepend message
+    prepend_log_msg = FILE_PATH + ".grab_predict_label3d_file "
     def_ep = os.path.join(".", defaultdir)
     label3d_files = os.listdir(def_ep)
     label3d_files = [
@@ -694,7 +930,7 @@ def grab_predict_label3d_file(defaultdir=""):
 
     if len(label3d_files) == 0:
         raise Exception("Did not find any *dannce.mat file in {}".format(def_ep))
-    print("Using the following *dannce.mat files: {}".format(label3d_files[0]))
+    logging.debug(prepend_log_msg + "Using the following *dannce.mat files: {}".format(label3d_files[0]))
     return label3d_files[0]
 
 
@@ -703,7 +939,10 @@ def load_expdict(params, e, expdict, _DEFAULT_VIDDIR):
     Load in camnames and video directories and label3d files for a single experiment
         during training.
     """
-    _DEFAULT_NPY_DIR = 'npy_volumes'
+    # Set Logging prepend msg
+    prepend_log_msg = FILE_PATH + ".load_expdict "
+
+    _DEFAULT_NPY_DIR = "npy_volumes"
     exp = params.copy()
     exp = make_paths_safe(exp)
     exp["label3d_file"] = expdict["label3d_file"]
@@ -715,14 +954,14 @@ def load_expdict(params, e, expdict, _DEFAULT_VIDDIR):
         exp["viddir"] = os.path.join(exp["base_exp_folder"], _DEFAULT_VIDDIR)
     else:
         exp["viddir"] = expdict["viddir"]
-    print("Experiment {} using videos in {}".format(e, exp["viddir"]))
+    logging.debug(prepend_log_msg + "Experiment {} using videos in {}".format(e, exp["viddir"]))
 
     l3d_camnames = io.load_camnames(expdict["label3d_file"])
     if "camnames" in expdict:
         exp["camnames"] = expdict["camnames"]
     elif l3d_camnames is not None:
         exp["camnames"] = l3d_camnames
-    print("Experiment {} using camnames: {}".format(e, exp["camnames"]))
+    logging.debug(prepend_log_msg + "Experiment {} using camnames: {}".format(e, exp["camnames"]))
 
     # Use the camnames to find the chunks for each video
     chunks = {}
@@ -740,7 +979,7 @@ def load_expdict(params, e, expdict, _DEFAULT_VIDDIR):
             [int(x.split(".")[0]) for x in video_files]
         )
     exp["chunks"] = chunks
-    print(chunks)
+    logging.debug(prepend_log_msg + str(chunks))
 
     # For npy volume training
     if params["use_npy"]:
@@ -866,6 +1105,9 @@ def generate_readers(
     viddir, camname, minopt=0, maxopt=300000, pathonly=False, extension=".mp4"
 ):
     """Open all mp4 objects with imageio, and return them in a dictionary."""
+    # Set prepend message
+    prepend_log_msg = FILE_PATH + ".generate_readers "
+
     out = {}
     mp4files = [
         os.path.join(camname, f)
@@ -892,7 +1134,7 @@ def generate_readers(
         if pathonly:
             out[mp4files_scrub[i]] = os.path.join(viddir, mp4files[i])
         else:
-            print(
+            logging.info(
                 "NOTE: Ignoring {} files numbered above {}".format(extensions, maxopt)
             )
             out[mp4files_scrub[i]] = imageio.get_reader(
@@ -937,14 +1179,14 @@ def cropcom(im, com, size=512):
     return out
 
 
-def write_config(resultsdir, configdict, message, filename="modelconfig.cfg"):
+def write_config(results_dir, configdict, message, filename="modelconfig.cfg"):
     """Write a dictionary of k-v pairs to file.
 
     A much more customizable configuration writer. Accepts a dictionary of
     key-value pairs and just writes them all to file,
     together with a custom message
     """
-    f = open(resultsdir + filename, "w")
+    f = open(results_dir + filename, "w")
     for key in configdict:
         f.write("{}: {}\n".format(key, configdict[key]))
     f.write("message:" + message)
@@ -956,9 +1198,9 @@ def read_config(filename):
     :param filename: Path to configuration file.
     """
     with open(filename) as f:
-        CONFIG_PARAMS = yaml.safe_load(f)
+        params = yaml.safe_load(f)
 
-    return CONFIG_PARAMS
+    return params
 
 
 def plot_markers_2d(im, markers, newfig=True):
@@ -1161,7 +1403,8 @@ def savedata_expval(
         }
     if write and data is None:
         sio.savemat(
-            fname.split(".pickle")[0] + ".mat", sdict,
+            fname.split(".pickle")[0] + ".mat",
+            sdict,
         )
     elif write and data is not None:
         sio.savemat(fname, sdict)
@@ -1213,11 +1456,13 @@ def savedata_tomat(
     if tcoord and tcoord_scale:
         t_coords = vmin + t_coords * vsize + vsize / 2
 
+    # import pdb; pdb.set_trace()
     if addCOM is not None:
         # We use the passed comdict to add back in the com, this is useful
         # if one wnats to bootstrap on these values for COMnet or otherwise
         for i in range(len(sID)):
-            pred_out_world[i] = pred_out_world[i] + addCOM[int(sID)][:, np.newaxis]
+            # pred_out_world[i] = pred_out_world[i] + addCOM[int(sID)][:, np.newaxis]
+            pred_out_world[i] = pred_out_world[i] + addCOM['0_'+str(int(sID[i]))][:, np.newaxis]
 
     sdict = {
         "pred": pred_out_world,
@@ -1229,11 +1474,13 @@ def savedata_tomat(
     }
     if write and data is None:
         sio.savemat(
-            fname.split(".pickle")[0] + ".mat", sdict,
+            fname.split(".pickle")[0] + ".mat",
+            sdict,
         )
     elif write and data is not None:
         sio.savemat(
-            fname, sdict,
+            fname,
+            sdict,
         )
     return pred_out_world, t_coords, p_max, log_p_max, sID
 
@@ -1265,54 +1512,19 @@ def spatial_entropy(map_):
     return -1 * np.sum(map_ * np.log(map_))
 
 
-def dupe_params(exp, dupes, n_views):
-    """
-    When The number of views (n_views) required
-        as input to the network is greater than the
-        number of actual cameras (e.g. when trying to
-        fine-tune a 6-camera network on data from a 
-        2-camera system), automatically duplicate necessary
-        parameters to match the required n_views.
-    """
-
-    for d in dupes:
-        val = exp[d]
-        if n_views % len(val) == 0:
-            num_reps = n_views // len(val)
-            exp[d] = val * num_reps
-
-        else:
-            prompt = "The length of the {} list must divide evenly into {}. Duplicate a subset of the views starting from the first camera (y/n)?".format(
-                d, n_views
-            )
-            val_in = input(prompt)
-            if val_in == "y":
-                num_reps = n_views // len(val)
-                num_extra = n_views % len(val)
-                duped = val * num_reps
-                for i in range(num_extra):
-                    duped.append(duped[i])
-                print("Duping {}. Changed from {} to {}".format(d, val, duped))
-                exp[d] = duped
-            else:
-                raise Exception(
-                    "The length of the {} list must divide evenly into {}. Exiting".format(
-                        d, n_views
-                    )
-                )
-
-    return exp
-
 def write_npy(uri, gen):
     """
     Creates a new image folder and grid folder at the uri and uses
     the generator to generate samples and save them as npy files
     """
-    imdir = os.path.join(uri, 'image_volumes')
+    # Set log prepend msg
+    prepend_log_msg = FILE_PATH + ".write_npy "
+
+    imdir = os.path.join(uri, "image_volumes")
     if not os.path.exists(imdir):
         os.makedirs(imdir)
 
-    griddir = os.path.join(uri, 'grid_volumes')
+    griddir = os.path.join(uri, "grid_volumes")
     if not os.path.exists(griddir):
         os.makedirs(griddir)
 
@@ -1328,15 +1540,16 @@ def write_npy(uri, gen):
     bs = gen.batch_size
     for i in range(len(gen)):
         if i % 1000 == 0:
-            print(i)
+            logging.debug(i)
         # Generate batch
         bch = gen.__getitem__(i)
         # loop over all examples in batch and save volume
         for j in range(bs):
-            #get the frame name / unique ID
-            fname = gen.list_IDs[gen.indexes[i*bs + j]]
+            # get the frame name / unique ID
+            fname = gen.list_IDs[gen.indexes[i * bs + j]]
 
-            #and save
-            print(fname)
-            np.save(os.path.join(imdir, fname + '.npy'), bch[0][0][j].astype('uint8'))
-            np.save(os.path.join(griddir, fname + '.npy'), bch[0][1][j])
+            # and save
+            logging.debug(fname)
+            np.save(os.path.join(imdir, fname + ".npy"), bch[0][0][j].astype("uint8"))
+            np.save(os.path.join(griddir, fname + ".npy"), bch[0][1][j])
+

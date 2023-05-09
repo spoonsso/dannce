@@ -12,10 +12,91 @@ from dannce import (
     _param_defaults_shared,
     _param_defaults_com,
 )
+import os
 import sys
 import ast
 import argparse
+import yaml
 from typing import Dict, Text
+import logging
+
+
+def load_params(param_path: Text) -> Dict:
+    """Load a params file
+
+    Args:
+        param_path (Text): Path to .yaml file
+
+    Returns:
+        Dict: Parameters
+    """
+    with open(param_path, "rb") as file:
+        params = yaml.safe_load(file)
+    return params
+
+
+def parse_sbatch() -> Text:
+    """Parse sbatch call for base config
+
+    Returns:
+        Text: Base config path
+    """
+    parser = argparse.ArgumentParser(
+        description="Com predict CLI",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser.add_argument(
+        "base_config", metavar="base_config", help="Path to base config."
+    )
+    return parser.parse_args().base_config
+
+
+def sbatch_dannce_predict_cli():
+    """CLI to submit dannce prediction through sbatch using the slurm config specified in the base config."""
+    base_config = parse_sbatch()
+    slurm_config = load_params(load_params(base_config)["slurm_config"])
+    cmd = 'sbatch %s --wrap="%s dannce-predict %s"' % (
+        slurm_config["dannce_predict"],
+        slurm_config["setup"],
+        base_config,
+    )
+    os.system(cmd)
+
+
+def sbatch_dannce_train_cli():
+    """CLI to submit dannce training through sbatch using the slurm config specified in the base config."""
+    base_config = parse_sbatch()
+    slurm_config = load_params(load_params(base_config)["slurm_config"])
+    cmd = 'sbatch %s --wrap="%s dannce-train %s"' % (
+        slurm_config["dannce_train"],
+        slurm_config["setup"],
+        base_config,
+    )
+    os.system(cmd)
+
+
+def sbatch_com_predict_cli():
+    """CLI to submit com predition through sbatch using the slurm config specified in the base config."""
+    base_config = parse_sbatch()
+    slurm_config = load_params(load_params(base_config)["slurm_config"])
+    cmd = 'sbatch %s --wrap="%s com-predict %s"' % (
+        slurm_config["com_predict"],
+        slurm_config["setup"],
+        base_config,
+    )
+    os.system(cmd)
+
+
+def sbatch_com_train_cli():
+    """CLI to submit com training through sbatch using the slurm config specified in the base config."""
+    base_config = parse_sbatch()
+    slurm_config = load_params(load_params(base_config)["slurm_config"])
+    cmd = 'sbatch %s --wrap="%s com-train %s"' % (
+        slurm_config["com_train"],
+        slurm_config["setup"],
+        base_config,
+    )
+    os.system(cmd)
 
 
 def com_predict_cli():
@@ -104,9 +185,7 @@ def add_shared_args(
     parser.add_argument(
         "base_config", metavar="base_config", help="Path to base config."
     )
-    parser.add_argument(
-        "--viddir", dest="viddir", help="Directory containing videos."
-    )
+    parser.add_argument("--viddir", dest="viddir", help="Directory containing videos.")
     parser.add_argument(
         "--crop-height",
         dest="crop_height",
@@ -126,9 +205,7 @@ def add_shared_args(
         help="List of ordered camera names.",
     )
 
-    parser.add_argument(
-        "--io-config", dest="io_config", help="Path to io.yaml file."
-    )
+    parser.add_argument("--io-config", dest="io_config", help="Path to io.yaml file.")
 
     parser.add_argument(
         "--n-channels-out",
@@ -153,15 +230,11 @@ def add_shared_args(
         dest="verbose",
         help="verbose=0 prints nothing to std out. verbose=1 prints training summary to std out.",
     )
-    parser.add_argument(
-        "--net", dest="net", help="Network architecture. See nets.py"
-    )
+    parser.add_argument("--net", dest="net", help="Network architecture. See nets.py")
     parser.add_argument(
         "--gpu-id", dest="gpu_id", help="String identifying GPU to use."
     )
-    parser.add_argument(
-        "--immode", dest="immode", help="Data format for images."
-    )
+    parser.add_argument("--immode", dest="immode", help="Data format for images.")
 
     parser.add_argument(
         "--mono",
@@ -175,6 +248,24 @@ def add_shared_args(
         dest="mirror",
         type=ast.literal_eval,
         help="If true, uses a single video file for multiple views.",
+    )
+
+    parser.add_argument(
+        "--norm-method",
+        dest="norm_method",
+        help="Normalization method to use, can be 'batch', 'instance', or 'layer'.",
+    )
+
+    parser.add_argument(
+        "--log-level",
+        dest="log_level",
+        help="Level of logging to use, can be 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'. Default is 'INFO'.",
+    )
+
+    parser.add_argument(
+        "--log-dest",
+        dest="log_dest",
+        help="Log File location to where logs are to be written to. By default, location is set to ../logs/dannce.log ",
     )
 
     return parser
@@ -201,6 +292,13 @@ def add_shared_train_args(
         "--loss",
         dest="loss",
         help="Loss function to use during training. See losses.py.",
+    )
+    # Taken from changes by robb
+    parser.add_argument(
+        "--huber-delta",
+        dest="huber-delta",
+        type=float,
+        help="Delta Value if using huber loss",
     )
     parser.add_argument(
         "--epochs", dest="epochs", type=int, help="Number of epochs to train."
@@ -422,7 +520,8 @@ def add_dannce_shared_args(
         "--n-views",
         dest="n_views",
         type=int,
-        help="Sets the absolute number of views (when using fewer than 6 views only)")
+        help="Sets the absolute number of views (when using fewer than 6 views only)",
+    )
     parser.add_argument(
         "--train-mode",
         dest="train_mode",
@@ -468,6 +567,12 @@ def add_dannce_train_args(
         help="If True, rotate all images in each sample of the training set by a random value between [-5 and 5] degrees during training.",
     )
     parser.add_argument(
+        "--mirror-augmentation",
+        dest="mirror_augmentation",
+        type=ast.literal_eval,
+        help="If True, mirror the images in half of the samples of the training set.",
+    )
+    parser.add_argument(
         "--drop-landmark",
         dest="drop_landmark",
         type=ast.literal_eval,
@@ -477,19 +582,19 @@ def add_dannce_train_args(
         "--use-npy",
         dest="use_npy",
         type=ast.literal_eval,
-        help="If True, loads training data from npy files"
+        help="If True, loads training data from npy files",
     )
     parser.add_argument(
         "--rand-view-replace",
         dest="rand_view_replace",
         type=ast.literal_eval,
-        help="If True, samples n_rand_views with replacement"
+        help="If True, samples n_rand_views with replacement",
     )
     parser.add_argument(
         "--n-rand-views",
         dest="n_rand_views",
         type=ast.literal_eval,
-        help="Number of views to sample from the full viewset during training"
+        help="Number of views to sample from the full viewset during training",
     )
     parser.add_argument(
         "--multi-gpu-train",
@@ -515,6 +620,13 @@ def add_dannce_train_args(
         type=ast.literal_eval,
         help="If True, save predictions evaluated at checkpoints during training. Note that for large training datasets, this can cause memory issues.",
     )
+    parser.add_argument(
+        "--avg-max",
+        dest="avg+max",
+        type=float,
+        help="Pass a floating point value here for DANNCE to enter AVG+MAX training mode, where the 3D maps are MAX-like regularized to be Gaussian. The avg+max value is used to weight the contribution of the MAX-like loss."
+    )
+    
     return parser
 
 
@@ -557,11 +669,11 @@ def add_dannce_predict_args(
         help="If True, attempt to load in a prediction model without requiring a full model file (i.e. just using weights). May fail for some model types.",
     )
     parser.add_argument(
-    "--write-npy",
-    dest="write_npy",
-    help="If not None, uses this base path to write large dataset to npy files"
+        "--write-npy",
+        dest="write_npy",
+        help="If not None, uses this base path to write large dataset to npy files",
     )
- 
+
     return parser
 
 
@@ -722,9 +834,7 @@ def parse_clargs(
     return parser.parse_args()
 
 
-def combine(
-    base_params: Dict, clargs: argparse.Namespace, dannce_net: bool
-) -> Dict:
+def combine(base_params: Dict, clargs: argparse.Namespace, dannce_net: bool) -> Dict:
     """Combine command line, io, and base configurations.
 
     Args:
@@ -749,7 +859,11 @@ def combine(
                 base_params[k] = v
         elif v is not None:
             base_params[k] = v
-
+    
+    if not os.path.exists(os.path.dirname(base_params["log_dest"])):
+        os.makedirs(os.path.dirname(base_params["log_dest"]))
+    logging.basicConfig(filename=base_params["log_dest"], level=base_params["log_level"], 
+                        format='%(asctime)s %(levelname)s:%(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
     for k, v in base_params.items():
-        print("{} set to: {}".format(k, v))
+        logging.info("{} set to: {}".format(k, v))
     return base_params

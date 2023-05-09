@@ -13,7 +13,7 @@ batch_size: 2
 sigma: 30
 
 # COM training option. Sets the number of epochs during training
-epochs: 3
+epochs: 1
 
 # DANNCE training option. Sets the verbosity of training output
 verbose: 1
@@ -46,7 +46,7 @@ gpu_id: "0"
 #COMdebug: Camera5
 
 # How many frames to you want to predict over? Set to 'max' for all video frames.
-max_num_samples: 1000
+max_num_samples: 10
 
 com_finetune_weights:
 

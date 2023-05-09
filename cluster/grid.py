@@ -1,75 +1,157 @@
-import numpy as np
 import sys
 import pickle
 import os
 import yaml
 import argparse
 import ast
-from scipy.io import savemat
-from dannce.engine.io import load_sync, load_com
-from dannce.engine.processing import prepare_save_metadata
-from dannce import (
-    _param_defaults_shared,
-    _param_defaults_dannce,
-    _param_defaults_com,
-)
+from typing import Text, List, Tuple
+from cluster.multi_gpu import build_params_from_config_and_batch, load_params
 
+
+import subprocess
+import time
+import logging
+
+FILE_PATH = "dance.cluster.grid"
 
 class GridHandler:
     def __init__(
         self,
-        config,
-        grid_config,
-        verbose=True,
-        test=False,
-        dannce_file=None,
+        config: Text,
+        grid_config: Text,
+        verbose: bool = True,
+        test: bool = False,
+        dannce_file: Text = None,
     ):
+        """Initialize grid search handler
+
+        Args:
+            config (Text): Path to base config .yaml file.
+            grid_config (Text): Path to grid search config .yaml file.
+            verbose (bool, optional): If True, print out batch parameters. Defaults to True.
+            test (bool, optional): If True, print out system command, but do not run. Defaults to False.
+            dannce_file (Text, optional): Path to dannce.mat file. Defaults to None.
+        """
         self.config = config
         self.grid_config = grid_config
         self.batch_param_file = "_grid_params.p"
         self.verbose = verbose
         self.test = test
 
-    def load_params(self, param_path):
-        """Load a params file"""
+    def load_params(self, param_path: Text) -> List:
+        """Load the training parameters
+
+        Args:
+            param_path (Text): Path to parameters file.
+
+        Returns:
+            List: Training parameters for each batch
+        """
         with open(param_path, "rb") as file:
             params = yaml.safe_load(file)
         return params["batch_params"]
 
-    def save_batch_params(self, batch_params):
-        """Save the batch_param dictionary to the batch_param file"""
+    def save_batch_params(self, batch_params: List):
+        """Save the batch_param dictionary to the batch_param file
+
+        Args:
+            batch_params (List): List of batch training parameters
+        """
         out_dict = {"batch_params": batch_params}
         with open(self.batch_param_file, "wb") as file:
             pickle.dump(out_dict, file)
 
-    def load_batch_params(self):
+    def load_batch_params(self) -> List:
+        """Load the batch parameters
+
+        Returns:
+            List: Batch training parameters
+        """
         with open(self.batch_param_file, "rb") as file:
             in_dict = pickle.load(file)
         return in_dict["batch_params"]
 
-    def generate_batch_params_dannce(self):
+    def generate_batch_params_dannce(self) -> List:
+        """Generate the batch parameters
+
+        Returns:
+            List: Training parameters for each batch
+        """
         return self.load_params(self.grid_config)
 
-    def submit_jobs(self, batch_params, cmd):
-        """Print out description of command and issue system command"""
+    def submit_jobs(self, batch_params: List, cmd: Text):
+        """Print out description of command and issue system command
+
+        Args:
+            batch_params (List): List of batch training parameters.
+            cmd (Text): System command to be issued.
+        """
+        # Set logging prepend
+        prepend_log_msg = FILE_PATH + ".GridHandler.submit_jobs "
+
         if self.verbose:
             for batch_param in batch_params:
-                print(batch_param)
-            print("Command issued: ", cmd)
+                logging.info(prepend_log_msg + str(batch_param.values()))
+            logging.info(prepend_log_msg + "Command issued: " + cmd)
         if not self.test:
-            os.system(cmd)
+            if isinstance(cmd, list): 
+                for i in range(len(cmd)):
+                    os.environ["SLURM_ARRAY_TASK_ID"] = str(i)
+                    os.system(cmd[i])
+                    time.sleep(0.05)
+            elif isinstance(cmd, str):
+                os.system(cmd)
+    
+    def get_parent_job_id(self):
+        """Return the job id in the last row of squeue -u <user> slurm command.
+            The assumption here is that the last line of the squeue command would
+            be the job_id of the parent sbatch job from which the array of jobs has
+            to be called. This job_id will be used while iterating over the number 
+            of jobs to set customized output file names.
+        """
+        
+        get_user_cmd = "whoami"
+        get_user_process = subprocess.Popen(get_user_cmd.split(), stdout=subprocess.PIPE)
+        slurm_uname = get_user_process.communicate()[0].decode("utf-8").rstrip()
 
-    def submit_dannce_train_grid(self):
+        get_queue_cmd = "squeue -u " + slurm_uname
+        get_queue_process = subprocess.Popen(get_queue_cmd.split(), stdout=subprocess.PIPE)
+        queue = get_queue_process.communicate()[0].decode("utf-8").split('\n')
+        current_job_row = queue[-2].strip()
+        job_id = current_job_row.split(' ')[0]
+
+        return job_id, slurm_uname
+
+
+    def submit_dannce_train_grid(self) -> Tuple[List, Text]:
         """Submit dannce grid search.
 
         Submit a training job with parameter modifications
-        listed in self.grid_config.
+        listed in grid_config.
+
+        Returns:
+            Tuple[List, Text]: Batch parameters list, system command
         """
         batch_params = self.generate_batch_params_dannce()
-        cmd = "sbatch --array=0-%d holy_dannce_train_grid.sh %s %s" % (
-            len(batch_params) - 1,
-            self.config,
-            self.grid_config,
+
+        # import pdb; pdb.set_trace()
+        # Setup Logging for dannce_train_single_batch
+        if not os.path.exists(os.path.dirname(load_params(self.config)["log_dest"])):
+            os.makedirs(os.path.dirname(load_params(self.config)["log_dest"]))
+        logging.basicConfig(filename=load_params(self.config)["log_dest"], level=load_params(self.config)["log_level"], 
+                            format='%(asctime)s %(levelname)s:%(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
+
+        slurm_config = load_params(load_params(self.config)["slurm_config"])
+
+        cmd = (
+            'sbatch --wait --array=0-%d %s --wrap="%s dannce-train-single-batch %s %s"'
+            % (
+                len(batch_params) - 1,
+                slurm_config["dannce_train_grid"],
+                slurm_config["setup"],
+                self.config,
+                self.grid_config,
+            )
         )
         if len(batch_params) > 0:
             self.save_batch_params(batch_params)
@@ -77,31 +159,8 @@ class GridHandler:
         return batch_params, cmd
 
 
-def build_params_from_config_and_batch(config, batch_param, dannce_net=True):
-    from dannce.interface import build_params
-    from dannce.engine.processing import infer_params
-
-    # Build final parameter dictionary
-    params = build_params(config, dannce_net=dannce_net)
-    for key, value in batch_param.items():
-        params[key] = value
-    if dannce_net:
-        for key, value in _param_defaults_dannce.items():
-            if key not in params:
-                params[key] = value
-    else:
-        for key, value in _param_defaults_com.items():
-            if key not in params:
-                params[key] = value
-    for key, value in _param_defaults_shared.items():
-        if key not in params:
-            params[key] = value
-
-    params = infer_params(params, dannce_net=dannce_net, prediction=False)
-    return params
-
-
 def dannce_train_single_batch():
+    """CLI entrypoint to train a single batch."""
     from dannce.interface import dannce_train
 
     # Load in parameters to modify
@@ -111,16 +170,27 @@ def dannce_train_single_batch():
     batch_params = handler.load_batch_params()
     task_id = int(os.getenv("SLURM_ARRAY_TASK_ID"))
     batch_param = batch_params[task_id]
-    print(batch_param)
+    
 
     # Build final parameter dictionary
     params = build_params_from_config_and_batch(config, batch_param)
+
+    # Setup Logging for dannce_train_single_batch
+    if not os.path.exists(os.path.dirname(params["log_dest"])):
+            os.makedirs(os.path.dirname(params["log_dest"]))
+    logging.basicConfig(filename=params["log_dest"], level=params["log_level"], 
+                        format='%(asctime)s %(levelname)s:%(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
+    prepend_log_msg = FILE_PATH + ".dannce_train_single_batch "
+
+    logging.info(prepend_log_msg + "Task ID = " + str(task_id))
+    logging.info(prepend_log_msg + str(batch_param))
 
     # Train
     dannce_train(params)
 
 
 def dannce_train_grid():
+    """CLI entrypoint to submit a set of training parameters."""
     # Load in parameters to modify
     args = cmdline_args()
     handler = GridHandler(**args.__dict__)
@@ -128,15 +198,18 @@ def dannce_train_grid():
 
 
 def cmdline_args():
+    """Parse command line arguments
+
+    Returns:
+        [type]: Argparser values
+    """
     # Make parser object
     p = argparse.ArgumentParser(
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     p.add_argument("config", help="Path to .yaml configuration file")
-    p.add_argument(
-        "grid_config", help="Path to .yaml grid search configuration file"
-    )
+    p.add_argument("grid_config", help="Path to .yaml grid search configuration file")
     p.add_argument(
         "--verbose",
         dest="verbose",
