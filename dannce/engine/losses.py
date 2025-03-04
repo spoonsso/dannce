@@ -19,7 +19,7 @@ def mask_nan(y_true, y_pred):
 
 
 def mask_nan_keep_loss(y_true, y_pred):
-    """Mask out nan values in the calulation of MSE."""
+    """Mask out nan values in the calculation of MSE."""
     y_pred, y_true, num_notnan = mask_nan(y_true, y_pred)
     loss = K.sum((K.flatten(y_pred) - K.flatten(y_true)) ** 2) / num_notnan
     return tf.where(~tf.math.is_nan(loss), loss, 0)
@@ -53,7 +53,7 @@ def metric_dist_max(y_true, y_pred):
     """Get distance between the (row, col) indices of each maximum.
 
     y_true and y_pred are image-sized confidence maps.
-    Let's get the (row, col) indicies of each maximum and calculate the
+    Let's get the (row, col) indices of each maximum and calculate the
     distance between the two
     """
     x = K.reshape(y_true, [K.int_shape(y_true)[0], -1])

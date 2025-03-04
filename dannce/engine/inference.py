@@ -373,10 +373,10 @@ def triangulate_single_instance(
     """Triangulate for a single instance.
     
     Args:
-        n_cams (int): Numver of cameras
+        n_cams (int): Number of cameras
         sample_id (Text): Sample identifier.
         params (Dict): Parameters dictionary.
-        camera_mats (Dict): Camera matrices dictioanry.
+        camera_mats (Dict): Camera matrices dictionary.
         save_data (Dict): Saved data dictionary.
     
     No Longer Returned:
@@ -409,10 +409,10 @@ def triangulate_multi_instance_multi_channel(
     """Triangulate for multi-instance multi-channel.
     
     Args:
-        n_cams (int): Numver of cameras
+        n_cams (int): Number of cameras
         sample_id (Text): Sample identifier.
         params (Dict): Parameters dictionary.
-        camera_mats (Dict): Camera matrices dictioanry.
+        camera_mats (Dict): Camera matrices dictionary.
         save_data (Dict): Saved data dictionary.
     
     No Longer Returned:
@@ -467,10 +467,10 @@ def triangulate_multi_instance_single_channel(
     """Triangulate for multi-instance single-channel.
     
     Args:
-        n_cams (int): Numver of cameras
+        n_cams (int): Number of cameras
         sample_id (Text): Sample identifier.
         params (Dict): Parameters dictionary.
-        camera_mats (Dict): Camera matrices dictioanry.
+        camera_mats (Dict): Camera matrices dictionary.
         cameras (Dict): Camera dictionary.
         save_data (Dict): Saved data dictionary.
     

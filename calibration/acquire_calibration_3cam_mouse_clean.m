@@ -56,7 +56,7 @@ end
 %preview(vid{1});
 
 
-%% get matched frames from the cameras wth
+%% get matched frames from the cameras with
 %% STEP 1- CHECKERBOARD
 fprintf('starting in 10 s')
 pause(10)
@@ -73,7 +73,7 @@ for ll =1:numframes_aq
     pause(0.5)
 end
 
-%% acquire and save postion of markers
+%% acquire and save position of markers
 %% STEP 2 (Put L-frame in arena first)
 
 input('Hit enter when the grid is in the arena \n')
@@ -207,7 +207,7 @@ worldOrientation = cell(1,numcams);
     worldLocation = cell(1,numcams);
     rotationMatrix = cell(1,numcams);
     translationVector = cell(1,numcams);
-    %% get the orienation and location of cameras
+    %% get the orientation and location of cameras
     for kk = [1:numcams]%:numcams
       
      [worldOrientation{kk},worldLocation{kk}] = estimateWorldCameraPose(double(point_coordinates{kk}),...

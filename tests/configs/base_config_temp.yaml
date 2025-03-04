@@ -102,7 +102,7 @@ rotate: True
 # Whether to apply lens distortion during sampling. Default True
 distort: True
 
-# If true, intializes an "AVG" version of the network (i.e. final spatial expected value output layer). If false, "MAX" version
+# If true, initializes an "AVG" version of the network (i.e. final spatial expected value output layer). If false, "MAX" version
 expval: False
 
 # COM finder output confidence scores less than this threshold will be discarded

@@ -86,10 +86,10 @@ depth: False
 
 immode: 'vid'
 
-# DANNCE training option. Whetehr to turn on rotation augmentation during training
+# DANNCE training option. Whether to turn on rotation augmentation during training
 rotate: True
 
-# If true, intializes an "AVG" version of the network (i.e. final spatial expected value output layer). If false, "MAX" version
+# If true, initializes an "AVG" version of the network (i.e. final spatial expected value output layer). If false, "MAX" version
 expval: True
 
 

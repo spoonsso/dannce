@@ -1066,7 +1066,7 @@ class DataGenerator_3Dconv_torch(DataGenerator):
 
     def pj_grid_post(self, X_grid, camname, ID, experimentID,
                      com, com_precrop, thisim):
-        # separate the porjection and sampling into its own function so that
+        # separate the projection and sampling into its own function so that
         # when mirror == True, this can be called directly
         if self.crop_im:
             if self.torch.all(self.torch.isnan(com)):

@@ -142,7 +142,7 @@ class DataGenerator_downsample(keras.utils.Sequence):
             )
 
         # We'll need to transpose this later such that channels are last,
-        # but initializaing the array this ways gives us
+        # but initializing the array this ways gives us
         # more flexibility in terms of user-defined array sizes\
         if self.labelmode == "prob":
             y = np.empty(
@@ -244,7 +244,7 @@ class DataGenerator_downsample(keras.utils.Sequence):
             y = np.transpose(y, [0, 2, 3, 1])
 
             if self.mirror:
-                # separate the batches from the cameras, and use the cameras as the numebr of channels 
+                # separate the batches from the cameras, and use the cameras as the number of channels 
                 # to make a single-shot multi-target prediction from a single image
                 y = np.reshape(y, (self.batch_size, len(self.camnames[0]), y.shape[1], y.shape[2]))
                 y = np.transpose(y, [0, 2, 3, 1])
@@ -393,7 +393,7 @@ class DataGenerator_downsample_multi_instance(keras.utils.Sequence):
         )
 
         # We'll need to transpose this later such that channels are last,
-        # but initializaing the array this ways gives us
+        # but initializing the array this ways gives us
         # more flexibility in terms of user-defined array sizes\
         if self.labelmode == "prob":
             y = np.empty(

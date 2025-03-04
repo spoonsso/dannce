@@ -116,7 +116,7 @@ if __name__ == "__main__":
     # # The pred_dlc frame indices go 0:pred_dlc.shape[0]
     # #
     # # So we walk thru the dannce pred sampleIDs (we need to track these because
-    # # some could be discarded due to COM error thresholding), find its matchign frame in the matched frames,
+    # # some could be discarded due to COM error thresholding), find its matching frame in the matched frames,
     # # then associate the pred_dlc prediction with that frame
     # frames_dlc = np.arange(pred_dlc.shape[0])
 
@@ -129,7 +129,7 @@ if __name__ == "__main__":
     #         # raise Exception("Could not find sampleID in matched frames")
     #         raise Exception("Could not find sampleID in pred sampleIDs")
 
-    # Make sure we onyl take sampleIDs that are also in the DANNCE predictions
+    # Make sure we only take sampleIDs that are also in the DANNCE predictions
     dlc["sampleID"], indies, _ = np.intersect1d(
         dlc["sampleID"], pred["sampleID"], return_indices=True
     )

@@ -561,7 +561,7 @@ def unDistortPoints(
 def triangulate(pts1, pts2, cam1, cam2):
     """Return triangulated 3- coordinates.
 
-    Following Matlab convetion, given lists of matching points, and their
+    Following Matlab convention, given lists of matching points, and their
     respective camera matrices, returns the triangulated 3- coordinates.
     pts1 and pts2 must be Mx2, where M is the number of points with
     (x,y) positions. M 3-D points will be returned after triangulation
@@ -599,7 +599,7 @@ def triangulate(pts1, pts2, cam1, cam2):
 def triangulate_multi_instance(pts, cams):
     """Return triangulated 3- coordinates.
 
-    Following Matlab convetion, given lists of matching points, and their
+    Following Matlab convention, given lists of matching points, and their
     respective camera matrices, returns the triangulated 3- coordinates.
     pts1 and pts2 must be Mx2, where M is the number of points with
     (x,y) positions. M 3-D points will be returned after triangulation
@@ -754,7 +754,7 @@ def proj_slice(
     # x,y,z position. In my case, there should only be as many grids as there
     # are samples in the mini-batch,
     # but for some reason this code allows multiple 3D grids per sample.
-    # the order in rows (for the last 3 cols) should be rougly like this:
+    # the order in rows (for the last 3 cols) should be roughly like this:
     # [batch1_grid1_allcam1samples_locs, batch1_grid1_allcam2sample_locs,
     # batch1_grid1_allcam3sample_locs, batch1_grid2_allcam1samples_locs, ...]
     g_val = nearest3(sample_grid, sample_idx, clip=True)

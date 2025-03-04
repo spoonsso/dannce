@@ -169,7 +169,7 @@ if __name__ == "__main__":
                 # faster intersections are tricky given that matched_frames are repeated multiple times
                 # another shortcut we are taking here is that we take a single mocap value rather than an average
                 # over all samples for a given frame
-                # Another problem is that the mframes might jump from oen file to the next, leaving a big gap
+                # Another problem is that the mframes might jump from one file to the next, leaving a big gap
                 # relative to predictions
                 dfsi = np.logical_and(dframe >= np.min(mframes), dframe <= np.max(mframes))
                 dframe_sub = dframe[dfsi]
