@@ -23,10 +23,10 @@ exp:
       camnames: ['Camera1','Camera2','Camera3','Camera4','Camera5','Camera6']
       com_file: ../../demo/markerless_mouse_2/COM/predict_results/com3d.pickle
 
-# path to folder contraining video sub directories. Used only for com and dannce PREDICTION
+# path to folder containing video sub directories. Used only for com and dannce PREDICTION
 viddir: ../../demo/markerless_mouse_1/videos/
 
-# path to folder contraining video sub directories. Used only for dannce PREDICTION
+# path to folder containing video sub directories. Used only for dannce PREDICTION
 com_file: '../../demo/markerless_mouse_1/COM/predict_results/com3d.pickle'
 
 # How to crop the input images. The U-Net expects each dimension size to be a multiple of 32.

@@ -18,7 +18,7 @@ def camera_matrix(K: np.ndarray, R: np.ndarray, t: np.ndarray) -> np.ndarray:
     """Derive the camera matrix.
 
     Derive the camera matrix from the camera intrinsic matrix (K),
-    and the extrinsic rotation matric (R), and extrinsic
+    and the extrinsic rotation matrix (R), and extrinsic
     translation vector (t).
 
     Note that this uses the matlab convention, such that
@@ -33,7 +33,7 @@ def project_to2d(
     """Project 3d points to 2d.
 
     Projects a set of 3-D points, pts, into 2-D using the camera intrinsic
-    matrix (K), and the extrinsic rotation matric (R), and extrinsic
+    matrix (K), and the extrinsic rotation matrix (R), and extrinsic
     translation vector (t). Note that this uses the matlab
     convention, such that
     M = [R;t] * K, and pts2d = pts3d * M
@@ -50,7 +50,7 @@ def project_to2d_torch(pts, M: np.ndarray, device: Text) -> torch.Tensor:
     """Project 3d points to 2d.
 
     Projects a set of 3-D points, pts, into 2-D using the camera intrinsic
-    matrix (K), and the extrinsic rotation matric (R), and extrinsic
+    matrix (K), and the extrinsic rotation matrix (R), and extrinsic
     translation vector (t). Note that this uses the matlab
     convention, such that
     M = [R;t] * K, and pts2d = pts3d * M
@@ -71,7 +71,7 @@ def project_to2d_tf(projPts, M):
     """Project 3d points to 2d.
 
     Projects a set of 3-D points, pts, into 2-D using the camera intrinsic
-    matrix (K), and the extrinsic rotation matric (R), and extrinsic
+    matrix (K), and the extrinsic rotation matrix (R), and extrinsic
     translation vector (t). Note that this uses the matlab
     convention, such that
     M = [R;t] * K, and pts2d = pts3d * M

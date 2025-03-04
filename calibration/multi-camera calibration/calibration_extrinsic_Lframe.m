@@ -65,7 +65,7 @@ end
 %% Use selected points to calculate camera extrinsics
 for kk = 1:numel(lframe)
     %kk
-    % Do grid search over parms
+    % Do grid search over params
     curr_err = 1e10;
     c_save = 0;
     mr_save = 0;
