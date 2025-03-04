@@ -26,7 +26,7 @@ exp:
       # com_file: ../../demo/markerless_mouse_2/COM/predict_results/com3d.pickle
       viddir: ../../demo/markerless_mouse_2/videos/
 
-# path to folder contraining video sub directories. Used only for com and dannce PREDICTION
+# path to folder containing video sub directories. Used only for com and dannce PREDICTION
 viddir: ../../demo/markerless_mouse_1/videos/
 
 gpu_id: "1"

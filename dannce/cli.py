@@ -261,7 +261,7 @@ def add_shared_train_args(
         "--data-split-seed",
         dest="data_split_seed",
         type=int,
-        help="Integer seed for the random numebr generator controlling train/test data splits",
+        help="Integer seed for the random number generator controlling train/test data splits",
     )
     parser.add_argument(
         "--valid-exp",

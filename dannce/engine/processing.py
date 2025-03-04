@@ -559,7 +559,7 @@ def prepare_save_metadata(params):
         the 'experiment' field
     """
 
-    # Need to convert None to string but still want to conserve the metadat structure
+    # Need to convert None to string but still want to conserve the metadata structure
     # format, so we don't want to convert the whole dict to a string
     meta = params.copy()
 
@@ -1215,7 +1215,7 @@ def savedata_tomat(
 
     if addCOM is not None:
         # We use the passed comdict to add back in the com, this is useful
-        # if one wnats to bootstrap on these values for COMnet or otherwise
+        # if one wants to bootstrap on these values for COMnet or otherwise
         for i in range(len(sID)):
             pred_out_world[i] = pred_out_world[i] + addCOM[int(sID)][:, np.newaxis]
 

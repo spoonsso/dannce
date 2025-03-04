@@ -354,7 +354,7 @@ def prepare_COM(
                 elif method == "median":
                     com3d = np.nanmedian(com3d, axis=1)
                 else:
-                    raise Exception("Uknown 3D COM method")
+                    raise Exception("Unknown 3D COM method")
 
             com3d_dict[key] = com3d
         else:
@@ -397,7 +397,7 @@ def remove_samples(s, d3d, mode="clean", auxmode=None):
     mode == 'SpineM' means only remove data where SpineM is missing
     mode == 'liberal' means include any data that isn't *all* nan
     aucmode == 'JDM52d2' removes a really bad marker period -- samples 20k to 32k
-    I need to cull the samples array (as this is used to index eveyrthing else),
+    I need to cull the samples array (as this is used to index everything else),
     but also the
     data_3d_ array that is used to for finding clusters
     """

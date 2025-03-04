@@ -590,7 +590,7 @@ def com_train(params: Dict):
     )
 
     def write_debug(trainData=True):
-        """Factoring re-used debug output code.
+        """Factoring reused debug output code.
 
         Writes training or validation images to an output directory, together
         with the ground truth COM labels and predicted COM labels, respectively.
@@ -687,7 +687,7 @@ def dannce_train(params: Dict):
     params["net"] = getattr(nets, params["net"])
 
     # Default to 6 views but a smaller number of views can be specified in the
-    # DANNCE config. If the legnth of the camera files list is smaller than
+    # DANNCE config. If the length of the camera files list is smaller than
     # n_views, relevant lists will be duplicated in order to match n_views, if
     # possible.
     n_views = int(params["n_views"])
@@ -1276,7 +1276,7 @@ def dannce_predict(params: Dict):
     """Predict with dannce network
 
     Args:
-        params (Dict): Paremeters dictionary.
+        params (Dict): Parameters dictionary.
     """
     # Depth disabled until next release.
     params["depth"] = False
@@ -1291,7 +1291,7 @@ def dannce_predict(params: Dict):
     netname = params["net"]
     params["net"] = getattr(nets, params["net"])
     # Default to 6 views but a smaller number of views can be specified in the DANNCE config.
-    # If the legnth of the camera files list is smaller than n_views, relevant lists will be
+    # If the length of the camera files list is smaller than n_views, relevant lists will be
     # duplicated in order to match n_views, if possible.
     n_views = int(params["n_views"])
 
