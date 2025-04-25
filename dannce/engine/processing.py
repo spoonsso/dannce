@@ -1194,9 +1194,9 @@ def plot_markers_3d_tf(stack, nonan=True):
         if ~tf.math.reduce_any(tf.math.is_nan(stack[0, 0, 0, :])) and (
             nonan or not nonan
         ):
-            x = inds[1]
-            y = inds[0]
-            z = inds[2]
+            x = inds[1] #tf.broadcast_to(inds[1], stack.shape)
+            y = inds[0] #tf.broadcast_to(inds[0], stack.shape)
+            z = inds[2] #tf.broadcast_to(inds[2], stack.shape)
         elif not nonan:
             x = tf.Variable(tf.cast(inds[1], "float32"))
             y = tf.Variable(tf.cast(inds[0], "float32"))
@@ -1207,7 +1207,12 @@ def plot_markers_3d_tf(stack, nonan=True):
                     x[mark].assign(np.nan)
                     y[mark].assign(np.nan)
                     z[mark].assign(np.nan)
-        return x, y, z
+        else:
+            x = tf.zeros(shape = inds[1].shape, dtype = tf.int32)
+            y = tf.zeros(shape = inds[0].shape, dtype = tf.int32)
+            z = tf.zeros(shape = inds[2].shape, dtype = tf.int32)
+
+        return tf.stack([x, y, z])
 
 
 def plot_markers_3d_torch(stack, nonan=True):

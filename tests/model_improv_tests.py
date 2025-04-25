@@ -1,3 +1,9 @@
+"""
+This script should be used to test all the additional features that are implemented into the model.
+For example, new loss functions, metrics, normalizations and regularization techniques.
+
+"""
+
 from absl.testing import absltest
 import tensorflow as tf
 import dannce.cli as cli
@@ -9,6 +15,8 @@ import unittest
 from unittest.mock import patch
 from typing import Text
 import datetime
+from cli_test import *
+
 
 # Initialize the gpu prior to testing
 # tf.test.is_gpu_available()
@@ -16,88 +24,11 @@ tf.config.list_physical_devices('GPU')
 
 # Move to the testing project folder
 os.chdir("configs")
-N_TEST_IMAGES = 8
-
-def compare_predictions(file_1: Text, file_2: Text, th: float = 0.05):
-    """Compares two prediction matfiles.
-
-    Args:
-        file_1 (Text): Path to prediction file 1
-        file_2 (Text): Path to prediction file 2
-        th (float, optional): Testing tolerance in mm. Defaults to 0.05.
-
-    Raises:
-        Exception: If file does not contain com or dannce predictions
-    """
-
-    m1 = sio.loadmat(file_1)
-    m2 = sio.loadmat(file_2)
-
-    if "com" in m1.keys():
-        error = np.mean(
-            np.abs(m1["com"][:N_TEST_IMAGES, ...] - m2["com"][:N_TEST_IMAGES, ...])
-        )
-        return error < th
-    elif "pred" in m2.keys():
-        error = np.mean(
-            np.abs(
-                m1["pred"][:N_TEST_IMAGES, ...] - m2["pred"][:N_TEST_IMAGES, ...]
-            )
-        )
-        return error < th
-    else:
-        raise Exception("Expected fields (pred, com) not found in inputs")
-
-def train_setup():
-    setup = "cp ./label3d_temp_dannce.mat ./alabel3d_temp_dannce.mat"
-    os.system(setup)
 
 
-class TestComTrain(absltest.TestCase):
-    def test_com_train(self):
-        train_setup()
-        args = [
-            "com-train",
-            "config_com_mousetest.yaml",
-            "--com-finetune-weights=../../demo/markerless_mouse_1/COM/weights/",
-            "--downfac=8",
-        ]
-        with patch("sys.argv", args):
-            cli.com_train_cli()
 
-    def test_com_train_mono(self):
-        train_setup()
-        args = ["com-train", "config_com_mousetest.yaml", "--mono=True", "--downfac=8"]
-        with patch("sys.argv", args):
-            cli.com_train_cli()
-
-class TestComPredict(absltest.TestCase):
-    def test_com_predict(self):
-        train_setup()
-        args = ["com-predict", "config_com_mousetest.yaml"]
-        with patch("sys.argv", args):
-            cli.com_predict_cli()
-        self.assertTrue(compare_predictions(
-            "../touchstones/COM3D_undistorted_masternn.mat",
-            "../../demo/markerless_mouse_1/COM/predict_test/com3d0.mat",
-        ))
-
-    def test_com_predict_3_cams(self):
-        setup = "cp ./label3d_temp_dannce_3cam.mat ./alabel3d_temp_dannce.mat"
-        os.system(setup)
-        args = ["com-predict", "config_com_mousetest.yaml", "--downfac=4"]
-        with patch("sys.argv", args):
-            cli.com_predict_cli()
-
-    def test_com_predict_5_cams(self):
-        setup = "cp ./label3d_temp_dannce_5cam.mat ./alabel3d_temp_dannce.mat"
-        os.system(setup)
-        args = ["com-predict", "config_com_mousetest.yaml", "--downfac=2"]
-        with patch("sys.argv", args):
-            cli.com_predict_cli()
-
-class TestDannceTrain(absltest.TestCase):
-    def test_dannce_train_finetune_max(self):
+class TestDannceLosses(absltest.TestCase):
+    def test_dannce_train_finetune_max(self, add_args):
         train_setup()
         args = [
             "dannce-train",
@@ -105,6 +36,10 @@ class TestDannceTrain(absltest.TestCase):
             "--net-type=MAX",
             "--dannce-finetune-weights=../../demo/markerless_mouse_1/DANNCE/weights/weights.rat.MAX/",
         ]
+
+        if add_args is not None:
+            args = args + add_args
+            
         with patch("sys.argv", args):
             cli.dannce_train_cli()
 
@@ -114,6 +49,7 @@ class TestDannceTrain(absltest.TestCase):
             "dannce-train",
             "config_mousetest.yaml",
             "--net-type=AVG",
+            "--loss=log_cosh_loss",
             "--dannce-finetune-weights=../../demo/markerless_mouse_1/DANNCE/weights/",
         ]
         with patch("sys.argv", args):
@@ -125,6 +61,7 @@ class TestDannceTrain(absltest.TestCase):
             "dannce-train",
             "config_mousetest.yaml",
             "--net-type=AVG",
+            "--loss=log_cosh_loss",
             "--dannce-finetune-weights=../../demo/markerless_mouse_1/DANNCE/weights/",
         ]
         with patch("sys.argv", args):
@@ -136,6 +73,7 @@ class TestDannceTrain(absltest.TestCase):
             "dannce-train",
             "config_mousetest.yaml",
             "--net-type=AVG",
+            "--loss=log_cosh_loss",
             "--dannce-finetune-weights=../../demo/markerless_mouse_1/DANNCE/train_results/AVG/",
         ]
         with patch("sys.argv", args):
@@ -148,6 +86,7 @@ class TestDannceTrain(absltest.TestCase):
             "config_mousetest.yaml",
             "--net=unet3d_big_expectedvalue",
             "--train-mode=new",
+            "--loss=log_cosh_loss",
             "--n-channels-out=22",
         ]
         with patch("sys.argv", args):
@@ -160,6 +99,7 @@ class TestDannceTrain(absltest.TestCase):
             "config_mousetest.yaml",
             "--net=unet3d_big",
             "--train-mode=new",
+            "--loss=log_cosh_loss",
             "--n-channels-out=22",
         ]
         with patch("sys.argv", args):
@@ -172,6 +112,7 @@ class TestDannceTrain(absltest.TestCase):
             "config_mousetest.yaml",
             "--net-type=AVG",
             "--train-mode=continued",
+            "--loss=log_cosh_loss",
             "--dannce-finetune-weights=../../demo/markerless_mouse_1/DANNCE/train_results/AVG/",
         ]
         with patch("sys.argv", args):
@@ -184,6 +125,7 @@ class TestDannceTrain(absltest.TestCase):
             "config_mousetest.yaml",
             "--net=finetune_MAX",
             "--train-mode=continued",
+            "--loss=log_cosh_loss",
             "--dannce-finetune-weights=../../demo/markerless_mouse_1/DANNCE/train_results/",
         ]
         with patch("sys.argv", args):
@@ -198,6 +140,7 @@ class TestDannceTrain(absltest.TestCase):
             "--train-mode=new",
             "--net=unet3d_big_expectedvalue",
             "--mono=True",
+            "--loss=log_cosh_loss",
             "--n-channels-out=22",
         ]
         with patch("sys.argv", args):
@@ -210,6 +153,7 @@ class TestDannceTrain(absltest.TestCase):
             "config_mousetest.yaml",
             "--net-type=AVG",
             "--mono=True",
+            "--loss=log_cosh_loss",
             "--dannce-finetune-weights=../../demo/markerless_mouse_1/DANNCE/weights/weights.rat.AVG.MONO/",
         ]
         with patch("sys.argv", args):
@@ -222,6 +166,7 @@ class TestDannceTrain(absltest.TestCase):
             "config_mousetest.yaml",
             "--net-type=AVG",
             "--mono=True",
+            "--loss=log_cosh_loss",
             "--dannce-finetune-weights=../../demo/markerless_mouse_1/DANNCE/weights/weights.rat.AVG.MONO/",
             "--drop-landmark=[5,7]",
         ]

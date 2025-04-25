@@ -1222,9 +1222,19 @@ class DataGenerator_3Dconv_torch(DataGenerator):
                 dtype=self.torch.float32,
                 device=self.device,
             )
+            # Trying predictions with second and third axes permuted - original order = (x_coord_3d, y_coord_3d, z_coord_3d) 
+            # (x_coord_3d, z_coord_3d, y_coord_3d) = self.torch.meshgrid(
+            #     xgrid, ygrid, zgrid
+            # )
+            # (y_coord_3d, x_coord_3d, z_coord_3d) = self.torch.meshgrid(
+            #     xgrid, ygrid, zgrid
+            # )
             (x_coord_3d, y_coord_3d, z_coord_3d) = self.torch.meshgrid(
                 xgrid, ygrid, zgrid
             )
+            # (z_coord_3d, y_coord_3d, x_coord_3d) = self.torch.meshgrid(
+            #     xgrid, ygrid, zgrid
+            # )
 
             if self.mode == "coordinates":
                 if this_y_3d.shape == y_3d[i].shape:
@@ -1237,7 +1247,7 @@ class DataGenerator_3Dconv_torch(DataGenerator):
                 (
                     x_coord_3d.transpose(0, 1).flatten(),
                     y_coord_3d.transpose(0, 1).flatten(),
-                    z_coord_3d.transpose(0, 1).flatten(),
+                    z_coord_3d.transpose(0, 1).flatten()* (-1),
                 ),
                 axis=1,
             )
@@ -1276,10 +1286,22 @@ class DataGenerator_3Dconv_torch(DataGenerator):
                     )
                 result = self.threadpool.starmap(self.project_grid, arglist)
 
+            # import pdb; pdb.set_trace()
             for c in range(num_cams):
                 ic = c + i * len(self.camnames[experimentID])
                 X[ic, :, :, :, :] = result[c]
+                # X[ic, :, :, :, :] = result[c].permute((0,1,3,2,4))
             # print('MP took {} sec.'.format(time.time()-ts))
+            # X_grid[i] = X_grid[i].permute((0,2,1))
+            # Reset the rotation in X_grid
+            X_grid[i] = self.torch.stack(
+                (
+                    x_coord_3d.transpose(0, 1).flatten(),
+                    y_coord_3d.transpose(0, 1).flatten(),
+                    z_coord_3d.transpose(0, 1).flatten(),
+                ),
+                axis=1,
+            )
 
         if self.multicam:
             X = X.reshape(
@@ -1292,7 +1314,10 @@ class DataGenerator_3Dconv_torch(DataGenerator):
                     X.shape[4],
                 )
             )
-            X = X.permute((0, 2, 3, 4, 5, 1))
+            # Trying predictions with y and z axes permuted 
+            X = X.permute((0, 2, 3, 4, 5, 1))             # Original
+            # X = X.permute((0, 2, 4, 3, 5, 1))
+            # X = X.permute((0, 3, 2, 4, 5, 1))
 
             if self.channel_combo == "avg":
                 X = self.torch.mean(X, axis=-1)

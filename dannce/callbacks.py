@@ -59,17 +59,19 @@ class saveMaxPreds(keras.callbacks.Callback):
         distance error to a file.
     """
 
-    def __init__(self, vID, vData, vLabel, odir, com, params):
+    def __init__(self, vID, vData, vLabel, odir, com, params, savetype="train"):
         self.vID = vID
         self.vData = vData
         self.odir = odir
         self.com = com
         self.param_mat = params
 
-        fn = os.path.join(odir, "max_euclid_error.csv")
+        fn = os.path.join(odir, savetype + "_max_euclid_error.csv")
         self.fn = fn
 
         self.vLabel = np.zeros((len(vID), 3, params["new_n_channels_out"]))
+
+        self.savetype = savetype
 
         # Now run thru sample IDs, pull out the correct COM, and add it in
         for j in range(len(self.vID)):
@@ -101,7 +103,7 @@ class saveMaxPreds(keras.callbacks.Callback):
         # Calculate euclidean_distance_3d
         e3d = K.eval(losses.euclidean_distance_3D(self.vLabel, pred_out_world))
 
-        print("epoch {} euclidean_distance_3d: {}".format(epoch, e3d))
+        print(self.savetype + "_epoch {} euclidean_distance_3d: {}".format(epoch, e3d))
         with open(self.fn, "a") as fd:
             fd.write("{},{}\n".format(epoch, e3d))
 
@@ -115,6 +117,48 @@ class saveCheckPoint(keras.callbacks.Callback):
         val_loss = logs[lkey]
         if epoch in self.saveE:
             # Do a garbage collect to combat keras memory leak
+            gc.collect()
+            print("Saving checkpoint weights at epoch {}".format(epoch))
+            savename = "weights.checkpoint.epoch{}.{}{:.5f}.hdf5".format(
+                epoch, lkey, val_loss
+            )
+            self.model.save(os.path.join(self.odir, savename))
+
+class doSWA (keras.callbacks.Callback):
+    def __init__(self, odir, total_epochs, start_epoch=500, cycle=10):
+        self.odir = odir
+        self.total_epochs = total_epochs
+        self.start_epoch = start_epoch
+        self.saveE = np.arange(0, total_epochs, 250)
+        self.cycle = cycle 
+
+    def on_epoch_end(self, epoch, logs=None):
+        lkey = "val_loss" if "val_loss" in logs else "loss"
+        val_loss = logs[lkey]
+
+        if epoch == 0:
+            # Save the weights for the first epoch
+            gc.collect()
+            print("Saving SWA weights at epoch {}".format(epoch))
+            savename = "tempweights.checkpoint.epoch.hdf5"
+            self.model.save(os.path.join(self.odir, savename))
+        
+        elif epoch >= self.start_epoch and epoch%self.cycle == 0:
+            # For the next epochs, do a SWA and save the weights
+            gc.collect()
+            savename = "tempweights.checkpoint.epoch.hdf5"
+            curr_weights = self.model.get_weights()
+            self.model.load_weights(os.path.join(self.odir, savename))
+            prev_weights = self.model.get_weights()
+            swa_weights = [sum(x) for x in zip([el1*(epoch//self.cycle) for el1 in prev_weights], curr_weights)]
+            swa_weights[:] = [x/(epoch + 1) for x in swa_weights]
+            self.model.set_weights(swa_weights)
+            
+            print("Saving SWA weights at epoch {}".format(epoch))
+            
+            self.model.save(os.path.join(self.odir, savename))
+        
+        if epoch == self.total_epochs - 1:
             gc.collect()
             print("Saving checkpoint weights at epoch {}".format(epoch))
             savename = "weights.checkpoint.epoch{}.{}{:.5f}.hdf5".format(

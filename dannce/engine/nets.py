@@ -24,7 +24,11 @@ def get_metrics(params):
     metrics = []
     for m in params["metric"]:
         try:
-            m_obj = getattr(losses, m)
+            if "max_euclidean_distance" == m:
+                m_obj = getattr(losses, m)(params)
+            else:
+                m_obj = getattr(losses, m)
+
         except AttributeError:
             m_obj = getattr(tf.keras.losses, m)
         metrics.append(m_obj)
@@ -638,7 +642,6 @@ def finetune_AVG(
     num_layers_locked=2,
     norm_method="layer",
     gridsize=(64, 64, 64),
-    int_sup_layers = None,
 ):
     """
     makes necessary calls to network constructors to set up nets for fine-tuning
@@ -678,32 +681,10 @@ def finetune_AVG(
     for layer in model.layers[:num_layers_locked]:
         layer.trainable = False
     
-    # if int_sup_layers != None: 
-    #     curr_size = len(model.layers)
-    #     is_layers = []
-    #     for i in int_sup_layers:
-    #         if i < -4:
-    #             is_layers.append(i+4)
-    #         if i > 0 and i <= curr_size:
-    #             is_layers.append(i)
-
-    #     model = add_int_supervision(model, 
-    #                             input_dim = input_dim, 
-    #                             num_cams = num_cams, 
-    #                             int_layers=is_layers, 
-    #                             feature_num=feature_num, 
-    #                             out_kernel=(1,1,1), 
-    #                             gridsize=gridsize,
-    #                             finetune = True,
-    #                             addnl_layers= 4)
-    
-    # Do forward pass all the way until end
-    # input_ = Input((*gridsize, input_dim * num_cams), name="image_input")
     input_ = model.layers[0].input
-    # pdb.set_trace()
-    # old_out = model(input_)
+
     old_out = model.call(input_)
-    # old_out = model.layers[1].output
+
 
     # Add new output conv. layer
     # if int_sup_layers != None and is_layers != []:
@@ -730,6 +711,122 @@ def finetune_AVG(
 
     return model
 
+# Feature Under Development
+def get_unwrapped_model_general(model,
+                            lossfunc,
+                            lr,
+                            input_dim,
+                            feature_num,
+                            num_cams,
+                            gridsize,
+                            norm_method,
+                            include_top=False,
+                            ):
+    import keras
+    import pdb
+    # pdb.set_trace()
+
+    has_nested_model = False
+    nested_models = []
+    
+    #Check if there are any nested models
+    for i in model.layers:
+        if isinstance(i, keras.engine.functional.Functional):
+            has_nested_model = True
+            nested_models.append(i)
+    
+    if not has_nested_model:
+        print ("No nested model found. Returning")
+        opened_model = model
+    
+    else:
+        inputs = Input((64, 64, 64, input_dim * num_cams))
+        nm_num = 0
+        for i in range (len(model.layers)):
+            if isinstance(i, keras.engine.functional.Functional):
+                model_skel = tf.keras.models.clone_model(nested_models[nm_num])
+                model_skel.build(inputs)
+                model_skel.compile(optimizer=Adam(lr=lr), loss=lossfunc, metrics=metric, loss_weights=loss_weights)
+                model_skel.set_weights(nested_models[nm_num].get_weights())
+
+                nm_num += 1
+
+                out_ = model_skel.call(inputs)
+            else:
+                lay_config = model.layers[i].get_config()
+                lay_weights = model.layers[i].get_weights()
+                cloned_layer = type(model.layers[i]).from_config(lay_config)
+                cloned_layer.build(model.layers[i].input_shape)
+                cloned_layer.set_weights(lay_weights)
+
+                if  model.layers[i-1] in nested_models:
+                    new_model_layer = cloned_layer(out_)
+                else:
+                    new_model_layer = cloned_layer(new_model_layer.output)
+                
+        opened_model = Model(inputs=[inputs_, new_model_layer])
+
+
+
+    return opened_model
+
+# Feature Under Development 
+def get_unwrapped_model(model,
+                        lossfunc,
+                        lr,
+                        input_dim,
+                        feature_num,
+                        num_cams,
+                        gridsize,
+                        norm_method,
+                        include_top=False,
+                        ):
+    import keras
+    import pdb
+    # pdb.set_trace()
+
+    has_nested_model = False
+    
+    #Check if there are any nested models
+    for i in model.layers:
+        if isinstance(i, keras.engine.functional.Functional):
+            has_nested_model = True
+    
+    if not has_nested_model:
+        print ("No nested model found. Returning")
+        opened_model = model
+    
+    else:
+        inputs = Input((64, 64, 64, input_dim * num_cams))
+        
+        
+        model_skel = tf.keras.models.clone_model(model.layers[1])
+        model_skel.build(inputs)
+        model_skel.set_weights(model.layers[1].get_weights())
+
+        out_ = model_skel.call(inputs)
+
+        new_conv = type(model.layers[2]).from_config(model.layers[2].get_config())
+        new_conv.build(out_)
+
+        grid_centers = Input((None, 3), name="grid_input")
+
+        new_conv2 = Lambda(lambda x: ops.spatial_softmax(x), name="normed_map")(new_conv)
+        new_conv2.set_weights(model.get_layer("normed_map").get_weights())
+
+        output = Lambda(lambda x: ops.expected_value_3d(x[0], x[1]), name="final_output")(
+            [new_conv2, grid_centers]
+        )
+        output.set_weights(model.get_layer("final_output").get_weights())
+
+        mod_outputs = [output]
+       
+        opened_model = Model(inputs=[inputs, grid_centers], outputs=mod_outputs)
+
+
+
+    return opened_model
+
 def finetune_fullmodel_AVG(
     lossfunc,
     lr,
@@ -753,6 +850,8 @@ def finetune_fullmodel_AVG(
     that will be locked (non-trainable) during fine-tuning.
     """
 
+    # import pdb; pdb.set_trace()
+
     model = load_model(
                 weightspath,
                 custom_objects={
@@ -760,21 +859,14 @@ def finetune_fullmodel_AVG(
                     "slice_input": slice_input,
                     "mask_nan_keep_loss": losses.mask_nan_keep_loss,
                     "mask_nan_l1_loss": losses.mask_nan_l1_loss,
+                    "log_cosh_loss": losses.log_cosh_loss,
+                    "huber_loss": losses.huber_loss,
                     "euclidean_distance_3D": losses.euclidean_distance_3D,
                     "centered_euclidean_distance_3D": losses.centered_euclidean_distance_3D,
+                    "max_euclidean_distance": losses.max_euclidean_distance,
                 },
                 compile=False,
             )
-    # Try to create a new model with all the weights from the nested model copied, and the weights from the other layers copied
-    # into a non-nested structure.
-    if int_sup_layers != None: 
-        model = add_int_supervision(model, 
-                                input_dim = input_dim, 
-                                num_cams = num_cams, 
-                                int_layers=int_sup_layers, 
-                                feature_num=feature_num, 
-                                out_kernel=(1,1,1), 
-                                gridsize=gridsize)
 
     # Unlock all layers so they can be locked later according to num_layers_locked
     for layer in model.layers[1].layers:
@@ -782,14 +874,24 @@ def finetune_fullmodel_AVG(
         # Lock desired number of layers
     for layer in model.layers[1].layers[:num_layers_locked]:
         layer.trainable = False
+    
+    # Feature Under Development
+    # model = get_unwrapped_model(model, lossfunc,
+    #                             lr,
+    #                             input_dim,
+    #                             feature_num,
+    #                             num_cams,
+    #                             gridsize,
+    #                             norm_method,
+    #                             include_top=False,)
 
         # Do forward pass all the way until end
-    # input_ = Input((*gridsize, input_dim * num_cams), name="image_input")
-    input_ = model.layers[0].input
+    input_ = Input((*gridsize, input_dim * num_cams), name="image_input")
+    # input_ = model.layers[0].input
 
     # Not sure if this will work as expected.
-    # old_out = model.layers[1](input_)
-    old_out = model.layers[1].call(input_)
+    old_out = model.layers[1](input_)
+    # old_out = model.layers[1].call(input_)
 
     # Add new output conv. layer
     new_conv = Conv3D(

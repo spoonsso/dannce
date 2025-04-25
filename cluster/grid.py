@@ -13,7 +13,7 @@ from dannce import (
     _param_defaults_com,
 )
 from typing import Text, List, Tuple
-from multi_gpu import build_params_from_config_and_batch
+from cluster.multi_gpu import build_params_from_config_and_batch, load_params
 
 
 import subprocess
@@ -136,7 +136,7 @@ class GridHandler:
         """
         batch_params = self.generate_batch_params_dannce()
 
-        slurm_config = self.load_params(self.load_params(self.config)["slurm_config"])
+        slurm_config = load_params(load_params(self.config)["slurm_config"])
         cmd = (
             'sbatch --wait --array=0-%d %s --wrap="%s dannce-train-single-batch %s %s"'
             % (

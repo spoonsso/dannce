@@ -644,6 +644,7 @@ def infer_dannce(
     model: Model,
     partition: Dict,
     n_chn: int,
+    com_dict: Dict,
 ):
     """Perform dannce detection over a set of frames.
 
@@ -711,7 +712,9 @@ def infer_dannce(
         else:
             for j in range(pred.shape[0]):
                 preds = torch.as_tensor(pred[j], dtype=torch.float32)
-                pred_max = preds.max(0).values.max(0).values.max(0).values
+                pred_max_ = preds.max(0).values.max(0).values.max(0).values
+                pred_max = pred_max_/torch.sum(pred_max_)
+                vsize = (params["vmax"] - params["vmin"]) / params["nvox"]
                 pred_total = preds.sum((0, 1, 2))
                 (
                     xcoord,
@@ -721,6 +724,12 @@ def infer_dannce(
                 coord = torch.stack([xcoord, ycoord, zcoord])
                 pred_log = pred_max.log() - pred_total.log()
                 sampleID = partition["valid_sampleIDs"][i * pred.shape[0] + j]
+
+                coord_ = torch.stack([xcoord, ycoord, zcoord])
+                coord = torch.add(coord_ , torch.as_tensor(com_dict[sampleID][:, None], dtype=torch.float32)) #Try1.5
+                # coord = (params["vmin"] + coord_ + vsize) + com_dict[sampleID][:, None]
+                # coord = (coord_* vsize/2 - vsize/4) + com_dict[sampleID][:, None] 
+                # coord = (params["vmin"] + coord_* vsize + vsize/2) + com_dict[sampleID][:, None] 
 
                 save_data[idx * pred.shape[0] + j] = {
                     "pred_max": pred_max.cpu().numpy(),

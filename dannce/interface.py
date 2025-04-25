@@ -8,6 +8,7 @@ import imageio
 import time
 import gc
 import tensorflow as tf
+import tensorflow_addons as tfa
 import tensorflow.keras as keras
 import tensorflow.keras.losses as keras_losses
 from tensorflow.keras import backend as K
@@ -1059,7 +1060,7 @@ def dannce_train(params: Dict):
             "xgrid": X_train_grid,
             "aux_labels": y_train_aux,
             "int_sup": params["intermediate_supervision"],
-            "num_isup_layers": len(params["int_supervision_layers"]),
+            "num_isup_layers": len(params["int_supervision_layers"]) if params["int_supervision_layers"] is not None else 0,
             "has_nested_ip": params["train_mode"] == "finetune",
         }
         args_valid = {
@@ -1068,7 +1069,7 @@ def dannce_train(params: Dict):
             "labels": y_valid,
             "aux_labels": y_valid_aux,
             "int_sup": params["intermediate_supervision"],
-            "num_isup_layers": len(params["int_supervision_layers"]),
+            "num_isup_layers": len(params["int_supervision_layers"]) if params["int_supervision_layers"] is not None else 0,
             "has_nested_ip": params["train_mode"] == "finetune",
         }
         args_valid = {
@@ -1121,7 +1122,6 @@ def dannce_train(params: Dict):
                 params["n_layers_locked"],
                 params["norm_method"],
                 gridsize,
-                params["int_supervision_layers"],
             ]
             try:
                 model = params["net"](*fargs)
@@ -1143,8 +1143,12 @@ def dannce_train(params: Dict):
                     "slice_input": nets.slice_input,
                     "mask_nan_keep_loss": losses.mask_nan_keep_loss,
                     "mask_nan_l1_loss": losses.mask_nan_l1_loss,
+                    "log_cosh_loss": losses.log_cosh_loss,
+                    "huber_loss": losses.huber_loss,
                     "euclidean_distance_3D": losses.euclidean_distance_3D,
                     "centered_euclidean_distance_3D": losses.centered_euclidean_distance_3D,
+                    "gaussian_cross_entropy_loss": losses.gaussian_cross_entropy_loss,
+                    # "max_euclidean_distance": losses.max_euclidean_distance,
                 },
             )
         elif params["train_mode"] == "continued_weights_only":
@@ -1174,10 +1178,11 @@ def dannce_train(params: Dict):
             model = nets.add_exposed_heatmap(model)
         
         if params["int_supervision_layers"] is not None:
-            model = nets.add_int_supervision(model, 
-                                            params["chan_num"] + params["depth"], 
-                                            len(camnames[0]), 
-                                            params["int_supervision_layers"])
+            model = nets.add_int_supervision(model = model, 
+                                            input_dim = params["chan_num"] + params["depth"], 
+                                            num_cams = len(camnames[0]), 
+                                            int_layers = params["int_supervision_layers"],
+                                            feature_num = params["n_channels_out"])
             # if len(params["int_supervision_layers"]) == 1:
             #     model = nets.add_exposed_heatmap_at_lay(model, params["int_supervision_layers"][0])
             #     print ("Intermediate Supervision heads successfully added.")
@@ -1186,9 +1191,9 @@ def dannce_train(params: Dict):
 
         if params["heatmap_reg"] or params["int_supervision_layers"] is not None or params["train_mode"] != "continued":
             # recompiling a full model will reset the optimizer state
-            if not params["heatmap_reg"] and params["int_supervision_layers"] == None:
+            if not params["heatmap_reg"] and params["int_supervision_layers"] is None:
                 loss_to_use =  params["loss"]
-            elif  params["intermediate_supervision"] != None:
+            elif  params["int_supervision_layers"] is not None:
                 loss_to_use = [params["loss"]]*(len(params["int_supervision_layers"])+1)
             else:
                 loss_to_use =  [params["loss"], losses.heatmap_max_regularizer]
@@ -1203,12 +1208,25 @@ def dannce_train(params: Dict):
             
             print("Model to be compiled: ")
             print(model.summary())
-            model.compile(
-                optimizer=Adam(lr=float(params["lr"])),
-                loss=loss_to_use,
-                loss_weights=loss_weights_to_use,
-                metrics=metrics,
-            )
+            if params["SWA"] == 1:
+                
+                model.compile(
+                    optimizer=tfa.optimizers.SWA(Adam(lr=float(params["lr"])),
+                                                start_averaging = 100,
+                                                average_period=10),
+                    loss=loss_to_use,
+                    loss_weights=loss_weights_to_use,
+                    metrics=metrics,
+                )
+                
+            else:
+                model.compile(
+                    optimizer=Adam(lr=float(params["lr"])),
+                    loss=loss_to_use,
+                    loss_weights=loss_weights_to_use,
+                    metrics=metrics,
+                )
+             
 
         if params["lr"] != model.optimizer.learning_rate:
             print("Changing learning rate to {}".format(params["lr"]))
@@ -1223,12 +1241,21 @@ def dannce_train(params: Dict):
     kkey = "weights.hdf5"
     mon = "val_loss" if params["num_validation_per_exp"] > 0 else "loss"
 
-    model_checkpoint = ModelCheckpoint(
-        os.path.join(dannce_train_dir, kkey),
-        monitor=mon,
-        save_best_only=True,
-        save_weights_only=False,
-    )
+    if params["SWA"] == 1:
+        model_checkpoint = tfa.callbacks.AverageModelCheckpoint (
+            filepath= os.path.join(dannce_train_dir, kkey),
+            update_weights=True,
+            monitor=mon,
+            save_best_only=True,
+            save_weights_only=False,
+        )
+    else:
+        model_checkpoint = ModelCheckpoint(
+            os.path.join(dannce_train_dir, kkey),
+            monitor=mon,
+            save_best_only=True,
+            save_weights_only=False,
+        )
     csvlog = CSVLogger(os.path.join(dannce_train_dir, "training.csv"))
     tboard = TensorBoard(
         log_dir=os.path.join(dannce_train_dir, "logs"),
@@ -1247,9 +1274,8 @@ def dannce_train(params: Dict):
         params["expval"]
         and not params["use_npy"]
         and not params["heatmap_reg"]
-        and params["save_pred_targets"]
     ):
-        save_callback = cb.savePredTargets(
+        save_callback = [cb.savePredTargets(
             params["epochs"],
             X_train,
             X_train_grid,
@@ -1260,10 +1286,10 @@ def dannce_train(params: Dict):
             params["dannce_train_dir"],
             y_train,
             y_valid,
-        )
-        callbacks = callbacks + [save_callback]
+        )]
+        
     elif not params["expval"] and not params["use_npy"] and not params["heatmap_reg"]:
-        max_save_callback = cb.saveMaxPreds(
+        save_callback_train = cb.saveMaxPreds(
             partition["train_sampleIDs"],
             X_train,
             datadict_3d,
@@ -1271,11 +1297,29 @@ def dannce_train(params: Dict):
             com3d_dict,
             params,
         )
-        callbacks = callbacks + [max_save_callback]
+        save_callback_valid = cb.saveMaxPreds(
+            partition["valid_sampleIDs"],
+            X_valid,
+            datadict_3d,
+            params["dannce_train_dir"],
+            com3d_dict,
+            params,
+            "valid",
+        )
+        
+        save_callback = [save_callback_valid, save_callback_train]
+    
+    if params["save_pred_targets"]:
+        callbacks = callbacks + save_callback
+
+    if params["SWA"] == 2 :
+        swa_callback = cb.doSWA(params["dannce_train_dir"], params["epochs"])
+        callbacks = callbacks + [swa_callback]
+    
 
     # import pdb
     # pdb.set_trace()
-
+    model.summary()
     model.fit(
         x=train_generator,
         steps_per_epoch=len(train_generator),
@@ -1456,6 +1500,7 @@ def dannce_predict(params: Dict):
         model,
         partition,
         params["n_markers"],
+        com_dict = com3d_dict,
     )
 
     if params["expval"]:
@@ -1639,8 +1684,13 @@ def build_model(params: Dict, camnames: List) -> Model:
                 "slice_input": nets.slice_input,
                 "mask_nan_keep_loss": losses.mask_nan_keep_loss,
                 "mask_nan_l1_loss": losses.mask_nan_l1_loss,
+                "log_cosh_loss": losses.log_cosh_loss,
+                "huber_loss": losses.huber_loss,
                 "euclidean_distance_3D": losses.euclidean_distance_3D,
                 "centered_euclidean_distance_3D": losses.centered_euclidean_distance_3D,
+                "gaussian_cross_entropy_loss": losses.gaussian_cross_entropy_loss,
+                "max_euclidean_distance": losses.max_euclidean_distance,
+                # "max_euclidean_distance_metric": losses.max_euclidean_distance,
             },
         )
 
